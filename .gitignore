@@ -1,0 +1,4 @@
+.ensemble/bin/
+.ensemble/kits/**/.bin/
+source/artifacts/
+node_modules/

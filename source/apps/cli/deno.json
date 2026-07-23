@@ -1,0 +1,6 @@
+{
+  "imports": {
+    "@cliffy/command": "jsr:@cliffy/command@1.2.1",
+    "@ensemble/core": "jsr:@ensemble/core"
+  }
+}

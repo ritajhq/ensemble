@@ -1,0 +1,5 @@
+modes:
+  image: image,push=false
+  tar: tar
+  oci: oci
+  local: local,mode=delete

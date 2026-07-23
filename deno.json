@@ -1,0 +1,12 @@
+{
+  "workspace": [
+    "source/apps/**",
+    "source/core/**",
+    "source/libs/**",
+    ".ensemble/kits/**"
+  ],
+  "tasks": {
+    "cli": "deno run -A source/apps/cli/main.ts",
+    "compile": "deno compile -A --output .ensemble/bin/ens source/apps/cli/main.ts"
+  }
+}
