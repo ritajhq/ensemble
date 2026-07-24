@@ -7,7 +7,7 @@ import type { StepContext } from "../../context.ts";
  * and computes the true peak concurrent overlap from the timestamps.
  */
 export async function run(ctx: StepContext): Promise<void> {
-  const markerDir = ctx.env.MARKER_DIR;
+  const markerDir = ctx.variables.MARKER_DIR;
   const index = String(ctx.matrix?.index);
   await Deno.writeTextFile(`${markerDir}/${index}.start`, String(Date.now()));
   await new Promise((resolve) => setTimeout(resolve, 100));

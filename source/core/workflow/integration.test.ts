@@ -150,7 +150,7 @@ Deno.test("integration: fail-fast genuinely kills an in-flight sibling instance"
     const startedAt = performance.now();
     const { outcomes } = await runWorkflow(workflow, {
       workflowDir,
-      env: { MARKER_DIR: markerDir },
+      variables: { MARKER_DIR: markerDir },
     });
     const durationMs = performance.now() - startedAt;
 
@@ -201,7 +201,7 @@ Deno.test("integration: fail-fast doesn't start not-yet-dispatched instances", a
     };
     const { outcomes } = await runWorkflow(workflow, {
       workflowDir,
-      env: { MARKER_DIR: markerDir },
+      variables: { MARKER_DIR: markerDir },
     });
 
     const build = outcomes.build as import("./context.ts").MatrixNeedsResult;
@@ -230,7 +230,7 @@ Deno.test("integration: max-parallel caps concurrent instances", async () => {
     };
     const { success } = await runWorkflow(workflow, {
       workflowDir,
-      env: { MARKER_DIR: markerDir },
+      variables: { MARKER_DIR: markerDir },
     });
     assertEquals(success, true);
 

@@ -8,7 +8,7 @@ import type { StepContext } from "../../context.ts";
  * is ever in flight at a time.
  */
 export async function run(ctx: StepContext): Promise<void> {
-  const markerDir = ctx.env.MARKER_DIR;
+  const markerDir = ctx.variables.MARKER_DIR;
   const index = String(ctx.matrix?.index);
   await Deno.writeTextFile(`${markerDir}/${index}.started`, "");
   if (index === "0") {

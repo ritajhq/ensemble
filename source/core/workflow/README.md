@@ -152,7 +152,7 @@ No `include`/`exclude` matrix extensions (see Known Limitations).
 import type { StepContext } from "@ensemble/workflow";
 
 export async function run(ctx: StepContext): Promise<Record<string, string>> {
-  // ctx.env - the job's environment variables
+  // ctx.variables - the job's variables (defaults to the process's env vars)
   // ctx.needs - already-completed jobs' results/outputs (plain objects,
   //   array-shaped for a matrixed upstream — see "Matrix jobs")
   // ctx.matrix - this instance's own combination (only present in a
@@ -177,7 +177,8 @@ killed by fail-fast exits via its process signal, not a normal error.
 
 ## Expression contexts
 
-- `env.*` — environment variables passed into the run.
+- `variables.*` — the run's variables (defaults to the process's env vars,
+  overridable via `RunWorkflowOptions.variables`).
 - `needs.<job>.result` / `needs.<job>.outputs.*` — already-completed jobs
   (array-shaped per-key if `<job>` is matrixed — see "Matrix jobs").
 - `steps.<id>.outputs.*` — steps completed earlier in the *same* job (only

@@ -60,12 +60,12 @@ function isOutputRecord(value: unknown): value is Record<string, string> {
 
 async function runShell(
   command: string,
-  env: Record<string, string>,
+  variables: Record<string, string>,
   signal: AbortSignal,
 ): Promise<number> {
   const cmd = new Deno.Command(Deno.build.os === "windows" ? "cmd" : "/bin/sh", {
     args: Deno.build.os === "windows" ? ["/c", command] : ["-c", command],
-    env,
+    env: variables,
     stdout: "inherit",
     stderr: "inherit",
     signal,
@@ -144,7 +144,7 @@ export async function runStep(
   try {
     let outputs: Record<string, string> = {};
     if (step.run !== undefined) {
-      const code = await runShell(step.run, ctx.env, signal);
+      const code = await runShell(step.run, ctx.variables, signal);
       if (code !== 0) {
         throw new Error(`Command exited with code ${code}: ${step.run}`);
       }

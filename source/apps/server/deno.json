@@ -1,0 +1,5 @@
+{
+  "imports": {
+    "@ensemble/platform": "jsr:@ensemble/platform"
+  }
+}

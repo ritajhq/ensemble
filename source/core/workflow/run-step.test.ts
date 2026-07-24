@@ -6,7 +6,7 @@ import type { JobContext } from "./context.ts";
 const workflowDir = join(import.meta.dirname!, "tests", "fixtures");
 
 function emptyCtx(): JobContext {
-  return { env: {}, needs: {}, steps: {} };
+  return { variables: {}, needs: {}, steps: {} };
 }
 
 Deno.test("runStep: run: success", async () => {
@@ -38,7 +38,7 @@ Deno.test("runStep: if: false skips the step", async () => {
 });
 
 Deno.test("runStep: if: true (via context) runs the step", async () => {
-  const ctx: JobContext = { env: {}, needs: {}, steps: { a: { outputs: { ok: "true" } } } };
+  const ctx: JobContext = { variables: {}, needs: {}, steps: { a: { outputs: { ok: "true" } } } };
   const result = await runStep(
     { run: "exit 0", if: "${{ steps.a.outputs.ok == 'true' }}" },
     workflowDir,
@@ -63,8 +63,8 @@ Deno.test("runStep: script: throwing fails the step", async () => {
   );
 });
 
-Deno.test("runStep: script: receives ctx.env as plain data", async () => {
-  const ctx: JobContext = { env: { API_URL: "https://example.com" }, needs: {}, steps: {} };
+Deno.test("runStep: script: receives ctx.variables as plain data", async () => {
+  const ctx: JobContext = { variables: { API_URL: "https://example.com" }, needs: {}, steps: {} };
   const result = await runStep({ script: "./uses-ctx-script.ts" }, workflowDir, ctx);
   assertEquals(result.outputs, { url: "https://example.com" });
 });

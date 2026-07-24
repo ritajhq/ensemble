@@ -1,0 +1,7 @@
+{
+  "name": "@ensemble/platform",
+  "exports": "./index.ts",
+  "imports": {
+    "@ensemble/core": "jsr:@ensemble/core"
+  }
+}

@@ -280,6 +280,11 @@
           "jsr:@ensemble/core@*"
         ]
       },
+      "source/apps/server": {
+        "dependencies": [
+          "jsr:@ensemble/platform@*"
+        ]
+      },
       "source/apps/web/spa": {
         "dependencies": [
           "npm:@types/react-dom@19",
@@ -305,6 +310,11 @@
           "jsr:@std/cli@1.0.32",
           "jsr:@std/path@1.1.6",
           "jsr:@std/yaml@1.1.2"
+        ]
+      },
+      "source/core/platform": {
+        "dependencies": [
+          "jsr:@ensemble/core@*"
         ]
       },
       "source/core/workflow": {

@@ -14,7 +14,7 @@ import { JobLogger, printSummary, type SummaryRow } from "./logging.ts";
 
 export interface RunWorkflowOptions {
   workflowDir: string;
-  env?: Record<string, string>;
+  variables?: Record<string, string>;
   /** Run only this job and its transitive dependencies. */
   job?: string;
   /** Max number of jobs to run concurrently within a batch. */
@@ -104,7 +104,7 @@ export async function runWorkflow(
   workflow: Workflow,
   options: RunWorkflowOptions,
 ): Promise<RunWorkflowResult> {
-  const env = options.env ?? Object.fromEntries(Object.entries(Deno.env.toObject()));
+  const variables = options.variables ?? Object.fromEntries(Object.entries(Deno.env.toObject()));
   const concurrency = options.concurrency ?? Infinity;
 
   let batches = buildBatches(workflow);
@@ -135,12 +135,12 @@ export async function runWorkflow(
           needsResult = { result: "skipped", outputs: {} };
           durationMs = logger.flush("skipped");
         } else if (job.matrix !== undefined) {
-          const root = buildRootContext(env, outcomes);
+          const root = buildRootContext(variables, outcomes);
           const matrixRun = await runMatrixJob(jobId, job, root, options.workflowDir, concurrency);
           needsResult = matrixRun.needsResult;
           durationMs = matrixRun.durationMs;
         } else {
-          const root = buildRootContext(env, outcomes);
+          const root = buildRootContext(variables, outcomes);
           const outcome = await runJob(job, root, options.workflowDir, logger);
           needsResult = { result: outcome.result, outputs: outcome.outputs };
           durationMs = logger.flush(outcome.result);

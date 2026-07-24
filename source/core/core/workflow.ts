@@ -6,6 +6,8 @@ import { parseWorkflowFile, runWorkflow } from "@ensemble/workflow";
 export interface RunWorkflowByNameOptions {
   job?: string;
   concurrency?: number;
+  /** Extra variables merged on top of the process's own env vars for this run. */
+  variables?: Record<string, string>;
 }
 
 /** Resolves a workflow by name (workflows/<name>/workflow.yml) and runs it to completion. */
@@ -26,6 +28,10 @@ export async function runWorkflowByName(
     workflowDir: dirname(workflowFile),
     job: options.job,
     concurrency: options.concurrency,
+    variables: options.variables && {
+      ...Object.fromEntries(Object.entries(Deno.env.toObject())),
+      ...options.variables,
+    },
   });
   return success;
 }

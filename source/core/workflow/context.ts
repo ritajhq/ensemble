@@ -45,9 +45,9 @@ export interface MatrixNeedsResult {
 
 export type NeedsResult = SimpleNeedsResult | MatrixNeedsResult;
 
-/** Root context shared across all jobs: env vars and already-completed jobs' results/outputs. */
+/** Root context shared across all jobs: variables and already-completed jobs' results/outputs. */
 export interface RootContext {
-  env: Record<string, string>;
+  variables: Record<string, string>;
   needs: Record<string, NeedsResult>;
   /** This instance's own matrix combination. Absent entirely for non-matrixed jobs. */
   matrix?: Record<string, unknown>;
@@ -66,17 +66,17 @@ export interface JobContext extends RootContext {
  * property/array access instead.
  */
 export interface StepContext {
-  env: Record<string, string>;
+  variables: Record<string, string>;
   needs: Record<string, NeedsResult>;
   matrix?: Record<string, unknown>;
 }
 
 export function buildRootContext(
-  env: Record<string, string>,
+  variables: Record<string, string>,
   completedJobs: Record<string, NeedsResult>,
   matrix?: Record<string, unknown>,
 ): RootContext {
-  const root: RootContext = { env, needs: { ...completedJobs } };
+  const root: RootContext = { variables, needs: { ...completedJobs } };
   if (matrix !== undefined) root.matrix = matrix;
   return root;
 }
@@ -98,7 +98,7 @@ export function evaluateStepIf(expr: string, ctx: JobContext): boolean {
 }
 
 export function toStepContext(ctx: JobContext): StepContext {
-  const stepContext: StepContext = { env: ctx.env, needs: ctx.needs };
+  const stepContext: StepContext = { variables: ctx.variables, needs: ctx.needs };
   if (ctx.matrix !== undefined) stepContext.matrix = ctx.matrix;
   return stepContext;
 }

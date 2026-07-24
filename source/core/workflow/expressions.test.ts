@@ -16,9 +16,9 @@ Deno.test("evaluate: needs.<job>.result access", () => {
   assertEquals(evaluate("needs.build.result == 'success'", ctx), true);
 });
 
-Deno.test("evaluate: env.* access", () => {
-  const ctx = { env: { API_URL: "https://example.com" } };
-  assertEquals(evaluate("env.API_URL", ctx), "https://example.com");
+Deno.test("evaluate: variables.* access", () => {
+  const ctx = { variables: { API_URL: "https://example.com" } };
+  assertEquals(evaluate("variables.API_URL", ctx), "https://example.com");
 });
 
 Deno.test("evaluate: supports both wrapped and bare expressions", () => {
