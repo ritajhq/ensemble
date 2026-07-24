@@ -5,6 +5,8 @@
     "@ensemble/core": "jsr:@ensemble/core",
     "@ensemble/workflow": "jsr:@ensemble/workflow",
     "@std/crypto": "jsr:@std/crypto@1.1.0",
-    "@std/path": "jsr:@std/path@1.1.6"
+    "@std/fs": "jsr:@std/fs@1.0.24",
+    "@std/path": "jsr:@std/path@1.1.6",
+    "@std/tar": "jsr:@std/tar@0.1.10"
   }
 }

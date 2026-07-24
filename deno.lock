@@ -38,6 +38,8 @@
     "jsr:@std/path@1.1.6": "1.1.6",
     "jsr:@std/path@^1.1.5": "1.1.6",
     "jsr:@std/streams@0.221": "0.221.0",
+    "jsr:@std/streams@^1.0.17": "1.1.1",
+    "jsr:@std/tar@0.1.10": "0.1.10",
     "jsr:@std/text@^1.0.19": "1.0.19",
     "jsr:@std/text@~1.0.7": "1.0.19",
     "jsr:@std/yaml@1.1.2": "1.1.2",
@@ -132,7 +134,7 @@
         "jsr:@std/fs@1",
         "jsr:@std/io@0.221",
         "jsr:@std/path@1",
-        "jsr:@std/streams"
+        "jsr:@std/streams@0.221"
       ]
     },
     "@david/path@0.2.0": {
@@ -208,6 +210,15 @@
       "integrity": "47f2f74634b47449277c0ee79fe878da4424b66bd8975c032e3afdca88986e61",
       "dependencies": [
         "jsr:@std/io@0.221"
+      ]
+    },
+    "@std/streams@1.1.1": {
+      "integrity": "92556d350e537e9dce527a6d08f6f15be3ff65e656079dea69d15252187c7613"
+    },
+    "@std/tar@0.1.10": {
+      "integrity": "6bf907f3a4bc8bfef42973ba132d946756a6161ef6b914a9e1c06debe664db17",
+      "dependencies": [
+        "jsr:@std/streams@^1.0.17"
       ]
     },
     "@std/text@1.0.19": {
@@ -321,7 +332,9 @@
           "jsr:@ensemble/core@*",
           "jsr:@ensemble/workflow@*",
           "jsr:@std/crypto@1.1.0",
-          "jsr:@std/path@1.1.6"
+          "jsr:@std/fs@1.0.24",
+          "jsr:@std/path@1.1.6",
+          "jsr:@std/tar@0.1.10"
         ]
       },
       "source/core/workflow": {
