@@ -1,5 +1,6 @@
 import { Command } from "@cliffy/command";
 import { buildCommand } from "./commands/build.ts";
+import { initCommand } from "./commands/init.ts";
 import { packCommand } from "./commands/pack.ts";
 import { workflowCommand } from "./commands/workflow.ts";
 
@@ -8,6 +9,7 @@ try {
     .name("ens")
     .version("0.1.0")
     .description("Ensemble — from source code to deployment, in one CLI.")
+    .command("init", initCommand)
     .command("build", buildCommand)
     .command("pack", packCommand)
     .command("workflow", workflowCommand)
