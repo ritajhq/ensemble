@@ -58,12 +58,31 @@ async function findLastTag(repoRoot: string): Promise<{ tag: string; version: Se
   return tags.reduce((max, t) => (compareSemVer(t.version, max.version) > 0 ? t : max));
 }
 
+/** True if the working tree has uncommitted changes (staged, unstaged, or untracked). */
+export async function hasUncommittedChanges(repoRoot: string): Promise<boolean> {
+  const output = await $`git status --porcelain`.cwd(repoRoot).text();
+  return output.trim().length > 0;
+}
+
+/** Pushes the current branch's commits to the given remote. */
+export async function pushCommits(repoRoot: string, remote: string): Promise<void> {
+  await $`git push ${remote} HEAD`.cwd(repoRoot);
+}
+
+/** Pushes a single tag to the given remote. */
+export async function pushTag(repoRoot: string, tag: string, remote: string): Promise<void> {
+  await $`git push ${remote} ${tag}`.cwd(repoRoot);
+}
+
+/** Deletes a tag from the given remote. */
+export async function deleteRemoteTag(repoRoot: string, tag: string, remote: string): Promise<void> {
+  await $`git push ${remote} --delete ${tag}`.cwd(repoRoot);
+}
+
 export interface ReleaseFlags {
   dryRun?: boolean;
   preRelease?: string;
   meta?: string;
-  /** Push the tag to this remote after creating it. Not pushed if unset. */
-  remote?: string;
 }
 
 export interface ReleasePreview {
@@ -78,12 +97,9 @@ async function buildPreview(repoRoot: string, base: SemVer, flags: ReleaseFlags)
   return { tag, lastTag: last?.tag };
 }
 
-/** Creates the tag and pushes it if a remote was given. */
-async function applyRelease(repoRoot: string, preview: ReleasePreview, flags: ReleaseFlags): Promise<void> {
+/** Creates the tag locally. Pushing is a separate, explicit step (see pushCommits/pushTag). */
+async function applyRelease(repoRoot: string, preview: ReleasePreview): Promise<void> {
   await $`git tag ${preview.tag}`.cwd(repoRoot);
-  if (flags.remote) {
-    await $`git push ${flags.remote} ${preview.tag}`.cwd(repoRoot);
-  }
 }
 
 export type BumpKind = "major" | "minor" | "patch";
@@ -100,7 +116,7 @@ export async function releaseNext(bump: BumpKind, flags: ReleaseFlags): Promise<
     : { major: base.major, minor: base.minor, patch: base.patch + 1 };
 
   const preview = await buildPreview(repoRoot, bumped, flags);
-  if (!flags.dryRun) await applyRelease(repoRoot, preview, flags);
+  if (!flags.dryRun) await applyRelease(repoRoot, preview);
   return preview;
 }
 
@@ -112,21 +128,19 @@ export async function releaseSet(version: string, flags: ReleaseFlags): Promise<
   const repoRoot = await findRepoRoot();
   const [major, minor, patch] = version.split(".").map(Number);
   const preview = await buildPreview(repoRoot, { major, minor, patch }, flags);
-  if (!flags.dryRun) await applyRelease(repoRoot, preview, flags);
+  if (!flags.dryRun) await applyRelease(repoRoot, preview);
   return preview;
 }
 
 export interface UndoFlags {
   dryRun?: boolean;
-  remote?: string;
 }
 
 export interface UndoResult {
   tag: string;
-  deletedFromRemote?: string;
 }
 
-/** Deletes only the last (highest-semver) tag — never touches any commit. */
+/** Deletes only the last (highest-semver) tag locally — never touches any commit. Deleting from a remote is a separate, explicit step (see deleteRemoteTag). */
 export async function releaseUndo(flags: UndoFlags): Promise<UndoResult> {
   const repoRoot = await findRepoRoot();
   const last = await findLastTag(repoRoot);
@@ -134,11 +148,8 @@ export async function releaseUndo(flags: UndoFlags): Promise<UndoResult> {
     throw new Error("No semver tags found to undo.");
   }
   if (flags.dryRun) {
-    return { tag: last.tag, deletedFromRemote: flags.remote };
+    return { tag: last.tag };
   }
   await $`git tag -d ${last.tag}`.cwd(repoRoot);
-  if (flags.remote) {
-    await $`git push ${flags.remote} --delete ${last.tag}`.cwd(repoRoot);
-  }
-  return { tag: last.tag, deletedFromRemote: flags.remote };
+  return { tag: last.tag };
 }
