@@ -2,6 +2,8 @@ import type { HttpTriggerRequest, HttpTriggerResponse } from "./contract.ts";
 
 export interface HttpTriggerClientOptions {
   baseUrl: string;
+  /** Sent as `Authorization: Bearer <token>` — must match the server's ENSEMBLE_HTTP_TRIGGER_TOKEN. */
+  token: string;
 }
 
 export interface HttpTriggerClient {
@@ -16,7 +18,10 @@ export function httpTriggerClient(options: HttpTriggerClientOptions): HttpTrigge
       async trigger(name: string, request: HttpTriggerRequest = {}): Promise<HttpTriggerResponse> {
         const response = await fetch(new URL(`/workflows/${encodeURIComponent(name)}/trigger`, options.baseUrl), {
           method: "POST",
-          headers: { "content-type": "application/json" },
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${options.token}`,
+          },
           body: JSON.stringify(request),
         });
         const body = await response.json();

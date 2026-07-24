@@ -1,5 +1,7 @@
 build:
   cli:
     kit: deno.bundle
+  server:
+    kit: deno.bundle
   web/spa:
     kit: react.spa

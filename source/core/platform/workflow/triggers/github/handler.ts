@@ -21,10 +21,12 @@ export async function handleGithubTrigger(request: Request): Promise<Response> {
   const rawBody = await request.text();
 
   const secret = Deno.env.get("GITHUB_WEBHOOK_SECRET");
-  if (secret) {
-    const valid = await verifyGithubSignature(secret, rawBody, request.headers.get("x-hub-signature-256"));
-    if (!valid) return new Response("invalid signature", { status: 401 });
+  if (!secret) {
+    console.error("github-trigger: rejecting request — GITHUB_WEBHOOK_SECRET is not configured.");
+    return new Response("github trigger is not configured", { status: 401 });
   }
+  const valid = await verifyGithubSignature(secret, rawBody, request.headers.get("x-hub-signature-256"));
+  if (!valid) return new Response("invalid signature", { status: 401 });
 
   if (request.headers.get("x-github-event") !== "push") {
     return new Response(null, { status: 204 });
