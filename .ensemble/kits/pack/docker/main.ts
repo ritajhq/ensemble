@@ -13,17 +13,18 @@ if (!format) {
   throw new Error(`Unknown mode "${ctx.mode}" for the docker kit. Available modes: ${available}`);
 }
 
-// The ship name is used directly as the image tag/name (it may already
+// ctx.outputName (the ship name by default, but overridable via
+// --output-name) is used directly as the image tag/name (it may already
 // include a registry prefix, e.g. "ghcr.io/my-org/my-app") and, for
 // file-producing modes, as the resulting archive's path under the packages
-// folder. The user never supplies a tag.
+// folder.
 let output: string;
 const allowArgs: string[] = [];
 if (format.startsWith("image")) {
   // Loads straight into the local image store; no packages-folder artifact.
-  output = `type=${format},name=${ctx.name}`;
+  output = `type=${format},name=${ctx.outputName}`;
 } else if (format.startsWith("local")) {
-  const dest = join(ctx.packages, ctx.name);
+  const dest = join(ctx.packages, ctx.outputName);
   await ensureDir(dirname(dest));
   output = `type=${format},dest=${dest}`;
   if (format.includes("mode=delete")) {
@@ -31,13 +32,13 @@ if (format.startsWith("image")) {
     allowArgs.push("--allow", "buildx.local.delete");
   }
 } else {
-  const dest = join(ctx.packages, `${ctx.name}.tar`);
+  const dest = join(ctx.packages, `${ctx.outputName}.tar`);
   await ensureDir(dirname(dest));
   output = `type=${format},dest=${dest}`;
 }
 
 const result = await $`docker buildx build
-  --tag ${ctx.name}
+  --tag ${ctx.outputName}
   --build-context artifacts=${ctx.artifacts}
   --output ${output}
   ${allowArgs}

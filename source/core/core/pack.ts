@@ -8,6 +8,8 @@ import { loadKitModes } from "@ensemble/kit-sdk";
 export interface RunPackOptions {
   /** Defaults to the first mode declared in the kit's kit.yml, or "default" if it has none. */
   mode?: string;
+  /** Name to give the packed output. Defaults to the ship name. */
+  outputName?: string;
 }
 
 /** Resolves a pack kit by name and spawns it with the standard pack kit CLI contract. */
@@ -53,10 +55,13 @@ export async function runPack(
 
   const denoExe = await resolveDenoExecutable();
 
+  const outputName = options.outputName ?? shipName;
+
   const result = await $`${denoExe} run -A ${kitEntry}
     --artifacts ${artifactsDir}
     --packages ${packagesDir}
     --name ${shipName}
+    --output-name ${outputName}
     --mode ${mode}
     ${shipDir}`
     .cwd(kitDir)

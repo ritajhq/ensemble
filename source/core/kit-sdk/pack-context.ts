@@ -9,6 +9,8 @@ export interface PackKitContext {
   ship: string;
   /** Ship name, i.e. its path inside `ship/` (e.g. "web/spa"). */
   name: string;
+  /** Name to give the packed output (e.g. an image tag or archive basename). Defaults to `name`. */
+  outputName: string;
   /** Absolute path to the `artifacts/` folder. */
   artifacts: string;
   /** Absolute path to the `artifacts/packages/` folder. */
@@ -20,7 +22,7 @@ export interface PackKitContext {
 /** Parses the standard pack kit CLI contract. Call this from a pack kit's entry point. */
 export function getPackKitContext(args: string[] = Deno.args): PackKitContext {
   const flags = parseArgs(args, {
-    string: ["name", "artifacts", "packages", "mode"],
+    string: ["name", "output-name", "artifacts", "packages", "mode"],
   });
 
   const ship = String(flags._[0] ?? "");
@@ -28,9 +30,13 @@ export function getPackKitContext(args: string[] = Deno.args): PackKitContext {
     throw new Error("Missing required ship directory argument for kit invocation.");
   }
 
+  const name = requireFlag(flags, "name");
   return {
     ship,
-    name: requireFlag(flags, "name"),
+    name,
+    outputName: typeof flags["output-name"] === "string" && flags["output-name"].length > 0
+      ? flags["output-name"]
+      : name,
     artifacts: requireFlag(flags, "artifacts"),
     packages: requireFlag(flags, "packages"),
     mode: requireFlag(flags, "mode"),
