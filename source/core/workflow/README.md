@@ -162,7 +162,7 @@ on:
   - github:
       event:
         push:
-          tags: ["v*"]
+          tags: ["1.*"]
 
 jobs:
   deploy:
@@ -178,7 +178,7 @@ jobs:
   into `trigger.sha`). No `payload:` mapping means the trigger still works,
   just with an empty `trigger`.
 - **`github`**: matches a GitHub `push` webhook whose pushed ref is a tag
-  matching one of the given glob patterns (`tags: ["v*"]`). `trigger.ref`,
+  matching one of the given glob patterns (`tags: ["1.*"]`). `trigger.ref`,
   `trigger.tag`, and `trigger.sha` are populated automatically from the
   webhook's own payload (`ref`, the tag parsed out of it, and `after`) —
   there's no user-declared payload mapping for `github` today, unlike

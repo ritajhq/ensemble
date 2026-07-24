@@ -29,7 +29,7 @@ export interface HttpTrigger {
 export interface GithubTrigger {
   event: {
     push: {
-      /** Glob patterns (e.g. "v*") matched against the pushed tag name. */
+      /** Glob patterns (e.g. "1.*") matched against the pushed tag name. */
       tags: string[];
     };
   };

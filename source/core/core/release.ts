@@ -37,7 +37,7 @@ function compareSemVer(a: SemVer, b: SemVer): number {
 }
 
 function formatTag(version: SemVer): string {
-  let tag = `v${version.major}.${version.minor}.${version.patch}`;
+  let tag = `${version.major}.${version.minor}.${version.patch}`;
   if (version.preRelease) tag += `-${version.preRelease}`;
   if (version.meta) tag += `+${version.meta}`;
   return tag;
