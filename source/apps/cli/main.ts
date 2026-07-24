@@ -1,6 +1,7 @@
 import { Command } from "@cliffy/command";
 import { buildCommand } from "./commands/build.ts";
 import { packCommand } from "./commands/pack.ts";
+import { workflowCommand } from "./commands/workflow.ts";
 
 try {
   await new Command()
@@ -9,6 +10,7 @@ try {
     .description("Ensemble — from source code to deployment, in one CLI.")
     .command("build", buildCommand)
     .command("pack", packCommand)
+    .command("workflow", workflowCommand)
     .parse(Deno.args);
 } catch (error) {
   console.error(`error: ${error instanceof Error ? error.message : error}`);

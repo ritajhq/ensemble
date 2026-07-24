@@ -1,0 +1,13 @@
+{
+  "name": "@ensemble/workflow",
+  "exports": "./index.ts",
+  "imports": {
+    "@std/yaml": "jsr:@std/yaml@1.1.2",
+    "@std/path": "jsr:@std/path@1.1.6",
+    "@std/fs": "jsr:@std/fs@1.0.24",
+    "@std/async": "jsr:@std/async@1.0.14",
+    "@std/assert": "jsr:@std/assert@1.0.14",
+    "@david/which": "jsr:@david/which@0.4.2",
+    "@actions/expressions": "npm:@actions/expressions@0.3.60"
+  }
+}

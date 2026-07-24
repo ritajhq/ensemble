@@ -1,0 +1,8 @@
+jobs:
+  build:
+    matrix:
+      axes:
+        component: [api, web, worker]
+      fail-fast: false
+    steps:
+      - script: ./steps/matrix-maybe-fail.ts

@@ -8,6 +8,7 @@
     "@std/dotenv": "jsr:@std/dotenv@0.225.5",
     "@david/dax": "jsr:@david/dax@0.42.0",
     "@david/which": "jsr:@david/which@0.4.2",
-    "@ensemble/kit-sdk": "jsr:@ensemble/kit-sdk"
+    "@ensemble/kit-sdk": "jsr:@ensemble/kit-sdk",
+    "@ensemble/workflow": "jsr:@ensemble/workflow"
   }
 }

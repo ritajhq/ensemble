@@ -1,0 +1,19 @@
+jobs:
+  a:
+    steps:
+      - run: echo "job a"
+
+  b:
+    needs: [a]
+    steps:
+      - run: sleep 0.2 && echo "job b"
+
+  c:
+    needs: [a]
+    steps:
+      - run: echo "job c"
+
+  d:
+    needs: [b, c]
+    steps:
+      - run: echo "job d"

@@ -1,0 +1,17 @@
+jobs:
+  build:
+    matrix:
+      axes:
+        component: [api, web, worker]
+    steps:
+      - script: ./steps/matrix-build.ts
+
+  check-one:
+    needs: [build]
+    steps:
+      - script: ./steps/check-one.ts
+
+  summarize:
+    needs: [build]
+    steps:
+      - script: ./steps/summarize.ts

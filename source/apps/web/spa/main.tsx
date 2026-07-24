@@ -2,7 +2,6 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 declare global {
-  // deno-lint-ignore no-var
   var env: Record<string, string>;
 }
 

@@ -1,0 +1,19 @@
+jobs:
+  build:
+    steps:
+      - id: compile
+        script: ./steps/build.ts
+      - run: echo "build finished"
+        if: ${{ steps.compile.outputs.ok == 'true' }}
+
+  test:
+    needs: [build]
+    steps:
+      - script: ./steps/test.ts
+        continue-on-error: true
+
+  deploy:
+    needs: [build, test]
+    if: ${{ needs.test.result == 'success' }}
+    steps:
+      - run: echo "deploying"
