@@ -3,6 +3,7 @@ import { buildCommand } from "./commands/build.ts";
 import { configCommand } from "./commands/config.ts";
 import { initCommand } from "./commands/init.ts";
 import { packCommand } from "./commands/pack.ts";
+import { releaseCommand } from "./commands/release.ts";
 import { workflowCommand } from "./commands/workflow.ts";
 
 try {
@@ -15,6 +16,7 @@ try {
     .command("pack", packCommand)
     .command("workflow", workflowCommand)
     .command("config", configCommand)
+    .command("release", releaseCommand)
     .parse(Deno.args);
 } catch (error) {
   console.error(`error: ${error instanceof Error ? error.message : error}`);
