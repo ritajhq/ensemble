@@ -1,5 +1,6 @@
 import { Command } from "@cliffy/command";
 import { buildCommand } from "./commands/build.ts";
+import { configCommand } from "./commands/config.ts";
 import { initCommand } from "./commands/init.ts";
 import { packCommand } from "./commands/pack.ts";
 import { workflowCommand } from "./commands/workflow.ts";
@@ -13,6 +14,7 @@ try {
     .command("build", buildCommand)
     .command("pack", packCommand)
     .command("workflow", workflowCommand)
+    .command("config", configCommand)
     .parse(Deno.args);
 } catch (error) {
   console.error(`error: ${error instanceof Error ? error.message : error}`);
