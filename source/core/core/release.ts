@@ -66,10 +66,10 @@ async function collectCommitMessages(repoRoot: string, sinceTag: string | undefi
   return output.split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
 }
 
-const CHANGELOG_FILE = "CHANGELOG.md";
+const CHANGELOG_FILE = "changelog.md";
 const CHANGELOG_HEADER = "# Changelog\n";
 
-/** Inserts a new "## <tag>" section (newest first) right after the top-level heading. */
+/** Inserts a new "### <tag>" section (newest first) right after the top-level heading. */
 async function prependChangelogEntry(repoRoot: string, tag: string, messages: string[]): Promise<void> {
   const path = join(repoRoot, CHANGELOG_FILE);
   const existing = await exists(path, { isFile: true }) ? await Deno.readTextFile(path) : CHANGELOG_HEADER;
@@ -77,7 +77,7 @@ async function prependChangelogEntry(repoRoot: string, tag: string, messages: st
   const list = messages.length > 0
     ? messages.map((m) => `- ${m}`).join("\n")
     : "- (no commits since the last release)";
-  const entry = `\n## ${tag}\n\n${list}\n`;
+  const entry = `\n### ${tag}\n\n${list}\n`;
   await Deno.writeTextFile(path, CHANGELOG_HEADER + entry + body);
 }
 
