@@ -260,6 +260,41 @@ Deno.test("integration: max-parallel caps concurrent instances", async () => {
   }
 });
 
+Deno.test("integration: trigger.* is available in if: expressions and script: steps", async () => {
+  const workflowDir = join(import.meta.dirname!, "tests", "fixtures");
+  const workflow = {
+    jobs: {
+      build: {
+        if: "trigger.tag == 'v1.2.3'",
+        steps: [{ script: "./uses-ctx-trigger.ts" }],
+      },
+    },
+  };
+  const { outcomes } = await runWorkflow(workflow, {
+    workflowDir,
+    trigger: { tag: "v1.2.3", sha: "abc123" },
+  });
+  assertEquals(outcomes.build.result, "success");
+  assertEquals(outcomes.build.outputs.sha, "abc123");
+});
+
+Deno.test("integration: trigger is absent (not just empty) when no trigger is passed", async () => {
+  const workflowDir = join(import.meta.dirname!, "tests", "fixtures");
+  const workflow = {
+    jobs: {
+      build: {
+        if: "trigger.tag == 'v1.2.3'",
+        steps: [{ run: "exit 0" }],
+      },
+    },
+  };
+  await assertRejects(
+    () => runWorkflow(workflow, { workflowDir }),
+    WorkflowExpressionError,
+    "Unrecognized named-value: 'trigger'",
+  );
+});
+
 Deno.test("integration: a job depending on a hard-failed job is skipped, not run", async () => {
   const file = join(examplesDir, "failing-step.yml");
   const workflow = await parseWorkflowFile(file);

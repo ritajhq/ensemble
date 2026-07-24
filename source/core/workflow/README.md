@@ -145,6 +145,50 @@ every instance's outputs).
 
 No `include`/`exclude` matrix extensions (see Known Limitations).
 
+## Triggers (`on:`)
+
+A workflow can declare `on:` — a list of network-facing ways it can be
+triggered (by the `@ensemble/platform` server's `workflow` feature, not by
+this package itself, which only *consumes* the resulting data). A workflow
+with no `on:` still runs fine via direct invocation (`ens workflow <name>`
+or `runWorkflowByName`) — `on:` only governs whether/how a server-side
+trigger is allowed to start it, and what ends up in `trigger.*`:
+
+```yaml
+on:
+  - http:
+      payload:
+        sha: commit.sha
+  - github:
+      event:
+        push:
+          tags: ["v*"]
+
+jobs:
+  deploy:
+    steps:
+      - script: ./steps/deploy.ts   # ctx.trigger.sha / ctx.trigger.tag
+```
+
+- **`http`**: declaring this entry is what allows the platform's HTTP
+  trigger to run this workflow at all — an HTTP-triggered request for a
+  workflow with no `http` entry is rejected. `payload:` is an optional
+  mapping of `trigger.<key>: <dot-path>`, read against the caller-supplied
+  request payload (e.g. `sha: commit.sha` extracts `body.payload.commit.sha`
+  into `trigger.sha`). No `payload:` mapping means the trigger still works,
+  just with an empty `trigger`.
+- **`github`**: matches a GitHub `push` webhook whose pushed ref is a tag
+  matching one of the given glob patterns (`tags: ["v*"]`). `trigger.ref`,
+  `trigger.tag`, and `trigger.sha` are populated automatically from the
+  webhook's own payload (`ref`, the tag parsed out of it, and `after`) —
+  there's no user-declared payload mapping for `github` today, unlike
+  `http`. Only the `push`/`tags` shape is supported for now; other GitHub
+  events are a future extension of this same `github:` block.
+
+Each `on:` entry is exactly one of `http` or `github` — declare multiple
+list entries (one per trigger) if a workflow should be reachable more than
+one way.
+
 ## The `script:` module contract
 
 ```ts
@@ -157,6 +201,8 @@ export async function run(ctx: StepContext): Promise<Record<string, string>> {
   //   array-shaped for a matrixed upstream — see "Matrix jobs")
   // ctx.matrix - this instance's own combination (only present in a
   //   matrixed job's own steps)
+  // ctx.trigger - data from whatever triggered this run (see "Triggers"),
+  //   only present when the run actually came through a trigger
   return { ok: "true" };
 }
 ```
@@ -186,6 +232,9 @@ killed by fail-fast exits via its process signal, not a normal error.
 - `matrix.*` — the current instance's own combination, only present inside
   a matrixed job's own steps/`if:` (absent, and therefore an error to
   reference, everywhere else).
+- `trigger.*` — data from whatever triggered this run (see "Triggers
+  (`on:`)"), only present when `RunWorkflowOptions.trigger` was passed in;
+  absent (and therefore an error to reference) for a direct/untriggered run.
 
 Referencing an unrecognized context path (e.g. `nonexistent.path`) throws a
 `WorkflowExpressionError` immediately — it does not silently evaluate to

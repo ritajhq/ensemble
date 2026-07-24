@@ -1,22 +1,22 @@
-export interface TriggerWorkflowRequest {
-  name: string;
+export interface HttpTriggerRequest {
   /** Run only this job and its transitive dependencies. */
   job?: string;
   /** Max number of jobs to run concurrently within a batch. */
   concurrency?: number;
   /** Extra variables merged on top of the server's own env vars for this run. */
   variables?: Record<string, string>;
+  /** Arbitrary caller payload, extracted into trigger.* per the workflow's own on: - http: payload mapping. */
+  payload?: unknown;
 }
 
-export interface TriggerWorkflowResponse {
+export interface HttpTriggerResponse {
   success: boolean;
 }
 
-export function isTriggerWorkflowRequest(value: unknown): value is TriggerWorkflowRequest {
+export function isHttpTriggerRequest(value: unknown): value is HttpTriggerRequest {
   if (typeof value !== "object" || value === null) return false;
   const body = value as Record<string, unknown>;
 
-  if (typeof body.name !== "string" || body.name.length === 0) return false;
   if (body.job !== undefined && typeof body.job !== "string") return false;
   if (body.concurrency !== undefined && (!Number.isInteger(body.concurrency) || (body.concurrency as number) <= 0)) {
     return false;

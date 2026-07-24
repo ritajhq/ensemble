@@ -1,5 +1,5 @@
 import { parse as parseYaml } from "@std/yaml";
-import type { Job, Matrix, Step, Workflow } from "./schema.ts";
+import type { GithubTrigger, HttpTrigger, Job, Matrix, Step, Trigger, Workflow } from "./schema.ts";
 
 export class WorkflowParseError extends Error {}
 
@@ -67,6 +67,60 @@ function validateMatrix(file: string, jobId: string, raw: unknown): Matrix {
     "fail-fast": failFast as boolean | undefined,
     "max-parallel": maxParallel as number | undefined,
   };
+}
+
+function validateHttpTrigger(file: string, index: number, raw: Record<string, unknown>): HttpTrigger {
+  if (raw.payload !== undefined) {
+    if (
+      !isRecord(raw.payload) ||
+      Object.values(raw.payload).some((v) => typeof v !== "string")
+    ) {
+      fail(file, `on[${index}].http has a "payload" that isn't a mapping of strings.`);
+    }
+  }
+  return { payload: raw.payload as Record<string, string> | undefined };
+}
+
+function validateGithubTrigger(file: string, index: number, raw: Record<string, unknown>): GithubTrigger {
+  const event = raw.event;
+  const push = isRecord(event) ? event.push : undefined;
+  const tags = isRecord(push) ? push.tags : undefined;
+  if (
+    !isRecord(event) || !isRecord(push) || !Array.isArray(tags) || tags.length === 0 ||
+    tags.some((t) => typeof t !== "string")
+  ) {
+    fail(file, `on[${index}].github must declare a non-empty "event.push.tags" list of strings.`);
+  }
+  return { event: { push: { tags: tags as string[] } } };
+}
+
+function validateTrigger(file: string, index: number, raw: unknown): Trigger {
+  if (!isRecord(raw)) {
+    fail(file, `on[${index}] must be a mapping.`);
+  }
+  const hasHttp = raw.http !== undefined;
+  const hasGithub = raw.github !== undefined;
+  if (hasHttp === hasGithub) {
+    fail(file, `on[${index}] must have exactly one of "http" or "github".`);
+  }
+  if (hasHttp && !isRecord(raw.http)) {
+    fail(file, `on[${index}].http must be a mapping.`);
+  }
+  if (hasGithub && !isRecord(raw.github)) {
+    fail(file, `on[${index}].github must be a mapping.`);
+  }
+  return {
+    http: hasHttp ? validateHttpTrigger(file, index, raw.http as Record<string, unknown>) : undefined,
+    github: hasGithub ? validateGithubTrigger(file, index, raw.github as Record<string, unknown>) : undefined,
+  };
+}
+
+function validateOn(file: string, raw: unknown): Trigger[] | undefined {
+  if (raw === undefined) return undefined;
+  if (!Array.isArray(raw) || raw.length === 0) {
+    fail(file, `"on" must be a non-empty list.`);
+  }
+  return raw.map((t, i) => validateTrigger(file, i, t));
 }
 
 function validateJob(file: string, jobId: string, raw: unknown): Job {
@@ -137,5 +191,7 @@ export async function parseWorkflowFile(file: string): Promise<Workflow> {
     }
   }
 
-  return { jobs };
+  const on = validateOn(file, raw.on);
+
+  return { on, jobs };
 }

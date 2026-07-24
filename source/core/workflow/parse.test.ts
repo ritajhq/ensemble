@@ -225,6 +225,155 @@ jobs:
   );
 });
 
+Deno.test("parseWorkflowFile: valid http trigger with payload mapping parses", async () => {
+  await withFixture(
+    "valid-http-trigger.yml",
+    `
+on:
+  - http:
+      payload:
+        sha: commit.sha
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      const workflow = await parseWorkflowFile(path);
+      assertEquals(workflow.on, [{ http: { payload: { sha: "commit.sha" } }, github: undefined }]);
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: valid github trigger with tag glob parses", async () => {
+  await withFixture(
+    "valid-github-trigger.yml",
+    `
+on:
+  - github:
+      event:
+        push:
+          tags: ["v*"]
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      const workflow = await parseWorkflowFile(path);
+      assertEquals(workflow.on, [{ http: undefined, github: { event: { push: { tags: ["v*"] } } } }]);
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: on: with both http and github in one entry fails", async () => {
+  await withFixture(
+    "on-both-http-and-github.yml",
+    `
+on:
+  - http: {}
+    github:
+      event:
+        push:
+          tags: ["v*"]
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      await assertRejects(
+        () => parseWorkflowFile(path),
+        WorkflowParseError,
+        'must have exactly one of "http" or "github"',
+      );
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: on: entry with neither http nor github fails", async () => {
+  await withFixture(
+    "on-neither.yml",
+    `
+on:
+  - foo: bar
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      await assertRejects(
+        () => parseWorkflowFile(path),
+        WorkflowParseError,
+        'must have exactly one of "http" or "github"',
+      );
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: github trigger missing event.push.tags fails", async () => {
+  await withFixture(
+    "github-missing-tags.yml",
+    `
+on:
+  - github:
+      event:
+        push: {}
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      await assertRejects(
+        () => parseWorkflowFile(path),
+        WorkflowParseError,
+        'must declare a non-empty "event.push.tags"',
+      );
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: http trigger with non-string payload value fails", async () => {
+  await withFixture(
+    "http-bad-payload.yml",
+    `
+on:
+  - http:
+      payload:
+        count: 5
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      await assertRejects(
+        () => parseWorkflowFile(path),
+        WorkflowParseError,
+        `has a "payload" that isn't a mapping of strings`,
+      );
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: empty on: list fails", async () => {
+  await withFixture(
+    "empty-on.yml",
+    `
+on: []
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      await assertRejects(() => parseWorkflowFile(path), WorkflowParseError, '"on" must be a non-empty list');
+    },
+  );
+});
+
 Deno.test("parseWorkflowFile: step with neither run nor script fails", async () => {
   await withFixture(
     "neither-run-nor-script.yml",

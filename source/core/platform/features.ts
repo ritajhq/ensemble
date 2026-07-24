@@ -3,8 +3,8 @@ export interface Feature {
   /** Used both for logging and to derive this feature's gating env var. */
   name: string;
   method: string;
-  path: string;
-  handle: (request: Request) => Response | Promise<Response>;
+  pattern: URLPattern;
+  handle: (request: Request, params: Record<string, string | undefined>) => Response | Promise<Response>;
 }
 
 /**

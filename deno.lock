@@ -22,6 +22,7 @@
     "jsr:@std/async@1.0.14": "1.0.14",
     "jsr:@std/bytes@0.221": "0.221.0",
     "jsr:@std/cli@1.0.32": "1.0.32",
+    "jsr:@std/crypto@1.1.0": "1.1.0",
     "jsr:@std/dotenv@0.225.5": "0.225.5",
     "jsr:@std/encoding@^1.0.10": "1.0.11",
     "jsr:@std/fmt@1": "1.0.10",
@@ -164,6 +165,9 @@
     },
     "@std/cli@1.0.32": {
       "integrity": "188b3a100d6202d64e3f5bd3d799c7fa4f6d77f92cc65eb7f641c1fa0aa92a66"
+    },
+    "@std/crypto@1.1.0": {
+      "integrity": "b8d6d0a6377a32b213af2661ed7bf1062d94feac0c57def5526a8e74a95c3ec8"
     },
     "@std/dotenv@0.225.5": {
       "integrity": "9ce6f9d0ec3311f74a32535aa1b8c62ed88b1ab91b7f0815797d77a6f60c922f"
@@ -314,7 +318,10 @@
       },
       "source/core/platform": {
         "dependencies": [
-          "jsr:@ensemble/core@*"
+          "jsr:@ensemble/core@*",
+          "jsr:@ensemble/workflow@*",
+          "jsr:@std/crypto@1.1.0",
+          "jsr:@std/path@1.1.6"
         ]
       },
       "source/core/workflow": {

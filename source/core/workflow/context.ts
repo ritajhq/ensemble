@@ -51,6 +51,8 @@ export interface RootContext {
   needs: Record<string, NeedsResult>;
   /** This instance's own matrix combination. Absent entirely for non-matrixed jobs. */
   matrix?: Record<string, unknown>;
+  /** Data from whatever triggered this run (see schema.ts's Trigger). Absent for a direct/untriggered invocation. */
+  trigger?: Record<string, unknown>;
 }
 
 /** Per-job context, accumulating `steps.*` as each step in that job completes. */
@@ -69,15 +71,18 @@ export interface StepContext {
   variables: Record<string, string>;
   needs: Record<string, NeedsResult>;
   matrix?: Record<string, unknown>;
+  trigger?: Record<string, unknown>;
 }
 
 export function buildRootContext(
   variables: Record<string, string>,
   completedJobs: Record<string, NeedsResult>,
   matrix?: Record<string, unknown>,
+  trigger?: Record<string, unknown>,
 ): RootContext {
   const root: RootContext = { variables, needs: { ...completedJobs } };
   if (matrix !== undefined) root.matrix = matrix;
+  if (trigger !== undefined) root.trigger = trigger;
   return root;
 }
 
@@ -100,5 +105,6 @@ export function evaluateStepIf(expr: string, ctx: JobContext): boolean {
 export function toStepContext(ctx: JobContext): StepContext {
   const stepContext: StepContext = { variables: ctx.variables, needs: ctx.needs };
   if (ctx.matrix !== undefined) stepContext.matrix = ctx.matrix;
+  if (ctx.trigger !== undefined) stepContext.trigger = ctx.trigger;
   return stepContext;
 }

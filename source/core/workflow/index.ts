@@ -1,4 +1,4 @@
-export type { Job, Matrix, Step, Workflow } from "./schema.ts";
+export type { GithubTrigger, HttpTrigger, Job, Matrix, Step, Trigger, Workflow } from "./schema.ts";
 export { parseWorkflowFile, WorkflowParseError } from "./parse.ts";
 export { buildBatches, transitiveDeps, WorkflowCycleError } from "./graph.ts";
 export { WorkflowExpressionError } from "./expressions.ts";

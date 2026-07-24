@@ -21,6 +21,28 @@ export interface Job {
   steps: Step[];
 }
 
+export interface HttpTrigger {
+  /** Maps trigger.<key> to a dot-path into the incoming request's "payload" field. */
+  payload?: Record<string, string>;
+}
+
+export interface GithubTrigger {
+  event: {
+    push: {
+      /** Glob patterns (e.g. "v*") matched against the pushed tag name. */
+      tags: string[];
+    };
+  };
+}
+
+/** Exactly one of "http" or "github" is set. */
+export interface Trigger {
+  http?: HttpTrigger;
+  github?: GithubTrigger;
+}
+
 export interface Workflow {
+  /** Network-facing ways this workflow can be triggered. Absent means it only runs via direct invocation (e.g. `ens workflow <name>`). */
+  on?: Trigger[];
   jobs: Record<string, Job>;
 }

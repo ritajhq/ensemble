@@ -19,6 +19,8 @@ export interface RunWorkflowOptions {
   job?: string;
   /** Max number of jobs to run concurrently within a batch. */
   concurrency?: number;
+  /** Data from whatever triggered this run, made available as `trigger.*` in every job/step. */
+  trigger?: Record<string, unknown>;
 }
 
 export interface RunWorkflowResult {
@@ -135,12 +137,12 @@ export async function runWorkflow(
           needsResult = { result: "skipped", outputs: {} };
           durationMs = logger.flush("skipped");
         } else if (job.matrix !== undefined) {
-          const root = buildRootContext(variables, outcomes);
+          const root = buildRootContext(variables, outcomes, undefined, options.trigger);
           const matrixRun = await runMatrixJob(jobId, job, root, options.workflowDir, concurrency);
           needsResult = matrixRun.needsResult;
           durationMs = matrixRun.durationMs;
         } else {
-          const root = buildRootContext(variables, outcomes);
+          const root = buildRootContext(variables, outcomes, undefined, options.trigger);
           const outcome = await runJob(job, root, options.workflowDir, logger);
           needsResult = { result: outcome.result, outputs: outcome.outputs };
           durationMs = logger.flush(outcome.result);
