@@ -251,9 +251,8 @@ Deno.test("parseWorkflowFile: valid github trigger with tag glob parses", async 
     `
 on:
   - github:
-      event:
-        push:
-          tags: ["v*"]
+      push:
+        tags: ["v*"]
 jobs:
   build:
     steps:
@@ -261,7 +260,7 @@ jobs:
 `,
     async (path) => {
       const workflow = await parseWorkflowFile(path);
-      assertEquals(workflow.on, [{ http: undefined, github: { event: { push: { tags: ["v*"] } } } }]);
+      assertEquals(workflow.on, [{ http: undefined, github: { push: { tags: ["v*"] } } }]);
     },
   );
 });
@@ -273,9 +272,8 @@ Deno.test("parseWorkflowFile: on: with both http and github in one entry fails",
 on:
   - http: {}
     github:
-      event:
-        push:
-          tags: ["v*"]
+      push:
+        tags: ["v*"]
 jobs:
   build:
     steps:
@@ -312,14 +310,13 @@ jobs:
   );
 });
 
-Deno.test("parseWorkflowFile: github trigger missing event.push.tags fails", async () => {
+Deno.test("parseWorkflowFile: github trigger missing push.tags fails", async () => {
   await withFixture(
     "github-missing-tags.yml",
     `
 on:
   - github:
-      event:
-        push: {}
+      push: {}
 jobs:
   build:
     steps:
@@ -329,7 +326,7 @@ jobs:
       await assertRejects(
         () => parseWorkflowFile(path),
         WorkflowParseError,
-        'must declare a non-empty "event.push.tags"',
+        'must declare a non-empty "push.tags"',
       );
     },
   );

@@ -15,7 +15,7 @@ function isGithubPushPayload(value: unknown): value is GithubPushPayload {
  * A single global endpoint, since that's how GitHub webhooks work — one
  * configured URL per repo, not one per ensemble workflow. Fans out: scans
  * every workflow under workflows/ for an `on: - github:` entry whose
- * `event.push.tags` matches the pushed tag, and triggers all matches.
+ * `push.tags` matches the pushed tag, and triggers all matches.
  */
 export async function handleGithubTrigger(request: Request): Promise<Response> {
   const rawBody = await request.text();
@@ -70,7 +70,7 @@ export async function handleGithubTrigger(request: Request): Promise<Response> {
     const githubTrigger = workflow.on?.find((t) => t.github)?.github;
 
     return githubTrigger !== undefined &&
-      matchesAnyTagPattern(tag, githubTrigger.event.push.tags);
+      matchesAnyTagPattern(tag, githubTrigger.push.tags);
   });
 
   for (const { name } of matches) {

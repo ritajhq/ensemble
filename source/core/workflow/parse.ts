@@ -82,16 +82,15 @@ function validateHttpTrigger(file: string, index: number, raw: Record<string, un
 }
 
 function validateGithubTrigger(file: string, index: number, raw: Record<string, unknown>): GithubTrigger {
-  const event = raw.event;
-  const push = isRecord(event) ? event.push : undefined;
+  const push = raw.push;
   const tags = isRecord(push) ? push.tags : undefined;
   if (
-    !isRecord(event) || !isRecord(push) || !Array.isArray(tags) || tags.length === 0 ||
+    !isRecord(push) || !Array.isArray(tags) || tags.length === 0 ||
     tags.some((t) => typeof t !== "string")
   ) {
-    fail(file, `on[${index}].github must declare a non-empty "event.push.tags" list of strings.`);
+    fail(file, `on[${index}].github must declare a non-empty "push.tags" list of strings.`);
   }
-  return { event: { push: { tags: tags as string[] } } };
+  return { push: { tags: tags as string[] } };
 }
 
 function validateTrigger(file: string, index: number, raw: unknown): Trigger {

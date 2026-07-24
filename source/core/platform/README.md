@@ -44,7 +44,7 @@ every request is rejected, not silently allowed through.
 A single global endpoint (this is how GitHub webhooks work — one
 configured URL per repo, not one per workflow). Fans out: on a `push`
 event, scans every workflow under `workflows/` for an `on: - github:`
-entry whose `event.push.tags` glob-matches the pushed tag, and triggers
+entry whose `push.tags` glob-matches the pushed tag, and triggers
 every match, with `trigger.ref`/`trigger.tag`/`trigger.sha` populated
 from GitHub's own payload fields.
 

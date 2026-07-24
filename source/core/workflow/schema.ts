@@ -27,11 +27,9 @@ export interface HttpTrigger {
 }
 
 export interface GithubTrigger {
-  event: {
-    push: {
-      /** Glob patterns (e.g. "1.*") matched against the pushed tag name. */
-      tags: string[];
-    };
+  push: {
+    /** Glob patterns (e.g. "1.*") matched against the pushed tag name. */
+    tags: string[];
   };
 }
 

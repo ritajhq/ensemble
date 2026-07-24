@@ -160,9 +160,8 @@ on:
       payload:
         sha: commit.sha
   - github:
-      event:
-        push:
-          tags: ["1.*"]
+      push:
+        tags: ["1.*"]
 
 jobs:
   deploy:
