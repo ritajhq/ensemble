@@ -57,7 +57,7 @@ export async function runPack(
 
   const denoExe = await resolveDenoExecutable();
 
-  const outputName = options.outputName ?? shipName;
+  const outputNameArgs = options.outputName ? ["--output-name", options.outputName] : [];
 
   const envFile = join(workspace, "envs", "pack", `${shipName}.env`);
   const fileVars = await loadEnv({ envPath: envFile, export: false });
@@ -67,9 +67,9 @@ export async function runPack(
     --artifacts ${artifactsDir}
     --packages ${packagesDir}
     --name ${shipName}
-    --output-name ${outputName}
     --mode ${mode}
     --vars ${JSON.stringify(packVars)}
+    ${outputNameArgs}
     ${shipDir}`
     .cwd(kitDir)
     .env(packVars)

@@ -206,7 +206,8 @@ if (!await exists(entrypoint, { isFile: true })) {
   throw new Error(`compile.yml: source "${config.source}" not found (expected ${entrypoint}).`);
 }
 
-const outputRelative = config.output ?? `${ctx.outputName}.exe`;
+// --output-name, when explicitly passed, overrides compile.yml's own `output:`.
+const outputRelative = ctx.outputNameExplicit ? `${ctx.outputName}.exe` : (config.output ?? `${ctx.outputName}.exe`);
 const output = join(ctx.packages, outputRelative);
 await ensureDir(dirname(output));
 

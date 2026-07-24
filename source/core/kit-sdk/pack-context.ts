@@ -11,6 +11,8 @@ export interface PackKitContext {
   name: string;
   /** Name to give the packed output (e.g. an image tag or archive basename). Defaults to `name`. */
   outputName: string;
+  /** True if --output-name was explicitly passed (vs. defaulted to `name`) — lets a kit's own output-naming config (e.g. compile.yml's `output:`) be overridden by the CLI flag when present. */
+  outputNameExplicit: boolean;
   /** Absolute path to the `artifacts/` folder. */
   artifacts: string;
   /** Absolute path to the `artifacts/packages/` folder. */
@@ -47,12 +49,14 @@ export function getPackKitContext(args: string[] = Deno.args): PackKitContext {
   }
 
   const name = requireFlag(flags, "name");
+  const outputNameFlag = typeof flags["output-name"] === "string" && flags["output-name"].length > 0
+    ? flags["output-name"]
+    : undefined;
   return {
     ship,
     name,
-    outputName: typeof flags["output-name"] === "string" && flags["output-name"].length > 0
-      ? flags["output-name"]
-      : name,
+    outputName: outputNameFlag ?? name,
+    outputNameExplicit: outputNameFlag !== undefined,
     artifacts: requireFlag(flags, "artifacts"),
     packages: requireFlag(flags, "packages"),
     mode: requireFlag(flags, "mode"),
