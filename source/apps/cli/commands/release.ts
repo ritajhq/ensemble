@@ -8,7 +8,6 @@ function resolveRemote(remote: string | true | undefined): string | undefined {
 function printPreview(label: string, preview: ReleasePreview, pushedTo: string | undefined): void {
   console.log(`${label} tag: ${preview.tag}`);
   console.log(`  from: ${preview.lastTag ?? "(no previous tag)"}`);
-  console.log(`  ${preview.commitMessages.length} commit message(s) collected into CHANGELOG.md`);
   if (pushedTo) console.log(`  pushed to: ${pushedTo}`);
 }
 
@@ -36,7 +35,7 @@ export const releaseCommand = new Command()
     printPreview(dryRun ? "Would create" : "Created", preview, dryRun ? undefined : resolvedRemote);
   })
   .reset()
-  .command("undo", "Deletes the last tag. Does not touch any commit, including a changelog commit from a previous release.")
+  .command("undo", "Deletes the last tag. Does not touch any commit.")
   .action(async ({ dryRun, remote }) => {
     const resolvedRemote = resolveRemote(remote);
     const result = await releaseUndo({ dryRun, remote: resolvedRemote });
