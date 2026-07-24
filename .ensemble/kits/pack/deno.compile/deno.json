@@ -1,0 +1,10 @@
+{
+  "imports": {
+    "@std/path": "jsr:@std/path@1.1.6",
+    "@std/fs": "jsr:@std/fs@1.0.24",
+    "@std/yaml": "jsr:@std/yaml@1.1.2",
+    "@david/dax": "jsr:@david/dax@0.42.0",
+    "@ensemble/kit-sdk": "jsr:@ensemble/kit-sdk",
+    "@ensemble/core": "jsr:@ensemble/core"
+  }
+}

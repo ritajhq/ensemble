@@ -17,12 +17,28 @@ export interface PackKitContext {
   packages: string;
   /** Mode name, validated against the kit's own `kit.yml`. */
   mode: string;
+  /** Resolved pack vars (envs/pack/<name>.env, name being the ship name). */
+  vars: Record<string, string>;
+}
+
+function parseVars(raw: string): Record<string, string> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error(`Invalid --vars JSON payload: ${raw}`);
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new Error(`Invalid --vars JSON payload: expected an object, got ${raw}`);
+  }
+  return parsed as Record<string, string>;
 }
 
 /** Parses the standard pack kit CLI contract. Call this from a pack kit's entry point. */
 export function getPackKitContext(args: string[] = Deno.args): PackKitContext {
   const flags = parseArgs(args, {
-    string: ["name", "output-name", "artifacts", "packages", "mode"],
+    string: ["name", "output-name", "artifacts", "packages", "mode", "vars"],
+    default: { vars: "{}" },
   });
 
   const ship = String(flags._[0] ?? "");
@@ -40,6 +56,7 @@ export function getPackKitContext(args: string[] = Deno.args): PackKitContext {
     artifacts: requireFlag(flags, "artifacts"),
     packages: requireFlag(flags, "packages"),
     mode: requireFlag(flags, "mode"),
+    vars: parseVars(flags.vars),
   };
 }
 

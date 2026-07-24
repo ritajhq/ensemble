@@ -280,6 +280,16 @@
           "jsr:@std/path@1.1.6"
         ]
       },
+      ".ensemble/kits/pack/deno.compile": {
+        "dependencies": [
+          "jsr:@david/dax@0.42.0",
+          "jsr:@ensemble/core@*",
+          "jsr:@ensemble/kit-sdk@*",
+          "jsr:@std/fs@1.0.24",
+          "jsr:@std/path@1.1.6",
+          "jsr:@std/yaml@1.1.2"
+        ]
+      },
       ".ensemble/kits/pack/docker": {
         "dependencies": [
           "jsr:@david/dax@0.42.0",

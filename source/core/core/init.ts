@@ -20,6 +20,7 @@ const SKELETON_DIRS = [
   "source/apps",
   "source/ship",
   "source/envs/build",
+  "source/envs/pack",
   "source/libs",
   "source/artifacts",
   "workflows",

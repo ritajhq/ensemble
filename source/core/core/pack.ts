@@ -1,5 +1,6 @@
 import { join } from "@std/path";
 import { ensureDir, exists } from "@std/fs";
+import { load as loadEnv } from "@std/dotenv";
 import { $ } from "@david/dax";
 import { findRepoRoot } from "./repo.ts";
 import { resolveDenoExecutable } from "./deno-exe.ts";
@@ -10,6 +11,7 @@ export interface RunPackOptions {
   mode?: string;
   /** Name to give the packed output. Defaults to the ship name. */
   outputName?: string;
+  varOverrides?: Record<string, string>;
 }
 
 /** Resolves a pack kit by name and spawns it with the standard pack kit CLI contract. */
@@ -57,14 +59,20 @@ export async function runPack(
 
   const outputName = options.outputName ?? shipName;
 
+  const envFile = join(workspace, "envs", "pack", `${shipName}.env`);
+  const fileVars = await loadEnv({ envPath: envFile, export: false });
+  const packVars = { ...fileVars, ...options.varOverrides };
+
   const result = await $`${denoExe} run -A ${kitEntry}
     --artifacts ${artifactsDir}
     --packages ${packagesDir}
     --name ${shipName}
     --output-name ${outputName}
     --mode ${mode}
+    --vars ${JSON.stringify(packVars)}
     ${shipDir}`
     .cwd(kitDir)
+    .env(packVars)
     .noThrow();
 
   return result.code;

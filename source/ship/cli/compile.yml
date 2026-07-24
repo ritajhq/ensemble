@@ -1,0 +1,4 @@
+source: cli
+output: cli.exe
+permissions:
+  allow-all: true
