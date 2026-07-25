@@ -328,6 +328,7 @@
           "jsr:@std/dotenv@0.225.5",
           "jsr:@std/fs@1.0.24",
           "jsr:@std/path@1.1.6",
+          "jsr:@std/tar@0.1.10",
           "jsr:@std/yaml@1.1.2"
         ]
       },

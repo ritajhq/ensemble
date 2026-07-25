@@ -1,5 +1,6 @@
-import { join } from "@std/path";
-import { exists } from "@std/fs";
+import { join, relative } from "@std/path";
+import { exists, walk } from "@std/fs";
+import { TarStream, type TarStreamInput } from "@std/tar";
 import { findRepoRoot } from "./repo.ts";
 import { parseWorkflowFile, runWorkflow, type Workflow } from "@ensemble/workflow";
 
@@ -45,6 +46,27 @@ export async function listWorkflows(): Promise<ResolvedWorkflow[]> {
   }
 
   return await Promise.all(names.map((name) => getWorkflowByName(name)));
+}
+
+/**
+ * Packages a workflow's whole directory tree into a gzipped tar stream,
+ * rooted at the workflow's own directory (e.g. "workflow.yml", "steps/build.ts"
+ * — no name/ prefix) — the shape the platform's upload endpoint expects.
+ */
+export async function createWorkflowArchive(workflowDir: string): Promise<ReadableStream<Uint8Array>> {
+  const entries: TarStreamInput[] = [];
+  for await (const entry of walk(workflowDir, { includeDirs: false })) {
+    const stat = await Deno.stat(entry.path);
+    entries.push({
+      type: "file",
+      path: relative(workflowDir, entry.path).replaceAll("\\", "/"),
+      size: stat.size,
+      readable: (await Deno.open(entry.path)).readable,
+    });
+  }
+  return ReadableStream.from(entries)
+    .pipeThrough(new TarStream())
+    .pipeThrough(new CompressionStream("gzip"));
 }
 
 /** Resolves a workflow by name (workflows/<name>/workflow.yml) and runs it to completion. */

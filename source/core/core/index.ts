@@ -27,6 +27,7 @@ export {
   type UndoResult,
 } from "./release.ts";
 export {
+  createWorkflowArchive,
   getWorkflowByName,
   listWorkflows,
   type ResolvedWorkflow,

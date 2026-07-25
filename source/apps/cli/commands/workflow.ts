@@ -1,10 +1,10 @@
 import { Command } from "@cliffy/command";
 import { Input, Secret } from "@cliffy/prompt";
-import { getRemoteProfile, runWorkflowByName, setRemoteProfile } from "@ensemble/core";
-import { httpTriggerClient } from "@ensemble/platform";
+import { createWorkflowArchive, getRemoteProfile, getWorkflowByName, runWorkflowByName, setRemoteProfile } from "@ensemble/core";
+import { httpTriggerClient, workflowRegistryClient } from "@ensemble/platform";
 
 const remoteConfigureCommand = new Command()
-  .description("Create or update a remote profile (url + secret) for `ens workflow --remote`.")
+  .description("Create or update a remote profile (url + secret) for `ens workflow --remote`/`upload`.")
   .arguments("<profile:string>")
   .action(async (_options, profile) => {
     const url = await Input.prompt({
@@ -19,16 +19,32 @@ const remoteConfigureCommand = new Command()
       },
     });
     const secret = await Secret.prompt({
-      message: "Bearer token (the remote's ENSEMBLE_HTTP_TRIGGER_TOKEN):",
+      message:
+        "Bearer token for this remote (used for both --remote and upload — must match the server's ENSEMBLE_HTTP_TRIGGER_TOKEN and/or ENSEMBLE_WORKFLOW_REGISTRY_TOKEN, as relevant to what you do):",
       validate: (value) => value.trim().length > 0 || "Token can't be empty.",
     });
     await setRemoteProfile(profile, { url, secret });
     console.log(`Saved remote profile "${profile}".`);
   });
 
+const remoteUploadCommand = new Command()
+  .description("Upload a locally defined workflow to a remote ensemble server, replacing whatever's there under the same name.")
+  .arguments("<name:string>")
+  .option("-r, --remote <profile:string>", "Remote profile to upload to (see `workflow remote configure`).", { required: true })
+  .action(async ({ remote }, name) => {
+    const { workflowDir } = await getWorkflowByName(name);
+    const profile = await getRemoteProfile(remote);
+    const archive = await createWorkflowArchive(workflowDir);
+    const client = workflowRegistryClient({ baseUrl: profile.url, token: profile.secret });
+    const { success } = await client.actions.upload(name, archive);
+    if (!success) Deno.exit(1);
+    console.log(`Uploaded workflow "${name}" to remote "${remote}".`);
+  });
+
 const remoteCommand = new Command()
-  .description("Manage remote profiles for `ens workflow --remote`.")
-  .command("configure", remoteConfigureCommand);
+  .description("Manage remote profiles and remote workflow operations.")
+  .command("configure", remoteConfigureCommand)
+  .command("upload", remoteUploadCommand);
 
 export const workflowCommand = new Command()
   .name("workflow")
