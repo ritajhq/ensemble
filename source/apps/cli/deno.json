@@ -2,6 +2,7 @@
   "imports": {
     "@cliffy/command": "jsr:@cliffy/command@1.2.1",
     "@cliffy/prompt": "jsr:@cliffy/prompt@1.2.1",
-    "@ensemble/core": "jsr:@ensemble/core"
+    "@ensemble/core": "jsr:@ensemble/core",
+    "@ensemble/platform": "jsr:@ensemble/platform"
   }
 }

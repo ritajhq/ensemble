@@ -10,6 +10,7 @@ export { resolveDenoExecutable } from "./deno-exe.ts";
 export { type RunBuildOptions, runBuild } from "./build.ts";
 export { type RunInitOptions, runInit } from "./init.ts";
 export { type RunPackOptions, runPack } from "./pack.ts";
+export { getRemoteProfile, type RemoteProfile, setRemoteProfile } from "./remote.ts";
 export {
   type BumpKind,
   deleteRemoteTag,
