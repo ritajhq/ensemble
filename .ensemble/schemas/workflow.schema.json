@@ -1,0 +1,169 @@
+{
+  "$id": "https://raw.githubusercontent.com/ritajhq/ensemble/main/.ensemble/schemas/workflow.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Workflow",
+  "description": "An ensemble workflow.yml file (workflows/<name>/workflow.yml).",
+  "type": "object",
+  "properties": {
+    "on": {
+      "description": "Network-facing ways this workflow can be triggered. Absent means it only runs via direct invocation (e.g. `ens workflow <name>`).",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/definitions/trigger"
+      }
+    },
+    "jobs": {
+      "description": "Jobs in this workflow, keyed by job id.",
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "$ref": "#/definitions/job"
+      }
+    }
+  },
+  "required": ["jobs"],
+  "additionalProperties": false,
+  "definitions": {
+    "trigger": {
+      "description": "Exactly one of \"http\" or \"github\" must be set.",
+      "type": "object",
+      "oneOf": [
+        {
+          "required": ["http"],
+          "not": { "required": ["github"] }
+        },
+        {
+          "required": ["github"],
+          "not": { "required": ["http"] }
+        }
+      ],
+      "properties": {
+        "http": { "$ref": "#/definitions/httpTrigger" },
+        "github": { "$ref": "#/definitions/githubTrigger" }
+      },
+      "additionalProperties": false
+    },
+    "httpTrigger": {
+      "type": "object",
+      "properties": {
+        "payload": {
+          "description": "Maps trigger.<key> to a dot-path into the incoming request's \"payload\" field.",
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "githubTrigger": {
+      "type": "object",
+      "properties": {
+        "push": {
+          "type": "object",
+          "properties": {
+            "tags": {
+              "description": "Glob patterns (e.g. \"1.*\") matched against the pushed tag name.",
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "string" }
+            }
+          },
+          "required": ["tags"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["push"],
+      "additionalProperties": false
+    },
+    "job": {
+      "type": "object",
+      "properties": {
+        "needs": {
+          "description": "Job ids that must complete before this job starts.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "if": {
+          "description": "Expression gating whether this job runs.",
+          "type": "string"
+        },
+        "matrix": {
+          "$ref": "#/definitions/matrix"
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/definitions/step" }
+        }
+      },
+      "required": ["steps"],
+      "additionalProperties": false
+    },
+    "matrix": {
+      "type": "object",
+      "properties": {
+        "axes": {
+          "description": "Mapping of axis name to a non-empty list of values. The job runs once per combination.",
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "array",
+            "minItems": 1
+          }
+        },
+        "fail-fast": {
+          "description": "Cancel not-yet-started sibling instances when one hard-fails. Defaults to true.",
+          "type": "boolean"
+        },
+        "max-parallel": {
+          "description": "Cap how many of this job's instances run concurrently. Defaults to unbounded.",
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": ["axes"],
+      "additionalProperties": false
+    },
+    "step": {
+      "description": "Exactly one of \"run\" or \"script\" must be set.",
+      "type": "object",
+      "oneOf": [
+        {
+          "required": ["run"],
+          "not": { "required": ["script"] }
+        },
+        {
+          "required": ["script"],
+          "not": { "required": ["run"] }
+        }
+      ],
+      "properties": {
+        "id": {
+          "description": "Unique id for this step within the job, used to reference its output.",
+          "type": "string"
+        },
+        "name": {
+          "description": "Human-readable label for this step, shown in logs.",
+          "type": "string"
+        },
+        "run": {
+          "description": "Shell command to run.",
+          "type": "string"
+        },
+        "script": {
+          "description": "Path to a script file to run.",
+          "type": "string"
+        },
+        "if": {
+          "description": "Expression gating whether this step runs.",
+          "type": "string"
+        },
+        "continue-on-error": {
+          "description": "Don't fail the job if this step fails.",
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
