@@ -30,12 +30,13 @@ jobs:
           cd ensemble
           tag="$(cat /tmp/ensemble-release-tag)"
 
+          cliff_version="2.13.1"
           if ! command -v git-cliff >/dev/null 2>&1; then
-            cliff_version="$(curl -fsSL https://api.github.com/repos/orhun/git-cliff/releases/latest | grep -m1 '"tag_name"' | cut -d '"' -f4)"
             arch="$(uname -m)"
-            curl -fsSL "https://github.com/orhun/git-cliff/releases/download/${cliff_version}/git-cliff-${cliff_version#v}-${arch}-unknown-linux-musl.tar.gz" \
-              | tar -xz -C /tmp
-            mv "/tmp/git-cliff-${cliff_version#v}/git-cliff" /usr/local/bin/git-cliff
+            wget -qO /tmp/git-cliff.tar.gz \
+              "https://github.com/orhun/git-cliff/releases/download/v${cliff_version}/git-cliff-${cliff_version}-${arch}-unknown-linux-musl.tar.gz"
+            tar -xzf /tmp/git-cliff.tar.gz -C /tmp
+            mv "/tmp/git-cliff-${cliff_version}/git-cliff" /usr/local/bin/git-cliff
           fi
 
           git-cliff --tag "$tag" -o CHANGELOG.md
