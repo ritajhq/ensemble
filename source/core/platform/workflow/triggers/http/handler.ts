@@ -1,5 +1,5 @@
 import { getWorkflowByName, runWorkflowByName } from "@ensemble/core";
-import { isAuthorized } from "./auth.ts";
+import { isAuthorizedFor } from "../../../auth/tokens.ts";
 import { extractTriggerPayload } from "./extract.ts";
 import { isHttpTriggerRequest, type HttpTriggerResponse } from "./contract.ts";
 
@@ -7,7 +7,7 @@ export async function handleHttpTrigger(
   request: Request,
   params: Record<string, string | undefined>,
 ): Promise<Response> {
-  if (!isAuthorized(request)) {
+  if (!await isAuthorizedFor(request, "trigger")) {
     return Response.json({ error: "Missing or invalid bearer token." }, { status: 401 });
   }
 

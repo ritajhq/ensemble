@@ -2,7 +2,7 @@ import type { HttpTriggerRequest, HttpTriggerResponse } from "./contract.ts";
 
 export interface HttpTriggerClientOptions {
   baseUrl: string;
-  /** Sent as `Authorization: Bearer <token>` — must match the server's ENSEMBLE_HTTP_TRIGGER_TOKEN. */
+  /** Sent as `Authorization: Bearer <token>` — must be a token granted "trigger" in the server's .ensemble/tokens.json. */
   token: string;
 }
 

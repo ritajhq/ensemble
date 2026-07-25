@@ -29,6 +29,7 @@ const SKELETON_DIRS = [
 const GITIGNORE_TEMPLATE = `.ensemble/bin/
 .ensemble/repository/
 .ensemble/kits/**/.bin/
+.ensemble/tokens.json
 source/artifacts/
 node_modules/
 `;

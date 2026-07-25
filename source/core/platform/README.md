@@ -35,9 +35,10 @@ for a workflow that hasn't opted in is rejected with 403.
 workflow's own YAML maps `trigger.<key>` to a dot-path into it (e.g.
 `sha: commit.sha` → `trigger.sha`).
 
-**Auth**: requires `Authorization: Bearer <token>` matching
-`ENSEMBLE_HTTP_TRIGGER_TOKEN`. Fails closed — if that env var isn't set,
-every request is rejected, not silently allowed through.
+**Auth**: requires `Authorization: Bearer <token>` for a token granted
+`trigger: true` in `.ensemble/tokens.json` (see "Authentication" below).
+Fails closed — a missing/unreadable tokens file, or a token without this
+permission, both reject the request.
 
 ### `github-trigger` — `POST /webhooks/github`
 
@@ -67,15 +68,46 @@ The upload is extracted into a staging directory and validated (via
 invalid or malformed upload can't leave a broken workflow in place — it's
 rejected with 400 and the live `workflows/<name>` is untouched.
 
-**Auth**: requires `Authorization: Bearer <token>` matching
-`ENSEMBLE_WORKFLOW_REGISTRY_TOKEN` — deliberately a *different* token from
-`http-trigger`'s, since the ability to overwrite a workflow's code is a
-stronger capability than the ability to trigger an existing one. Fails
-closed the same way.
+**Auth**: requires `Authorization: Bearer <token>` for a token granted
+`upload: true` in `.ensemble/tokens.json` — a separate permission from
+`http-trigger`'s `trigger`, since the ability to overwrite a workflow's
+code is a stronger capability than the ability to trigger an existing
+one. A token can be granted one, the other, or both. Fails closed the
+same way.
 
 Only bulk tar.gz import is implemented so far. Fine-grained per-file
 read/write endpoints (for a future UI that edits one script at a time
 rather than re-uploading a whole archive per change) are deferred.
+
+## Authentication
+
+`http-trigger` and `workflow-registry` both check the request's bearer
+token against `.ensemble/tokens.json` — a JSON object mapping each valid
+token to the permissions it's been granted:
+
+```json
+{
+  "<token-a>": { "trigger": true, "upload": true },
+  "<token-b>": { "trigger": true }
+}
+```
+
+The file is never committed (gitignored, like `.ensemble/bin/`) and lives
+under the server's own repo root, resolved the same way everything else
+is (`findRepoRoot()`). Every candidate token is compared in constant time
+regardless of match position, so response timing can't be used to probe
+which stored token (if any) is closest to a guess. The file is cached in
+memory and only re-read when its mtime changes, so rotating a token
+doesn't require a server restart.
+
+`github-trigger`'s `GITHUB_WEBHOOK_SECRET` is unrelated to this — it
+verifies an inbound webhook's HMAC signature, not a caller-presented
+token, so it stays its own env var.
+
+**This is a deliberately temporary bridge**, not the intended long-term
+design — a real authorization layer (named credentials, finer-grained
+scopes, revocation without rotating every other caller's token) is
+planned to replace it outright, not extend it.
 
 ## Programmatic clients
 

@@ -20,7 +20,7 @@ const remoteConfigureCommand = new Command()
     });
     const secret = await Secret.prompt({
       message:
-        "Bearer token for this remote (used for both --remote and upload — must match the server's ENSEMBLE_HTTP_TRIGGER_TOKEN and/or ENSEMBLE_WORKFLOW_REGISTRY_TOKEN, as relevant to what you do):",
+        "Bearer token for this remote (used for both --remote and upload — must be granted the relevant permission(s) in the server's .ensemble/tokens.json):",
       validate: (value) => value.trim().length > 0 || "Token can't be empty.",
     });
     await setRemoteProfile(profile, { url, secret });

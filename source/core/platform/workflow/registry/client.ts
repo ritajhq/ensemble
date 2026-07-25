@@ -1,6 +1,6 @@
 export interface WorkflowRegistryClientOptions {
   baseUrl: string;
-  /** Sent as `Authorization: Bearer <token>` — must match the server's ENSEMBLE_WORKFLOW_REGISTRY_TOKEN. */
+  /** Sent as `Authorization: Bearer <token>` — must be a token granted "upload" in the server's .ensemble/tokens.json. */
   token: string;
 }
 

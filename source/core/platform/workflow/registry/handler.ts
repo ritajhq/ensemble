@@ -2,7 +2,7 @@ import { join } from "@std/path";
 import { exists } from "@std/fs";
 import { findRepoRoot } from "@ensemble/core";
 import { parseWorkflowFile } from "@ensemble/workflow";
-import { isAuthorized } from "./auth.ts";
+import { isAuthorizedFor } from "../../auth/tokens.ts";
 import { extractTarGz } from "./extract.ts";
 
 async function removeIfExists(path: string): Promise<void> {
@@ -24,7 +24,7 @@ export async function handleUploadWorkflow(
   request: Request,
   params: Record<string, string | undefined>,
 ): Promise<Response> {
-  if (!isAuthorized(request)) {
+  if (!await isAuthorizedFor(request, "upload")) {
     return Response.json({ error: "Missing or invalid bearer token." }, { status: 401 });
   }
 
