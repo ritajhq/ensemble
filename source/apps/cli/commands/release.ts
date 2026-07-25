@@ -49,10 +49,8 @@ export const releaseCommand = new Command()
     const repoRoot = await findRepoRoot();
     if (!dryRun && !await confirmUncommittedChanges(repoRoot)) return;
     const preview = await releaseNext(bump, { dryRun, preRelease, meta });
-    if (dryRun) {
-      printPreview("Would create", preview);
-      return;
-    }
+    printPreview(dryRun ? "Would create" : "Will create", preview);
+    if (dryRun) return;
     await createAndMaybePushRelease(repoRoot, preview, remote);
   })
   .reset()
@@ -62,10 +60,8 @@ export const releaseCommand = new Command()
     const repoRoot = await findRepoRoot();
     if (!dryRun && !await confirmUncommittedChanges(repoRoot)) return;
     const preview = await releaseSet(version, { dryRun, preRelease, meta });
-    if (dryRun) {
-      printPreview("Would create", preview);
-      return;
-    }
+    printPreview(dryRun ? "Would create" : "Will create", preview);
+    if (dryRun) return;
     await createAndMaybePushRelease(repoRoot, preview, remote);
   })
   .reset()
