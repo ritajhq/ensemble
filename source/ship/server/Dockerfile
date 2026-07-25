@@ -1,5 +1,7 @@
 FROM denoland/deno:alpine-2.9.3
 
+RUN apk add --no-cache git github-cli
+
 WORKDIR /app
 
 COPY --from=packages cli.exe /usr/local/bin/ens
