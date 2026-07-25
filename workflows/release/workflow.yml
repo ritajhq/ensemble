@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ritajhq/ensemble/main/.ensemble/schemas/workflow.schema.json
+
+on:
+  - github:
+      push:
+        tags:
+          - '*.*.*'
+
+jobs:
+  release:
+    steps:
+      - name: checkout
+        run: |
+          set -euo pipefail
+          git clone https://github.com/ritajhq/ensemble.git
+          cd ensemble
+          git fetch --tags origin
+          tag="$(git describe --tags --abbrev=0)"
+          echo "$tag" > /tmp/ensemble-release-tag
+
+      - name: compile_cli
+        run: |
+          set -euo pipefail
+          cd ensemble
+          ens pack cli deno.compile
+
+      - name: update_changelog
+        run: |
+          set -euo pipefail
+          cd ensemble
+          tag="$(cat /tmp/ensemble-release-tag)"
+
+          if ! command -v git-cliff >/dev/null 2>&1; then
+            curl -fsSL https://github.com/orhun/git-cliff/releases/latest/download/git-cliff-installer.sh | sh
+          fi
+
+          git-cliff --tag "$tag" -o CHANGELOG.md
+          git-cliff --tag "$tag" --latest --strip all -o /tmp/ensemble-release-notes.md
+
+          git config user.name "ensemble-release-bot"
+          git config user.email "release-bot@ritaj.app"
+          git add CHANGELOG.md
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(changelog): update for $tag"
+            git push origin HEAD:main
+          fi
+
+      - name: create_github_release
+        run: |
+          set -euo pipefail
+          cd ensemble
+          tag="$(cat /tmp/ensemble-release-tag)"
+          gh release create "$tag" \
+            source/artifacts/packages/cli.exe \
+            --title "$tag" \
+            --notes-file /tmp/ensemble-release-notes.md \
+            --repo ritajhq/ensemble
