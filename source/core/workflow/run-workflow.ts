@@ -21,6 +21,12 @@ export interface RunWorkflowOptions {
   concurrency?: number;
   /** Data from whatever triggered this run, made available as `trigger.*` in every job/step. */
   trigger?: Record<string, unknown>;
+  /**
+   * Repo root to expose to steps as `ENSEMBLE_WORKSPACE`, so an `ens` subcommand
+   * invoked from a `run:` step can find it even though steps' `cwd` is a scratch
+   * temp dir unrelated to the repo (see findRepoRoot in @ensemble/core).
+   */
+  repoRoot?: string;
 }
 
 export interface RunWorkflowResult {
@@ -108,6 +114,9 @@ export async function runWorkflow(
   options: RunWorkflowOptions,
 ): Promise<RunWorkflowResult> {
   const variables = options.variables ?? Object.fromEntries(Object.entries(Deno.env.toObject()));
+  if (options.repoRoot !== undefined) {
+    variables.ENSEMBLE_WORKSPACE = options.repoRoot;
+  }
   const concurrency = options.concurrency ?? Infinity;
 
   let batches = buildBatches(workflow);

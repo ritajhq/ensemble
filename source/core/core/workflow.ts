@@ -74,6 +74,7 @@ export async function runWorkflowByName(
   name: string,
   options: RunWorkflowByNameOptions,
 ): Promise<boolean> {
+  const repoRoot = await findRepoRoot();
   const { workflow, workflowDir } = await getWorkflowByName(name);
   const { success } = await runWorkflow(workflow, {
     workflowDir,
@@ -84,6 +85,7 @@ export async function runWorkflowByName(
       ...options.variables,
     },
     trigger: options.trigger,
+    repoRoot,
   });
   return success;
 }
