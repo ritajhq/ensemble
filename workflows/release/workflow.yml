@@ -42,6 +42,7 @@ jobs:
           git-cliff --tag "$tag" -o CHANGELOG.md
           git-cliff --tag "$tag" --latest --strip all -o /tmp/ensemble-release-notes.md
 
+          gh auth setup-git
           git config user.name "ensemble-release-bot"
           git config user.email "release-bot@ritaj.app"
           git add CHANGELOG.md
