@@ -1,4 +1,4 @@
 source: cli
-output: cli.exe
+output: ensemble-linux-x64
 permissions:
   allow-all: true

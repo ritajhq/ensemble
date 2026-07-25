@@ -57,7 +57,7 @@ jobs:
           cd ensemble
           tag="$(cat /tmp/ensemble-release-tag)"
           gh release create "$tag" \
-            source/artifacts/packages/cli.exe \
+            source/artifacts/packages/ensemble-linux-x64 \
             --title "$tag" \
             --notes-file /tmp/ensemble-release-notes.md \
             --repo ritajhq/ensemble
