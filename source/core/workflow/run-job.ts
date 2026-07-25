@@ -21,6 +21,7 @@ export async function runJob(
   job: Job,
   root: RootContext,
   workflowDir: string,
+  cwd: string,
   logger: JobLogger,
   signal: AbortSignal = new AbortController().signal,
 ): Promise<JobOutcome> {
@@ -51,7 +52,7 @@ export async function runJob(
     const startedAt = performance.now();
     let outcome;
     try {
-      outcome = await runStep(step, workflowDir, ctx, signal);
+      outcome = await runStep(step, workflowDir, cwd, ctx, signal);
     } catch (error) {
       if (error instanceof WorkflowExpressionError) throw error;
       result = signal.aborted ? "cancelled" : "failure";

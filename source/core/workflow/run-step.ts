@@ -60,11 +60,13 @@ function isOutputRecord(value: unknown): value is Record<string, string> {
 
 async function runShell(
   command: string,
+  cwd: string,
   variables: Record<string, string>,
   signal: AbortSignal,
 ): Promise<number> {
   const cmd = new Deno.Command(Deno.build.os === "windows" ? "cmd" : "/bin/sh", {
     args: Deno.build.os === "windows" ? ["/c", command] : ["-c", command],
+    cwd,
     env: variables,
     stdout: "inherit",
     stderr: "inherit",
@@ -88,6 +90,7 @@ async function runShell(
 async function runScript(
   scriptPath: string,
   workflowDir: string,
+  cwd: string,
   ctx: JobContext,
   signal: AbortSignal,
 ): Promise<Record<string, string>> {
@@ -101,6 +104,7 @@ async function runScript(
   try {
     const cmd = new Deno.Command(denoExe, {
       args: ["run", "-A", bootstrapPath, absPath, resultHandle],
+      cwd,
       stdin: "piped",
       stdout: "inherit",
       stderr: "inherit",
@@ -130,10 +134,15 @@ async function runScript(
   }
 }
 
-/** Executes a single step: evaluates `if:`, dispatches to run:/script:, and applies continue-on-error. */
+/**
+ * Executes a single step: evaluates `if:`, dispatches to run:/script:, and applies continue-on-error.
+ * `cwd` is the run's own scratch directory (fresh per workflow run) — distinct from `workflowDir`,
+ * which is only ever used to resolve a `script:` step's path on disk.
+ */
 export async function runStep(
   step: Step,
   workflowDir: string,
+  cwd: string,
   ctx: JobContext,
   signal: AbortSignal = new AbortController().signal,
 ): Promise<StepRunResult> {
@@ -144,12 +153,12 @@ export async function runStep(
   try {
     let outputs: Record<string, string> = {};
     if (step.run !== undefined) {
-      const code = await runShell(step.run, ctx.variables, signal);
+      const code = await runShell(step.run, cwd, ctx.variables, signal);
       if (code !== 0) {
         throw new Error(`Command exited with code ${code}: ${step.run}`);
       }
     } else {
-      outputs = await runScript(step.script!, workflowDir, ctx, signal);
+      outputs = await runScript(step.script!, workflowDir, cwd, ctx, signal);
     }
     return { result: "success", outputs, continuedOnError: false };
   } catch (error) {

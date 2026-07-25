@@ -46,6 +46,7 @@ async function runMatrixJob(
   job: Job,
   root: RootContext,
   workflowDir: string,
+  cwd: string,
   concurrency: number,
 ): Promise<{ needsResult: MatrixNeedsResult; durationMs: number }> {
   const matrix = job.matrix!;
@@ -63,7 +64,7 @@ async function runMatrixJob(
     async ({ combo, index }) => {
       const logger = new JobLogger(matrixInstanceLabel(jobId, combo));
       const instanceRoot = { ...root, matrix: combo };
-      const outcome = await runJob(job, instanceRoot, workflowDir, logger, controller.signal);
+      const outcome = await runJob(job, instanceRoot, workflowDir, cwd, logger, controller.signal);
       logger.flush(outcome.result);
       if (outcome.result === "failure" && failFast) {
         controller.abort();
@@ -120,48 +121,56 @@ export async function runWorkflow(
   const outcomes: Record<string, NeedsResult> = {};
   const summary: SummaryRow[] = [];
 
-  for (const batch of batches) {
-    const results = pooledMap(
-      Math.min(concurrency, batch.length) || 1,
-      batch,
-      async (jobId) => {
-        const job = workflow.jobs[jobId];
-        const deps = job.needs ?? [];
-        const depsOk = deps.every((dep) => outcomes[dep]?.result !== "failure");
+  // Every run gets its own fresh scratch directory as steps' cwd, so a job's
+  // shell commands (e.g. `git clone`) never see leftovers from a prior run —
+  // workflowDir itself stays reserved for resolving `script:` paths.
+  const runDir = await Deno.makeTempDir({ prefix: "ensemble-run-" });
+  try {
+    for (const batch of batches) {
+      const results = pooledMap(
+        Math.min(concurrency, batch.length) || 1,
+        batch,
+        async (jobId) => {
+          const job = workflow.jobs[jobId];
+          const deps = job.needs ?? [];
+          const depsOk = deps.every((dep) => outcomes[dep]?.result !== "failure");
 
-        const logger = new JobLogger(jobId);
-        let needsResult: NeedsResult;
-        let durationMs: number;
-        if (!depsOk) {
-          logger.info(`skipped (dependency failed)`);
-          needsResult = { result: "skipped", outputs: {} };
-          durationMs = logger.flush("skipped");
-        } else if (job.matrix !== undefined) {
-          const root = buildRootContext(variables, outcomes, undefined, options.trigger);
-          const matrixRun = await runMatrixJob(jobId, job, root, options.workflowDir, concurrency);
-          needsResult = matrixRun.needsResult;
-          durationMs = matrixRun.durationMs;
-        } else {
-          const root = buildRootContext(variables, outcomes, undefined, options.trigger);
-          const outcome = await runJob(job, root, options.workflowDir, logger);
-          needsResult = { result: outcome.result, outputs: outcome.outputs };
-          durationMs = logger.flush(outcome.result);
+          const logger = new JobLogger(jobId);
+          let needsResult: NeedsResult;
+          let durationMs: number;
+          if (!depsOk) {
+            logger.info(`skipped (dependency failed)`);
+            needsResult = { result: "skipped", outputs: {} };
+            durationMs = logger.flush("skipped");
+          } else if (job.matrix !== undefined) {
+            const root = buildRootContext(variables, outcomes, undefined, options.trigger);
+            const matrixRun = await runMatrixJob(jobId, job, root, options.workflowDir, runDir, concurrency);
+            needsResult = matrixRun.needsResult;
+            durationMs = matrixRun.durationMs;
+          } else {
+            const root = buildRootContext(variables, outcomes, undefined, options.trigger);
+            const outcome = await runJob(job, root, options.workflowDir, runDir, logger);
+            needsResult = { result: outcome.result, outputs: outcome.outputs };
+            durationMs = logger.flush(outcome.result);
+          }
+          return { jobId, needsResult, durationMs };
+        },
+      );
+
+      try {
+        for await (const { jobId, needsResult, durationMs } of results) {
+          outcomes[jobId] = needsResult;
+          summary.push({ jobId, result: needsResult.result, durationMs });
         }
-        return { jobId, needsResult, durationMs };
-      },
-    );
-
-    try {
-      for await (const { jobId, needsResult, durationMs } of results) {
-        outcomes[jobId] = needsResult;
-        summary.push({ jobId, result: needsResult.result, durationMs });
+      } catch (error) {
+        if (error instanceof AggregateError && error.errors.length === 1) {
+          throw error.errors[0];
+        }
+        throw error;
       }
-    } catch (error) {
-      if (error instanceof AggregateError && error.errors.length === 1) {
-        throw error.errors[0];
-      }
-      throw error;
     }
+  } finally {
+    await Deno.remove(runDir, { recursive: true }).catch(() => {});
   }
 
   printSummary(summary);

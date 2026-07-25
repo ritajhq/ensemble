@@ -6,6 +6,7 @@ import { JobLogger } from "./logging.ts";
 import type { Job } from "./schema.ts";
 
 const workflowDir = join(import.meta.dirname!, "tests", "fixtures");
+const cwd = workflowDir;
 const root = buildRootContext({}, {});
 
 function silentLogger(jobId: string): JobLogger {
@@ -20,7 +21,7 @@ Deno.test("runJob: accumulates step outputs into job outputs", async () => {
       { run: "echo hi" },
     ],
   };
-  const outcome = await runJob(job, root, workflowDir, silentLogger("test"));
+  const outcome = await runJob(job, root, workflowDir, cwd, silentLogger("test"));
   assertEquals(outcome.result, "success");
   assertEquals(outcome.outputs, { ok: "true" });
 });
@@ -32,7 +33,7 @@ Deno.test("runJob: later step sees earlier step's outputs via steps.<id>.outputs
       { run: "exit 1", if: "${{ steps.a.outputs.ok != 'true' }}" },
     ],
   };
-  const outcome = await runJob(job, root, workflowDir, silentLogger("test"));
+  const outcome = await runJob(job, root, workflowDir, cwd, silentLogger("test"));
   assertEquals(outcome.result, "success");
 });
 
@@ -43,7 +44,7 @@ Deno.test("runJob: failing step fails the job and skips remaining steps", async 
       { id: "never", script: "./succeeding-script.ts" },
     ],
   };
-  const outcome = await runJob(job, root, workflowDir, silentLogger("test"));
+  const outcome = await runJob(job, root, workflowDir, cwd, silentLogger("test"));
   assertEquals(outcome.result, "failure");
   assertEquals(outcome.outputs, {});
 });
@@ -55,7 +56,7 @@ Deno.test("runJob: continue-on-error step failure doesn't fail the job", async (
       { id: "after", script: "./succeeding-script.ts" },
     ],
   };
-  const outcome = await runJob(job, root, workflowDir, silentLogger("test"));
+  const outcome = await runJob(job, root, workflowDir, cwd, silentLogger("test"));
   assertEquals(outcome.result, "success");
   assertEquals(outcome.outputs, { ok: "true" });
 });
@@ -65,7 +66,7 @@ Deno.test("runJob: job-level if: false skips the whole job", async () => {
     if: "false",
     steps: [{ script: "./failing-script.ts" }],
   };
-  const outcome = await runJob(job, root, workflowDir, silentLogger("test"));
+  const outcome = await runJob(job, root, workflowDir, cwd, silentLogger("test"));
   assertEquals(outcome.result, "skipped");
 });
 
@@ -75,6 +76,6 @@ Deno.test("runJob: job-level if: referencing needs.<job>.result", async () => {
     if: "${{ needs.build.result == 'success' }}",
     steps: [{ run: "echo deploying" }],
   };
-  const outcome = await runJob(job, rootWithNeeds, workflowDir, silentLogger("deploy"));
+  const outcome = await runJob(job, rootWithNeeds, workflowDir, cwd, silentLogger("deploy"));
   assertEquals(outcome.result, "success");
 });
