@@ -48,7 +48,19 @@ jobs:
           git add CHANGELOG.md
           if ! git diff --cached --quiet; then
             git commit -m "chore(changelog): update for $tag"
-            git push origin HEAD:main
+
+            attempt=1
+            max_attempts=5
+            until git push origin HEAD:main; do
+              if [ "$attempt" -ge "$max_attempts" ]; then
+                echo "error: could not push changelog to main after $max_attempts attempts (main kept moving)." >&2
+                exit 1
+              fi
+              echo "push rejected, main moved — rebasing and retrying ($attempt/$max_attempts)..."
+              git fetch origin main
+              git rebase origin/main
+              attempt=$((attempt + 1))
+            done
           fi
 
       - name: create_github_release
