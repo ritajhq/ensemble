@@ -35,3 +35,11 @@ export {
   type RunWorkflowByNameOptions,
   runWorkflowByName,
 } from "./workflow.ts";
+export {
+  type BumpKind as VersionBumpKind,
+  getInstalledVersion,
+  type InstallResult,
+  installNext,
+  installSet,
+  type SemVer as EnsembleVersion,
+} from "./version.ts";
