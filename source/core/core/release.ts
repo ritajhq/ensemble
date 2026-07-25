@@ -97,14 +97,9 @@ async function buildPreview(repoRoot: string, base: SemVer, flags: ReleaseFlags)
   return { tag, lastTag: last?.tag };
 }
 
-/** Creates the tag locally. Pushing is a separate, explicit step (see pushCommits/pushTag). */
-async function applyRelease(repoRoot: string, preview: ReleasePreview): Promise<void> {
-  await $`git tag ${preview.tag}`.cwd(repoRoot);
-}
-
 export type BumpKind = "major" | "minor" | "patch";
 
-/** Bumps the version from the last tag per semver rules. No tags yet behaves as if the last tag were 0.0.0. */
+/** Previews the version bump from the last tag per semver rules. No tags yet behaves as if the last tag were 0.0.0. Does not create the tag — call applyRelease separately once confirmed. */
 export async function releaseNext(bump: BumpKind, flags: ReleaseFlags): Promise<ReleasePreview> {
   const repoRoot = await findRepoRoot();
   const last = await findLastTag(repoRoot);
@@ -115,21 +110,22 @@ export async function releaseNext(bump: BumpKind, flags: ReleaseFlags): Promise<
     ? { major: base.major, minor: base.minor + 1, patch: 0 }
     : { major: base.major, minor: base.minor, patch: base.patch + 1 };
 
-  const preview = await buildPreview(repoRoot, bumped, flags);
-  if (!flags.dryRun) await applyRelease(repoRoot, preview);
-  return preview;
+  return await buildPreview(repoRoot, bumped, flags);
 }
 
-/** Sets an arbitrary version. Must be exactly "x.y.z" — use preRelease/meta flags for those suffixes. */
+/** Previews an arbitrary version. Must be exactly "x.y.z" — use preRelease/meta flags for those suffixes. Does not create the tag — call applyRelease separately once confirmed. */
 export async function releaseSet(version: string, flags: ReleaseFlags): Promise<ReleasePreview> {
   if (!BARE_VERSION_PATTERN.test(version)) {
     throw new Error(`Invalid version "${version}" — expected the shape x.y.z (e.g. 1.2.3).`);
   }
   const repoRoot = await findRepoRoot();
   const [major, minor, patch] = version.split(".").map(Number);
-  const preview = await buildPreview(repoRoot, { major, minor, patch }, flags);
-  if (!flags.dryRun) await applyRelease(repoRoot, preview);
-  return preview;
+  return await buildPreview(repoRoot, { major, minor, patch }, flags);
+}
+
+/** Creates the tag locally, once the caller has confirmed all prompts. Pushing is a separate, explicit step (see pushCommits/pushTag). */
+export async function createReleaseTag(repoRoot: string, preview: ReleasePreview): Promise<void> {
+  await $`git tag ${preview.tag}`.cwd(repoRoot);
 }
 
 export interface UndoFlags {

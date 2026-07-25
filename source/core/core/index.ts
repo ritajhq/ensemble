@@ -13,6 +13,7 @@ export { type RunPackOptions, runPack } from "./pack.ts";
 export { getRemoteProfile, type RemoteProfile, setRemoteProfile } from "./remote.ts";
 export {
   type BumpKind,
+  createReleaseTag,
   deleteRemoteTag,
   hasUncommittedChanges,
   pushCommits,

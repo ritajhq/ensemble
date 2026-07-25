@@ -1,6 +1,7 @@
 import { Command, EnumType } from "@cliffy/command";
 import { Confirm } from "@cliffy/prompt";
 import {
+  createReleaseTag,
   deleteRemoteTag,
   findRepoRoot,
   hasUncommittedChanges,
@@ -23,11 +24,14 @@ function printPreview(label: string, preview: ReleasePreview): void {
   console.log(`  from: ${preview.lastTag ?? "(no previous tag)"}`);
 }
 
-async function maybePushRelease(repoRoot: string, tag: string, remote: string): Promise<void> {
+/** Creates the tag locally, then optionally pushes it — both only after the caller has answered every prompt. */
+async function createAndMaybePushRelease(repoRoot: string, preview: ReleasePreview, remote: string): Promise<void> {
   const push = await Confirm.prompt({ message: `Push commits and tag to "${remote}"?`, default: false });
+  await createReleaseTag(repoRoot, preview);
+  console.log(`Created tag: ${preview.tag}`);
   if (!push) return;
   await pushCommits(repoRoot, remote);
-  await pushTag(repoRoot, tag, remote);
+  await pushTag(repoRoot, preview.tag, remote);
   console.log(`  pushed to: ${remote}`);
 }
 
@@ -45,8 +49,11 @@ export const releaseCommand = new Command()
     const repoRoot = await findRepoRoot();
     if (!dryRun && !await confirmUncommittedChanges(repoRoot)) return;
     const preview = await releaseNext(bump, { dryRun, preRelease, meta });
-    printPreview(dryRun ? "Would create" : "Created", preview);
-    if (!dryRun) await maybePushRelease(repoRoot, preview.tag, remote);
+    if (dryRun) {
+      printPreview("Would create", preview);
+      return;
+    }
+    await createAndMaybePushRelease(repoRoot, preview, remote);
   })
   .reset()
   .command("set", "Set an arbitrary version (shape x.y.z) and create a new release.")
@@ -55,8 +62,11 @@ export const releaseCommand = new Command()
     const repoRoot = await findRepoRoot();
     if (!dryRun && !await confirmUncommittedChanges(repoRoot)) return;
     const preview = await releaseSet(version, { dryRun, preRelease, meta });
-    printPreview(dryRun ? "Would create" : "Created", preview);
-    if (!dryRun) await maybePushRelease(repoRoot, preview.tag, remote);
+    if (dryRun) {
+      printPreview("Would create", preview);
+      return;
+    }
+    await createAndMaybePushRelease(repoRoot, preview, remote);
   })
   .reset()
   .command("undo", "Deletes the last tag. Does not touch any commit.")
