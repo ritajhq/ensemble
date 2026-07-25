@@ -1,3 +1,13 @@
+## [0.0.11-test] - 2026-07-25
+
+### 🐛 Bug Fixes
+
+- *(workflow)* Let run: steps' ens subcommands find the repo root
+- *(workflows/server)* Use ens bin instead of task
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.0.10-test
 ## [0.0.10-test] - 2026-07-25
 
 ### 🚀 Features
