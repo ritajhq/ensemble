@@ -1,6 +1,6 @@
 FROM denoland/deno:alpine-2.9.3
 
-RUN apk add --no-cache git github-cli curl
+RUN apk add --no-cache git github-cli curl docker-cli
 
 WORKDIR /app
 
