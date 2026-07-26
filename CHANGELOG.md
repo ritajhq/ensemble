@@ -1,3 +1,27 @@
+## [0.0.16-test] - 2026-07-26
+
+### 🐛 Bug Fixes
+
+- *(release)* Build server and pack cli before building image
+## [0.0.15-test] - 2026-07-26
+
+### 🐛 Bug Fixes
+
+- *(ship/server)* Add docker-cli-buildx for buildx build support
+## [0.0.14-test] - 2026-07-26
+
+### 🚀 Features
+
+- *(ship/server)* Add docker-cli
+## [0.0.13-test] - 2026-07-26
+
+### 📚 Documentation
+
+- Update readme
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.0.12-test
 ## [0.0.12-test] - 2026-07-26
 
 ### 🚀 Features
