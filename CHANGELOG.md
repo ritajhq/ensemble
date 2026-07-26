@@ -1,3 +1,17 @@
+## [0.0.12-test] - 2026-07-26
+
+### 🚀 Features
+
+- *(workflow)* Wrap step logs in start/end markers with name/type label
+- *(workflows/server)* Add server image publishing in release workflow
+
+### 🐛 Bug Fixes
+
+- *(cli/release)* Show tag preview before confirmation prompts, not just in dry-run
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.0.11-test
 ## [0.0.11-test] - 2026-07-25
 
 ### 🐛 Bug Fixes
