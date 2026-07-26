@@ -28,6 +28,10 @@ jobs:
         run: |
           set -euo pipefail
           cd ensemble
+
+          ens build server
+          ens pack -o cli cli deno.compile
+
           ens pack server docker
       
       - name: publish_server_image
