@@ -79,3 +79,24 @@ Deno.test("runJob: job-level if: referencing needs.<job>.result", async () => {
   const outcome = await runJob(job, rootWithNeeds, workflowDir, cwd, silentLogger("deploy"));
   assertEquals(outcome.result, "success");
 });
+
+Deno.test("runJob: step start/end markers use name, falling back to step type", async () => {
+  const job: Job = {
+    steps: [
+      { name: "Say hi", run: "echo hi" },
+      { script: "./succeeding-script.ts" },
+    ],
+  };
+  const lines: string[] = [];
+  const originalLog = console.log;
+  console.log = (msg: string) => lines.push(msg);
+  try {
+    await runJob(job, root, workflowDir, cwd, silentLogger("test"));
+  } finally {
+    console.log = originalLog;
+  }
+  assertEquals(lines.includes("--- step:test/Say hi started ---"), true);
+  assertEquals(lines.some((l) => l.startsWith("--- step:test/Say hi success")), true);
+  assertEquals(lines.includes("--- step:test/script started ---"), true);
+  assertEquals(lines.some((l) => l.startsWith("--- step:test/script success")), true);
+});

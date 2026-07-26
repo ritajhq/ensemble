@@ -35,7 +35,7 @@ export async function runJob(
   let result: JobResult = "success";
 
   for (const step of job.steps) {
-    const label = step.id ?? step.run ?? step.script ?? "step";
+    const label = step.name ?? (step.run !== undefined ? "shell" : "script");
 
     if (signal.aborted) {
       result = "cancelled";

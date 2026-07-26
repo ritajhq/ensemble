@@ -34,6 +34,39 @@ jobs:
   );
 });
 
+Deno.test("parseWorkflowFile: step name parses", async () => {
+  await withFixture(
+    "valid-step-name.yml",
+    `
+jobs:
+  build:
+    steps:
+      - name: Compile the project
+        run: echo hi
+`,
+    async (path) => {
+      const workflow = await parseWorkflowFile(path);
+      assertEquals(workflow.jobs.build.steps[0].name, "Compile the project");
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: step with non-string name fails", async () => {
+  await withFixture(
+    "invalid-step-name.yml",
+    `
+jobs:
+  build:
+    steps:
+      - name: 123
+        run: echo hi
+`,
+    async (path) => {
+      await assertRejects(() => parseWorkflowFile(path), WorkflowParseError);
+    },
+  );
+});
+
 Deno.test("parseWorkflowFile: missing jobs", async () => {
   await withFixture(
     "missing-jobs.yml",

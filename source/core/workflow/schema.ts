@@ -1,5 +1,7 @@
 export interface Step {
   id?: string;
+  /** Human-readable label for this step, shown in logs. Falls back to the step type ("shell"/"script") when unset. */
+  name?: string;
   run?: string;
   script?: string;
   if?: string;

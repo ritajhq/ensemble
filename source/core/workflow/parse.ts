@@ -26,6 +26,9 @@ function validateStep(file: string, jobId: string, index: number, raw: unknown):
   if (raw.id !== undefined && typeof raw.id !== "string") {
     fail(file, `job "${jobId}" step #${index + 1} has a non-string "id".`);
   }
+  if (raw.name !== undefined && typeof raw.name !== "string") {
+    fail(file, `job "${jobId}" step #${index + 1} has a non-string "name".`);
+  }
   if (raw.if !== undefined && typeof raw.if !== "string") {
     fail(file, `job "${jobId}" step #${index + 1} has a non-string "if".`);
   }
@@ -35,6 +38,7 @@ function validateStep(file: string, jobId: string, index: number, raw: unknown):
   }
   return {
     id: raw.id as string | undefined,
+    name: raw.name as string | undefined,
     run: raw.run as string | undefined,
     script: raw.script as string | undefined,
     if: raw.if as string | undefined,
