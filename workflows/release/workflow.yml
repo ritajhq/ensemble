@@ -24,6 +24,27 @@ jobs:
           cd ensemble
           ens pack cli deno.compile
 
+      - name: build_server_image
+        run: |
+          set -euo pipefail
+          cd ensemble
+          ens pack server docker
+      
+      - name: publish_server_image
+        run: |
+          set -euo pipefail
+
+          VERSION="$(cat /tmp/ensemble-release-tag)"
+
+          cd ensemble
+          docker image tag server:latest registry.ritaj.app/ensemble/server:latest
+          docker image tag server:latest registry.ritaj.app/ensemble/server:"$VERSION"
+
+          docker login registry.ritaj.app -u "$REGISTRY_USERNAME" -p "$REGISTRY_PASSWORD"
+
+          docker push registry.ritaj.app/ensemble/server:latest
+          docker push registry.ritaj.app/ensemble/server:"$VERSION"
+
       - name: update_changelog
         run: |
           set -euo pipefail
