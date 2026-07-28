@@ -53,18 +53,23 @@ export const workflowCommand = new Command()
   .option("-j, --job <job:string>", "Run only this job and its transitive dependencies.")
   .option("-c, --concurrency <concurrency:number>", "Max number of jobs to run concurrently.")
   .option(
+    "--context <context:string>",
+    "Deploy context to run with. Exposed to every job/step as the workflow_context variable, set to \"contexts/<context>\".",
+  )
+  .option(
     "-r, --remote <profile:string>",
     "Trigger this workflow on a remote ensemble server instead of running it locally (see `workflow remote configure`). The workflow must be deployed there already and declare an http trigger. Blocks until the remote run finishes; remote logs aren't streamed back.",
   )
-  .action(async ({ job, concurrency, remote }, name) => {
+  .action(async ({ job, concurrency, context, remote }, name) => {
     if (remote) {
       const profile = await getRemoteProfile(remote);
       const client = httpTriggerClient({ baseUrl: profile.url, token: profile.secret });
-      const { success } = await client.actions.trigger(name, { job, concurrency });
+      const variables = context !== undefined ? { workflow_context: `contexts/${context}` } : undefined;
+      const { success } = await client.actions.trigger(name, { job, concurrency, variables });
       if (!success) Deno.exit(1);
       return;
     }
-    const success = await runWorkflowByName(name, { job, concurrency });
+    const success = await runWorkflowByName(name, { job, concurrency, context });
     if (!success) Deno.exit(1);
   })
   .command("remote", remoteCommand);

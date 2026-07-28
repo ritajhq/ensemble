@@ -9,6 +9,14 @@ export interface RunWorkflowByNameOptions {
   concurrency?: number;
   /** Extra variables merged on top of the process's own env vars for this run. */
   variables?: Record<string, string>;
+  /**
+   * Deploy context name (e.g. "development", "stage", "production"). Exposed
+   * to every job/step as the `workflow_context` variable, set to
+   * "contexts/<name>" — mirrors ENSEMBLE_WORKSPACE below in shape: a
+   * CLI-level concern threaded in as a plain variable rather than a
+   * dedicated engine option.
+   */
+  context?: string;
   /** Data from whatever triggered this run, made available as `trigger.*` in every job/step. */
   trigger?: Record<string, unknown>;
 }
@@ -76,14 +84,18 @@ export async function runWorkflowByName(
 ): Promise<boolean> {
   const repoRoot = await findRepoRoot();
   const { workflow, workflowDir } = await getWorkflowByName(name);
+  const variables = options.variables || options.context !== undefined
+    ? {
+      ...Object.fromEntries(Object.entries(Deno.env.toObject())),
+      ...options.variables,
+      ...(options.context !== undefined && { workflow_context: join("contexts", options.context) }),
+    }
+    : undefined;
   const { success } = await runWorkflow(workflow, {
     workflowDir,
     job: options.job,
     concurrency: options.concurrency,
-    variables: options.variables && {
-      ...Object.fromEntries(Object.entries(Deno.env.toObject())),
-      ...options.variables,
-    },
+    variables,
     trigger: options.trigger,
     repoRoot,
   });
