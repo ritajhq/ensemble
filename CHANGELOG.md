@@ -1,3 +1,12 @@
+## [0.0.17-test] - 2026-07-28
+
+### 🚀 Features
+
+- *(cli/workflow)* Add context flag
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.0.16-test
 ## [0.0.16-test] - 2026-07-26
 
 ### 🐛 Bug Fixes
