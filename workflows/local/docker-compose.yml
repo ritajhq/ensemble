@@ -5,8 +5,7 @@ services:
     expose:
       - "8787"
     volumes:
-      - ./.ensemble:/workspace/.ensemble
-      - ./workflows:/workspace/workflows
+      - ./workspace:/workspace
     develop:
       watch:
         - action: sync+restart
