@@ -1,0 +1,7 @@
+{
+  "name": "@ritaj/event",
+  "exports": "./index.ts",
+  "compilerOptions": {
+    "experimentalDecorators": true
+  }
+}
