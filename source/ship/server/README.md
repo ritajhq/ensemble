@@ -10,8 +10,8 @@ mkdir -p ~/.local/share/ensemble/.ensemble ~/.local/share/ensemble/workflows
 
 Generate one strong random token per caller (or one for everything, if
 you're the only caller) and grant each the permissions it needs —
-`trigger` for POST /workflows/:name/trigger, `upload` for PUT
-/workflows/:name:
+`trigger` for POST /v1/workflows/:name/trigger, `upload` for PUT
+/v1/workflows/:name:
 
 ```sh
 openssl rand -hex 32

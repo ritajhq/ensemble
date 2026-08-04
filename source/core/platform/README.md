@@ -18,7 +18,7 @@ Every feature is on by default; set `ENSEMBLE_FEATURE_<NAME>=false`
 (name upper-cased, `-` → `_`) to disable one without removing it from
 the feature list.
 
-### `http-trigger` — `POST /workflows/:name/trigger`
+### `http-trigger` — `POST /v1/workflows/:name/trigger`
 
 Triggers a workflow by name. The target workflow must declare an `http`
 entry under its own `on:` (see `@ensemble/workflow`'s README) — a request
@@ -40,7 +40,7 @@ workflow's own YAML maps `trigger.<key>` to a dot-path into it (e.g.
 Fails closed — a missing/unreadable tokens file, or a token without this
 permission, both reject the request.
 
-### `github-trigger` — `POST /webhooks/github`
+### `github-trigger` — `POST /v1/webhooks/github`
 
 A single global endpoint (this is how GitHub webhooks work — one
 configured URL per repo, not one per workflow). Fans out: on a `push`
@@ -54,7 +54,7 @@ HMAC-SHA256 request signing), verified against `GITHUB_WEBHOOK_SECRET`.
 Fails closed — if that env var isn't set, every push is rejected with
 401, not silently accepted unsigned.
 
-### `workflow-registry` — `PUT /workflows/:name`
+### `workflow-registry` — `PUT /v1/workflows/:name`
 
 Uploads a `.tar.gz` of a workflow's whole directory tree (`workflow.yml`,
 `steps/`, optionally its own `deno.json` — see the workflow README's
