@@ -6,7 +6,7 @@ It needs .ensemble/ and workflows/.
 mkdir -p ~/.local/share/ensemble/.ensemble ~/.local/share/ensemble/workflows
 ```
 
-1. Create `.ensemble/tokens.json`
+1. Create `.ensemble/platform/tokens.json`
 
 Generate one strong random token per caller (or one for everything, if
 you're the only caller) and grant each the permissions it needs —
@@ -18,7 +18,7 @@ openssl rand -hex 32
 ```
 
 ```json
-// ~/.local/share/ensemble/.ensemble/tokens.json
+// ~/.local/share/ensemble/.ensemble/platform/tokens.json
 {
   "<generated-token>": { "trigger": true, "upload": true }
 }

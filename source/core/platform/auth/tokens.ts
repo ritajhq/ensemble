@@ -14,7 +14,7 @@ let cache: { mtime: number; tokens: TokensFile } | undefined;
 
 async function getTokensFilePath(): Promise<string> {
   const repoRoot = await findRepoRoot();
-  return join(repoRoot, ".ensemble", "tokens.json");
+  return join(repoRoot, ".ensemble", "platform", "tokens.json");
 }
 
 async function loadTokens(): Promise<TokensFile> {
@@ -55,7 +55,7 @@ function timingSafeStringEqual(a: string, b: string): boolean {
 
 /**
  * Checks a request's `Authorization: Bearer <token>` against
- * .ensemble/tokens.json, requiring the matched token's permission record to
+ * .ensemble/platform/tokens.json, requiring the matched token's permission record to
  * have `permission` set to true. Every candidate token is compared (never
  * short-circuiting on the first match) so response timing doesn't leak which
  * stored token, if any, was closest to matching. Fails closed: a missing,

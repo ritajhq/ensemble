@@ -3,7 +3,7 @@ import type { GetStepLogResponse, ListRunsResponse, ListRunStepsResponse, ListWo
 
 export interface DashboardClientOptions {
   baseUrl: string;
-  /** Sent as `Authorization: Bearer <token>` — must be a token granted "read" in the server's .ensemble/tokens.json. */
+  /** Sent as `Authorization: Bearer <token>` — must be a token granted "read" in the server's .ensemble/platform/tokens.json. */
   token: string;
 }
 

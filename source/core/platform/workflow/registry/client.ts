@@ -2,7 +2,7 @@ import { encodeWorkflowId } from "@ensemble/core";
 
 export interface WorkflowRegistryClientOptions {
   baseUrl: string;
-  /** Sent as `Authorization: Bearer <token>` — must be a token granted "upload" in the server's .ensemble/tokens.json. */
+  /** Sent as `Authorization: Bearer <token>` — must be a token granted "upload" in the server's .ensemble/platform/tokens.json. */
   token: string;
 }
 

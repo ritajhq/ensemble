@@ -36,7 +36,7 @@ workflow's own YAML maps `trigger.<key>` to a dot-path into it (e.g.
 `sha: commit.sha` → `trigger.sha`).
 
 **Auth**: requires `Authorization: Bearer <token>` for a token granted
-`trigger: true` in `.ensemble/tokens.json` (see "Authentication" below).
+`trigger: true` in `.ensemble/platform/tokens.json` (see "Authentication" below).
 Fails closed — a missing/unreadable tokens file, or a token without this
 permission, both reject the request.
 
@@ -69,7 +69,7 @@ invalid or malformed upload can't leave a broken workflow in place — it's
 rejected with 400 and the live `workflows/<name>` is untouched.
 
 **Auth**: requires `Authorization: Bearer <token>` for a token granted
-`upload: true` in `.ensemble/tokens.json` — a separate permission from
+`upload: true` in `.ensemble/platform/tokens.json` — a separate permission from
 `http-trigger`'s `trigger`, since the ability to overwrite a workflow's
 code is a stronger capability than the ability to trigger an existing
 one. A token can be granted one, the other, or both. Fails closed the
@@ -82,7 +82,7 @@ rather than re-uploading a whole archive per change) are deferred.
 ## Authentication
 
 `http-trigger` and `workflow-registry` both check the request's bearer
-token against `.ensemble/tokens.json` — a JSON object mapping each valid
+token against `.ensemble/platform/tokens.json` — a JSON object mapping each valid
 token to the permissions it's been granted:
 
 ```json
