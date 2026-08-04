@@ -20,7 +20,7 @@ ens workflow deploy
 ens workflow deploy --job build
 ens workflow deploy --concurrency 2
 ens workflow deploy --context production
-ens workflow deploy -e GREETING=hi -e API_URL=https://staging.example.com
+ens workflow deploy -v GREETING=hi -v API_URL=https://staging.example.com
 ens workflow deploy -i sha=abc123 -i replicas=3
 ```
 
@@ -312,7 +312,7 @@ killed by fail-fast exits via its process signal, not a normal error.
 
 - `variables.*` — the run's variables: the process's own env vars, then
   the workflow's own `variables:` block, then any caller-supplied
-  overrides (`RunWorkflowOptions.variables`, the CLI's `-e`, or a manual
+  overrides (`RunWorkflowOptions.variables`, the CLI's `-v`, or a manual
   trigger's `variables`) — see "Variables" above for the full precedence
   chain. Also available for interpolation (not just `if:`) inside a
   step's `run:` and `name:`.

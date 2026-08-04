@@ -61,7 +61,7 @@ export const workflowCommand = new Command()
     "-r, --remote <profile:string>",
     "Trigger this workflow on a remote ensemble server instead of running it locally (see `workflow remote configure`). The workflow must be deployed there already and declare a manual trigger. Blocks until the remote run finishes; remote logs aren't streamed back.",
   )
-  .option("-e, --var <var:string>", "Override a workflow variable (KEY=VALUE). Repeatable.", { collect: true })
+  .option("-v, --var <var:string>", "Override a workflow variable (KEY=VALUE). Repeatable.", { collect: true })
   .option(
     "-i, --input <input:string>",
     "Set a value for the workflow's declared manual trigger input (NAME=VALUE). VALUE is JSON-parsed when possible (e.g. -i replicas=3, -i enabled=true), else used as a plain string. Repeatable.",
