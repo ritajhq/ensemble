@@ -1,0 +1,33 @@
+{
+  "name": "ensemble.workspace",
+  "dockerFile": "./Dockerfile",
+  "workspaceFolder": "/home/developer/workspace",
+  "updateRemoteUserUID": true,
+  "workspaceMount": "source=${localWorkspaceFolder},target=/home/developer/workspace,type=bind,consistency=cached",
+  "mounts": [
+    "source=${localEnv:HOME}/.ssh,target=/home/developer/.ssh,type=bind",
+    "source=${devcontainerId}-zshhistory,target=/commandhistory,type=volume",
+    "source=claude-code-config,target=/home/developer/.claude,type=volume"
+  ],
+  "postStartCommand": "zsh -c 'deno install'",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:4.0.0": {
+      "moby": false
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "arcanis.vscode-zipfs",
+        "bradlc.vscode-tailwindcss",
+        "GitHub.copilot",
+        "eamodio.gitlens",
+        "ms-azuretools.vscode-docker",
+        "mhutchie.git-graph",
+        "Anthropic.claude-code",
+        "hashicorp.terraform",
+        "denoland.vscode-deno"
+      ]
+    }
+  }
+}
