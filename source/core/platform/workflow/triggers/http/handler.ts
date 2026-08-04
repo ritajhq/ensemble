@@ -1,4 +1,4 @@
-import { getWorkflowByName, runWorkflowByName } from "@ensemble/core";
+import { decodeWorkflowId, getWorkflowByName, runWorkflowByName } from "@ensemble/core";
 import { isAuthorizedFor } from "../../../auth/tokens.ts";
 import { extractTriggerPayload } from "./extract.ts";
 import { isHttpTriggerRequest, type HttpTriggerResponse } from "./contract.ts";
@@ -11,9 +11,15 @@ export async function handleHttpTrigger(
     return Response.json({ error: "Missing or invalid bearer token." }, { status: 401 });
   }
 
-  const name = params.name;
-  if (!name) {
-    return Response.json({ error: "Missing workflow name in URL." }, { status: 400 });
+  const id = params.id;
+  if (!id) {
+    return Response.json({ error: "Missing workflow id in URL." }, { status: 400 });
+  }
+  let name: string;
+  try {
+    name = decodeWorkflowId(id);
+  } catch (error) {
+    return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 });
   }
 
   const text = await request.text();

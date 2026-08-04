@@ -1,3 +1,4 @@
+import { encodeWorkflowId } from "@ensemble/core";
 import type { HttpTriggerRequest, HttpTriggerResponse } from "./contract.ts";
 
 export interface HttpTriggerClientOptions {
@@ -16,7 +17,7 @@ export function httpTriggerClient(options: HttpTriggerClientOptions): HttpTrigge
   return {
     actions: {
       async trigger(name: string, request: HttpTriggerRequest = {}): Promise<HttpTriggerResponse> {
-        const response = await fetch(new URL(`/workflows/${encodeURIComponent(name)}/trigger`, options.baseUrl), {
+        const response = await fetch(new URL(`/v1/workflows/${encodeWorkflowId(name)}/trigger`, options.baseUrl), {
           method: "POST",
           headers: {
             "content-type": "application/json",

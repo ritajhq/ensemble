@@ -6,6 +6,6 @@ export { handleGithubTrigger } from "./handler.ts";
 export const githubTriggerFeature: Feature = {
   name: "github-trigger",
   method: "POST",
-  pattern: new URLPattern({ pathname: "/webhooks/github" }),
+  pattern: new URLPattern({ pathname: "/v1/webhooks/github" }),
   handle: handleGithubTrigger,
 };

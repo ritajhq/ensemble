@@ -12,6 +12,6 @@ export {
 export const workflowRegistryFeature: Feature = {
   name: "workflow-registry",
   method: "PUT",
-  pattern: new URLPattern({ pathname: "/workflows/:name" }),
+  pattern: new URLPattern({ pathname: "/v1/workflows/:id" }),
   handle: handleUploadWorkflow,
 };

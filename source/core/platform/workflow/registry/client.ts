@@ -1,3 +1,5 @@
+import { encodeWorkflowId } from "@ensemble/core";
+
 export interface WorkflowRegistryClientOptions {
   baseUrl: string;
   /** Sent as `Authorization: Bearer <token>` — must be a token granted "upload" in the server's .ensemble/tokens.json. */
@@ -19,7 +21,7 @@ export function workflowRegistryClient(options: WorkflowRegistryClientOptions): 
   return {
     actions: {
       async upload(name: string, tarGz: BodyInit): Promise<WorkflowUploadResponse> {
-        const response = await fetch(new URL(`/workflows/${encodeURIComponent(name)}`, options.baseUrl), {
+        const response = await fetch(new URL(`/v1/workflows/${encodeWorkflowId(name)}`, options.baseUrl), {
           method: "PUT",
           headers: {
             "content-type": "application/gzip",

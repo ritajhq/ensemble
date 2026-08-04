@@ -5,6 +5,7 @@ import { findRepoRoot } from "@ensemble/core";
 export interface TokenPermissions {
   trigger?: boolean;
   upload?: boolean;
+  read?: boolean;
 }
 
 type TokensFile = Record<string, TokenPermissions>;

@@ -8,6 +8,6 @@ export { type HttpTriggerClient, httpTriggerClient, type HttpTriggerClientOption
 export const httpTriggerFeature: Feature = {
   name: "http-trigger",
   method: "POST",
-  pattern: new URLPattern({ pathname: "/workflows/:name/trigger" }),
+  pattern: new URLPattern({ pathname: "/v1/workflows/:id/trigger" }),
   handle: handleHttpTrigger,
 };
