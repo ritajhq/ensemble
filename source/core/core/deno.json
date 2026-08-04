@@ -10,6 +10,7 @@
     "@david/dax": "jsr:@david/dax@0.42.0",
     "@david/which": "jsr:@david/which@0.4.2",
     "@ensemble/kit-sdk": "jsr:@ensemble/kit-sdk",
-    "@ensemble/workflow": "jsr:@ensemble/workflow"
+    "@ensemble/workflow": "jsr:@ensemble/workflow",
+    "@ritaj/event": "jsr:@ritaj/event"
   }
 }
