@@ -1,7 +1,7 @@
-import { Command } from "@cliffy/command";
+import { Command, ValidationError } from "@cliffy/command";
 import { Input, Secret } from "@cliffy/prompt";
 import { createWorkflowArchive, getRemoteProfile, getWorkflowByName, runWorkflowByName, setRemoteProfile } from "@ensemble/core";
-import { httpTriggerClient, workflowRegistryClient } from "@ensemble/platform";
+import { extractManualInputs, ManualInputError, manualTriggerClient, workflowRegistryClient } from "@ensemble/platform";
 import * as CliUtil from "./util.ts";
 
 const remoteConfigureCommand = new Command()
@@ -59,19 +59,45 @@ export const workflowCommand = new Command()
   )
   .option(
     "-r, --remote <profile:string>",
-    "Trigger this workflow on a remote ensemble server instead of running it locally (see `workflow remote configure`). The workflow must be deployed there already and declare an http trigger. Blocks until the remote run finishes; remote logs aren't streamed back.",
+    "Trigger this workflow on a remote ensemble server instead of running it locally (see `workflow remote configure`). The workflow must be deployed there already and declare a manual trigger. Blocks until the remote run finishes; remote logs aren't streamed back.",
   )
   .option("-e, --var <var:string>", "Override a workflow variable (KEY=VALUE). Repeatable.", { collect: true })
-  .action(async ({ job, concurrency, context, remote, var: vars }, name) => {
+  .option(
+    "-i, --input <input:string>",
+    "Set a value for the workflow's declared manual trigger input (NAME=VALUE). VALUE is JSON-parsed when possible (e.g. -i replicas=3, -i enabled=true), else used as a plain string. Repeatable.",
+    { collect: true },
+  )
+  .action(async ({ job, concurrency, context, remote, var: vars, input: inputs }, name) => {
     const overrides = CliUtil.parseVarOverrides(vars ?? []);
+    const inputOverrides = CliUtil.parseInputOverrides(inputs ?? []);
     if (remote) {
       const profile = await getRemoteProfile(remote);
-      const client = httpTriggerClient({ baseUrl: profile.url, token: profile.secret });
-      const { success } = await client.actions.trigger(name, { job, concurrency, context, variables: overrides });
+      const client = manualTriggerClient({ baseUrl: profile.url, token: profile.secret });
+      const { success } = await client.actions.trigger(name, {
+        job,
+        concurrency,
+        context,
+        variables: overrides,
+        inputs: inputOverrides,
+      });
       if (!success) Deno.exit(1);
       return;
     }
-    const success = await runWorkflowByName(name, { job, concurrency, context, variables: overrides });
+
+    const { workflow } = await getWorkflowByName(name);
+    const manualTrigger = workflow.on?.find((t) => t.manual)?.manual;
+    let trigger: Record<string, unknown> | undefined;
+    if (manualTrigger) {
+      try {
+        trigger = extractManualInputs(inputOverrides, manualTrigger.inputs ?? []);
+      } catch (error) {
+        if (error instanceof ManualInputError) throw new ValidationError(error.message);
+        throw error;
+      }
+      trigger.type = "manual";
+    }
+
+    const success = await runWorkflowByName(name, { job, concurrency, context, variables: overrides, trigger });
     if (!success) Deno.exit(1);
   })
   .command("remote", remoteCommand);

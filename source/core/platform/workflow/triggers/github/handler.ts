@@ -75,7 +75,7 @@ export async function handleGithubTrigger(request: Request): Promise<Response> {
 
   for (const { name } of matches) {
     runWorkflowByName(name, {
-      trigger: { ref: payload.ref, tag, sha: payload.after },
+      trigger: { type: "github", ref: payload.ref, tag, sha: payload.after },
     }).catch((error) => {
       console.error(
         `workflow "${name}" triggered by github push failed:`,

@@ -1,9 +1,9 @@
 import { decodeWorkflowId, getWorkflowByName, runWorkflowByName } from "@ensemble/core";
 import { isAuthorizedFor } from "../../../auth/tokens.ts";
-import { extractTriggerPayload } from "./extract.ts";
-import { isHttpTriggerRequest, type HttpTriggerResponse } from "./contract.ts";
+import { extractManualInputs, ManualInputError } from "./extract.ts";
+import { isManualTriggerRequest, type ManualTriggerResponse } from "./contract.ts";
 
-export async function handleHttpTrigger(
+export async function handleManualTrigger(
   request: Request,
   params: Record<string, string | undefined>,
 ): Promise<Response> {
@@ -31,10 +31,10 @@ export async function handleHttpTrigger(
       return Response.json({ error: "Request body must be valid JSON." }, { status: 400 });
     }
   }
-  if (!isHttpTriggerRequest(body)) {
+  if (!isManualTriggerRequest(body)) {
     return Response.json({
       error:
-        "Expected { job?: string, concurrency?: number, variables?: Record<string,string>, context?: string, payload?: unknown }.",
+        "Expected { job?: string, concurrency?: number, variables?: Record<string,string>, context?: string, inputs?: Record<string,unknown> }.",
     }, { status: 400 });
   }
 
@@ -45,15 +45,24 @@ export async function handleHttpTrigger(
     return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 404 });
   }
 
-  const httpTrigger = workflow.on?.find((t) => t.http)?.http;
-  if (!httpTrigger) {
+  const manualTrigger = workflow.on?.find((t) => t.manual)?.manual;
+  if (!manualTrigger) {
     return Response.json(
-      { error: `Workflow "${name}" has no "http" trigger declared under "on:".` },
+      { error: `Workflow "${name}" has no "manual" trigger declared under "on:".` },
       { status: 403 },
     );
   }
 
-  const trigger = httpTrigger.payload ? extractTriggerPayload(body.payload, httpTrigger.payload) : undefined;
+  let trigger: Record<string, unknown>;
+  try {
+    trigger = extractManualInputs(body.inputs, manualTrigger.inputs ?? []);
+  } catch (error) {
+    if (error instanceof ManualInputError) {
+      return Response.json({ error: error.message }, { status: 400 });
+    }
+    throw error;
+  }
+  trigger.type = "manual";
 
   try {
     const success = await runWorkflowByName(name, {
@@ -63,7 +72,7 @@ export async function handleHttpTrigger(
       context: body.context,
       trigger,
     });
-    return Response.json({ success } satisfies HttpTriggerResponse);
+    return Response.json({ success } satisfies ManualTriggerResponse);
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 });
   }

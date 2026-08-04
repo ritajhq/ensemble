@@ -23,9 +23,57 @@ export interface Job {
   steps: Step[];
 }
 
-export interface HttpTrigger {
-  /** Maps trigger.<key> to a dot-path into the incoming request's "payload" field. */
-  payload?: Record<string, string>;
+interface ManualInputBase {
+  /** Read from the trigger request's `inputs.<name>` and exposed as `trigger.<name>`. */
+  name: string;
+  /** Human-readable label for a UI to show alongside this input. Purely descriptive — never read by validation. */
+  display?: string;
+}
+
+export interface ManualStringInput extends ManualInputBase {
+  type: "string";
+  default?: string;
+}
+
+export interface ManualNumberInput extends ManualInputBase {
+  type: "number";
+  default?: number;
+}
+
+export interface ManualBooleanInput extends ManualInputBase {
+  type: "boolean";
+  default?: boolean;
+}
+
+export interface ManualObjectInput extends ManualInputBase {
+  type: "object";
+  default?: Record<string, unknown>;
+}
+
+export interface ManualGitTagsInput extends ManualInputBase {
+  type: "git-tags";
+  /** Git repo URL a UI can list tags from to offer as a select. Validated as a plain string at trigger time. */
+  repository: string;
+  default?: string;
+}
+
+export interface ManualContextInput extends ManualInputBase {
+  type: "context";
+  default?: string;
+}
+
+/** One input a manual trigger accepts. Required unless `default` is set. `type` governs which extra properties apply. */
+export type ManualInput =
+  | ManualStringInput
+  | ManualNumberInput
+  | ManualBooleanInput
+  | ManualObjectInput
+  | ManualGitTagsInput
+  | ManualContextInput;
+
+export interface ManualTrigger {
+  /** Named, typed inputs this trigger accepts, read from the trigger request's `inputs.<name>` and exposed as `trigger.<name>`. */
+  inputs?: ManualInput[];
 }
 
 export interface GithubTrigger {
@@ -35,9 +83,9 @@ export interface GithubTrigger {
   };
 }
 
-/** Exactly one of "http" or "github" is set. */
+/** Exactly one of "manual" or "github" is set. */
 export interface Trigger {
-  http?: HttpTrigger;
+  manual?: ManualTrigger;
   github?: GithubTrigger;
 }
 

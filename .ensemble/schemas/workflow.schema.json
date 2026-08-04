@@ -31,33 +31,60 @@
   "additionalProperties": false,
   "definitions": {
     "trigger": {
-      "description": "Exactly one of \"http\" or \"github\" must be set.",
+      "description": "Exactly one of \"manual\" or \"github\" must be set.",
       "type": "object",
       "oneOf": [
         {
-          "required": ["http"],
+          "required": ["manual"],
           "not": { "required": ["github"] }
         },
         {
           "required": ["github"],
-          "not": { "required": ["http"] }
+          "not": { "required": ["manual"] }
         }
       ],
       "properties": {
-        "http": { "$ref": "#/definitions/httpTrigger" },
+        "manual": { "$ref": "#/definitions/manualTrigger" },
         "github": { "$ref": "#/definitions/githubTrigger" }
       },
       "additionalProperties": false
     },
-    "httpTrigger": {
+    "manualTrigger": {
       "type": "object",
       "properties": {
-        "payload": {
-          "description": "Maps trigger.<key> to a dot-path into the incoming request's \"payload\" field.",
-          "type": "object",
-          "additionalProperties": { "type": "string" }
+        "inputs": {
+          "description": "Named, typed inputs this trigger accepts, read from the trigger request's inputs.<name> and exposed as trigger.<name>.",
+          "type": "array",
+          "items": { "$ref": "#/definitions/manualInput" }
         }
       },
+      "additionalProperties": false
+    },
+    "manualInput": {
+      "description": "Required unless \"default\" is set. \"type\" governs which extra properties apply (e.g. git-tags requires \"repository\").",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Read from the trigger request's inputs.<name> and exposed as trigger.<name>.",
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["string", "number", "boolean", "object", "git-tags", "context"]
+        },
+        "display": {
+          "description": "Human-readable label for a UI to show alongside this input. Purely descriptive.",
+          "type": "string"
+        },
+        "default": {
+          "description": "Makes this input optional, falling back to this value when omitted. Must match \"type\"."
+        },
+        "repository": {
+          "description": "Git repo URL a UI can list tags from to offer as a select. Only valid (and required) for type: git-tags.",
+          "type": "string"
+        }
+      },
+      "required": ["name", "type"],
       "additionalProperties": false
     },
     "githubTrigger": {

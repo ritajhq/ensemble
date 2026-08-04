@@ -1,4 +1,18 @@
-export type { GithubTrigger, HttpTrigger, Job, Matrix, Step, Trigger, Workflow } from "./schema.ts";
+export type {
+  GithubTrigger,
+  Job,
+  ManualContextInput,
+  ManualGitTagsInput,
+  ManualInput,
+  ManualNumberInput,
+  ManualObjectInput,
+  ManualStringInput,
+  ManualTrigger,
+  Matrix,
+  Step,
+  Trigger,
+  Workflow,
+} from "./schema.ts";
 export { parseWorkflowFile, WorkflowParseError } from "./parse.ts";
 export { buildBatches, transitiveDeps, WorkflowCycleError } from "./graph.ts";
 export { WorkflowExpressionError } from "./expressions.ts";

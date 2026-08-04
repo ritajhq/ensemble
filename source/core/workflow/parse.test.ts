@@ -258,14 +258,18 @@ jobs:
   );
 });
 
-Deno.test("parseWorkflowFile: valid http trigger with payload mapping parses", async () => {
+Deno.test("parseWorkflowFile: valid manual trigger with inputs parses", async () => {
   await withFixture(
-    "valid-http-trigger.yml",
+    "valid-manual-trigger.yml",
     `
 on:
-  - http:
-      payload:
-        sha: commit.sha
+  - manual:
+      inputs:
+        - name: sha
+          type: string
+        - name: replicas
+          type: number
+          default: 1
 jobs:
   build:
     steps:
@@ -273,7 +277,33 @@ jobs:
 `,
     async (path) => {
       const workflow = await parseWorkflowFile(path);
-      assertEquals(workflow.on, [{ http: { payload: { sha: "commit.sha" } }, github: undefined }]);
+      assertEquals(workflow.on, [{
+        manual: {
+          inputs: [
+            { name: "sha", type: "string" },
+            { name: "replicas", type: "number", default: 1 },
+          ],
+        },
+        github: undefined,
+      }]);
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: manual trigger with no inputs parses", async () => {
+  await withFixture(
+    "manual-trigger-no-inputs.yml",
+    `
+on:
+  - manual: {}
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      const workflow = await parseWorkflowFile(path);
+      assertEquals(workflow.on, [{ manual: {}, github: undefined }]);
     },
   );
 });
@@ -293,17 +323,17 @@ jobs:
 `,
     async (path) => {
       const workflow = await parseWorkflowFile(path);
-      assertEquals(workflow.on, [{ http: undefined, github: { push: { tags: ["v*"] } } }]);
+      assertEquals(workflow.on, [{ manual: undefined, github: { push: { tags: ["v*"] } } }]);
     },
   );
 });
 
-Deno.test("parseWorkflowFile: on: with both http and github in one entry fails", async () => {
+Deno.test("parseWorkflowFile: on: with both manual and github in one entry fails", async () => {
   await withFixture(
-    "on-both-http-and-github.yml",
+    "on-both-manual-and-github.yml",
     `
 on:
-  - http: {}
+  - manual: {}
     github:
       push:
         tags: ["v*"]
@@ -316,13 +346,13 @@ jobs:
       await assertRejects(
         () => parseWorkflowFile(path),
         WorkflowParseError,
-        'must have exactly one of "http" or "github"',
+        'must have exactly one of "manual" or "github"',
       );
     },
   );
 });
 
-Deno.test("parseWorkflowFile: on: entry with neither http nor github fails", async () => {
+Deno.test("parseWorkflowFile: on: entry with neither manual nor github fails", async () => {
   await withFixture(
     "on-neither.yml",
     `
@@ -337,7 +367,7 @@ jobs:
       await assertRejects(
         () => parseWorkflowFile(path),
         WorkflowParseError,
-        'must have exactly one of "http" or "github"',
+        'must have exactly one of "manual" or "github"',
       );
     },
   );
@@ -365,14 +395,15 @@ jobs:
   );
 });
 
-Deno.test("parseWorkflowFile: http trigger with non-string payload value fails", async () => {
+Deno.test("parseWorkflowFile: manual trigger input with unknown type fails", async () => {
   await withFixture(
-    "http-bad-payload.yml",
+    "manual-bad-type.yml",
     `
 on:
-  - http:
-      payload:
-        count: 5
+  - manual:
+      inputs:
+        - name: count
+          type: integer
 jobs:
   build:
     steps:
@@ -382,7 +413,133 @@ jobs:
       await assertRejects(
         () => parseWorkflowFile(path),
         WorkflowParseError,
-        `has a "payload" that isn't a mapping of strings`,
+        `has a "type" that must be one of`,
+      );
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: manual trigger input missing name fails", async () => {
+  await withFixture(
+    "manual-missing-name.yml",
+    `
+on:
+  - manual:
+      inputs:
+        - type: string
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      await assertRejects(
+        () => parseWorkflowFile(path),
+        WorkflowParseError,
+        `must have a non-empty string "name"`,
+      );
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: manual trigger input with mismatched default type fails", async () => {
+  await withFixture(
+    "manual-bad-default.yml",
+    `
+on:
+  - manual:
+      inputs:
+        - name: replicas
+          type: number
+          default: "3"
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      await assertRejects(
+        () => parseWorkflowFile(path),
+        WorkflowParseError,
+        `has a "default" that isn't a number`,
+      );
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: git-tags input requires a repository", async () => {
+  await withFixture(
+    "manual-git-tags-missing-repo.yml",
+    `
+on:
+  - manual:
+      inputs:
+        - name: release_tag
+          type: git-tags
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      await assertRejects(
+        () => parseWorkflowFile(path),
+        WorkflowParseError,
+        `must have a non-empty string "repository"`,
+      );
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: git-tags input with a repository parses", async () => {
+  await withFixture(
+    "manual-git-tags.yml",
+    `
+on:
+  - manual:
+      inputs:
+        - name: release_tag
+          type: git-tags
+          repository: https://github.com/ritajhq/ensemble.git
+          display: "Tag to release"
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      const workflow = await parseWorkflowFile(path);
+      assertEquals(workflow.on?.[0].manual?.inputs, [{
+        name: "release_tag",
+        type: "git-tags",
+        repository: "https://github.com/ritajhq/ensemble.git",
+        display: "Tag to release",
+      }]);
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: manual trigger with duplicate input names fails", async () => {
+  await withFixture(
+    "manual-duplicate-input.yml",
+    `
+on:
+  - manual:
+      inputs:
+        - name: sha
+          type: string
+        - name: sha
+          type: string
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      await assertRejects(
+        () => parseWorkflowFile(path),
+        WorkflowParseError,
+        'duplicate input name "sha"',
       );
     },
   );

@@ -21,6 +21,7 @@ ens workflow deploy --job build
 ens workflow deploy --concurrency 2
 ens workflow deploy --context production
 ens workflow deploy -e GREETING=hi -e API_URL=https://staging.example.com
+ens workflow deploy -i sha=abc123 -i replicas=3
 ```
 
 `--job <id>` runs only that job and its transitive dependencies. Script
@@ -37,7 +38,9 @@ however they need, e.g. `run: cat ${{ context.path }}/config.yml`.
 `-e KEY=VALUE` (repeatable) overrides a workflow variable for this run
 only — see "Variables" below for how it fits into the overall precedence
 chain. It works the same way whether the workflow runs locally or via
-`--remote` (forwarded as the HTTP trigger's `variables` body field).
+`--remote` (forwarded as the manual trigger's `variables` body field).
+`-i NAME=VALUE` (repeatable) sets a value for the workflow's declared
+`manual` trigger inputs — see "Triggers (`on:`)" below.
 
 ## Workflow YAML shape
 
@@ -207,9 +210,17 @@ trigger is allowed to start it, and what ends up in `trigger.*`:
 
 ```yaml
 on:
-  - http:
-      payload:
-        sha: commit.sha
+  - manual:
+      inputs:
+        - name: sha
+          type: string
+        - name: replicas
+          type: number
+          default: 1
+        - name: release_tag
+          type: git-tags
+          repository: https://github.com/org/repo.git
+          display: "Tag to release"
   - github:
       push:
         tags: ["1.*"]
@@ -217,25 +228,48 @@ on:
 jobs:
   deploy:
     steps:
-      - script: ./steps/deploy.ts   # ctx.trigger.sha / ctx.trigger.tag
+      - script: ./steps/deploy.ts   # ctx.trigger.sha / ctx.trigger.replicas / ctx.trigger.type
 ```
 
-- **`http`**: declaring this entry is what allows the platform's HTTP
-  trigger to run this workflow at all — an HTTP-triggered request for a
-  workflow with no `http` entry is rejected. `payload:` is an optional
-  mapping of `trigger.<key>: <dot-path>`, read against the caller-supplied
-  request payload (e.g. `sha: commit.sha` extracts `body.payload.commit.sha`
-  into `trigger.sha`). No `payload:` mapping means the trigger still works,
-  just with an empty `trigger`.
+- **`manual`**: declaring this entry is what allows the platform's trigger
+  endpoint (`POST /v1/workflows/:id/trigger`, or `ens workflow <name>
+  --remote <profile>`) to run this workflow at all — a request for a
+  workflow with no `manual` entry is rejected. `inputs:` is an optional
+  list of named, typed values the caller must (or may) supply, each read
+  from the trigger request's `inputs.<name>` and exposed as `trigger.<name>`:
+  - **`name`** and **`type`** are required on every input. `type` is one of
+    `string`, `number`, `boolean`, `object`, `git-tags`, `context`.
+  - **`default`**: makes the input optional — omitted from the request
+    means `trigger.<name>` falls back to this value. An input with no
+    `default` is **required**; a request missing it is rejected with 400.
+  - **`display`**: a human-readable label for a UI to show alongside this
+    input. Purely descriptive — never read by validation.
+  - A submitted value is checked against `type` with a **strict** match
+    (e.g. `type: number` rejects the string `"3"`) — no silent coercion.
+    `git-tags` and `context` validate as plain strings; `git-tags`
+    additionally requires a **`repository`** property (a git URL) so a UI
+    can list that repo's tags to offer as a select, and `context` is a
+    context name (see `--context`/`context.*` above) with no extra
+    property, since which contexts exist isn't an enumerated registry
+    today.
+  - Locally, `ens workflow <name> -i NAME=VALUE` (repeatable) sets input
+    values the same way — `VALUE` is JSON-parsed when possible (so
+    `-i replicas=3` yields the number `3`, `-i enabled=true` the boolean
+    `true`), falling back to the raw string otherwise (so `-i sha=abc123`
+    works unquoted).
 - **`github`**: matches a GitHub `push` webhook whose pushed ref is a tag
   matching one of the given glob patterns (`tags: ["1.*"]`). `trigger.ref`,
   `trigger.tag`, and `trigger.sha` are populated automatically from the
   webhook's own payload (`ref`, the tag parsed out of it, and `after`) —
-  there's no user-declared payload mapping for `github` today, unlike
-  `http`. Only the `push`/`tags` shape is supported for now; other GitHub
-  events are a future extension of this same `github:` block.
+  there's no user-declared input list for `github` today, unlike `manual`.
+  Only the `push`/`tags` shape is supported for now; other GitHub events
+  are a future extension of this same `github:` block.
 
-Each `on:` entry is exactly one of `http` or `github` — declare multiple
+`trigger.type` is always set to `"manual"` or `"github"` alongside
+whatever else that trigger kind populates, so steps/`if:` can branch on
+how the run was started (e.g. `if: trigger.type == 'github'`).
+
+Each `on:` entry is exactly one of `manual` or `github` — declare multiple
 list entries (one per trigger) if a workflow should be reachable more than
 one way.
 
@@ -252,7 +286,8 @@ export async function run(ctx: StepContext): Promise<Record<string, string>> {
   // ctx.matrix - this instance's own combination (only present in a
   //   matrixed job's own steps)
   // ctx.trigger - data from whatever triggered this run (see "Triggers"),
-  //   only present when the run actually came through a trigger
+  //   only present when the run actually came through a trigger; always
+  //   includes trigger.type ("manual" or "github")
   // ctx.context - { name, path } for the deploy context this run was
   //   invoked with (--context), only present when one was given
   return { ok: "true" };
@@ -277,7 +312,7 @@ killed by fail-fast exits via its process signal, not a normal error.
 
 - `variables.*` — the run's variables: the process's own env vars, then
   the workflow's own `variables:` block, then any caller-supplied
-  overrides (`RunWorkflowOptions.variables`, the CLI's `-e`, or an HTTP
+  overrides (`RunWorkflowOptions.variables`, the CLI's `-e`, or a manual
   trigger's `variables`) — see "Variables" above for the full precedence
   chain. Also available for interpolation (not just `if:`) inside a
   step's `run:` and `name:`.
@@ -291,6 +326,7 @@ killed by fail-fast exits via its process signal, not a normal error.
 - `trigger.*` — data from whatever triggered this run (see "Triggers
   (`on:`)"), only present when `RunWorkflowOptions.trigger` was passed in;
   absent (and therefore an error to reference) for a direct/untriggered run.
+  `trigger.type` is always `"manual"` or `"github"` when present.
 - `context.name` / `context.path` — the deploy context this run was
   invoked with (`--context <name>`, or `RunWorkflowOptions.context`), only
   present when one was given; absent (and therefore an error to reference)

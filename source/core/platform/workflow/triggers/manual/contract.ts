@@ -1,4 +1,4 @@
-export interface HttpTriggerRequest {
+export interface ManualTriggerRequest {
   /** Run only this job and its transitive dependencies. */
   job?: string;
   /** Max number of jobs to run concurrently within a batch. */
@@ -7,15 +7,15 @@ export interface HttpTriggerRequest {
   variables?: Record<string, string>;
   /** Deploy context name, resolved server-side into context.name/context.path (see RunWorkflowByNameOptions.context). */
   context?: string;
-  /** Arbitrary caller payload, extracted into trigger.* per the workflow's own on: - http: payload mapping. */
-  payload?: unknown;
+  /** Values for the workflow's declared `on: - manual: inputs`, read by name and exposed as `trigger.<name>`. */
+  inputs?: Record<string, unknown>;
 }
 
-export interface HttpTriggerResponse {
+export interface ManualTriggerResponse {
   success: boolean;
 }
 
-export function isHttpTriggerRequest(value: unknown): value is HttpTriggerRequest {
+export function isManualTriggerRequest(value: unknown): value is ManualTriggerRequest {
   if (typeof value !== "object" || value === null) return false;
   const body = value as Record<string, unknown>;
 
@@ -28,5 +28,8 @@ export function isHttpTriggerRequest(value: unknown): value is HttpTriggerReques
     if (Object.values(body.variables).some((v) => typeof v !== "string")) return false;
   }
   if (body.context !== undefined && typeof body.context !== "string") return false;
+  if (body.inputs !== undefined) {
+    if (typeof body.inputs !== "object" || body.inputs === null || Array.isArray(body.inputs)) return false;
+  }
   return true;
 }

@@ -1,5 +1,5 @@
 import { githubTriggerFeature } from "./workflow/triggers/github/index.ts";
-import { httpTriggerFeature } from "./workflow/triggers/http/index.ts";
+import { manualTriggerFeature } from "./workflow/triggers/manual/index.ts";
 import { workflowRegistryFeature } from "./workflow/registry/index.ts";
 import { gitIntegrationCloneFeature } from "./workflow/integrations/git/index.ts";
 import {
@@ -24,7 +24,7 @@ export { dashboardStaticFeature } from "./dashboard-static/index.ts";
  * last or it would shadow every specific route after it.
  */
 export const allFeatures: Feature[] = [
-  httpTriggerFeature,
+  manualTriggerFeature,
   githubTriggerFeature,
   workflowRegistryFeature,
   gitIntegrationCloneFeature,

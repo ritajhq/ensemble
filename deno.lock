@@ -2326,7 +2326,8 @@
           "jsr:@cliffy/command@1.2.1",
           "jsr:@cliffy/prompt@1.2.1",
           "jsr:@ensemble/core@*",
-          "jsr:@ensemble/platform@*"
+          "jsr:@ensemble/platform@*",
+          "jsr:@std/assert@1.0.14"
         ]
       },
       "source/apps/demo/spa": {
@@ -2379,6 +2380,7 @@
         "dependencies": [
           "jsr:@ensemble/core@*",
           "jsr:@ensemble/workflow@*",
+          "jsr:@std/assert@1.0.14",
           "jsr:@std/crypto@1.1.0",
           "jsr:@std/fs@1.0.24",
           "jsr:@std/media-types@1.1.0",

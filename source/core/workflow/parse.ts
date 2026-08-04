@@ -1,5 +1,7 @@
 import { parse as parseYaml } from "@std/yaml";
-import type { GithubTrigger, HttpTrigger, Job, Matrix, Step, Trigger, Workflow } from "./schema.ts";
+import type { GithubTrigger, Job, ManualInput, ManualTrigger, Matrix, Step, Trigger, Workflow } from "./schema.ts";
+
+const MANUAL_INPUT_TYPES = ["string", "number", "boolean", "object", "git-tags", "context"] as const;
 
 export class WorkflowParseError extends Error {}
 
@@ -73,16 +75,72 @@ function validateMatrix(file: string, jobId: string, raw: unknown): Matrix {
   };
 }
 
-function validateHttpTrigger(file: string, index: number, raw: Record<string, unknown>): HttpTrigger {
-  if (raw.payload !== undefined) {
-    if (
-      !isRecord(raw.payload) ||
-      Object.values(raw.payload).some((v) => typeof v !== "string")
-    ) {
-      fail(file, `on[${index}].http has a "payload" that isn't a mapping of strings.`);
-    }
+function validateManualInput(file: string, index: number, inputIndex: number, raw: unknown): ManualInput {
+  const where = `on[${index}].manual.inputs[${inputIndex}]`;
+  if (!isRecord(raw)) {
+    fail(file, `${where} must be a mapping.`);
   }
-  return { payload: raw.payload as Record<string, string> | undefined };
+  if (typeof raw.name !== "string" || raw.name.length === 0) {
+    fail(file, `${where} must have a non-empty string "name".`);
+  }
+  if (typeof raw.type !== "string" || !(MANUAL_INPUT_TYPES as readonly string[]).includes(raw.type)) {
+    fail(file, `${where} has a "type" that must be one of ${MANUAL_INPUT_TYPES.join(", ")}.`);
+  }
+  if (raw.display !== undefined && typeof raw.display !== "string") {
+    fail(file, `${where} has a non-string "display".`);
+  }
+
+  switch (raw.type) {
+    case "string":
+    case "context":
+      if (raw.default !== undefined && typeof raw.default !== "string") {
+        fail(file, `${where} has a "default" that isn't a string.`);
+      }
+      break;
+    case "number":
+      if (raw.default !== undefined && typeof raw.default !== "number") {
+        fail(file, `${where} has a "default" that isn't a number.`);
+      }
+      break;
+    case "boolean":
+      if (raw.default !== undefined && typeof raw.default !== "boolean") {
+        fail(file, `${where} has a "default" that isn't a boolean.`);
+      }
+      break;
+    case "object":
+      if (raw.default !== undefined && !isRecord(raw.default)) {
+        fail(file, `${where} has a "default" that isn't a mapping.`);
+      }
+      break;
+    case "git-tags":
+      if (typeof raw.repository !== "string" || raw.repository.length === 0) {
+        fail(file, `${where} must have a non-empty string "repository".`);
+      }
+      if (raw.default !== undefined && typeof raw.default !== "string") {
+        fail(file, `${where} has a "default" that isn't a string.`);
+      }
+      break;
+  }
+
+  return raw as unknown as ManualInput;
+}
+
+function validateManualTrigger(file: string, index: number, raw: Record<string, unknown>): ManualTrigger {
+  if (raw.inputs === undefined) return {};
+  if (!Array.isArray(raw.inputs)) {
+    fail(file, `on[${index}].manual has an "inputs" that isn't a list.`);
+  }
+  const inputs = raw.inputs.map((input, i) => validateManualInput(file, index, i, input));
+
+  const seenNames = new Set<string>();
+  for (const input of inputs) {
+    if (seenNames.has(input.name)) {
+      fail(file, `on[${index}].manual has a duplicate input name "${input.name}".`);
+    }
+    seenNames.add(input.name);
+  }
+
+  return { inputs };
 }
 
 function validateGithubTrigger(file: string, index: number, raw: Record<string, unknown>): GithubTrigger {
@@ -101,19 +159,19 @@ function validateTrigger(file: string, index: number, raw: unknown): Trigger {
   if (!isRecord(raw)) {
     fail(file, `on[${index}] must be a mapping.`);
   }
-  const hasHttp = raw.http !== undefined;
+  const hasManual = raw.manual !== undefined;
   const hasGithub = raw.github !== undefined;
-  if (hasHttp === hasGithub) {
-    fail(file, `on[${index}] must have exactly one of "http" or "github".`);
+  if (hasManual === hasGithub) {
+    fail(file, `on[${index}] must have exactly one of "manual" or "github".`);
   }
-  if (hasHttp && !isRecord(raw.http)) {
-    fail(file, `on[${index}].http must be a mapping.`);
+  if (hasManual && !isRecord(raw.manual)) {
+    fail(file, `on[${index}].manual must be a mapping.`);
   }
   if (hasGithub && !isRecord(raw.github)) {
     fail(file, `on[${index}].github must be a mapping.`);
   }
   return {
-    http: hasHttp ? validateHttpTrigger(file, index, raw.http as Record<string, unknown>) : undefined,
+    manual: hasManual ? validateManualTrigger(file, index, raw.manual as Record<string, unknown>) : undefined,
     github: hasGithub ? validateGithubTrigger(file, index, raw.github as Record<string, unknown>) : undefined,
   };
 }

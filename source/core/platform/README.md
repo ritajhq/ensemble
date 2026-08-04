@@ -18,22 +18,24 @@ Every feature is on by default; set `ENSEMBLE_FEATURE_<NAME>=false`
 (name upper-cased, `-` → `_`) to disable one without removing it from
 the feature list.
 
-### `http-trigger` — `POST /v1/workflows/:name/trigger`
+### `manual-trigger` — `POST /v1/workflows/:name/trigger`
 
-Triggers a workflow by name. The target workflow must declare an `http`
+Triggers a workflow by name. The target workflow must declare a `manual`
 entry under its own `on:` (see `@ensemble/workflow`'s README) — a request
 for a workflow that hasn't opted in is rejected with 403.
 
 ```jsonc
 // request body
-{ "job": "build", "concurrency": 2, "variables": { "FOO": "bar" }, "payload": { "commit": { "sha": "..." } } }
+{ "job": "build", "concurrency": 2, "variables": { "FOO": "bar" }, "context": "production", "inputs": { "sha": "...", "replicas": 3 } }
 // response
 { "success": true }
 ```
 
-`payload` is arbitrary caller-supplied JSON; `on: - http: payload:` in the
-workflow's own YAML maps `trigger.<key>` to a dot-path into it (e.g.
-`sha: commit.sha` → `trigger.sha`).
+`inputs` is validated against the workflow's declared `on: - manual:
+inputs` (required-unless-`default`, strict per-`type` checking) and
+becomes `trigger.<name>` for each declared input, plus `trigger.type ==
+"manual"`. A missing required input or a type-mismatched value is
+rejected with 400.
 
 **Auth**: requires `Authorization: Bearer <token>` for a token granted
 `trigger: true` in `.ensemble/platform/tokens.json` (see "Authentication" below).
@@ -70,7 +72,7 @@ rejected with 400 and the live `workflows/<name>` is untouched.
 
 **Auth**: requires `Authorization: Bearer <token>` for a token granted
 `upload: true` in `.ensemble/platform/tokens.json` — a separate permission from
-`http-trigger`'s `trigger`, since the ability to overwrite a workflow's
+`manual-trigger`'s `trigger`, since the ability to overwrite a workflow's
 code is a stronger capability than the ability to trigger an existing
 one. A token can be granted one, the other, or both. Fails closed the
 same way.
@@ -81,7 +83,7 @@ rather than re-uploading a whole archive per change) are deferred.
 
 ## Authentication
 
-`http-trigger` and `workflow-registry` both check the request's bearer
+`manual-trigger` and `workflow-registry` both check the request's bearer
 token against `.ensemble/platform/tokens.json` — a JSON object mapping each valid
 token to the permissions it's been granted:
 
@@ -112,10 +114,10 @@ planned to replace it outright, not extend it.
 ## Programmatic clients
 
 ```ts
-import { httpTriggerClient, workflowRegistryClient } from "@ensemble/platform";
+import { manualTriggerClient, workflowRegistryClient } from "@ensemble/platform";
 
-const trigger = httpTriggerClient({ baseUrl: "https://ci.example.com", token: "..." });
-await trigger.actions.trigger("deploy", { payload: { commit: { sha: "..." } } });
+const trigger = manualTriggerClient({ baseUrl: "https://ci.example.com", token: "..." });
+await trigger.actions.trigger("deploy", { inputs: { sha: "..." } });
 
 const registry = workflowRegistryClient({ baseUrl: "https://ci.example.com", token: "..." });
 await registry.actions.upload("deploy", tarGzBytes);
