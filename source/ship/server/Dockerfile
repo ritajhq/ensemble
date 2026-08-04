@@ -9,6 +9,6 @@ COPY --from=artifacts server/main.js ./server/main.js
 
 WORKDIR /workspace
 
-CMD ["deno", "run", "-A", "/app/server/main.js"]
+CMD ["deno", "run", "-A", "--unstable-kv", "/app/server/main.js"]
 
 EXPOSE 8787
