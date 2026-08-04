@@ -1,0 +1,39 @@
+{
+  "name": "@ritaj/ui",
+  "exports": {
+    ".": "./index.ts",
+    "./components/badge": "./components/badge.tsx",
+    "./components/breadcrumb": "./components/breadcrumb.tsx",
+    "./components/button": "./components/button.tsx",
+    "./components/card": "./components/card.tsx",
+    "./components/collapsible": "./components/collapsible.tsx",
+    "./components/input": "./components/input.tsx",
+    "./components/resizable": "./components/resizable.tsx",
+    "./components/separator": "./components/separator.tsx",
+    "./components/sheet": "./components/sheet.tsx",
+    "./components/sidebar": "./components/sidebar.tsx",
+    "./components/skeleton": "./components/skeleton.tsx",
+    "./components/tooltip": "./components/tooltip.tsx",
+    "./components/dropdown-menu": "./components/ui/dropdown-menu.tsx",
+    "./components/table": "./components/ui/table.tsx",
+    "./hooks/use-mobile": "./hooks/use-mobile.ts",
+    "./lib/utils": "./lib/utils.ts"
+  },
+  "tasks": {
+    "shadcn": "deno run -A npm:shadcn@latest",
+    "shadcn:add": "deno run -A scripts/add.ts",
+    "sync-exports": "deno run -A scripts/sync-exports.ts"
+  },
+  "imports": {
+    "react": "npm:react@19.2.8",
+    "react-dom": "npm:react-dom@19.2.8",
+    "@types/react": "npm:@types/react@19",
+    "@types/react-dom": "npm:@types/react-dom@19",
+    "@base-ui/react": "npm:@base-ui/react@1.6.0",
+    "class-variance-authority": "npm:class-variance-authority@0.7.1",
+    "clsx": "npm:clsx@2.1.1",
+    "tailwind-merge": "npm:tailwind-merge@3.6.0",
+    "lucide-react": "npm:lucide-react@1.28.0",
+    "react-resizable-panels": "npm:react-resizable-panels@4.12.2"
+  }
+}

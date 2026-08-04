@@ -1,0 +1,5 @@
+{
+  "name": "@ritaj/ui",
+  "private": true,
+  "comment": "Marker file only, so the shadcn CLI (npm-oriented) detects this as a project root. Dependencies and scripts live in deno.json — do not add them here."
+}

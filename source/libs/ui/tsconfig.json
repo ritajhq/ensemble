@@ -1,0 +1,10 @@
+{
+  "comment": "Read only by the shadcn CLI for project/path-alias detection. Deno ignores this file — deno.json is the source of truth for compiler options.",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@ritaj/ui/*": ["./*"]
+    }
+  }
+}
