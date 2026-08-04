@@ -61,7 +61,7 @@ function currentExecutablePath(): string {
   const path = Deno.execPath();
   if (path.endsWith("/deno") || path === "deno") {
     throw new Error(
-      "version next/set only works for the compiled `ens` binary, not when running via `deno run`/`deno task`.",
+      "version update/set only works for the compiled `ens` binary, not when running via `deno run`/`deno task`.",
     );
   }
   return path;

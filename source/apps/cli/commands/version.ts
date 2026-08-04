@@ -1,7 +1,7 @@
 import { Command, EnumType } from "@cliffy/command";
 import { getInstalledVersion, installNext, installSet } from "@ensemble/core";
 
-function formatVersion(v: { major: number; minor: number; patch: number; preRelease?: string }): string {
+export function formatVersion(v: { major: number; minor: number; patch: number; preRelease?: string }): string {
   return `${v.major}.${v.minor}.${v.patch}${v.preRelease ? `-${v.preRelease}` : ""}`;
 }
 
@@ -13,7 +13,7 @@ export const versionCommand = new Command()
     console.log(current ? formatVersion(current) : "unknown (no install marker found)");
   })
   .command(
-    "next",
+    "update",
     new Command()
       .description("Install the newest release within a bump's scope (patch/minor/major) from the installed version.")
       .type("bump", new EnumType(["patch", "minor", "major"]))
