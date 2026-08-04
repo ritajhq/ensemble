@@ -1,17 +1,6 @@
-import { Command, EnumType, ValidationError } from "@cliffy/command";
+import { Command, EnumType } from "@cliffy/command";
 import { runBuild } from "@ensemble/core";
-
-function parseVarOverrides(pairs: string[]): Record<string, string> {
-  const result: Record<string, string> = {};
-  for (const pair of pairs) {
-    const separatorIndex = pair.indexOf("=");
-    if (separatorIndex === -1) {
-      throw new ValidationError(`Invalid --var "${pair}", expected KEY=VALUE.`);
-    }
-    result[pair.slice(0, separatorIndex)] = pair.slice(separatorIndex + 1);
-  }
-  return result;
-}
+import * as CliUtil from "./util.ts";
 
 export const buildCommand = new Command()
   .name("build")
@@ -27,7 +16,7 @@ export const buildCommand = new Command()
     const code = await runBuild(name, {
       mode,
       watch: Boolean(watch),
-      varOverrides: parseVarOverrides(vars ?? []),
+      varOverrides: CliUtil.parseVarOverrides(vars ?? []),
     });
     if (code !== 0) Deno.exit(code);
   });

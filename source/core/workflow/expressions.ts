@@ -107,3 +107,13 @@ export function evaluate(expr: string, context: Record<string, JsonValue>): Json
 export function evaluateCondition(expr: string, context: Record<string, JsonValue>): boolean {
   return isTruthy(parseAndEvaluate(expr, context));
 }
+
+const EXPR_REF = /\$\{\{(.*?)\}\}/gs;
+
+/** Replaces every `${{ ... }}` occurrence in `text` with its evaluated value (stringified if not already a string). Text with no occurrences passes through unchanged. */
+export function interpolate(text: string, context: Record<string, JsonValue>): string {
+  return text.replace(EXPR_REF, (match) => {
+    const result = evaluate(match, context);
+    return typeof result === "string" ? result : JSON.stringify(result);
+  });
+}

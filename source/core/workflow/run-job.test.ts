@@ -100,3 +100,19 @@ Deno.test("runJob: step start/end markers use name, falling back to step type", 
   assertEquals(lines.includes("--- step:test/script started ---"), true);
   assertEquals(lines.some((l) => l.startsWith("--- step:test/script success")), true);
 });
+
+Deno.test("runJob: step name: interpolates ${{ variables.* }}", async () => {
+  const rootWithVars = buildRootContext({ ENV_NAME: "staging" }, {});
+  const job: Job = {
+    steps: [{ name: "Deploy to ${{ variables.ENV_NAME }}", run: "echo hi" }],
+  };
+  const lines: string[] = [];
+  const originalLog = console.log;
+  console.log = (msg: string) => lines.push(msg);
+  try {
+    await runJob(job, rootWithVars, workflowDir, cwd, silentLogger("test"));
+  } finally {
+    console.log = originalLog;
+  }
+  assertEquals(lines.includes("--- step:test/Deploy to staging started ---"), true);
+});

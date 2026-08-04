@@ -1,5 +1,5 @@
 import { assertEquals, assertThrows } from "@std/assert";
-import { evaluate, evaluateCondition } from "./expressions.ts";
+import { evaluate, evaluateCondition, interpolate } from "./expressions.ts";
 
 Deno.test("evaluate: literal equality", () => {
   assertEquals(evaluate("1 == 2", {}), false);
@@ -51,4 +51,23 @@ Deno.test("evaluate: unrecognized context name throws loudly", () => {
 Deno.test("evaluate: nested array access", () => {
   const ctx = { items: ["a", "b", "c"] };
   assertEquals(evaluate("items[1]", ctx), "b");
+});
+
+Deno.test("interpolate: text with no expressions passes through unchanged", () => {
+  assertEquals(interpolate("echo hello", {}), "echo hello");
+});
+
+Deno.test("interpolate: single expression embedded in literal text", () => {
+  const ctx = { variables: { NAME: "world" } };
+  assertEquals(interpolate("echo hello ${{ variables.NAME }}", ctx), "echo hello world");
+});
+
+Deno.test("interpolate: multiple expressions in one string", () => {
+  const ctx = { variables: { A: "1", B: "2" } };
+  assertEquals(interpolate("${{ variables.A }}-${{ variables.B }}", ctx), "1-2");
+});
+
+Deno.test("interpolate: non-string result is stringified", () => {
+  const ctx = { steps: { a: { outputs: { ok: "true" } } } };
+  assertEquals(interpolate("result is ${{ steps.a.outputs.ok == 'true' }}", ctx), "result is true");
 });

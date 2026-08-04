@@ -19,11 +19,25 @@ at the repo root:
 ens workflow deploy
 ens workflow deploy --job build
 ens workflow deploy --concurrency 2
+ens workflow deploy --context production
+ens workflow deploy -e GREETING=hi -e API_URL=https://staging.example.com
 ```
 
 `--job <id>` runs only that job and its transitive dependencies. Script
 paths inside a workflow (`script: ./steps/build.ts`) resolve relative to
 that workflow's own folder.
+
+`--context <name>` is a deploy-context marker: it's exposed to every
+job/step as `context.name` (the name itself, e.g. `"production"`) and
+`context.path` (an absolute path to `<repoRoot>/contexts/<name>`, resolved
+regardless of a step's own `cwd`). It doesn't read or write anything
+there itself — it's up to the workflow's own steps to use that folder
+however they need, e.g. `run: cat ${{ context.path }}/config.yml`.
+
+`-e KEY=VALUE` (repeatable) overrides a workflow variable for this run
+only — see "Variables" below for how it fits into the overall precedence
+chain. It works the same way whether the workflow runs locally or via
+`--remote` (forwarded as the HTTP trigger's `variables` body field).
 
 ## Workflow YAML shape
 
@@ -73,6 +87,43 @@ jobs:
   `needs.<job>.result` is meaningful downstream. A job whose dependencies
   didn't all succeed is **skipped**, not run — matching Actions' default
   behavior. There's no `always()`/`failure()` yet (see below).
+
+## Variables
+
+A workflow can declare default variables, available to every job/step as
+`variables.*` in expressions and as real subprocess env vars in `run:`
+steps:
+
+```yaml
+variables:
+  GREETING: hello
+  API_URL: "https://example.com"
+  DEPLOY_TOKEN: "$(DEPLOY_TOKEN)"
+
+jobs:
+  build:
+    steps:
+      - name: "Deploy ${{ variables.GREETING }}"
+        run: echo "${{ variables.GREETING }} to ${{ variables.API_URL }}"
+```
+
+- Values are plain strings. `$(NAME)` anywhere in a value is replaced with
+  the process's own env var `NAME` **at parse time** — it's a lookup, not a
+  shell subshell execution. A `$(NAME)` referencing an unset env var fails
+  parsing immediately (`WorkflowParseError`), rather than silently
+  resolving to `""`.
+- Precedence, lowest to highest: the process's own `Deno.env` → this
+  `variables:` block → whatever the caller supplies at run time (the CLI's
+  repeatable `-e KEY=VALUE`, or the HTTP trigger's `variables` body field,
+  or `RunWorkflowOptions.variables` when calling the engine directly). Any
+  layer can override a name set by a lower one.
+- `${{ }}` expressions are interpolated into a step's `run:` command and
+  `name:` label before either is used — unlike `if:`, which only ever
+  evaluates a single expression, `run:`/`name:` can mix literal text with
+  multiple `${{ }}` occurrences (e.g. `"${{ variables.A }}-${{ variables.B }}"`).
+  A non-string expression result is stringified. `script:` steps don't need
+  this — they already receive the full context as structured JSON (see
+  "The `script:` module contract" below).
 
 ## Matrix jobs
 
@@ -202,6 +253,8 @@ export async function run(ctx: StepContext): Promise<Record<string, string>> {
   //   matrixed job's own steps)
   // ctx.trigger - data from whatever triggered this run (see "Triggers"),
   //   only present when the run actually came through a trigger
+  // ctx.context - { name, path } for the deploy context this run was
+  //   invoked with (--context), only present when one was given
   return { ok: "true" };
 }
 ```
@@ -222,8 +275,12 @@ killed by fail-fast exits via its process signal, not a normal error.
 
 ## Expression contexts
 
-- `variables.*` — the run's variables (defaults to the process's env vars,
-  overridable via `RunWorkflowOptions.variables`).
+- `variables.*` — the run's variables: the process's own env vars, then
+  the workflow's own `variables:` block, then any caller-supplied
+  overrides (`RunWorkflowOptions.variables`, the CLI's `-e`, or an HTTP
+  trigger's `variables`) — see "Variables" above for the full precedence
+  chain. Also available for interpolation (not just `if:`) inside a
+  step's `run:` and `name:`.
 - `needs.<job>.result` / `needs.<job>.outputs.*` — already-completed jobs
   (array-shaped per-key if `<job>` is matrixed — see "Matrix jobs").
 - `steps.<id>.outputs.*` — steps completed earlier in the *same* job (only
@@ -234,6 +291,11 @@ killed by fail-fast exits via its process signal, not a normal error.
 - `trigger.*` — data from whatever triggered this run (see "Triggers
   (`on:`)"), only present when `RunWorkflowOptions.trigger` was passed in;
   absent (and therefore an error to reference) for a direct/untriggered run.
+- `context.name` / `context.path` — the deploy context this run was
+  invoked with (`--context <name>`, or `RunWorkflowOptions.context`), only
+  present when one was given; absent (and therefore an error to reference)
+  otherwise. Unlike `variables.*`, `context` isn't overridable per-name and
+  isn't injected as shell env — it's just these two fields.
 
 Referencing an unrecognized context path (e.g. `nonexistent.path`) throws a
 `WorkflowExpressionError` immediately — it does not silently evaluate to
@@ -249,6 +311,8 @@ const { outcomes, success } = await runWorkflow(workflow, {
   workflowDir: "workflows/deploy",
   job: undefined, // or a job id to run just that job + its deps
   concurrency: undefined, // or a number to cap concurrent jobs per batch
+  variables: undefined, // or overrides, layered on top of Deno.env + workflow.variables
+  context: undefined, // or { name, path } — already resolved by the caller, unlike --context's plain name
 });
 ```
 

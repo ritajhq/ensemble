@@ -33,7 +33,8 @@ export async function handleHttpTrigger(
   }
   if (!isHttpTriggerRequest(body)) {
     return Response.json({
-      error: "Expected { job?: string, concurrency?: number, variables?: Record<string,string>, payload?: unknown }.",
+      error:
+        "Expected { job?: string, concurrency?: number, variables?: Record<string,string>, context?: string, payload?: unknown }.",
     }, { status: 400 });
   }
 
@@ -59,6 +60,7 @@ export async function handleHttpTrigger(
       job: body.job,
       concurrency: body.concurrency,
       variables: body.variables,
+      context: body.context,
       trigger,
     });
     return Response.json({ success } satisfies HttpTriggerResponse);

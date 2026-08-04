@@ -12,10 +12,9 @@ export interface RunWorkflowByNameOptions {
   variables?: Record<string, string>;
   /**
    * Deploy context name (e.g. "development", "stage", "production"). Exposed
-   * to every job/step as the `workflow_context` variable, set to
-   * "contexts/<name>" — mirrors ENSEMBLE_WORKSPACE below in shape: a
-   * CLI-level concern threaded in as a plain variable rather than a
-   * dedicated engine option.
+   * to every job/step as `context.name` and `context.path` (an absolute path
+   * to "<repoRoot>/contexts/<name>", so steps can read files from it
+   * regardless of their own cwd).
    */
   context?: string;
   /** Data from whatever triggered this run, made available as `trigger.*` in every job/step. */
@@ -193,20 +192,17 @@ export async function runWorkflowByName(
 ): Promise<boolean> {
   const repoRoot = await findRepoRoot();
   const { workflow, workflowDir } = await getWorkflowByName(name);
-  const variables = options.variables || options.context !== undefined
-    ? {
-      ...Object.fromEntries(Object.entries(Deno.env.toObject())),
-      ...options.variables,
-      ...(options.context !== undefined && { workflow_context: join("contexts", options.context) }),
-    }
+  const context = options.context !== undefined
+    ? { name: options.context, path: join(repoRoot, "contexts", options.context) }
     : undefined;
   return await trackedRunWorkflow(name, (events) =>
     runWorkflow(workflow, {
       workflowDir,
       job: options.job,
       concurrency: options.concurrency,
-      variables,
+      variables: options.variables,
       trigger: options.trigger,
+      context,
       repoRoot,
       events,
     }));

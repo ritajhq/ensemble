@@ -1,6 +1,6 @@
 import type { Job } from "./schema.ts";
 import type { JobContext, JobOutcome, JobResult, RootContext, StepResult } from "./context.ts";
-import { evaluateJobIf, toJobContext } from "./context.ts";
+import { evaluateJobIf, interpolateStep, toJobContext } from "./context.ts";
 import { runStep, StepRunError, type StepLogCapture } from "./run-step.ts";
 import type { JobLogger } from "./logging.ts";
 import { WorkflowExpressionError } from "./expressions.ts";
@@ -51,7 +51,7 @@ export async function runJob(
   let result: JobResult = "success";
 
   for (const [index, step] of job.steps.entries()) {
-    const label = step.name ?? (step.run !== undefined ? "shell" : "script");
+    const label = interpolateStep(step.name ?? (step.run !== undefined ? "shell" : "script"), ctx);
 
     if (signal.aborted) {
       result = "cancelled";

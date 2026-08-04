@@ -5,6 +5,8 @@ export interface HttpTriggerRequest {
   concurrency?: number;
   /** Extra variables merged on top of the server's own env vars for this run. */
   variables?: Record<string, string>;
+  /** Deploy context name, resolved server-side into context.name/context.path (see RunWorkflowByNameOptions.context). */
+  context?: string;
   /** Arbitrary caller payload, extracted into trigger.* per the workflow's own on: - http: payload mapping. */
   payload?: unknown;
 }
@@ -25,5 +27,6 @@ export function isHttpTriggerRequest(value: unknown): value is HttpTriggerReques
     if (typeof body.variables !== "object" || body.variables === null || Array.isArray(body.variables)) return false;
     if (Object.values(body.variables).some((v) => typeof v !== "string")) return false;
   }
+  if (body.context !== undefined && typeof body.context !== "string") return false;
   return true;
 }

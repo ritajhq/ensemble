@@ -1,5 +1,5 @@
 import type { JsonValue } from "./expressions.ts";
-import { evaluateCondition } from "./expressions.ts";
+import { evaluateCondition, interpolate } from "./expressions.ts";
 
 /**
  * "cancelled" applies only at job-instance granularity — a not-yet-started
@@ -45,6 +45,13 @@ export interface MatrixNeedsResult {
 
 export type NeedsResult = SimpleNeedsResult | MatrixNeedsResult;
 
+/** The deploy context this run was invoked with (e.g. `--context production`). Absent when no context was given. */
+export interface RunContext {
+  name: string;
+  /** Absolute path to this context's own folder (e.g. "<repoRoot>/contexts/production"), so steps can read files from it regardless of their own cwd. */
+  path: string;
+}
+
 /** Root context shared across all jobs: variables and already-completed jobs' results/outputs. */
 export interface RootContext {
   variables: Record<string, string>;
@@ -53,6 +60,8 @@ export interface RootContext {
   matrix?: Record<string, unknown>;
   /** Data from whatever triggered this run (see schema.ts's Trigger). Absent for a direct/untriggered invocation. */
   trigger?: Record<string, unknown>;
+  /** The deploy context this run was invoked with. Absent when no --context was given. */
+  context?: RunContext;
 }
 
 /** Per-job context, accumulating `steps.*` as each step in that job completes. */
@@ -72,6 +81,7 @@ export interface StepContext {
   needs: Record<string, NeedsResult>;
   matrix?: Record<string, unknown>;
   trigger?: Record<string, unknown>;
+  context?: RunContext;
 }
 
 export function buildRootContext(
@@ -79,10 +89,12 @@ export function buildRootContext(
   completedJobs: Record<string, NeedsResult>,
   matrix?: Record<string, unknown>,
   trigger?: Record<string, unknown>,
+  context?: RunContext,
 ): RootContext {
   const root: RootContext = { variables, needs: { ...completedJobs } };
   if (matrix !== undefined) root.matrix = matrix;
   if (trigger !== undefined) root.trigger = trigger;
+  if (context !== undefined) root.context = context;
   return root;
 }
 
@@ -102,9 +114,15 @@ export function evaluateStepIf(expr: string, ctx: JobContext): boolean {
   return evaluateCondition(expr, toRecord(ctx));
 }
 
+/** Replaces `${{ ... }}` occurrences in `text` (e.g. a step's `run:` or `name:`) using this job's context. */
+export function interpolateStep(text: string, ctx: JobContext): string {
+  return interpolate(text, toRecord(ctx));
+}
+
 export function toStepContext(ctx: JobContext): StepContext {
   const stepContext: StepContext = { variables: ctx.variables, needs: ctx.needs };
   if (ctx.matrix !== undefined) stepContext.matrix = ctx.matrix;
   if (ctx.trigger !== undefined) stepContext.trigger = ctx.trigger;
+  if (ctx.context !== undefined) stepContext.context = ctx.context;
   return stepContext;
 }

@@ -278,6 +278,92 @@ Deno.test("integration: trigger.* is available in if: expressions and script: st
   assertEquals(outcomes.build.outputs.sha, "abc123");
 });
 
+Deno.test("integration: variables precedence is Deno.env < workflow.variables < options.variables", async () => {
+  const workflowDir = join(import.meta.dirname!, "tests", "fixtures");
+  Deno.env.set("ENSEMBLE_TEST_PRECEDENCE", "from-env");
+  try {
+    const workflow = {
+      variables: { ENSEMBLE_TEST_PRECEDENCE: "from-workflow", WORKFLOW_ONLY: "from-workflow-only" },
+      jobs: {
+        build: {
+          steps: [{ run: 'test "$ENSEMBLE_TEST_PRECEDENCE" = from-workflow && test "$WORKFLOW_ONLY" = from-workflow-only' }],
+        },
+      },
+    };
+    const { outcomes, success } = await runWorkflow(workflow, { workflowDir });
+    assertEquals(success, true);
+    assertEquals(outcomes.build.result, "success");
+
+    const overridden = {
+      ...workflow,
+      jobs: {
+        build: {
+          steps: [{ run: 'test "$ENSEMBLE_TEST_PRECEDENCE" = from-options' }],
+        },
+      },
+    };
+    const overriddenRun = await runWorkflow(overridden, {
+      workflowDir,
+      variables: { ENSEMBLE_TEST_PRECEDENCE: "from-options" },
+    });
+    assertEquals(overriddenRun.success, true);
+  } finally {
+    Deno.env.delete("ENSEMBLE_TEST_PRECEDENCE");
+  }
+});
+
+Deno.test("integration: context.name/context.path are available in run: and if:", async () => {
+  const workflowDir = join(import.meta.dirname!, "tests", "fixtures");
+  const workflow = {
+    jobs: {
+      build: {
+        if: "context.name == 'production'",
+        steps: [{ run: 'test "${{ context.name }}" = production && test "${{ context.path }}" = /repo/contexts/production' }],
+      },
+    },
+  };
+  const { outcomes, success } = await runWorkflow(workflow, {
+    workflowDir,
+    context: { name: "production", path: "/repo/contexts/production" },
+  });
+  assertEquals(success, true);
+  assertEquals(outcomes.build.result, "success");
+});
+
+Deno.test("integration: context is absent (not just empty) when no --context is given", async () => {
+  const workflowDir = join(import.meta.dirname!, "tests", "fixtures");
+  const workflow = {
+    jobs: {
+      build: {
+        if: "context.name == 'production'",
+        steps: [{ run: "exit 0" }],
+      },
+    },
+  };
+  await assertRejects(
+    () => runWorkflow(workflow, { workflowDir }),
+    WorkflowExpressionError,
+    "Unrecognized named-value: 'context'",
+  );
+});
+
+Deno.test("integration: script: steps receive context via StepContext", async () => {
+  const workflowDir = join(import.meta.dirname!, "tests", "fixtures");
+  const workflow = {
+    jobs: {
+      build: {
+        steps: [{ script: "./uses-ctx-context.ts" }],
+      },
+    },
+  };
+  const { outcomes, success } = await runWorkflow(workflow, {
+    workflowDir,
+    context: { name: "staging", path: "/repo/contexts/staging" },
+  });
+  assertEquals(success, true);
+  assertEquals(outcomes.build.outputs, { name: "staging", path: "/repo/contexts/staging" });
+});
+
 Deno.test("integration: trigger is absent (not just empty) when no trigger is passed", async () => {
   const workflowDir = join(import.meta.dirname!, "tests", "fixtures");
   const workflow = {

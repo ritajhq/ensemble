@@ -73,3 +73,14 @@ Deno.test("runStep: script: receives ctx.variables as plain data", async () => {
   const result = await runStep({ script: "./uses-ctx-script.ts" }, workflowDir, cwd, ctx);
   assertEquals(result.outputs, { url: "https://example.com" });
 });
+
+Deno.test("runStep: run: interpolates ${{ variables.* }} before executing", async () => {
+  const ctx: JobContext = { variables: { GREETING: "hello" }, needs: {}, steps: {} };
+  const result = await runStep(
+    { run: "test \"${{ variables.GREETING }}\" = hello" },
+    workflowDir,
+    cwd,
+    ctx,
+  );
+  assertEquals(result.result, "success");
+});

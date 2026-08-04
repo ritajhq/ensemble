@@ -126,6 +126,31 @@ function validateOn(file: string, raw: unknown): Trigger[] | undefined {
   return raw.map((t, i) => validateTrigger(file, i, t));
 }
 
+const ENV_REF = /\$\(([A-Za-z_][A-Za-z0-9_]*)\)/g;
+
+/** Resolves $(NAME) references in a variable's value against the process's own env, failing parse if NAME is unset. */
+function resolveEnvRefs(file: string, varName: string, value: string): string {
+  return value.replace(ENV_REF, (_match, name) => {
+    const resolved = Deno.env.get(name);
+    if (resolved === undefined) {
+      fail(file, `variable "${varName}" references unset env var "${name}" via $(${name}).`);
+    }
+    return resolved;
+  });
+}
+
+function validateVariables(file: string, raw: unknown): Record<string, string> | undefined {
+  if (raw === undefined) return undefined;
+  if (!isRecord(raw) || Object.values(raw).some((v) => typeof v !== "string")) {
+    fail(file, `"variables" must be a mapping of strings.`);
+  }
+  const result: Record<string, string> = {};
+  for (const [key, value] of Object.entries(raw as Record<string, string>)) {
+    result[key] = resolveEnvRefs(file, key, value);
+  }
+  return result;
+}
+
 function validateJob(file: string, jobId: string, raw: unknown): Job {
   if (!isRecord(raw)) {
     fail(file, `job "${jobId}" must be a mapping.`);
@@ -195,6 +220,7 @@ export async function parseWorkflowFile(file: string): Promise<Workflow> {
   }
 
   const on = validateOn(file, raw.on);
+  const variables = validateVariables(file, raw.variables);
 
-  return { on, jobs };
+  return { on, variables, jobs };
 }

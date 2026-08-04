@@ -44,5 +44,7 @@ export interface Trigger {
 export interface Workflow {
   /** Network-facing ways this workflow can be triggered. Absent means it only runs via direct invocation (e.g. `ens workflow <name>`). */
   on?: Trigger[];
+  /** Default variables for every job/step in this workflow. A value containing $(NAME) is resolved from the process's own env var NAME at parse time. Overridable by CLI/HTTP-trigger variables. */
+  variables?: Record<string, string>;
   jobs: Record<string, Job>;
 }

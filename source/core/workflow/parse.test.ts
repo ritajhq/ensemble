@@ -404,6 +404,91 @@ jobs:
   );
 });
 
+Deno.test("parseWorkflowFile: valid variables mapping parses", async () => {
+  await withFixture(
+    "valid-variables.yml",
+    `
+variables:
+  GREETING: hello
+  API_URL: "https://example.com"
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      const workflow = await parseWorkflowFile(path);
+      assertEquals(workflow.variables, { GREETING: "hello", API_URL: "https://example.com" });
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: variables with a non-string value fails", async () => {
+  await withFixture(
+    "invalid-variables.yml",
+    `
+variables:
+  COUNT: 5
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      await assertRejects(
+        () => parseWorkflowFile(path),
+        WorkflowParseError,
+        `"variables" must be a mapping of strings`,
+      );
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: variable value with $(NAME) resolves from env", async () => {
+  Deno.env.set("ENSEMBLE_TEST_ENV_REF", "resolved-value");
+  try {
+    await withFixture(
+      "variables-env-ref.yml",
+      `
+variables:
+  FROM_ENV: "$(ENSEMBLE_TEST_ENV_REF)"
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+      async (path) => {
+        const workflow = await parseWorkflowFile(path);
+        assertEquals(workflow.variables, { FROM_ENV: "resolved-value" });
+      },
+    );
+  } finally {
+    Deno.env.delete("ENSEMBLE_TEST_ENV_REF");
+  }
+});
+
+Deno.test("parseWorkflowFile: variable value with unset $(NAME) fails", async () => {
+  Deno.env.delete("ENSEMBLE_TEST_UNSET_ENV_REF");
+  await withFixture(
+    "variables-unset-env-ref.yml",
+    `
+variables:
+  FROM_ENV: "$(ENSEMBLE_TEST_UNSET_ENV_REF)"
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      await assertRejects(
+        () => parseWorkflowFile(path),
+        WorkflowParseError,
+        'references unset env var "ENSEMBLE_TEST_UNSET_ENV_REF"',
+      );
+    },
+  );
+});
+
 Deno.test("parseWorkflowFile: step with neither run nor script fails", async () => {
   await withFixture(
     "neither-run-nor-script.yml",

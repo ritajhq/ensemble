@@ -9,6 +9,7 @@ import {
   type MatrixNeedsResult,
   type NeedsResult,
   type RootContext,
+  type RunContext,
 } from "./context.ts";
 import { runJob, type StepEvent } from "./run-job.ts";
 import { expandMatrix } from "./matrix.ts";
@@ -37,6 +38,8 @@ export interface RunWorkflowOptions {
   concurrency?: number;
   /** Data from whatever triggered this run, made available as `trigger.*` in every job/step. */
   trigger?: Record<string, unknown>;
+  /** The deploy context this run was invoked with, made available as `context.*` in every job/step. Already resolved (name + absolute path) by the caller. */
+  context?: RunContext;
   /**
    * Repo root to expose to steps as `ENSEMBLE_WORKSPACE`, so an `ens` subcommand
    * invoked from a `run:` step can find it even though steps' `cwd` is a scratch
@@ -131,7 +134,11 @@ export async function runWorkflow(
   workflow: Workflow,
   options: RunWorkflowOptions,
 ): Promise<RunWorkflowResult> {
-  const variables = options.variables ?? Object.fromEntries(Object.entries(Deno.env.toObject()));
+  const variables = {
+    ...Deno.env.toObject(),
+    ...workflow.variables,
+    ...options.variables,
+  };
   if (options.repoRoot !== undefined) {
     variables.ENSEMBLE_WORKSPACE = options.repoRoot;
   }
@@ -171,12 +178,12 @@ export async function runWorkflow(
             needsResult = { result: "skipped", outputs: {} };
             durationMs = logger.flush("skipped");
           } else if (job.matrix !== undefined) {
-            const root = buildRootContext(variables, outcomes, undefined, options.trigger);
+            const root = buildRootContext(variables, outcomes, undefined, options.trigger, options.context);
             const matrixRun = await runMatrixJob(jobId, job, root, options.workflowDir, runDir, concurrency);
             needsResult = matrixRun.needsResult;
             durationMs = matrixRun.durationMs;
           } else {
-            const root = buildRootContext(variables, outcomes, undefined, options.trigger);
+            const root = buildRootContext(variables, outcomes, undefined, options.trigger, options.context);
             const outcome = await runJob(
               job,
               root,

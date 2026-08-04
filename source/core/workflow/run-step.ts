@@ -3,7 +3,7 @@ import { RealEnvironment, which } from "@david/which";
 import bootstrapSource from "./run-script-subprocess.ts" with { type: "text" };
 import type { Step } from "./schema.ts";
 import type { JobContext, StepResult } from "./context.ts";
-import { evaluateStepIf, toStepContext } from "./context.ts";
+import { evaluateStepIf, interpolateStep, toStepContext } from "./context.ts";
 import { WorkflowExpressionError } from "./expressions.ts";
 import { type ResultChannel, TempFileResultChannel } from "./result-channel.ts";
 
@@ -227,10 +227,11 @@ export async function runStep(
   try {
     let outputs: Record<string, string> = {};
     if (step.run !== undefined) {
-      const shellResult = await runShell(step.run, cwd, ctx.variables, signal);
+      const command = interpolateStep(step.run, ctx);
+      const shellResult = await runShell(command, cwd, ctx.variables, signal);
       capturedLog = shellResult.log;
       if (shellResult.code !== 0) {
-        throw new StepRunError(`Command exited with code ${shellResult.code}: ${step.run}`, capturedLog);
+        throw new StepRunError(`Command exited with code ${shellResult.code}: ${command}`, capturedLog);
       }
     } else {
       const scriptResult = await runScript(step.script!, workflowDir, cwd, ctx, signal);
