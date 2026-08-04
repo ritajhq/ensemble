@@ -1,0 +1,11 @@
+:8000 {
+	@api path /v1/workflows* /v1/webhooks/* /v1/integrations/*
+
+	handle @api {
+		reverse_proxy server:8787
+	}
+
+	handle {
+		reverse_proxy web:8000
+	}
+}

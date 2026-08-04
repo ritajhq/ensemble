@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ritajhq/ensemble/main/.ensemble/schemas/workflow.schema.json
+
+jobs:
+  dev:
+    steps:
+      - name: build_web_once
+        run: |
+          set -euo pipefail
+          cd "$ENSEMBLE_WORKSPACE"
+          ens build web
+
+      - name: pack_server_image
+        run: |
+          set -euo pipefail
+          cd "$ENSEMBLE_WORKSPACE"
+
+          ens build server
+          ens pack cli deno.compile
+          ens pack server docker
+
+      - name: pack_hot_server_image
+        run: |
+          set -euo pipefail
+          cd "$ENSEMBLE_WORKSPACE"
+          ens pack hot-server docker
+
+      - name: watch_and_serve
+        run: |
+          set -euo pipefail
+          cd "$ENSEMBLE_WORKSPACE"
+
+          ens build web --watch &
+          build_web_pid=$!
+          ens build server --watch &
+          build_server_pid=$!
+
+          trap 'kill "$build_web_pid" "$build_server_pid" 2>/dev/null' EXIT
+
+          docker compose -f workflows/local/docker-compose.yml up --watch

@@ -1,0 +1,41 @@
+services:
+  server:
+    image: server:latest
+    pull_policy: never
+    expose:
+      - "8787"
+    volumes:
+      - ./.ensemble:/workspace/.ensemble
+      - ./workflows:/workspace/workflows
+    develop:
+      watch:
+        - action: sync+restart
+          path: ../../source/artifacts/server
+          target: /app/server
+          initial_sync: true
+
+  web:
+    image: hot-server:latest
+    pull_policy: never
+    expose:
+      - "8000"
+    environment:
+      LIVE_RELOAD: "true"
+      INJECT_API_ENDPOINT: "http://localhost:8080/api"
+    develop:
+      watch:
+        - action: sync
+          path: ../../source/artifacts/web
+          target: /app/www
+          initial_sync: true
+
+  caddy:
+    image: caddy:alpine
+    pull_policy: missing
+    ports:
+      - "8080:8000"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - server
+      - web
