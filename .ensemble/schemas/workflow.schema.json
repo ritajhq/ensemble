@@ -13,6 +13,11 @@
         "$ref": "#/definitions/trigger"
       }
     },
+    "variables": {
+      "description": "Default variables for every job/step in this workflow. A value containing $(NAME) is resolved from the process's own env var NAME at parse time. Overridable by CLI/HTTP-trigger variables.",
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
     "jobs": {
       "description": "Jobs in this workflow, keyed by job id.",
       "type": "object",
