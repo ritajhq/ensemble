@@ -4,11 +4,12 @@
 
 <h1 align="center">Ensemble</h1>
 
-Most TypeScript projects accumulate order and agility as opposing forces: the
-longer one survives, the more its structure crystallize and the slower it gets
-to change. Ensemble is a bet that this is a tooling failure, not a law of nature
-— that the right workspace layout and a single coherent CLI can give you both at
-once, indefinitely, instead of trading one for the other as the project grows.
+Most TypeScript projects trade tidiness for speed of change as they grow: the
+longer one survives, the more its structure crystallizes and the slower it
+gets to change. Ensemble is a bet that this is a tooling failure, not a law
+of nature — that the right workspace layout and a single coherent CLI can
+give you tidiness and speed at once, indefinitely, instead of forcing that
+trade as the project grows.
 
 ## What is it
 
