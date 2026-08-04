@@ -3,5 +3,7 @@ build:
     kit: deno.bundle
   server:
     kit: deno.bundle
-  web/spa:
+  demo/spa:
+    kit: react.spa
+  web:
     kit: react.spa
