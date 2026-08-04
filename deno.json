@@ -1,4 +1,21 @@
 {
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "deno.ns",
+      "deno.unstable"
+    ],
+    "types": [
+      "npm:@types/react@19",
+      "npm:@types/react-dom@19"
+    ]
+  },
+  "unstable": [
+    "kv"
+  ],
   "workspace": [
     "source/apps/**",
     "source/core/**",
