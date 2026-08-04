@@ -14,4 +14,11 @@ export type {
   StepResult,
 } from "./context.ts";
 export { expandMatrix } from "./matrix.ts";
-export { runWorkflow, type RunWorkflowOptions, type RunWorkflowResult } from "./run-workflow.ts";
+export { type StepEvent } from "./run-job.ts";
+export { type StepLogCapture, StepRunError } from "./run-step.ts";
+export {
+  runWorkflow,
+  type RunWorkflowOptions,
+  type RunWorkflowResult,
+  type WorkflowEvent,
+} from "./run-workflow.ts";

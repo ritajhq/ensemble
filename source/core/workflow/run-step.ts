@@ -9,11 +9,26 @@ import { type ResultChannel, TempFileResultChannel } from "./result-channel.ts";
 
 const resultChannel: ResultChannel = new TempFileResultChannel();
 
+/** A step's captured stdout/stderr, bounded so it fits comfortably under Deno KV's per-value size limit. */
+export interface StepLogCapture {
+  stdout: string;
+  stderr: string;
+  truncated: boolean;
+}
+
 export interface StepRunResult {
   result: StepResult;
   outputs: Record<string, string>;
   /** True when the step failed but had continue-on-error: true set. */
   continuedOnError: boolean;
+  log: StepLogCapture;
+}
+
+/** A step's hard failure (no continue-on-error), carrying its captured log so the caller can still surface it. */
+export class StepRunError extends Error {
+  constructor(message: string, readonly log: StepLogCapture) {
+    super(message);
+  }
 }
 
 let cachedDenoExe: string | undefined;
@@ -58,22 +73,73 @@ function isOutputRecord(value: unknown): value is Record<string, string> {
     Object.values(value as Record<string, unknown>).every((v) => typeof v === "string");
 }
 
+const MAX_CAPTURED_BYTES_PER_STREAM = 128 * 1024;
+
+/**
+ * Reads `stream` to completion, mirroring every chunk to `mirror` (the real
+ * stdout/stderr) so a human tailing this process live sees no change, while
+ * also accumulating up to `MAX_CAPTURED_BYTES_PER_STREAM` bytes for capture.
+ * Draining continues past the cap (dropping further bytes from the capture
+ * only) so the child's pipe never backs up and deadlocks it.
+ */
+async function pumpAndCapture(
+  stream: ReadableStream<Uint8Array>,
+  mirror: { write(p: Uint8Array): Promise<number> | number },
+): Promise<{ text: string; truncated: boolean }> {
+  const decoder = new TextDecoder();
+  const chunks: Uint8Array[] = [];
+  let capturedBytes = 0;
+  let truncated = false;
+
+  for await (const chunk of stream) {
+    await mirror.write(chunk);
+    if (capturedBytes < MAX_CAPTURED_BYTES_PER_STREAM) {
+      const remaining = MAX_CAPTURED_BYTES_PER_STREAM - capturedBytes;
+      const slice = chunk.length > remaining ? chunk.subarray(0, remaining) : chunk;
+      chunks.push(slice);
+      capturedBytes += slice.length;
+      if (chunk.length > remaining) truncated = true;
+    } else {
+      truncated = true;
+    }
+  }
+
+  const combined = new Uint8Array(capturedBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    combined.set(chunk, offset);
+    offset += chunk.length;
+  }
+
+  return { text: decoder.decode(combined), truncated };
+}
+
 async function runShell(
   command: string,
   cwd: string,
   variables: Record<string, string>,
   signal: AbortSignal,
-): Promise<number> {
+): Promise<{ code: number; log: StepLogCapture }> {
   const cmd = new Deno.Command(Deno.build.os === "windows" ? "cmd" : "/bin/sh", {
     args: Deno.build.os === "windows" ? ["/c", command] : ["-c", command],
     cwd,
     env: variables,
-    stdout: "inherit",
-    stderr: "inherit",
+    stdout: "piped",
+    stderr: "piped",
     signal,
   });
-  const { code } = await cmd.output();
-  return code;
+  const child = cmd.spawn();
+
+  const [stdout, stderr, status] = await Promise.all([
+    pumpAndCapture(child.stdout, Deno.stdout),
+    pumpAndCapture(child.stderr, Deno.stderr),
+    child.status,
+  ]);
+
+  return {
+    code: status.code,
+    log: { stdout: stdout.text, stderr: stderr.text, truncated: stdout.truncated || stderr.truncated },
+  };
 }
 
 /**
@@ -93,7 +159,7 @@ async function runScript(
   cwd: string,
   ctx: JobContext,
   signal: AbortSignal,
-): Promise<Record<string, string>> {
+): Promise<{ outputs: Record<string, string>; log: StepLogCapture }> {
   const absPath = isAbsolute(scriptPath) ? scriptPath : resolve(workflowDir, scriptPath);
   const [denoExe, bootstrapPath, resultHandle] = await Promise.all([
     resolveDenoExecutable(),
@@ -106,8 +172,8 @@ async function runScript(
       args: ["run", "-A", bootstrapPath, absPath, resultHandle],
       cwd,
       stdin: "piped",
-      stdout: "inherit",
-      stderr: "inherit",
+      stdout: "piped",
+      stderr: "piped",
       signal,
     });
     const child = cmd.spawn();
@@ -117,18 +183,24 @@ async function runScript(
     await writer.write(new TextEncoder().encode(JSON.stringify(stepContext)));
     await writer.close();
 
-    const { code } = await child.output();
-    if (code !== 0) {
-      throw new Error(`Script "${scriptPath}" exited with code ${code}.`);
+    const [stdout, stderr, status] = await Promise.all([
+      pumpAndCapture(child.stdout, Deno.stdout),
+      pumpAndCapture(child.stderr, Deno.stderr),
+      child.status,
+    ]);
+    const log: StepLogCapture = { stdout: stdout.text, stderr: stderr.text, truncated: stdout.truncated || stderr.truncated };
+
+    if (status.code !== 0) {
+      throw new StepRunError(`Script "${scriptPath}" exited with code ${status.code}.`, log);
     }
 
     const resultText = (await resultChannel.read(resultHandle)).trim();
-    if (resultText === "") return {};
+    if (resultText === "") return { outputs: {}, log };
     const outputs = JSON.parse(resultText);
     if (!isOutputRecord(outputs)) {
-      throw new Error(`Script "${scriptPath}"'s run() must return Record<string,string> or void.`);
+      throw new StepRunError(`Script "${scriptPath}"'s run() must return Record<string,string> or void.`, log);
     }
-    return outputs;
+    return { outputs, log };
   } finally {
     await resultChannel.cleanup(resultHandle);
   }
@@ -147,25 +219,31 @@ export async function runStep(
   signal: AbortSignal = new AbortController().signal,
 ): Promise<StepRunResult> {
   if (step.if !== undefined && !evaluateStepIf(step.if, ctx)) {
-    return { result: "skipped", outputs: {}, continuedOnError: false };
+    return { result: "skipped", outputs: {}, continuedOnError: false, log: { stdout: "", stderr: "", truncated: false } };
   }
+
+  let capturedLog: StepLogCapture = { stdout: "", stderr: "", truncated: false };
 
   try {
     let outputs: Record<string, string> = {};
     if (step.run !== undefined) {
-      const code = await runShell(step.run, cwd, ctx.variables, signal);
-      if (code !== 0) {
-        throw new Error(`Command exited with code ${code}: ${step.run}`);
+      const shellResult = await runShell(step.run, cwd, ctx.variables, signal);
+      capturedLog = shellResult.log;
+      if (shellResult.code !== 0) {
+        throw new StepRunError(`Command exited with code ${shellResult.code}: ${step.run}`, capturedLog);
       }
     } else {
-      outputs = await runScript(step.script!, workflowDir, cwd, ctx, signal);
+      const scriptResult = await runScript(step.script!, workflowDir, cwd, ctx, signal);
+      capturedLog = scriptResult.log;
+      outputs = scriptResult.outputs;
     }
-    return { result: "success", outputs, continuedOnError: false };
+    return { result: "success", outputs, continuedOnError: false, log: capturedLog };
   } catch (error) {
     if (error instanceof WorkflowExpressionError) throw error;
+    const log = error instanceof StepRunError ? error.log : capturedLog;
     if (step["continue-on-error"]) {
-      return { result: "failure", outputs: {}, continuedOnError: true };
+      return { result: "failure", outputs: {}, continuedOnError: true, log };
     }
-    throw error;
+    throw error instanceof StepRunError ? error : new StepRunError(error instanceof Error ? error.message : String(error), log);
   }
 }

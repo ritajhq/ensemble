@@ -1,16 +1,32 @@
 import { pooledMap } from "@std/async";
+import type { Delegate } from "@ritaj/event";
 import type { Job, Workflow } from "./schema.ts";
 import { buildBatches, transitiveDeps } from "./graph.ts";
 import {
   buildRootContext,
   type JobOutcome,
+  type JobResult,
   type MatrixNeedsResult,
   type NeedsResult,
   type RootContext,
 } from "./context.ts";
-import { runJob } from "./run-job.ts";
+import { runJob, type StepEvent } from "./run-job.ts";
 import { expandMatrix } from "./matrix.ts";
 import { JobLogger, printSummary, type SummaryRow } from "./logging.ts";
+
+/**
+ * Fired as jobs (and, for non-matrixed jobs, their steps) start/finish, so a
+ * caller can track a run's progress without parsing log output. Matrixed
+ * jobs' step-level detail isn't surfaced here for now — each matrix instance
+ * runs under the same shared `jobId`, so per-instance step identity has no
+ * unambiguous representation yet; only their job-started/job-finished events
+ * fire, same as before this event type grew step variants.
+ */
+export type WorkflowEvent =
+  | { type: "job-started"; jobId: string }
+  | { type: "job-finished"; jobId: string; result: JobResult; durationMs: number }
+  | ({ jobId: string } & Extract<StepEvent, { type: "step-started" }>)
+  | ({ jobId: string } & Extract<StepEvent, { type: "step-finished" }>);
 
 export interface RunWorkflowOptions {
   workflowDir: string;
@@ -27,6 +43,8 @@ export interface RunWorkflowOptions {
    * temp dir unrelated to the repo (see findRepoRoot in @ensemble/core).
    */
   repoRoot?: string;
+  /** Notified as jobs start/finish, for callers that want to track run progress. */
+  events?: Delegate<[WorkflowEvent]>;
 }
 
 export interface RunWorkflowResult {
@@ -145,6 +163,7 @@ export async function runWorkflow(
           const depsOk = deps.every((dep) => outcomes[dep]?.result !== "failure");
 
           const logger = new JobLogger(jobId);
+          options.events?.Invoke({ type: "job-started", jobId });
           let needsResult: NeedsResult;
           let durationMs: number;
           if (!depsOk) {
@@ -158,10 +177,19 @@ export async function runWorkflow(
             durationMs = matrixRun.durationMs;
           } else {
             const root = buildRootContext(variables, outcomes, undefined, options.trigger);
-            const outcome = await runJob(job, root, options.workflowDir, runDir, logger);
+            const outcome = await runJob(
+              job,
+              root,
+              options.workflowDir,
+              runDir,
+              logger,
+              undefined,
+              (event) => options.events?.Invoke({ ...event, jobId }),
+            );
             needsResult = { result: outcome.result, outputs: outcome.outputs };
             durationMs = logger.flush(outcome.result);
           }
+          options.events?.Invoke({ type: "job-finished", jobId, result: needsResult.result, durationMs });
           return { jobId, needsResult, durationMs };
         },
       );

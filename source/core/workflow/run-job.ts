@@ -1,9 +1,24 @@
 import type { Job } from "./schema.ts";
-import type { JobContext, JobOutcome, JobResult, RootContext } from "./context.ts";
+import type { JobContext, JobOutcome, JobResult, RootContext, StepResult } from "./context.ts";
 import { evaluateJobIf, toJobContext } from "./context.ts";
-import { runStep } from "./run-step.ts";
+import { runStep, StepRunError, type StepLogCapture } from "./run-step.ts";
 import type { JobLogger } from "./logging.ts";
 import { WorkflowExpressionError } from "./expressions.ts";
+
+const EMPTY_LOG: StepLogCapture = { stdout: "", stderr: "", truncated: false };
+
+/** Fired as a job's steps start/finish, so a caller can track step-level progress and capture logs. */
+export type StepEvent =
+  | { type: "step-started"; index: number; label: string }
+  | {
+    type: "step-finished";
+    index: number;
+    label: string;
+    result: StepResult;
+    durationMs: number;
+    continuedOnError: boolean;
+    log: StepLogCapture;
+  };
 
 /**
  * Runs a job's steps sequentially, accumulating steps.<id>.outputs into the
@@ -24,6 +39,7 @@ export async function runJob(
   cwd: string,
   logger: JobLogger,
   signal: AbortSignal = new AbortController().signal,
+  onStep?: (event: StepEvent) => void,
 ): Promise<JobOutcome> {
   if (job.if !== undefined && !evaluateJobIf(job.if, root)) {
     logger.info(`skipped (if: ${job.if})`);
@@ -34,21 +50,26 @@ export async function runJob(
   const outputs: Record<string, string> = {};
   let result: JobResult = "success";
 
-  for (const step of job.steps) {
+  for (const [index, step] of job.steps.entries()) {
     const label = step.name ?? (step.run !== undefined ? "shell" : "script");
 
     if (signal.aborted) {
       result = "cancelled";
       logger.stepEnd(label, "skipped", 0);
+      onStep?.({ type: "step-started", index, label });
+      onStep?.({ type: "step-finished", index, label, result: "skipped", durationMs: 0, continuedOnError: false, log: EMPTY_LOG });
       continue;
     }
 
     if (result !== "success") {
       logger.stepEnd(label, "skipped", 0);
+      onStep?.({ type: "step-started", index, label });
+      onStep?.({ type: "step-finished", index, label, result: "skipped", durationMs: 0, continuedOnError: false, log: EMPTY_LOG });
       continue;
     }
 
     logger.stepStart(label);
+    onStep?.({ type: "step-started", index, label });
     const startedAt = performance.now();
     let outcome;
     try {
@@ -56,16 +77,25 @@ export async function runJob(
     } catch (error) {
       if (error instanceof WorkflowExpressionError) throw error;
       result = signal.aborted ? "cancelled" : "failure";
-      logger.stepEnd(label, result === "cancelled" ? "skipped" : "failure", performance.now() - startedAt);
+      const durationMs = performance.now() - startedAt;
+      const stepResult: StepResult = result === "cancelled" ? "skipped" : "failure";
+      logger.stepEnd(label, stepResult, durationMs);
       logger.info(`error: ${error instanceof Error ? error.message : error}`);
+      const log = error instanceof StepRunError ? error.log : EMPTY_LOG;
+      onStep?.({ type: "step-finished", index, label, result: stepResult, durationMs, continuedOnError: false, log });
       continue;
     }
-    logger.stepEnd(
+    const durationMs = performance.now() - startedAt;
+    logger.stepEnd(label, outcome.result, durationMs, outcome.continuedOnError);
+    onStep?.({
+      type: "step-finished",
+      index,
       label,
-      outcome.result,
-      performance.now() - startedAt,
-      outcome.continuedOnError,
-    );
+      result: outcome.result,
+      durationMs,
+      continuedOnError: outcome.continuedOnError,
+      log: outcome.log,
+    });
 
     if (step.id !== undefined) {
       ctx.steps[step.id] = { outputs: outcome.outputs };
