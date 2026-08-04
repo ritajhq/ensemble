@@ -3,7 +3,7 @@ import { ensureDir, exists } from "@std/fs";
 import { load as loadEnv } from "@std/dotenv";
 import { $ } from "@david/dax";
 import { findRepoRoot } from "./repo.ts";
-import { getAppBuildConfig, loadConfig } from "./config.ts";
+import { getAppBuildConfig, getLocalVars, loadConfig, loadLocalConfig } from "./config.ts";
 import { resolveDenoExecutable } from "./deno-exe.ts";
 import type { BuildMode } from "@ensemble/kit-sdk";
 
@@ -37,7 +37,9 @@ export async function runBuild(name: string, options: RunBuildOptions): Promise<
 
   const envFile = join(workspace, "envs", "build", `${name}.env`);
   const fileVars = await loadEnv({ envPath: envFile, export: false });
-  const buildVars = { ...fileVars, ...options.varOverrides };
+  const localConfig = await loadLocalConfig(repoRoot);
+  const localVars = getLocalVars(localConfig, "build", name);
+  const buildVars = { ...fileVars, ...localVars, ...options.varOverrides };
 
   const watchArgs = options.watch ? ["--watch"] : [];
   const denoExe = await resolveDenoExecutable();

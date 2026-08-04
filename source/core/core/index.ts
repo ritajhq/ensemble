@@ -3,8 +3,13 @@ export {
   type BuildAppConfig,
   type EnsembleConfig,
   getAppBuildConfig,
+  getLocalVars,
   loadConfig,
+  type LocalEnsembleConfig,
+  loadLocalConfig,
   setAppBuildKit,
+  setLocalVar,
+  type VarKind,
 } from "./config.ts";
 export { resolveDenoExecutable } from "./deno-exe.ts";
 export { type RunBuildOptions, runBuild } from "./build.ts";

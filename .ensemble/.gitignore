@@ -2,3 +2,4 @@ bin/
 kits/**/.bin/
 tokens.json
 runs.kv*
+config.local.yaml

@@ -9,7 +9,7 @@ export const buildCommand = new Command()
   .arguments("<name:string>")
   .option("-m, --mode <mode:mode>", "Build mode.", { default: "development" as const })
   .option("-w, --watch", "Rebuild on source changes.")
-  .option("-e, --var <var:string>", "Override a build var (KEY=VALUE). Repeatable.", {
+  .option("-v, --var <var:string>", "Override a build var (KEY=VALUE). Repeatable.", {
     collect: true,
   })
   .action(async ({ mode, watch, var: vars }, name) => {

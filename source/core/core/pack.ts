@@ -5,6 +5,7 @@ import { $ } from "@david/dax";
 import { findRepoRoot } from "./repo.ts";
 import { resolveDenoExecutable } from "./deno-exe.ts";
 import { loadKitModes } from "@ensemble/kit-sdk";
+import { getLocalVars, loadLocalConfig } from "./config.ts";
 
 export interface RunPackOptions {
   /** Defaults to the first mode declared in the kit's kit.yml, or "default" if it has none. */
@@ -61,7 +62,9 @@ export async function runPack(
 
   const envFile = join(workspace, "envs", "pack", `${shipName}.env`);
   const fileVars = await loadEnv({ envPath: envFile, export: false });
-  const packVars = { ...fileVars, ...options.varOverrides };
+  const localConfig = await loadLocalConfig(repoRoot);
+  const localVars = getLocalVars(localConfig, "pack", shipName);
+  const packVars = { ...fileVars, ...localVars, ...options.varOverrides };
 
   const result = await $`${denoExe} run -A ${kitEntry}
     --artifacts ${artifactsDir}

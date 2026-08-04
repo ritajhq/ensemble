@@ -19,6 +19,69 @@ export async function loadConfig(repoRoot: string): Promise<EnsembleConfig> {
   return (parsed ?? {}) as EnsembleConfig;
 }
 
+export type VarKind = "build" | "pack";
+
+export interface LocalEnsembleConfig {
+  vars?: Record<VarKind, Record<string, Record<string, string>>>;
+}
+
+function localConfigPath(repoRoot: string): string {
+  return join(repoRoot, ".ensemble", "config.local.yaml");
+}
+
+/**
+ * Loads .ensemble/config.local.yaml, the gitignored counterpart to
+ * config.yaml for per-developer defaults (e.g. build/pack var overrides you
+ * don't want to share with the team). Returns an empty config if the file
+ * doesn't exist, unlike loadConfig which requires config.yaml to be present.
+ */
+export async function loadLocalConfig(repoRoot: string): Promise<LocalEnsembleConfig> {
+  const path = localConfigPath(repoRoot);
+  if (!await exists(path, { isFile: true })) {
+    return {};
+  }
+  const parsed = parseYaml(await Deno.readTextFile(path));
+  return (parsed ?? {}) as LocalEnsembleConfig;
+}
+
+/** Returns the locally configured default vars for a given app/ship name, or {} if none are set. */
+export function getLocalVars(
+  config: LocalEnsembleConfig,
+  kind: VarKind,
+  name: string,
+): Record<string, string> {
+  return config.vars?.[kind]?.[name] ?? {};
+}
+
+/**
+ * Sets vars.<kind>.<name>.<key> in .ensemble/config.local.yaml, creating the
+ * file if it doesn't exist yet and preserving any other existing entries.
+ * This is a plain parse-modify-rewrite of the YAML, so any hand-written
+ * comments in an existing config.local.yaml are not preserved across this call.
+ */
+export async function setLocalVar(
+  repoRoot: string,
+  kind: VarKind,
+  name: string,
+  key: string,
+  value: string,
+): Promise<void> {
+  const path = localConfigPath(repoRoot);
+  const existingConfig = await loadLocalConfig(repoRoot);
+
+  const config: LocalEnsembleConfig = {
+    ...existingConfig,
+    vars: {
+      ...existingConfig.vars,
+      [kind]: {
+        ...existingConfig.vars?.[kind],
+        [name]: { ...existingConfig.vars?.[kind]?.[name], [key]: value },
+      },
+    } as Record<VarKind, Record<string, Record<string, string>>>,
+  };
+  await Deno.writeTextFile(path, stringifyYaml(config as unknown as Record<string, unknown>));
+}
+
 export function getAppBuildConfig(config: EnsembleConfig, name: string): BuildAppConfig {
   const appConfig = config.build?.[name];
   if (!appConfig) {

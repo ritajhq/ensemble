@@ -1,6 +1,6 @@
 import { ValidationError } from "@cliffy/command";
 
-function splitPair(pair: string): [string, string] {
+export function splitPair(pair: string): [string, string] {
   const separatorIndex = pair.indexOf("=");
   if (separatorIndex === -1) {
     throw new ValidationError(`Invalid "${pair}", expected KEY=VALUE.`);
@@ -8,7 +8,7 @@ function splitPair(pair: string): [string, string] {
   return [pair.slice(0, separatorIndex), pair.slice(separatorIndex + 1)];
 }
 
-/** Parses repeatable `KEY=VALUE` flag values (e.g. `-e`/`--var`) into a mapping. */
+/** Parses repeatable `KEY=VALUE` flag values (e.g. `-v`/`--var`) into a mapping. */
 export function parseVarOverrides(pairs: string[]): Record<string, string> {
   const result: Record<string, string> = {};
   for (const pair of pairs) {
