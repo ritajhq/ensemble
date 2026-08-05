@@ -21,19 +21,20 @@ jobs:
           echo "Packing..."
           ens pack -o ensemble/web web docker
 
-      - name: publish_web
+      - name: pack_hot-server
         run: |
-          cd "$ENSEMBLE_WORKSPACE"
-          mc alias set release-bucket https://s3.ritaj.app "$S3_ACCESS_KEY_ID" "$S3_SECRET_ACCESS_KEY"
-          mc mirror --remove source/artifacts/web/ release-bucket/releases/ensemble/web/latest
+          echo "Packing..."
+          ens pack -o ensemble/hot-server hot-server docker
 
       - name: tag_and_push
         run: |
           echo "Tagging and pushing..."
           docker image tag ensemble/server:latest registry.ritaj.app/ensemble/server:latest
           docker image tag ensemble/web:latest registry.ritaj.app/ensemble/web:latest
+          docker image tag ensemble/hot-server:latest registry.ritaj.app/ensemble/hot-server:latest
 
           docker login registry.ritaj.app -u "$REGISTRY_USERNAME" -p "$REGISTRY_PASSWORD"
 
           docker push registry.ritaj.app/ensemble/server:latest
           docker push registry.ritaj.app/ensemble/web:latest
+          docker push registry.ritaj.app/ensemble/hot-server:latest
