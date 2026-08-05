@@ -7,7 +7,7 @@ RUN ln -s /usr/bin/mcli /usr/bin/mc
 
 WORKDIR /app
 
-COPY --from=packages cli.exe /usr/local/bin/ens
+COPY --from=packages ensemble-linux-x64 /usr/local/bin/ens
 COPY --from=artifacts server/main.js ./server/main.js
 
 WORKDIR /workspace
