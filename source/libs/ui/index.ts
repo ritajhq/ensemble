@@ -1,6 +1,20 @@
 export { cn } from "./lib/utils.ts";
 export { useIsMobile } from "./hooks/use-mobile.ts";
 
+export {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogOverlay,
+  AlertDialogPortal,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "./components/alert-dialog.tsx";
 export { Badge, badgeVariants } from "./components/badge.tsx";
 export {
   Breadcrumb,

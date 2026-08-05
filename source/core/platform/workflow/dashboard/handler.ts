@@ -1,5 +1,6 @@
 import {
   decodeWorkflowId,
+  deleteRun,
   encodeWorkflowId,
   getLatestRun,
   getRun,
@@ -16,6 +17,7 @@ import {
 import { setCookie } from "@std/http/cookie";
 import { isAuthorizedFor, SSE_TOKEN_COOKIE } from "../../auth/tokens.ts";
 import type {
+  DeleteRunResponse,
   GetStepLogResponse,
   ListRunsResponse,
   ListRunStepsResponse,
@@ -179,6 +181,37 @@ export async function handleRunWorkflow(
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 });
   }
+}
+
+/**
+ * Deletes a run's record and all of its step logs. Allowed regardless of
+ * status — including in_progress — since the only way to clear a run
+ * stranded there by a crash/restart is to remove it; this doesn't stop any
+ * still-running workflow process, it only removes the tracking record.
+ * Gated by "trigger" rather than a dedicated permission, since anything
+ * that can start a run is already trusted to mutate run state.
+ */
+export async function handleDeleteRun(
+  request: Request,
+  params: Record<string, string | undefined>,
+): Promise<Response> {
+  if (!await isAuthorizedFor(request, "trigger")) {
+    return Response.json({ error: "Missing or invalid bearer token." }, { status: 401 });
+  }
+
+  const resolved = resolveWorkflowNameParam(params);
+  if ("errorResponse" in resolved) return resolved.errorResponse;
+
+  const runId = params.runId;
+  if (!runId) {
+    return Response.json({ error: "Missing run id in URL." }, { status: 400 });
+  }
+
+  const deleted = await deleteRun(runId, resolved.name);
+  if (!deleted) {
+    return Response.json({ error: `Run "${runId}" not found.` }, { status: 404 });
+  }
+  return Response.json({ success: true } satisfies DeleteRunResponse);
 }
 
 export async function handleReadWorkflowFile(

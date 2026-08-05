@@ -10,6 +10,7 @@ import {
   gitIntegrationRestoreWorkflowFeature,
 } from "./workflow/integrations/git/index.ts";
 import {
+  deleteRunFeature,
   getStepLogFeature,
   listRunStepsFeature,
   listRunsFeature,
@@ -44,6 +45,7 @@ export const allFeatures: Feature[] = [
   listRunsFeature,
   listRunStepsFeature,
   getStepLogFeature,
+  deleteRunFeature,
   runWorkflowFeature,
   mintSseTokenFeature,
   runEventsFeature,

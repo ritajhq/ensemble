@@ -1,9 +1,23 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import { fetchRuns, fetchWorkflows, type RunRecord, type WorkflowTriggerSummary } from "../lib/api.ts";
+import { deleteRun, fetchRuns, fetchWorkflows, type RunRecord, type WorkflowTriggerSummary } from "../lib/api.ts";
 import { formatDuration, formatRelativeTime, statusVariant } from "../lib/status.ts";
 import { TriggerRunSheet } from "./TriggerRunSheet.tsx";
-import { Badge, Card } from "@ritaj/ui";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+  Badge,
+  Button,
+  Card,
+} from "@ritaj/ui";
+import { Trash2 } from "lucide-react";
 
 /** "manual" / "github" / etc, or "—" when a run predates trigger tracking. */
 function triggerLabel(run: RunRecord): string {
@@ -61,7 +75,59 @@ function ActiveRunCard(
   );
 }
 
-function RunHistoryRow({ workflowId, run }: { workflowId: string; run: RunRecord }) {
+function DeleteRunDialog(
+  { workflowId, runId, onDeleted }: { workflowId: string; runId: string; onDeleted: () => void },
+) {
+  const [deleting, setDeleting] = useState(false);
+
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="text-muted-foreground hover:text-destructive"
+            onClick={(event: React.MouseEvent) => event.stopPropagation()}
+          />
+        }
+      >
+        <Trash2 className="size-3.5" />
+        <span className="sr-only">Delete run</span>
+      </AlertDialogTrigger>
+      <AlertDialogContent onClick={(event) => event.stopPropagation()}>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete this run?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This permanently removes the run and its step logs. This can't be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel />
+          <AlertDialogAction
+            variant="destructive"
+            disabled={deleting}
+            onClick={async () => {
+              setDeleting(true);
+              try {
+                await deleteRun(workflowId, runId);
+                onDeleted();
+              } finally {
+                setDeleting(false);
+              }
+            }}
+          >
+            {deleting ? "Deleting…" : "Delete"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+function RunHistoryRow(
+  { workflowId, run, onDeleted }: { workflowId: string; run: RunRecord; onDeleted: () => void },
+) {
   const navigate = useNavigate();
 
   return (
@@ -75,11 +141,14 @@ function RunHistoryRow({ workflowId, run }: { workflowId: string; run: RunRecord
       <span className="shrink-0 text-muted-foreground" title={new Date(run.startedAt).toLocaleString()}>
         {formatRelativeTime(run.startedAt)}
       </span>
+      <DeleteRunDialog workflowId={workflowId} runId={run.runId} onDeleted={onDeleted} />
     </div>
   );
 }
 
-function RunHistory({ workflowId, runs }: { workflowId: string; runs: RunRecord[] }) {
+function RunHistory(
+  { workflowId, runs, onDeleted }: { workflowId: string; runs: RunRecord[]; onDeleted: () => void },
+) {
   return (
     <div>
       <h2 className="mb-2 text-sm font-medium">Run history</h2>
@@ -87,7 +156,9 @@ function RunHistory({ workflowId, runs }: { workflowId: string; runs: RunRecord[
       <Card className="gap-0 py-0">
         {runs.length === 0
           ? <p className="px-4 py-3 text-sm text-muted-foreground">No runs yet.</p>
-          : runs.map((run) => <RunHistoryRow key={run.runId} workflowId={workflowId} run={run} />)}
+          : runs.map((run) => (
+            <RunHistoryRow key={run.runId} workflowId={workflowId} run={run} onDeleted={onDeleted} />
+          ))}
       </Card>
     </div>
   );
@@ -124,7 +195,7 @@ export function RunsView() {
             run={runs[0] ?? null}
             onRun={refetchRuns}
           />
-          <RunHistory workflowId={workflowId} runs={runs} />
+          <RunHistory workflowId={workflowId} runs={runs} onDeleted={refetchRuns} />
         </>
       )}
     </div>

@@ -45,6 +45,10 @@ export interface RunWorkflowResponse {
   success: boolean;
 }
 
+export interface DeleteRunResponse {
+  success: boolean;
+}
+
 export interface MintSseTokenResponse {
   ok: true;
 }

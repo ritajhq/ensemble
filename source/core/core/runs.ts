@@ -85,7 +85,21 @@ function invertedTimestamp(ms: number): string {
   return (Number.MAX_SAFE_INTEGER - ms).toString().padStart(16, "0");
 }
 
+/**
+ * Marks a runId as deleted-while-in-progress: `putRun` checks this and
+ * refuses every subsequent write for that runId, so the still-running
+ * process that owns it can't resurrect the record via any of its remaining
+ * mid-run or completion writes. Cleared once `trackedRunWorkflow` itself
+ * observes the run has finished (see its `finally`) — a finished run's
+ * delete never needs a tombstone in the first place, since nothing writes
+ * to a finished run's record again.
+ */
+const deletedWhileInProgress = new Set<string>();
+
+/** Writes `record`, unless its runId was deleted while still in_progress — in that case the write is silently dropped. */
 async function putRun(record: RunRecord): Promise<void> {
+  if (deletedWhileInProgress.has(record.runId)) return;
+
   const kv = await getKv();
   const key = [
     "runs",
@@ -160,6 +174,73 @@ export async function getRunSteps(
 ): Promise<StepRecord[] | undefined> {
   const run = await getRun(runId, workflowName);
   return run?.steps ?? (run ? [] : undefined);
+}
+
+/**
+ * Deletes keys in fixed-size atomic batches, mirroring `putChunks`'s
+ * batching for the same reason — an atomic transaction caps both its
+ * mutation count and total payload size.
+ */
+async function deleteKeys(kv: Deno.Kv, keys: Deno.KvKey[]): Promise<void> {
+  const BATCH_SIZE = 10;
+  for (let i = 0; i < keys.length; i += BATCH_SIZE) {
+    let op = kv.atomic();
+    for (let j = i; j < Math.min(i + BATCH_SIZE, keys.length); j++) {
+      op = op.delete(keys[j]);
+    }
+    await op.commit();
+  }
+}
+
+/**
+ * Deletes a run and everything it owns — its record, index entries, and
+ * every step log chunk — or returns false without changing anything if the
+ * run id is unknown or doesn't belong to `workflowName`.
+ *
+ * Deleting doesn't stop an in_progress run's underlying workflow process
+ * (there's no cancel mechanism) — that process is still going to call
+ * `putRun` again as it progresses and eventually finishes, which would
+ * otherwise silently recreate the record this call just removed. Tombstone
+ * the runId first so every one of those remaining writes is dropped
+ * instead; `trackedRunWorkflow` clears the tombstone once it itself
+ * observes the run has finished. A run that's already finished needs none
+ * of this — nothing will ever write to its record again.
+ */
+export async function deleteRun(
+  runId: string,
+  workflowName: string,
+): Promise<boolean> {
+  const kv = await getKv();
+  const run = await getRun(runId, workflowName);
+  if (!run) return false;
+
+  if (run.status === "in_progress") {
+    deletedWhileInProgress.add(runId);
+  }
+
+  const keys: Deno.KvKey[] = [
+    ["runs", run.workflowName, invertedTimestamp(new Date(run.startedAt).getTime()), run.runId],
+    ["runs-by-id", run.runId],
+  ];
+
+  const latest = await kv.get<RunRecord>(["runs-latest", workflowName]);
+  if (latest.value?.runId === runId) {
+    keys.push(["runs-latest", workflowName]);
+  }
+
+  for await (const entry of kv.list<StepLogMeta>({ prefix: ["run-logs-meta", runId] })) {
+    const [, , jobId, index] = entry.key;
+    keys.push(entry.key);
+    for (let i = 0; i < entry.value.stdoutChunks; i++) {
+      keys.push(["run-logs", runId, jobId, index, "stdout", i]);
+    }
+    for (let i = 0; i < entry.value.stderrChunks; i++) {
+      keys.push(["run-logs", runId, jobId, index, "stderr", i]);
+    }
+  }
+
+  await deleteKeys(kv, keys);
+  return true;
 }
 
 // Deno KV caps a value at 64KiB; stay well under that so a chunk plus its
@@ -388,5 +469,10 @@ export async function trackedRunWorkflow(
     await putRun(record);
     publishRunUpdate(runId, record);
     throw error;
+  } finally {
+    // No more writes for this runId will happen after this point, so the
+    // tombstone (if any) has served its purpose — dropping it here rather
+    // than leaving it set forever.
+    deletedWhileInProgress.delete(runId);
   }
 }

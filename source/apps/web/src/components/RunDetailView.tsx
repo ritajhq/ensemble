@@ -1,11 +1,32 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import { fetchRunSteps, fetchRuns, openRunEvents, type RunJobNode, type RunRecord, type StepRecord } from "../lib/api.ts";
+import {
+  deleteRun,
+  fetchRunSteps,
+  fetchRuns,
+  openRunEvents,
+  type RunJobNode,
+  type RunRecord,
+  type StepRecord,
+} from "../lib/api.ts";
 import { formatDuration, formatRelativeTime, statusVariant } from "../lib/status.ts";
 import { JobFlowDiagram } from "./JobFlowDiagram.tsx";
 import { StepLogSheet } from "./StepLogSheet.tsx";
-import { Badge, Button, Card } from "@ritaj/ui";
-import { ArrowLeft } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+  Badge,
+  Button,
+  Card,
+} from "@ritaj/ui";
+import { ArrowLeft, Trash2 } from "lucide-react";
 
 /** "manual" / "github" / etc, or "—" when a run predates trigger tracking. */
 function triggerLabel(run: RunRecord): string {
@@ -23,12 +44,58 @@ const RUN_DETAIL_FIELDS: {
   { label: "Trigger", render: (run) => triggerLabel(run) },
 ];
 
-function RunHeader({ run }: { run: RunRecord }) {
+function DeleteRunButton({ workflowId, runId, onDeleted }: { workflowId: string; runId: string; onDeleted: () => void }) {
+  const [deleting, setDeleting] = useState(false);
+
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger
+        render={<Button variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-destructive" />}
+      >
+        <Trash2 className="size-3.5" />
+        <span className="sr-only">Delete run</span>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete this run?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This permanently removes the run and its step logs. This can't be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel />
+          <AlertDialogAction
+            variant="destructive"
+            disabled={deleting}
+            onClick={async () => {
+              setDeleting(true);
+              try {
+                await deleteRun(workflowId, runId);
+                onDeleted();
+              } finally {
+                setDeleting(false);
+              }
+            }}
+          >
+            {deleting ? "Deleting…" : "Delete"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+function RunHeader(
+  { run, workflowId, onDeleted }: { run: RunRecord; workflowId: string; onDeleted: () => void },
+) {
   return (
     <Card className="gap-0 py-0">
       <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
         <span className="text-sm font-medium">Run details</span>
-        <Badge variant={statusVariant(run.status)}>{run.status}</Badge>
+        <div className="flex items-center gap-2">
+          <Badge variant={statusVariant(run.status)}>{run.status}</Badge>
+          <DeleteRunButton workflowId={workflowId} runId={run.runId} onDeleted={onDeleted} />
+        </div>
       </div>
       <div className="px-4 py-3">
         <div className="flex flex-wrap gap-x-8 gap-y-3">
@@ -100,7 +167,11 @@ export function RunDetailView() {
         {!error && run === null && <p className="text-sm text-muted-foreground">Run not found.</p>}
         {!error && run && (
           <>
-            <RunHeader run={run} />
+            <RunHeader
+              run={run}
+              workflowId={workflowId}
+              onDeleted={() => navigate(`/workflows/${workflowId}/runs`)}
+            />
 
             <div>
               <h2 className="mb-3 text-sm font-medium">Jobs</h2>

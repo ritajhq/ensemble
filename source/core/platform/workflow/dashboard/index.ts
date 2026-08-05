@@ -1,4 +1,5 @@
 import {
+  handleDeleteRun,
   handleGetStepLog,
   handleListRunSteps,
   handleListRuns,
@@ -12,6 +13,7 @@ import {
 import type { Feature } from "../../features.ts";
 
 export {
+  type DeleteRunResponse,
   type GetStepLogResponse,
   type ListRunsResponse,
   type ListRunStepsResponse,
@@ -23,6 +25,7 @@ export {
   type WorkflowSummary,
 } from "./contract.ts";
 export {
+  handleDeleteRun,
   handleGetStepLog,
   handleListRunSteps,
   handleListRuns,
@@ -68,6 +71,13 @@ export const getStepLogFeature: Feature = {
   method: "GET",
   pattern: new URLPattern({ pathname: "/v1/workflows/:id/runs/:runId/steps/:jobId/:index/log" }),
   handle: handleGetStepLog,
+};
+
+export const deleteRunFeature: Feature = {
+  name: "workflow-run-delete",
+  method: "DELETE",
+  pattern: new URLPattern({ pathname: "/v1/workflows/:id/runs/:runId" }),
+  handle: handleDeleteRun,
 };
 
 export const listWorkflowFilesFeature: Feature = {

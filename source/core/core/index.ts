@@ -62,6 +62,7 @@ export {
   type WorkflowFileNode,
 } from "./workflow.ts";
 export {
+  deleteRun,
   getLatestRun,
   getRun,
   getRunSteps,

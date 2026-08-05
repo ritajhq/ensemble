@@ -117,6 +117,19 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
   return await response.json();
 }
 
+async function deleteJson<T>(path: string): Promise<T> {
+  const token = getToken();
+  const response = await fetch(`${apiBase()}${path}`, {
+    method: "DELETE",
+    headers: token ? { authorization: `Bearer ${token}` } : {},
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.error ?? `Request failed (${response.status})`);
+  }
+  return await response.json();
+}
+
 export async function fetchWorkflows(): Promise<WorkflowSummary[]> {
   const { workflows } = await getJson<{ workflows: WorkflowSummary[] }>("/v1/workflows");
   return workflows;
@@ -145,6 +158,11 @@ export interface RunSteps {
 
 export async function fetchRunSteps(workflowId: string, runId: string): Promise<RunSteps> {
   return await getJson<RunSteps>(`/v1/workflows/${workflowId}/runs/${runId}/steps`);
+}
+
+/** Permanently deletes a run's record and its step logs. Allowed regardless of the run's status. */
+export async function deleteRun(workflowId: string, runId: string): Promise<void> {
+  await deleteJson(`/v1/workflows/${workflowId}/runs/${runId}`);
 }
 
 export async function fetchStepLog(workflowId: string, runId: string, jobId: string, index: number): Promise<StepLog> {
