@@ -12,7 +12,7 @@ const modeArgs = ctx.mode === "production" ? ["--minify"] : [];
 const watchArgs = ctx.watch ? ["--watch"] : [];
 const denoExe = await resolveDenoExecutable();
 
-const result = await $`${denoExe} bundle ${entry} -o ${outFile} ${modeArgs} ${watchArgs}`
+const result = await $`${denoExe} bundle -q ${entry} -o ${outFile} ${modeArgs} ${watchArgs}`
   .noThrow();
 
 Deno.exit(result.code);

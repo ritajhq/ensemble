@@ -21,7 +21,7 @@ RUN chmod +x /entrypoint.sh
 
 ENV SERVE_DIR=/app/www
 RUN mkdir -p $SERVE_DIR
-RUN deno cache main.ts
+RUN deno cache -q main.ts
 
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["deno", "run", "-A", "main.ts"]

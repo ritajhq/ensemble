@@ -225,7 +225,7 @@ for (const path of config.exclude ?? []) args.push("--exclude", resolvePath(path
 args.push(...permissionArgs(config.permissions));
 
 const denoExe = await resolveDenoExecutable();
-const result = await $`${denoExe} compile ${args} ${entrypoint}`
+const result = await $`${denoExe} compile -q ${args} ${entrypoint}`
   .env(ctx.vars)
   .noThrow();
 

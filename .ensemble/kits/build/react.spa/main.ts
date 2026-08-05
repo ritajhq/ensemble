@@ -111,7 +111,7 @@ const watchArgs = ctx.watch ? ["--watch"] : [];
 const cssWatchArgs = ctx.watch ? ["--watch=always"] : [];
 
 const [bundleResult, cssResult] = await Promise.all([
-  $`${denoExe} bundle --platform browser ${entry} -o ${jsOut} ${minifyArgs} ${watchArgs}`
+  $`${denoExe} bundle -q --platform browser ${entry} -o ${jsOut} ${minifyArgs} ${watchArgs}`
     .noThrow(),
   $`${tailwindBin} --cwd ${ctx.source} -i ${cssEntry} -o ${cssOut} ${minifyArgs} ${cssWatchArgs}`
     .noThrow(),
