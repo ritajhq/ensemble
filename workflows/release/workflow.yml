@@ -9,14 +9,15 @@ on:
 jobs:
   release:
     steps:
-      - name: checkout
+      - id: checkout
+        name: checkout
         run: |
           set -euo pipefail
           git clone https://github.com/ritajhq/ensemble.git
           cd ensemble
           git fetch --tags origin
           tag="$(git describe --tags --abbrev=0)"
-          echo "$tag" > /tmp/ensemble-release-tag
+          echo "tag=$tag" >> "$WORKFLOW_OUTPUT"
 
       - name: compile_cli
         run: |
@@ -38,7 +39,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          VERSION="$(cat /tmp/ensemble-release-tag)"
+          VERSION="${{ steps.checkout.outputs.tag }}"
 
           cd ensemble
           docker image tag server:latest registry.ritaj.app/ensemble/server:latest
@@ -49,11 +50,29 @@ jobs:
           docker push registry.ritaj.app/ensemble/server:latest
           docker push registry.ritaj.app/ensemble/server:"$VERSION"
 
+      - name: build_web
+        run: |
+          set -euo pipefail
+          cd ensemble
+          ens build web -m production
+
+      - name: publish_web
+        run: |
+          set -euo pipefail
+
+          VERSION="${{ steps.checkout.outputs.tag }}"
+
+          cd ensemble
+          mc alias set release-bucket https://s3.ritaj.app "$S3_ACCESS_KEY" "$S3_SECRET_KEY"
+
+          mc cp --recursive source/artifacts/web/ release-bucket/release/ensemble/"$VERSION"/web/
+          mc cp --recursive source/artifacts/web/ release-bucket/release/ensemble/latest/web/
+
       - name: update_changelog
         run: |
           set -euo pipefail
           cd ensemble
-          tag="$(cat /tmp/ensemble-release-tag)"
+          tag="${{ steps.checkout.outputs.tag }}"
 
           cliff_version="2.13.1"
           if ! command -v git-cliff >/dev/null 2>&1; then
@@ -92,7 +111,7 @@ jobs:
         run: |
           set -euo pipefail
           cd ensemble
-          tag="$(cat /tmp/ensemble-release-tag)"
+          tag="${{ steps.checkout.outputs.tag }}"
           gh release create "$tag" \
             source/artifacts/packages/ensemble-linux-x64 \
             --title "$tag" \

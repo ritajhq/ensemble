@@ -75,7 +75,13 @@ jobs:
   (including non-empty strings/objects/arrays) is truthy.
 - A step is exactly one of:
   - `run: <shell command>` — executed as a subprocess (`/bin/sh -c` or
-    `cmd /c` on Windows), inheriting stdout/stderr.
+    `cmd /c` on Windows), inheriting stdout/stderr. Its outputs come from
+    `$WORKFLOW_OUTPUT`, a path the engine sets in the subprocess's own env:
+    appending `key=value` lines to that file (`echo "tag=1.2.3" >>
+    "$WORKFLOW_OUTPUT"`) becomes that step's `Record<string,string>` outputs,
+    the same shape a `script:` step returns — mirrors GitHub Actions'
+    `$GITHUB_OUTPUT` convention. Blank lines and lines without a non-empty
+    key are ignored rather than failing the step.
   - `script: ./path/to/file.ts` — also executed as its own subprocess
     (`deno run -A`, real Deno permissions), so it's genuinely killable —
     this is what makes matrix `fail-fast` actually work, not just skip

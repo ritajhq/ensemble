@@ -73,6 +73,23 @@ function isOutputRecord(value: unknown): value is Record<string, string> {
     Object.values(value as Record<string, unknown>).every((v) => typeof v === "string");
 }
 
+/**
+ * Parses `$WORKFLOW_OUTPUT`-style content: one `key=value` pair per non-blank
+ * line, mirroring GitHub Actions' `$GITHUB_OUTPUT` file convention. Blank
+ * lines are skipped; a line with no `=` or a blank key is ignored rather than
+ * throwing, since malformed output shouldn't fail an otherwise-successful step.
+ */
+function parseOutputFile(text: string): Record<string, string> {
+  const outputs: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    if (line.trim() === "") continue;
+    const eq = line.indexOf("=");
+    if (eq <= 0) continue;
+    outputs[line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
+  }
+  return outputs;
+}
+
 const MAX_CAPTURED_BYTES_PER_STREAM = 128 * 1024;
 
 /**
@@ -119,27 +136,35 @@ async function runShell(
   cwd: string,
   variables: Record<string, string>,
   signal: AbortSignal,
-): Promise<{ code: number; log: StepLogCapture }> {
-  const cmd = new Deno.Command(Deno.build.os === "windows" ? "cmd" : "/bin/sh", {
-    args: Deno.build.os === "windows" ? ["/c", command] : ["-c", command],
-    cwd,
-    env: variables,
-    stdout: "piped",
-    stderr: "piped",
-    signal,
-  });
-  const child = cmd.spawn();
+): Promise<{ code: number; outputs: Record<string, string>; log: StepLogCapture }> {
+  const outputHandle = await resultChannel.create();
+  try {
+    const cmd = new Deno.Command(Deno.build.os === "windows" ? "cmd" : "/bin/sh", {
+      args: Deno.build.os === "windows" ? ["/c", command] : ["-c", command],
+      cwd,
+      env: { ...variables, WORKFLOW_OUTPUT: outputHandle },
+      stdout: "piped",
+      stderr: "piped",
+      signal,
+    });
+    const child = cmd.spawn();
 
-  const [stdout, stderr, status] = await Promise.all([
-    pumpAndCapture(child.stdout, Deno.stdout),
-    pumpAndCapture(child.stderr, Deno.stderr),
-    child.status,
-  ]);
+    const [stdout, stderr, status] = await Promise.all([
+      pumpAndCapture(child.stdout, Deno.stdout),
+      pumpAndCapture(child.stderr, Deno.stderr),
+      child.status,
+    ]);
 
-  return {
-    code: status.code,
-    log: { stdout: stdout.text, stderr: stderr.text, truncated: stdout.truncated || stderr.truncated },
-  };
+    const outputs = parseOutputFile(await resultChannel.read(outputHandle));
+
+    return {
+      code: status.code,
+      outputs,
+      log: { stdout: stdout.text, stderr: stderr.text, truncated: stdout.truncated || stderr.truncated },
+    };
+  } finally {
+    await resultChannel.cleanup(outputHandle);
+  }
 }
 
 /**
@@ -233,6 +258,7 @@ export async function runStep(
       if (shellResult.code !== 0) {
         throw new StepRunError(`Command exited with code ${shellResult.code}: ${command}`, capturedLog);
       }
+      outputs = shellResult.outputs;
     } else {
       const scriptResult = await runScript(step.script!, workflowDir, cwd, ctx, signal);
       capturedLog = scriptResult.log;

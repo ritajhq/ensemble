@@ -84,3 +84,19 @@ Deno.test("runStep: run: interpolates ${{ variables.* }} before executing", asyn
   );
   assertEquals(result.result, "success");
 });
+
+Deno.test("runStep: run: writes to $WORKFLOW_OUTPUT to produce outputs", async () => {
+  const result = await runStep(
+    { run: "echo \"tag=1.2.3\" >> \"$WORKFLOW_OUTPUT\"" },
+    workflowDir,
+    cwd,
+    emptyCtx(),
+  );
+  assertEquals(result.result, "success");
+  assertEquals(result.outputs, { tag: "1.2.3" });
+});
+
+Deno.test("runStep: run: with no $WORKFLOW_OUTPUT writes has empty outputs", async () => {
+  const result = await runStep({ run: "exit 0" }, workflowDir, cwd, emptyCtx());
+  assertEquals(result.outputs, {});
+});
