@@ -33,7 +33,7 @@ services:
     image: caddy:alpine
     pull_policy: missing
     ports:
-      - "8000:8000"
+      - "8999:8000"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
     depends_on:
