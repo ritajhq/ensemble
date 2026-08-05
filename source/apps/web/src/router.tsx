@@ -1,3 +1,4 @@
+import { GitBranch, Workflow as WorkflowIcon } from "lucide-react";
 import { createBrowserRouter, Outlet, redirect } from "react-router";
 import { App } from "./App.tsx";
 import { GitIntegrationView } from "./components/GitIntegrationView.tsx";
@@ -16,7 +17,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "workflows",
-        handle: { crumb: () => ({ title: "Workflows" }) },
+        handle: { crumb: () => ({ title: "Workflows", icon: WorkflowIcon }) },
         Component: Outlet,
         children: [
           { index: true, Component: WorkflowsView },
@@ -25,6 +26,7 @@ export const router = createBrowserRouter([
             handle: {
               crumb: (params: Record<string, string | undefined>) => ({
                 title: params.workflowId ? decodeWorkflowId(params.workflowId) : "",
+                icon: WorkflowIcon,
               }),
             },
             Component: RunsView,
@@ -33,7 +35,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "integrations/git",
-        handle: { crumb: () => ({ title: "Git" }) },
+        handle: { crumb: () => ({ title: "Git", icon: GitBranch }) },
         Component: GitIntegrationView,
       },
     ],
