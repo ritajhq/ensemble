@@ -1,5 +1,5 @@
 import { dirname, fromFileUrl, join } from "@std/path";
-import { ensureDir, exists } from "@std/fs";
+import { ensureDir, exists, expandGlob } from "@std/fs";
 import { $ } from "@david/dax";
 import { getKitContext, type KitContext } from "@ensemble/kit-sdk";
 import { resolveDenoExecutable } from "@ensemble/core";
@@ -7,13 +7,29 @@ import { resolveDenoExecutable } from "@ensemble/core";
 const TAILWIND_RELEASE_BASE =
   "https://github.com/tailwindlabs/tailwindcss/releases/latest/download";
 
-function tailwindAssetName(): string {
+/**
+ * `Deno.build` can't tell musl from glibc — Deno's own binary is statically
+ * linked, so it reports `env: "gnu"` even on Alpine. The actual libc in use
+ * only matters for other downloaded binaries (like Tailwind's standalone
+ * CLI below), so check for musl's own dynamic linker directly rather than
+ * trusting Deno.build.
+ */
+async function isMuslLibc(): Promise<boolean> {
+  if (Deno.build.os !== "linux") return false;
+  for await (const _entry of expandGlob("/lib/ld-musl-*.so.1")) {
+    return true;
+  }
+  return false;
+}
+
+async function tailwindAssetName(): Promise<string> {
   const platform = `${Deno.build.os}-${Deno.build.arch}`;
+  const musl = await isMuslLibc();
   switch (platform) {
     case "linux-x86_64":
-      return "tailwindcss-linux-x64";
+      return musl ? "tailwindcss-linux-x64-musl" : "tailwindcss-linux-x64";
     case "linux-aarch64":
-      return "tailwindcss-linux-arm64";
+      return musl ? "tailwindcss-linux-arm64-musl" : "tailwindcss-linux-arm64";
     case "darwin-x86_64":
       return "tailwindcss-macos-x64";
     case "darwin-aarch64":
@@ -37,7 +53,7 @@ async function ensureTailwindBinary(kitDir: string): Promise<string> {
   }
 
   await ensureDir(binDir);
-  const url = `${TAILWIND_RELEASE_BASE}/${tailwindAssetName()}`;
+  const url = `${TAILWIND_RELEASE_BASE}/${await tailwindAssetName()}`;
   const response = await fetch(url);
   if (!response.ok || !response.body) {
     throw new Error(`Failed to download Tailwind CLI from ${url}: ${response.status}`);
