@@ -38,6 +38,7 @@ if (format.startsWith("image")) {
 }
 
 const result = await $`docker buildx build
+  --no-cache
   --tag ${ctx.outputName}
   --build-context packages=${ctx.packages}
   --build-context artifacts=${ctx.artifacts}
