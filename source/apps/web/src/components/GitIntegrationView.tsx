@@ -25,7 +25,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@ritaj/ui";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@ritaj/ui/components/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@ritaj/ui/components/ui/table";
 
 export function GitIntegrationView() {
   const [addOpen, setAddOpen] = useState(false);
