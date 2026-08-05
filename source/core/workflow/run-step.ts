@@ -90,7 +90,11 @@ function parseOutputFile(text: string): Record<string, string> {
   return outputs;
 }
 
-const MAX_CAPTURED_BYTES_PER_STREAM = 128 * 1024;
+// A sanity ceiling against a runaway/infinite-output step, not a limit tied
+// to Deno KV's per-value size — persistence chunks the capture into
+// KV-sized pieces separately (see runs.ts putStepLog), so this can stay
+// generous.
+const MAX_CAPTURED_BYTES_PER_STREAM = 5 * 1024 * 1024;
 
 /**
  * Reads `stream` to completion, mirroring every chunk to `mirror` (the real
@@ -194,7 +198,7 @@ async function runScript(
 
   try {
     const cmd = new Deno.Command(denoExe, {
-      args: ["run", "-A", bootstrapPath, absPath, resultHandle],
+      args: ["run", "-A", "-q", bootstrapPath, absPath, resultHandle],
       cwd,
       stdin: "piped",
       stdout: "piped",

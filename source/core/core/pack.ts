@@ -66,7 +66,7 @@ export async function runPack(
   const localVars = getLocalVars(localConfig, "pack", shipName);
   const packVars = { ...fileVars, ...localVars, ...options.varOverrides };
 
-  const result = await $`${denoExe} run -A ${kitEntry}
+  const result = await $`${denoExe} run -A -q ${kitEntry}
     --artifacts ${artifactsDir}
     --packages ${packagesDir}
     --name ${shipName}

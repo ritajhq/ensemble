@@ -141,6 +141,45 @@ export async function getRunSteps(
   return entry.value.steps ?? [];
 }
 
+// Deno KV caps a value at 64KiB; stay well under that so a chunk plus its
+// key/entry overhead never risks tripping the limit.
+const LOG_CHUNK_BYTES = 56 * 1024;
+
+interface StepLogMeta {
+  stdoutChunks: number;
+  stderrChunks: number;
+  truncated: boolean;
+}
+
+function chunkBytes(bytes: Uint8Array): Uint8Array[] {
+  const chunks: Uint8Array[] = [];
+  for (let offset = 0; offset < bytes.length; offset += LOG_CHUNK_BYTES) {
+    chunks.push(bytes.subarray(offset, offset + LOG_CHUNK_BYTES));
+  }
+  return chunks;
+}
+
+/**
+ * Writes chunks in fixed-size batches rather than one big atomic transaction
+ * — Deno KV caps both the mutation count and total payload size of a single
+ * atomic commit, and a large step's log can exceed either well before it
+ * exceeds this function's own per-chunk KV value limit.
+ */
+async function putChunks(
+  kv: Deno.Kv,
+  keyPrefix: Deno.KvKeyPart[],
+  chunks: Uint8Array[],
+): Promise<void> {
+  const BATCH_SIZE = 10;
+  for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
+    let op = kv.atomic();
+    for (let j = i; j < Math.min(i + BATCH_SIZE, chunks.length); j++) {
+      op = op.set([...keyPrefix, j], chunks[j]);
+    }
+    await op.commit();
+  }
+}
+
 async function putStepLog(
   runId: string,
   jobId: string,
@@ -148,7 +187,44 @@ async function putStepLog(
   log: StepLog,
 ): Promise<void> {
   const kv = await getKv();
-  await kv.set(["run-logs", runId, jobId, index], log);
+  const encoder = new TextEncoder();
+  const stdoutChunks = chunkBytes(encoder.encode(log.stdout));
+  const stderrChunks = chunkBytes(encoder.encode(log.stderr));
+
+  await putChunks(kv, ["run-logs", runId, jobId, index, "stdout"], stdoutChunks);
+  await putChunks(kv, ["run-logs", runId, jobId, index, "stderr"], stderrChunks);
+
+  const meta: StepLogMeta = {
+    stdoutChunks: stdoutChunks.length,
+    stderrChunks: stderrChunks.length,
+    truncated: log.truncated,
+  };
+  await kv.set(["run-logs-meta", runId, jobId, index], meta);
+}
+
+async function readLogStream(
+  kv: Deno.Kv,
+  runId: string,
+  jobId: string,
+  index: number,
+  stream: "stdout" | "stderr",
+  chunkCount: number,
+): Promise<string> {
+  const chunks = await Promise.all(
+    Array.from(
+      { length: chunkCount },
+      (_, i) => kv.get<Uint8Array>(["run-logs", runId, jobId, index, stream, i]),
+    ),
+  );
+  const bytes = chunks.reduce((total, entry) => total + (entry.value?.length ?? 0), 0);
+  const combined = new Uint8Array(bytes);
+  let offset = 0;
+  for (const entry of chunks) {
+    if (!entry.value) continue;
+    combined.set(entry.value, offset);
+    offset += entry.value.length;
+  }
+  return new TextDecoder().decode(combined);
 }
 
 /** A specific step's captured stdout/stderr, or undefined if no log was recorded for it or the run doesn't belong to `workflowName`. */
@@ -163,8 +239,14 @@ export async function getStepLog(
   if (!runEntry.value || runEntry.value.workflowName !== workflowName) {
     return undefined;
   }
-  const entry = await kv.get<StepLog>(["run-logs", runId, jobId, index]);
-  return entry.value ?? undefined;
+  const metaEntry = await kv.get<StepLogMeta>(["run-logs-meta", runId, jobId, index]);
+  if (!metaEntry.value) return undefined;
+  const { stdoutChunks, stderrChunks, truncated } = metaEntry.value;
+  const [stdout, stderr] = await Promise.all([
+    readLogStream(kv, runId, jobId, index, "stdout", stdoutChunks),
+    readLogStream(kv, runId, jobId, index, "stderr", stderrChunks),
+  ]);
+  return { stdout, stderr, truncated };
 }
 
 /**
@@ -223,11 +305,18 @@ export async function trackedRunWorkflow(
         step.status = mapStepResult(event.result);
         step.finishedAt = new Date().toISOString();
         if (event.log.truncated) step.logTruncated = true;
-        void putStepLog(runId, event.jobId, event.index, event.log);
+        // Persisting a step's log must never take the process down with it —
+        // an unawaited rejection here would otherwise surface as an unhandled
+        // rejection and crash the server, dropping this run's progress along
+        // with it. A step's own success/failure never depends on whether its
+        // log made it into KV.
+        putStepLog(runId, event.jobId, event.index, event.log).catch((error) => {
+          console.error(`Failed to persist log for step ${event.jobId}/${event.index}:`, error);
+        });
         break;
       }
     }
-    void putRun({
+    putRun({
       runId,
       workflowName,
       status: "in_progress",
@@ -235,6 +324,8 @@ export async function trackedRunWorkflow(
       jobs: { ...jobs },
       steps: [...steps],
       trigger,
+    }).catch((error) => {
+      console.error(`Failed to persist run ${runId}:`, error);
     });
   });
 

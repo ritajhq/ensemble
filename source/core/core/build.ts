@@ -44,7 +44,7 @@ export async function runBuild(name: string, options: RunBuildOptions): Promise<
   const watchArgs = options.watch ? ["--watch"] : [];
   const denoExe = await resolveDenoExecutable();
 
-  const result = await $`${denoExe} run -A ${kitEntry}
+  const result = await $`${denoExe} run -A -q ${kitEntry}
     --source ${sourceDir}
     --name ${name}
     --out ${outDir}
