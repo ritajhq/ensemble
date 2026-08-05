@@ -1,2 +1,2 @@
-FROM nginx:alpine
-COPY --from=artifacts web/ /usr/share/nginx/html/
+FROM registry.ritaj.app/hot-server:latest
+COPY --from=artifacts web /app/www
