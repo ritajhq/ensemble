@@ -24,17 +24,17 @@ jobs:
       - name: pack_hot-server
         run: |
           echo "Packing..."
-          ens pack -o ensemble/hot-server hot-server docker
+          ens pack hot-server docker
 
       - name: tag_and_push
         run: |
           echo "Tagging and pushing..."
           docker image tag ensemble/server:latest registry.ritaj.app/ensemble/server:latest
           docker image tag ensemble/web:latest registry.ritaj.app/ensemble/web:latest
-          docker image tag ensemble/hot-server:latest registry.ritaj.app/ensemble/hot-server:latest
+          docker image tag hot-server:latest registry.ritaj.app/hot-server:latest
 
           docker login registry.ritaj.app -u "$REGISTRY_USERNAME" -p "$REGISTRY_PASSWORD"
 
           docker push registry.ritaj.app/ensemble/server:latest
           docker push registry.ritaj.app/ensemble/web:latest
-          docker push registry.ritaj.app/ensemble/hot-server:latest
+          docker push registry.ritaj.app/hot-server:latest
