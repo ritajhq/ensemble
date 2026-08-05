@@ -1,6 +1,9 @@
 FROM denoland/deno:alpine-2.9.3
 
-RUN apk add --no-cache git github-cli curl docker-cli docker-cli-buildx
+RUN apk add --no-cache git github-cli curl docker-cli docker-cli-buildx minio-client
+
+# Alias minio-client mcli to mc to avoid breaking existing scripts
+RUN ln -s /usr/bin/mcli /usr/bin/mc
 
 WORKDIR /app
 
