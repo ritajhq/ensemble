@@ -34,6 +34,6 @@ jobs:
           ens build server --watch &
           build_server_pid=$!
 
-          trap 'kill "$build_web_pid" "$build_server_pid" 2>/dev/null' EXIT
+          trap 'kill "$build_web_pid" "$build_server_pid" 2>/dev/null; docker compose -f workflows/local/docker-compose.yml down' EXIT
 
           docker compose -f workflows/local/docker-compose.yml up --watch

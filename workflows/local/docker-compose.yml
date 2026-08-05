@@ -6,6 +6,7 @@ services:
       - "8787"
     volumes:
       - ./workspace:/workspace
+    user: "1000:1000"
     develop:
       watch:
         - action: sync+restart
@@ -32,7 +33,7 @@ services:
     image: caddy:alpine
     pull_policy: missing
     ports:
-      - "8080:8000"
+      - "8000:8000"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
     depends_on:
