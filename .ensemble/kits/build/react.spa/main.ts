@@ -72,10 +72,27 @@ async function writeIndexHtml(ctx: KitContext): Promise<void> {
   await Deno.writeTextFile(join(ctx.out, "index.html"), html);
 }
 
+/**
+ * Re-renders index.html on every change to public/index.html, the same way
+ * deno bundle --watch and tailwind --watch cover main.tsx and index.css —
+ * without this, editing public/index.html while `ens build web --watch` is
+ * running would silently keep serving whatever was rendered at startup.
+ */
+async function watchIndexHtml(ctx: KitContext): Promise<void> {
+  const templatePath = join(ctx.source, "public", "index.html");
+  const watcher = Deno.watchFs(templatePath);
+  for await (const event of watcher) {
+    if (event.kind === "modify" || event.kind === "create") {
+      await writeIndexHtml(ctx);
+    }
+  }
+}
+
 const ctx = getKitContext();
 const kitDir = dirname(fromFileUrl(import.meta.url));
 
 await writeIndexHtml(ctx);
+if (ctx.watch) watchIndexHtml(ctx);
 
 const [denoExe, tailwindBin] = await Promise.all([
   resolveDenoExecutable(),
