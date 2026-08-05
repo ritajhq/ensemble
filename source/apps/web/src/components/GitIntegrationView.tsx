@@ -10,6 +10,7 @@ import {
   restoreGitRepositoryWorkflow,
 } from "../lib/api.ts";
 import { deriveProjectName } from "../lib/git.ts";
+import { formatRelativeTime } from "../lib/status.ts";
 import {
   Button,
   Card,
@@ -243,7 +244,7 @@ function RepositoriesTable(
                     <TableCell className="font-medium">{repository.projectName}</TableCell>
                     <TableCell className="text-muted-foreground">{repository.repoUrl}</TableCell>
                     <TableCell className="text-muted-foreground">
-                      {new Date(repository.clonedAt).toLocaleString()}
+                      {formatRelativeTime(repository.clonedAt)}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
