@@ -3,20 +3,17 @@
 on:
   - manual:
       inputs:
-        - name: greeting
-          display: Greeting
+        - name: message
+          display: Message
           type: string
-          default: Hello
-        - name: shout
-          display: Shout it
-          type: boolean
-          default: false
 
 jobs:
   demo:
     steps:
-      - name: greet
-        run: echo "${{ trigger.greeting }} from the demo workflow!"
+      - name: print_message
+        run: |
+          echo "${{ trigger.message }}"
+          sleep 5
 
       - name: confirm_success
         run: echo "Demo workflow completed successfully."
