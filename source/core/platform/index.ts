@@ -15,7 +15,9 @@ import {
   listRunsFeature,
   listWorkflowFilesFeature,
   listWorkflowsFeature,
+  mintSseTokenFeature,
   readWorkflowFileFeature,
+  runEventsFeature,
   runWorkflowFeature,
 } from "./workflow/dashboard/index.ts";
 import type { Feature } from "./features.ts";
@@ -43,6 +45,8 @@ export const allFeatures: Feature[] = [
   listRunStepsFeature,
   getStepLogFeature,
   runWorkflowFeature,
+  mintSseTokenFeature,
+  runEventsFeature,
   listWorkflowFilesFeature,
   readWorkflowFileFeature,
 ];

@@ -1,6 +1,10 @@
 import { join } from "@std/path";
 import { timingSafeEqual } from "@std/crypto/timing-safe-equal";
+import { getCookies } from "@std/http/cookie";
 import { findRepoRoot } from "@ensemble/core";
+
+/** Cookie name used to carry a token for connections (e.g. EventSource) that can't set an Authorization header. */
+export const SSE_TOKEN_COOKIE = "sse_token";
 
 export interface TokenPermissions {
   trigger?: boolean;
@@ -54,24 +58,27 @@ function timingSafeStringEqual(a: string, b: string): boolean {
 }
 
 /**
- * Checks a request's `Authorization: Bearer <token>` against
- * .ensemble/platform/tokens.json, requiring the matched token's permission record to
- * have `permission` set to true. Every candidate token is compared (never
- * short-circuiting on the first match) so response timing doesn't leak which
- * stored token, if any, was closest to matching. Fails closed: a missing,
- * empty, or malformed tokens file, an unknown token, or a token lacking the
- * requested permission, all reject the request. Cached in memory and
- * re-read only when the file's mtime changes, so rotating tokens doesn't
- * need a server restart but a steady-state server isn't re-parsing JSON on
- * every request either.
+ * Checks a request's `Authorization: Bearer <token>` — or, failing that, its
+ * `sse_token` cookie, for connections like EventSource that can't set custom
+ * headers — against .ensemble/platform/tokens.json, requiring the matched
+ * token's permission record to have `permission` set to true. Every
+ * candidate token is compared (never short-circuiting on the first match)
+ * so response timing doesn't leak which stored token, if any, was closest
+ * to matching. Fails closed: a missing, empty, or malformed tokens file, an
+ * unknown token, or a token lacking the requested permission, all reject
+ * the request. Cached in memory and re-read only when the file's mtime
+ * changes, so rotating tokens doesn't need a server restart but a
+ * steady-state server isn't re-parsing JSON on every request either.
  *
  * TEMPORARY: this is a deliberately small bridge until a real authorization
  * layer replaces it — see the platform README.
  */
 export async function isAuthorizedFor(request: Request, permission: keyof TokenPermissions): Promise<boolean> {
   const header = request.headers.get("authorization");
-  if (!header?.startsWith("Bearer ")) return false;
-  const provided = header.slice("Bearer ".length);
+  const provided = header?.startsWith("Bearer ")
+    ? header.slice("Bearer ".length)
+    : getCookies(request.headers)[SSE_TOKEN_COOKIE];
+  if (!provided) return false;
 
   const tokens = await loadTokens();
 

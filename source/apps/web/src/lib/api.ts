@@ -34,22 +34,6 @@ export interface WorkflowSummary {
   triggers: WorkflowTriggerSummary[];
 }
 
-export interface RunRecord {
-  runId: string;
-  workflowName: string;
-  status: string;
-  startedAt: string;
-  finishedAt?: string;
-  jobs: Record<string, string>;
-  trigger?: Record<string, unknown>;
-}
-
-export interface WorkflowFileNode {
-  path: string;
-  type: "file" | "directory";
-  children?: WorkflowFileNode[];
-}
-
 export interface StepRecord {
   jobId: string;
   index: number;
@@ -58,6 +42,24 @@ export interface StepRecord {
   startedAt: string;
   finishedAt?: string;
   logTruncated?: boolean;
+}
+
+export interface RunRecord {
+  runId: string;
+  workflowName: string;
+  status: string;
+  startedAt: string;
+  finishedAt?: string;
+  jobs: Record<string, string>;
+  /** Absent on RunRecords persisted before step tracking existed. */
+  steps?: StepRecord[];
+  trigger?: Record<string, unknown>;
+}
+
+export interface WorkflowFileNode {
+  path: string;
+  type: "file" | "directory";
+  children?: WorkflowFileNode[];
 }
 
 export interface RunJobNode {
@@ -149,6 +151,40 @@ export async function fetchStepLog(workflowId: string, runId: string, jobId: str
   return await getJson<StepLog>(
     `/v1/workflows/${workflowId}/runs/${runId}/steps/${encodeURIComponent(jobId)}/${index}/log`,
   );
+}
+
+/**
+ * Subscribes to live status updates for a run. `EventSource` can't send the
+ * dashboard's Authorization header, so this first exchanges it for a
+ * short-lived cookie (via /v1/auth/sse-token) before opening the stream —
+ * see auth/tokens.ts's isAuthorizedFor on the server for the matching read
+ * side. Returns a cleanup function that closes the connection; safe to call
+ * even if the mint request is still in flight or failed.
+ */
+export function openRunEvents(
+  workflowId: string,
+  runId: string,
+  onUpdate: (run: RunRecord) => void,
+): () => void {
+  let source: EventSource | undefined;
+  let cancelled = false;
+
+  postJson("/v1/auth/sse-token", {}).then(() => {
+    if (cancelled) return;
+    source = new EventSource(`${apiBase()}/v1/workflows/${workflowId}/runs/${runId}/events`, {
+      withCredentials: true,
+    });
+    source.onmessage = (event) => {
+      onUpdate(JSON.parse(event.data));
+    };
+  }).catch((error) => {
+    console.error("Failed to open live run updates:", error);
+  });
+
+  return () => {
+    cancelled = true;
+    source?.close();
+  };
 }
 
 export async function cloneGitWorkflows(repoUrl: string, projectName?: string): Promise<{ projectName: string }> {

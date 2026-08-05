@@ -63,6 +63,7 @@ export {
 } from "./workflow.ts";
 export {
   getLatestRun,
+  getRun,
   getRunSteps,
   getStepLog,
   type JobStatus,
@@ -73,6 +74,7 @@ export {
   type StepRecord,
   type StepStatus,
 } from "./runs.ts";
+export { publishRunUpdate, subscribeToRun } from "./runs-broadcast.ts";
 export {
   type BumpKind as VersionBumpKind,
   getInstalledVersion,

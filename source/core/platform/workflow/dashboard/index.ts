@@ -4,7 +4,9 @@ import {
   handleListRuns,
   handleListWorkflowFiles,
   handleListWorkflows,
+  handleMintSseToken,
   handleReadWorkflowFile,
+  handleRunEvents,
   handleRunWorkflow,
 } from "./handler.ts";
 import type { Feature } from "../../features.ts";
@@ -15,6 +17,7 @@ export {
   type ListRunStepsResponse,
   type ListWorkflowFilesResponse,
   type ListWorkflowsResponse,
+  type MintSseTokenResponse,
   type ReadWorkflowFileResponse,
   type RunWorkflowResponse,
   type WorkflowSummary,
@@ -25,7 +28,9 @@ export {
   handleListRuns,
   handleListWorkflowFiles,
   handleListWorkflows,
+  handleMintSseToken,
   handleReadWorkflowFile,
+  handleRunEvents,
   handleRunWorkflow,
 } from "./handler.ts";
 export { dashboardClient, type DashboardClient, type DashboardClientOptions } from "./client.ts";
@@ -70,6 +75,20 @@ export const listWorkflowFilesFeature: Feature = {
   method: "GET",
   pattern: new URLPattern({ pathname: "/v1/workflows/:id/files" }),
   handle: handleListWorkflowFiles,
+};
+
+export const mintSseTokenFeature: Feature = {
+  name: "auth-sse-token",
+  method: "POST",
+  pattern: new URLPattern({ pathname: "/v1/auth/sse-token" }),
+  handle: handleMintSseToken,
+};
+
+export const runEventsFeature: Feature = {
+  name: "workflow-run-events",
+  method: "GET",
+  pattern: new URLPattern({ pathname: "/v1/workflows/:id/runs/:runId/events" }),
+  handle: handleRunEvents,
 };
 
 export const readWorkflowFileFeature: Feature = {

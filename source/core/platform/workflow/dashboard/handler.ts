@@ -2,6 +2,7 @@ import {
   decodeWorkflowId,
   encodeWorkflowId,
   getLatestRun,
+  getRun,
   getRunSteps,
   getStepLog,
   getWorkflowByName,
@@ -10,14 +11,17 @@ import {
   listWorkflows,
   readWorkflowFile,
   runWorkflowByName,
+  subscribeToRun,
 } from "@ensemble/core";
-import { isAuthorizedFor } from "../../auth/tokens.ts";
+import { setCookie } from "@std/http/cookie";
+import { isAuthorizedFor, SSE_TOKEN_COOKIE } from "../../auth/tokens.ts";
 import type {
   GetStepLogResponse,
   ListRunsResponse,
   ListRunStepsResponse,
   ListWorkflowFilesResponse,
   ListWorkflowsResponse,
+  MintSseTokenResponse,
   ReadWorkflowFileResponse,
   RunJobNode,
   RunWorkflowResponse,
@@ -199,4 +203,93 @@ export async function handleReadWorkflowFile(
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 404 });
   }
+}
+
+/**
+ * Exchanges a valid bearer token for a short-lived `sse_token` cookie, so
+ * an `EventSource` connection (which can't set an Authorization header) can
+ * still authenticate. The cookie carries the same token, just narrowly
+ * scoped (path, short max-age) rather than being a separate credential —
+ * see auth/tokens.ts's isAuthorizedFor for the matching read side.
+ */
+export async function handleMintSseToken(request: Request): Promise<Response> {
+  // Deliberately checks the header directly, rather than going through
+  // isAuthorizedFor (which also accepts the sse_token cookie this endpoint
+  // mints) — minting must always start from a real bearer token, never from
+  // a cookie re-minting itself.
+  const header = request.headers.get("authorization");
+  if (!header?.startsWith("Bearer ")) {
+    return Response.json({ error: "Missing or invalid bearer token." }, { status: 401 });
+  }
+  const token = header.slice("Bearer ".length);
+  if (!await isAuthorizedFor(request, "read")) {
+    return Response.json({ error: "Missing or invalid bearer token." }, { status: 401 });
+  }
+
+  const response = Response.json({ ok: true } satisfies MintSseTokenResponse);
+  setCookie(response.headers, {
+    name: SSE_TOKEN_COOKIE,
+    value: token,
+    path: "/v1/workflows",
+    maxAge: 60,
+    httpOnly: true,
+    sameSite: "Strict",
+  });
+  return response;
+}
+
+const SSE_ENCODER = new TextEncoder();
+
+/** Streams `record` as a single SSE `data:` message. */
+function formatSseEvent(record: unknown): Uint8Array {
+  return SSE_ENCODER.encode(`data: ${JSON.stringify(record)}\n\n`);
+}
+
+/**
+ * Streams live status updates for a single run over SSE: job/step state
+ * transitions, not log output (logs stay fetched on demand via
+ * handleGetStepLog). Pushes an immediate snapshot on connect — closing the
+ * race where the run finishes between the dashboard's initial REST fetch
+ * and this subscription — then forwards every subsequent update published
+ * by trackedRunWorkflow (see core/runs-broadcast.ts) until the client
+ * disconnects.
+ */
+export async function handleRunEvents(
+  request: Request,
+  params: Record<string, string | undefined>,
+): Promise<Response> {
+  if (!await isAuthorizedFor(request, "read")) {
+    return Response.json({ error: "Missing or invalid bearer token." }, { status: 401 });
+  }
+
+  const resolved = resolveWorkflowNameParam(params);
+  if ("errorResponse" in resolved) return resolved.errorResponse;
+
+  const runId = params.runId;
+  if (!runId) {
+    return Response.json({ error: "Missing run id in URL." }, { status: 400 });
+  }
+
+  const initial = await getRun(runId, resolved.name);
+  if (initial === undefined) {
+    return Response.json({ error: `Run "${runId}" not found.` }, { status: 404 });
+  }
+
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(formatSseEvent(initial));
+      const unsubscribe = subscribeToRun(runId, (record) => {
+        controller.enqueue(formatSseEvent(record));
+      });
+      request.signal.addEventListener("abort", unsubscribe);
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+    },
+  });
 }

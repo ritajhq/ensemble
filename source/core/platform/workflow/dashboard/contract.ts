@@ -45,6 +45,10 @@ export interface RunWorkflowResponse {
   success: boolean;
 }
 
+export interface MintSseTokenResponse {
+  ok: true;
+}
+
 export interface RunJobNode {
   id: string;
   /** Job ids this job's `needs:` declares — empty if it has none. */

@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import { fetchRunSteps, fetchRuns, type RunJobNode, type RunRecord, type StepRecord } from "../lib/api.ts";
+import { fetchRunSteps, fetchRuns, openRunEvents, type RunJobNode, type RunRecord, type StepRecord } from "../lib/api.ts";
 import { formatDuration, formatRelativeTime, statusVariant } from "../lib/status.ts";
 import { JobFlowDiagram } from "./JobFlowDiagram.tsx";
 import { StepLogSheet } from "./StepLogSheet.tsx";
@@ -67,6 +67,15 @@ export function RunDetailView() {
         setJobs(jobs);
       })
       .catch((e) => setError(e.message));
+  }, [workflowId, runId]);
+
+  useEffect(() => {
+    if (!workflowId || !runId) return;
+
+    return openRunEvents(workflowId, runId, (updated) => {
+      setRun(updated);
+      if (updated.steps) setSteps(updated.steps);
+    });
   }, [workflowId, runId]);
 
   const selectedJobSteps = selectedJobId ? steps.filter((step) => step.jobId === selectedJobId) : [];

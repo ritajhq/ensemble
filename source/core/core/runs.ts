@@ -7,6 +7,7 @@ import type {
   WorkflowEvent,
 } from "@ensemble/workflow";
 import { findRepoRoot } from "./repo.ts";
+import { publishRunUpdate } from "./runs-broadcast.ts";
 
 export type RunStatus = "pending" | "in_progress" | "succeeded" | "failed";
 export type JobStatus =
@@ -99,6 +100,18 @@ async function putRun(record: RunRecord): Promise<void> {
     .commit();
 }
 
+/**
+ * Persists an in-progress snapshot and publishes it to any live SSE
+ * subscribers, without letting either failure take the process down —
+ * called on every event during a run, so it must never throw.
+ */
+function persistAndPublish(record: RunRecord): void {
+  publishRunUpdate(record.runId, record);
+  putRun(record).catch((error) => {
+    console.error(`Failed to persist run ${record.runId}:`, error);
+  });
+}
+
 /** All runs for a workflow, newest first. */
 export async function listRunsForWorkflow(
   workflowName: string,
@@ -123,22 +136,30 @@ export async function getLatestRun(
 }
 
 /**
- * A specific run's step records (across all its jobs), or undefined if the
- * run id is unknown or doesn't belong to `workflowName` — scoping by
- * workflow name (not just runId) keeps this consistent with
- * `listRunsForWorkflow`'s scoping and stops a caller from fetching another
- * workflow's run just by guessing/reusing a runId.
+ * A specific run, or undefined if the run id is unknown or doesn't belong to
+ * `workflowName` — scoping by workflow name (not just runId) keeps this
+ * consistent with `listRunsForWorkflow`'s scoping and stops a caller from
+ * fetching another workflow's run just by guessing/reusing a runId.
  */
-export async function getRunSteps(
+export async function getRun(
   runId: string,
   workflowName: string,
-): Promise<StepRecord[] | undefined> {
+): Promise<RunRecord | undefined> {
   const kv = await getKv();
   const entry = await kv.get<RunRecord>(["runs-by-id", runId]);
   if (!entry.value || entry.value.workflowName !== workflowName) {
     return undefined;
   }
-  return entry.value.steps ?? [];
+  return entry.value;
+}
+
+/** A specific run's step records (across all its jobs), or undefined if the run id is unknown or doesn't belong to `workflowName`. */
+export async function getRunSteps(
+  runId: string,
+  workflowName: string,
+): Promise<StepRecord[] | undefined> {
+  const run = await getRun(runId, workflowName);
+  return run?.steps ?? (run ? [] : undefined);
 }
 
 // Deno KV caps a value at 64KiB; stay well under that so a chunk plus its
@@ -316,7 +337,7 @@ export async function trackedRunWorkflow(
         break;
       }
     }
-    putRun({
+    persistAndPublish({
       runId,
       workflowName,
       status: "in_progress",
@@ -324,8 +345,6 @@ export async function trackedRunWorkflow(
       jobs: { ...jobs },
       steps: [...steps],
       trigger,
-    }).catch((error) => {
-      console.error(`Failed to persist run ${runId}:`, error);
     });
   });
 
@@ -338,10 +357,11 @@ export async function trackedRunWorkflow(
     steps: [],
     trigger,
   });
+  publishRunUpdate(runId, { runId, workflowName, status: "in_progress", startedAt, jobs: {}, steps: [], trigger });
 
   try {
     const { success } = await run(events);
-    await putRun({
+    const record: RunRecord = {
       runId,
       workflowName,
       status: success ? "succeeded" : "failed",
@@ -350,10 +370,12 @@ export async function trackedRunWorkflow(
       jobs,
       steps,
       trigger,
-    });
+    };
+    await putRun(record);
+    publishRunUpdate(runId, record);
     return success;
   } catch (error) {
-    await putRun({
+    const record: RunRecord = {
       runId,
       workflowName,
       status: "failed",
@@ -362,7 +384,9 @@ export async function trackedRunWorkflow(
       jobs,
       steps,
       trigger,
-    });
+    };
+    await putRun(record);
+    publishRunUpdate(runId, record);
     throw error;
   }
 }
