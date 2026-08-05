@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ritajhq/ensemble/main/.ensemble/schemas/workflow.schema.json
+
+jobs:
+  demo:
+    steps:
+      - name: greet
+        run: echo "Hello from the demo workflow!"
+
+      - name: confirm_success
+        run: echo "Demo workflow completed successfully."
