@@ -18,17 +18,14 @@ import {
   readWorkflowFileFeature,
   runWorkflowFeature,
 } from "./workflow/dashboard/index.ts";
-import { dashboardStaticFeature } from "./dashboard-static/index.ts";
 import type { Feature } from "./features.ts";
 
 export { type Feature, isFeatureEnabled } from "./features.ts";
 export * from "./workflow/index.ts";
-export { dashboardStaticFeature } from "./dashboard-static/index.ts";
 
 /**
  * Every feature the platform ships, in match order — first pattern+method
- * match wins. dashboardStaticFeature is a `GET /*` catch-all, so it must stay
- * last or it would shadow every specific route after it.
+ * match wins.
  */
 export const allFeatures: Feature[] = [
   manualTriggerFeature,
@@ -48,5 +45,4 @@ export const allFeatures: Feature[] = [
   runWorkflowFeature,
   listWorkflowFilesFeature,
   readWorkflowFileFeature,
-  dashboardStaticFeature,
 ];
