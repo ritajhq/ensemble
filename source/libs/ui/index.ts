@@ -45,6 +45,13 @@ export {
 } from "./components/ui/dropdown-menu.tsx";
 export { Input } from "./components/input.tsx";
 export {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupText,
+  InputGroupInput,
+} from "./components/input-group.tsx";
+export {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
@@ -87,6 +94,12 @@ export {
   useSidebar,
 } from "./components/sidebar.tsx";
 export { Skeleton } from "./components/skeleton.tsx";
+export {
+  Tabs,
+  TabsList,
+  TabsTab,
+  TabsPanel,
+} from "./components/tabs.tsx";
 export {
   Tooltip,
   TooltipTrigger,
