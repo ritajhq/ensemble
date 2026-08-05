@@ -1,3 +1,64 @@
+## [0.0.18-test] - 2026-08-05
+
+### 🚀 Features
+
+- *(workflow)* Emit job and step lifecycle events
+- *(core)* Add git-integration and kv-backed run tracking
+- *(platform)* Add v1 dashboard, run, and git-integration routes
+- *(libs)* Add shared ui component library
+- *(apps/web)* Add workflow dashboard application
+- *(ship)* Add hot-server for local dev asset serving
+- *(cli)* Resolve --version from the installed binary marker
+- Add react/jsx workspace config and dashboard dependencies
+- Add workflow variables block, run: interpolation, and structured context
+- Replace http trigger with manual trigger and typed inputs
+- Add -v/--var flag to pack, rename build's to -v, and support local var defaults
+- *(ui)* Add InputGroup and Tabs components, fix table theme colors
+- *(platform)* Track integrated git repos, support refresh/remove/restore
+- *(dashboard)* Redesign workflows/runs UI, track run trigger source
+- *(workflows)* Add demo workflow that always succeeds
+- *(dashboard)* Show an icon per breadcrumb, add padding and larger text
+- *(dashboard)* Trigger-specific run buttons with input sheets
+- *(workflows/demo)* Take a message input, sleep 5s to simulate work
+- *(dashboard)* Run detail view with job dependency flow diagram
+- *(dashboard)* Line numbers, resizable sheet, and copy button for step logs
+- *(workflow)* Support outputs on run: steps via $WORKFLOW_OUTPUT
+
+### 🐛 Bug Fixes
+
+- *(ship/server)* Enable deno kv for the server image
+- Add variables to the workflow.yml JSON schema
+- Rename workflow's --var short flag from -e to -v
+- *(workflows/local)* Run container as non-root, fix caddy port, ignore all kv files
+- *(kits/build/react.spa)* Re-render index.html on change during --watch
+- *(dashboard)* Show git repositories' last-synced time as relative
+- *(ui)* Drop dead cn-font-heading class, use muted-foreground token
+- *(workflows/local)* Use port 8999 for caddy to avoid local conflict
+
+### 📚 Documentation
+
+- *(platform)* Update route paths for v1 prefix
+- Describe project principles and add logo
+- Rewrite root README usage/intro, document all commands in detail
+- Clarify README opening thesis wording
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.0.17-test
+- *(libs)* Add event delegate library
+- *(apps)* Relocate placeholder spa from apps/web to apps/demo
+- *(ship/web)* Relocate spa dockerfile and pack config
+- *(config)* Point web and demo/spa at the react.spa kit
+- Relocate ensemble ignore rules under .ensemble
+- Add devcontainer setup
+- Add local dev-loop workflow with caddy reverse proxy
+- Add proper gitignore for source/artifacts dir
+- Relocate tokens.json under .ensemble/platform/
+- Update backlog
+- Tidy up local workflow resources
+- *(dev)* Add kivi devcontainer extension, keep tailwind css watch alive
+- *(workflows/local)* Gitignore synced workflow clone directory
+- *(web)* Default to dark mode
 ## [0.0.17-test] - 2026-07-28
 
 ### 🚀 Features
