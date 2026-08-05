@@ -4,12 +4,17 @@ jobs:
       - name: build_server
         run: |
           echo "Building..."
-          ens build server
+          ens build -m production server
 
       - name: compile_cli
         run: |
           echo "Compiling..."
           ens pack cli deno.compile 
+
+      - name: build_web
+        run: |
+          echo "Building..."
+          ens build -m production web
 
       - name: pack_server
         run: |
