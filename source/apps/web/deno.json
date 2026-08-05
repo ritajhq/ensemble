@@ -5,6 +5,7 @@
     "react-dom": "npm:react-dom@19.2.8",
     "react-dom/client": "npm:react-dom@19.2.8/client",
     "react-router": "npm:react-router@7.18.2",
+    "@xyflow/react": "npm:@xyflow/react@12.11.2",
     "highlight.js": "npm:highlight.js@11.11.1",
     "lucide-react": "npm:lucide-react@1.28.0",
     "@types/react": "npm:@types/react@19",

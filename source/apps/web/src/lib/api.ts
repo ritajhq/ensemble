@@ -60,6 +60,12 @@ export interface StepRecord {
   logTruncated?: boolean;
 }
 
+export interface RunJobNode {
+  id: string;
+  /** Job ids this job's `needs:` declares — empty if it has none. */
+  needs: string[];
+}
+
 export interface StepLog {
   stdout: string;
   stderr: string;
@@ -129,9 +135,14 @@ export async function triggerGithubWorkflow(workflowId: string, tag: string, sha
   await postJson(`/v1/workflows/${workflowId}/trigger/github`, { tag, sha });
 }
 
-export async function fetchRunSteps(workflowId: string, runId: string): Promise<StepRecord[]> {
-  const { steps } = await getJson<{ steps: StepRecord[] }>(`/v1/workflows/${workflowId}/runs/${runId}/steps`);
-  return steps;
+export interface RunSteps {
+  steps: StepRecord[];
+  /** Every job the workflow declares, for rendering its dependency graph regardless of run outcome. */
+  jobs: RunJobNode[];
+}
+
+export async function fetchRunSteps(workflowId: string, runId: string): Promise<RunSteps> {
+  return await getJson<RunSteps>(`/v1/workflows/${workflowId}/runs/${runId}/steps`);
 }
 
 export async function fetchStepLog(workflowId: string, runId: string, jobId: string, index: number): Promise<StepLog> {

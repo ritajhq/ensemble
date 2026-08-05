@@ -45,8 +45,16 @@ export interface RunWorkflowResponse {
   success: boolean;
 }
 
+export interface RunJobNode {
+  id: string;
+  /** Job ids this job's `needs:` declares — empty if it has none. */
+  needs: string[];
+}
+
 export interface ListRunStepsResponse {
   steps: StepRecord[];
+  /** Every job the workflow declares (not just ones this run happened to touch), for rendering its dependency graph regardless of run outcome. */
+  jobs: RunJobNode[];
 }
 
 export interface GetStepLogResponse {

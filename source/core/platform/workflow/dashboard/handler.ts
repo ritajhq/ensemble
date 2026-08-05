@@ -4,6 +4,7 @@ import {
   getLatestRun,
   getRunSteps,
   getStepLog,
+  getWorkflowByName,
   listRunsForWorkflow,
   listWorkflowFiles,
   listWorkflows,
@@ -18,6 +19,7 @@ import type {
   ListWorkflowFilesResponse,
   ListWorkflowsResponse,
   ReadWorkflowFileResponse,
+  RunJobNode,
   RunWorkflowResponse,
   WorkflowTriggerSummary,
 } from "./contract.ts";
@@ -100,7 +102,14 @@ export async function handleListRunSteps(
   if (steps === undefined) {
     return Response.json({ error: `Run "${runId}" not found.` }, { status: 404 });
   }
-  return Response.json({ steps } satisfies ListRunStepsResponse);
+
+  const { workflow } = await getWorkflowByName(resolved.name);
+  const jobs: RunJobNode[] = Object.entries(workflow.jobs).map(([id, job]) => ({
+    id,
+    needs: job.needs ?? [],
+  }));
+
+  return Response.json({ steps, jobs } satisfies ListRunStepsResponse);
 }
 
 export async function handleGetStepLog(
