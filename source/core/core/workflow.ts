@@ -81,6 +81,21 @@ export async function listWorkflows(): Promise<ResolvedWorkflow[]> {
   return await Promise.all(names.map((name) => getWorkflowByName(name)));
 }
 
+/**
+ * Every resolved workflow whose name starts with `${projectName}/`, i.e. the
+ * ones landed under workflows/<projectName>/ by the git integration. Names
+ * are returned relative to the project (the "workflows/<projectName>/"
+ * prefix stripped), matching the paths removeGitRepositoryWorkflow and
+ * restoreGitRepositoryWorkflow expect.
+ */
+export async function listWorkflowsForProject(projectName: string): Promise<{ name: string; workflow: Workflow }[]> {
+  const prefix = `${projectName}/`;
+  const all = await listWorkflows();
+  return all
+    .filter(({ name }) => name.startsWith(prefix))
+    .map(({ name, workflow }) => ({ name: name.slice(prefix.length), workflow }));
+}
+
 export interface WorkflowFileNode {
   /** Path relative to the workflow's own directory, e.g. "steps/build.ts". */
   path: string;

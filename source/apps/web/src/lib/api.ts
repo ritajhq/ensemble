@@ -1,3 +1,5 @@
+import { encodeWorkflowId } from "./workflow-id.ts";
+
 export interface WorkflowSummary {
   /** URL-safe id — use this (not `name`) when navigating to or fetching this workflow. */
   id: string;
@@ -13,6 +15,7 @@ export interface RunRecord {
   startedAt: string;
   finishedAt?: string;
   jobs: Record<string, string>;
+  trigger?: Record<string, unknown>;
 }
 
 export interface WorkflowFileNode {
@@ -107,6 +110,45 @@ export async function fetchStepLog(workflowId: string, runId: string, jobId: str
 
 export async function cloneGitWorkflows(repoUrl: string, projectName?: string): Promise<{ projectName: string }> {
   return await postJson<{ projectName: string }>("/v1/integrations/git/clone", { repoUrl, projectName });
+}
+
+export interface GitWorkflowSummary {
+  name: string;
+}
+
+export interface GitRepositorySummary {
+  projectName: string;
+  repoUrl: string;
+  clonedAt: string;
+  workflows: GitWorkflowSummary[];
+  removedWorkflows: string[];
+}
+
+export async function fetchGitRepositories(): Promise<GitRepositorySummary[]> {
+  const { repositories } = await getJson<{ repositories: GitRepositorySummary[] }>("/v1/integrations/git/repositories");
+  return repositories;
+}
+
+export async function refreshGitRepository(projectName: string): Promise<void> {
+  await postJson(`/v1/integrations/git/repositories/${encodeURIComponent(projectName)}/refresh`, {});
+}
+
+export async function removeGitRepository(projectName: string): Promise<void> {
+  await postJson(`/v1/integrations/git/repositories/${encodeURIComponent(projectName)}/remove`, {});
+}
+
+export async function removeGitRepositoryWorkflow(projectName: string, workflowName: string): Promise<void> {
+  await postJson(
+    `/v1/integrations/git/repositories/${encodeURIComponent(projectName)}/workflows/${encodeWorkflowId(workflowName)}/remove`,
+    {},
+  );
+}
+
+export async function restoreGitRepositoryWorkflow(projectName: string, workflowName: string): Promise<void> {
+  await postJson(
+    `/v1/integrations/git/repositories/${encodeURIComponent(projectName)}/workflows/${encodeWorkflowId(workflowName)}/restore`,
+    {},
+  );
 }
 
 export async function fetchWorkflowFiles(workflowId: string): Promise<WorkflowFileNode[]> {

@@ -21,7 +21,16 @@ export {
   type CloneWorkflowsFromGitResult,
   cloneWorkflowsFromGit,
   deriveProjectName,
+  refreshGitRepository,
+  removeGitRepository,
+  removeGitRepositoryWorkflow,
+  restoreGitRepositoryWorkflow,
 } from "./git-integration.ts";
+export {
+  type GitRepositoryRecord,
+  getGitRepository,
+  listGitRepositories,
+} from "./git-repositories.ts";
 export {
   type BumpKind,
   createReleaseTag,
@@ -45,6 +54,7 @@ export {
   getWorkflowByName,
   listWorkflowFiles,
   listWorkflows,
+  listWorkflowsForProject,
   readWorkflowFile,
   type ResolvedWorkflow,
   type RunWorkflowByNameOptions,

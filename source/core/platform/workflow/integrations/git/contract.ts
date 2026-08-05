@@ -15,3 +15,25 @@ export function isCloneGitWorkflowsRequest(value: unknown): value is CloneGitWor
 export interface CloneGitWorkflowsResponse {
   projectName: string;
 }
+
+export interface GitWorkflowSummary {
+  /** Workflow name relative to the project, e.g. "build" for workflows/<projectName>/build/workflow.yml. */
+  name: string;
+}
+
+export interface GitRepositorySummary {
+  projectName: string;
+  repoUrl: string;
+  clonedAt: string;
+  workflows: GitWorkflowSummary[];
+  removedWorkflows: string[];
+}
+
+export interface ListGitRepositoriesResponse {
+  repositories: GitRepositorySummary[];
+}
+
+export interface RefreshGitRepositoryResponse {
+  projectName: string;
+  clonedAt: string;
+}

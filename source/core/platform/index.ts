@@ -1,7 +1,14 @@
 import { githubTriggerFeature } from "./workflow/triggers/github/index.ts";
 import { manualTriggerFeature } from "./workflow/triggers/manual/index.ts";
 import { workflowRegistryFeature } from "./workflow/registry/index.ts";
-import { gitIntegrationCloneFeature } from "./workflow/integrations/git/index.ts";
+import {
+  gitIntegrationCloneFeature,
+  gitIntegrationListRepositoriesFeature,
+  gitIntegrationRefreshRepositoryFeature,
+  gitIntegrationRemoveRepositoryFeature,
+  gitIntegrationRemoveWorkflowFeature,
+  gitIntegrationRestoreWorkflowFeature,
+} from "./workflow/integrations/git/index.ts";
 import {
   getStepLogFeature,
   listRunStepsFeature,
@@ -28,6 +35,11 @@ export const allFeatures: Feature[] = [
   githubTriggerFeature,
   workflowRegistryFeature,
   gitIntegrationCloneFeature,
+  gitIntegrationListRepositoriesFeature,
+  gitIntegrationRefreshRepositoryFeature,
+  gitIntegrationRemoveRepositoryFeature,
+  gitIntegrationRemoveWorkflowFeature,
+  gitIntegrationRestoreWorkflowFeature,
   listWorkflowsFeature,
   listRunsFeature,
   listRunStepsFeature,
