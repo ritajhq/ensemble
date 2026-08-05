@@ -16,6 +16,11 @@ jobs:
           echo "Packing..."
           ens pack -o ensemble/server server docker
 
+      - name: publish_web
+        run: |
+          mc alias set release-bucket https://s3.ritaj.app "$S3_ACCESS_KEY" "$S3_SECRET_KEY"
+          mc cp --recursive source/artifacts/web "release-bucket/release/ensemble/web/latest/"
+
       - name: tag_and_push
         run: |
           echo "Tagging and pushing..."

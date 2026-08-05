@@ -65,8 +65,8 @@ jobs:
           cd ensemble
           mc alias set release-bucket https://s3.ritaj.app "$S3_ACCESS_KEY" "$S3_SECRET_KEY"
 
-          mc cp --recursive source/artifacts/web/ release-bucket/release/ensemble/"$VERSION"/web/
-          mc cp --recursive source/artifacts/web/ release-bucket/release/ensemble/latest/web/
+          mc cp --recursive source/artifacts/web "release-bucket/release/ensemble/web/${VERSION}"
+          mc cp --recursive source/artifacts/web release-bucket/release/ensemble/web/latest
 
       - name: update_changelog
         run: |
