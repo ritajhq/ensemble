@@ -26,4 +26,7 @@ jobs:
         run: |
           echo "Tagging and pushing..."
           docker image tag ensemble/server:latest registry.ritaj.app/ensemble/server:latest
+
+          docker login registry.ritaj.app -u "$REGISTRY_USERNAME" -p "$REGISTRY_PASSWORD"
+
           docker push registry.ritaj.app/ensemble/server:latest
