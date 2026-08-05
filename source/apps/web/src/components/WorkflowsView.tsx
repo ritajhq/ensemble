@@ -1,9 +1,10 @@
 import { ArrowRight, Pin, PinOff, Search, Workflow as WorkflowIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router";
+import { useNavigate } from "react-router";
 import { fetchWorkflows, type WorkflowSummary } from "../lib/api.ts";
 import { isPinned, togglePin, usePinnedWorkflows } from "../lib/pins.ts";
 import { formatRelativeTime, statusVariant } from "../lib/status.ts";
+import { TriggerIcon, triggerTypeLabel } from "../lib/triggers.tsx";
 import { Badge, Button, Card, CardContent, CardFooter, CardHeader, InputGroup, InputGroupAddon, InputGroupInput } from "@ritaj/ui";
 
 export function WorkflowsView() {
@@ -65,21 +66,35 @@ export function WorkflowsView() {
 }
 
 function WorkflowCard({ workflow }: { workflow: WorkflowSummary }) {
+  const navigate = useNavigate();
+
   return (
-    <Card className="gap-0 py-0">
+    <Card
+      className="cursor-pointer gap-0 py-0"
+      onClick={() => navigate(`/workflows/${workflow.id}`)}
+    >
       <CardHeader className="flex flex-row items-center justify-between gap-3 px-4 pt-4 pb-0">
         <div className="flex min-w-0 items-center gap-2">
           <WorkflowIcon className="size-4 shrink-0 text-muted-foreground" />
-          <Link to={`/workflows/${workflow.id}`} className="truncate font-medium hover:underline">
-            {workflow.name}
-          </Link>
+          <span className="truncate font-medium">{workflow.name}</span>
+          {workflow.triggers.map((trigger, index) => (
+            <TriggerIcon
+              key={index}
+              trigger={trigger}
+              className="size-3.5 shrink-0 text-muted-foreground"
+              title={`${triggerTypeLabel(trigger.type)} trigger`}
+            />
+          ))}
         </div>
         <Button
           variant="ghost"
           size="icon-sm"
           className="shrink-0 text-muted-foreground hover:text-foreground data-[pinned=true]:text-foreground"
           data-pinned={isPinned(workflow.name)}
-          onClick={() => togglePin(workflow.name)}
+          onClick={(event) => {
+            event.stopPropagation();
+            togglePin(workflow.name);
+          }}
         >
           {isPinned(workflow.name) ? <Pin className="size-3.5 fill-current" /> : <PinOff className="size-3.5" />}
           <span className="sr-only">Toggle pin</span>
@@ -98,13 +113,10 @@ function WorkflowCard({ workflow }: { workflow: WorkflowSummary }) {
           : <span className="text-sm text-muted-foreground">No runs yet.</span>}
       </CardContent>
       <CardFooter className="justify-between px-4 py-2.5">
-        <Link
-          to={`/workflows/${workflow.id}`}
-          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
+        <span className="flex items-center gap-1 text-sm text-muted-foreground">
           View runs
           <ArrowRight className="size-3.5" />
-        </Link>
+        </span>
       </CardFooter>
     </Card>
   );

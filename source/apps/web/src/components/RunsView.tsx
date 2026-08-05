@@ -1,19 +1,17 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { useParams } from "react-router";
-import { fetchRuns, runWorkflow, type RunRecord } from "../lib/api.ts";
+import { fetchRuns, fetchWorkflows, type RunRecord, type WorkflowTriggerSummary } from "../lib/api.ts";
 import { decodeWorkflowId } from "../lib/workflow-id.ts";
 import { formatDuration, formatRelativeTime, statusVariant } from "../lib/status.ts";
+import { TriggerRunSheet } from "./TriggerRunSheet.tsx";
 import {
   Badge,
-  Button,
   Card,
   Tabs,
   TabsList,
   TabsPanel,
   TabsTab,
 } from "@ritaj/ui";
-
-import { Play } from "lucide-react";
 
 /** "manual" / "github" / etc, or "—" when a run predates trigger tracking. */
 function triggerLabel(run: RunRecord): string {
@@ -32,10 +30,10 @@ const ACTIVE_RUN_FIELDS: {
 ];
 
 function ActiveRunCard(
-  { run, running, runError, onRun }: {
+  { workflowId, triggers, run, onRun }: {
+    workflowId: string;
+    triggers: WorkflowTriggerSummary[];
     run: RunRecord | null;
-    running: boolean;
-    runError: string | null;
     onRun: () => void;
   },
 ) {
@@ -43,15 +41,15 @@ function ActiveRunCard(
     <Card className="gap-0 py-0">
       <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
         <span className="text-sm font-medium">Active run</span>
-        <Button size="sm" onClick={onRun} disabled={running}>
-          <Play />
-          {running ? "Running…" : "Run"}
-        </Button>
+        <div className="flex items-center gap-2">
+          {triggers.map((trigger, index) => (
+            <TriggerRunSheet key={index} workflowId={workflowId} trigger={trigger} onTriggered={onRun} />
+          ))}
+        </div>
       </div>
 
       <div className="px-4 py-3">
-        {runError && <p className="text-sm text-destructive">{runError}</p>}
-        {!run && !runError && <p className="text-sm text-muted-foreground">No runs yet.</p>}
+        {!run && <p className="text-sm text-muted-foreground">No runs yet.</p>}
         {run && (
           <div className="flex flex-wrap gap-x-8 gap-y-3">
             {ACTIVE_RUN_FIELDS.map(({ label, render }) => (
@@ -109,28 +107,21 @@ export function RunsView() {
   const { workflowId = "" } = useParams();
   const workflowName = workflowId ? decodeWorkflowId(workflowId) : "";
   const [runs, setRuns] = useState<RunRecord[] | null>(null);
+  const [triggers, setTriggers] = useState<WorkflowTriggerSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [running, setRunning] = useState(false);
-  const [runError, setRunError] = useState<string | null>(null);
+
+  function refetchRuns() {
+    fetchRuns(workflowId).then(setRuns).catch((e) => setError(e.message));
+  }
 
   useEffect(() => {
     setRuns(null);
     setError(null);
-    fetchRuns(workflowId).then(setRuns).catch((e) => setError(e.message));
+    refetchRuns();
+    fetchWorkflows()
+      .then((workflows) => setTriggers(workflows.find((w) => w.id === workflowId)?.triggers ?? []))
+      .catch(() => {});
   }, [workflowId]);
-
-  async function handleRun() {
-    setRunning(true);
-    setRunError(null);
-    try {
-      await runWorkflow(workflowId);
-      fetchRuns(workflowId).then(setRuns).catch((e) => setError(e.message));
-    } catch (e) {
-      setRunError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setRunning(false);
-    }
-  }
 
   return (
     <div className="min-h-0 min-w-0 flex-1 overflow-auto">
@@ -146,7 +137,12 @@ export function RunsView() {
             {!error && !runs && <p className="text-sm text-muted-foreground">Loading…</p>}
             {!error && runs && (
               <>
-                <ActiveRunCard run={runs[0] ?? null} running={running} runError={runError} onRun={handleRun} />
+                <ActiveRunCard
+                  workflowId={workflowId}
+                  triggers={triggers}
+                  run={runs[0] ?? null}
+                  onRun={refetchRuns}
+                />
                 <RunHistory runs={runs} />
               </>
             )}

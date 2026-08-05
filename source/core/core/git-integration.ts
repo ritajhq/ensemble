@@ -1,7 +1,8 @@
-import { join } from "@std/path";
-import { exists } from "@std/fs";
+import { dirname, join } from "@std/path";
+import { exists, walk } from "@std/fs";
 import { $ } from "@david/dax";
 import { findRepoRoot } from "./repo.ts";
+import { parseWorkflowFile } from "@ensemble/workflow";
 import {
   deleteGitRepository,
   type GitRepositoryRecord,
@@ -73,7 +74,45 @@ async function sparseCloneWorkflows(repoUrl: string, workflowsDir: string, proje
     throw new Error(`"${repoUrl}" has no workflows/ folder.`);
   }
 
+  await pruneLocalOnlyWorkflows(clonedWorkflowsDir);
+
   return stagingDir;
+}
+
+/**
+ * Removes every workflow directory under `workflowsDir` whose workflow.yml
+ * has no `on:` trigger declared — git integration only syncs workflows a
+ * remote can actually fire (manual/github trigger), since anything without
+ * one is meant to stay local to whatever repo defines it.
+ */
+async function pruneLocalOnlyWorkflows(workflowsDir: string): Promise<void> {
+  const workflowDirs: string[] = [];
+  for await (const entry of walk(workflowsDir, { match: [/workflow\.yml$/], includeDirs: false })) {
+    workflowDirs.push(dirname(entry.path));
+  }
+
+  for (const workflowDir of workflowDirs) {
+    const workflow = await parseWorkflowFile(join(workflowDir, "workflow.yml")).catch(() => undefined);
+    if (workflow && workflow.on && workflow.on.length > 0) continue;
+    await removeIfExists(workflowDir);
+  }
+
+  await removeEmptyDirs(workflowsDir);
+}
+
+/** Recursively removes now-empty directories left behind after pruning, so a project with no networked workflows lands as nothing at all. Leaves `dir` itself in place even if it ends up empty — the caller still needs it to exist. */
+async function removeEmptyDirs(dir: string): Promise<void> {
+  for await (const entry of Deno.readDir(dir)) {
+    if (!entry.isDirectory) continue;
+    const childDir = join(dir, entry.name);
+    await removeEmptyDirs(childDir);
+    if (await isEmptyDir(childDir)) await removeIfExists(childDir);
+  }
+}
+
+async function isEmptyDir(dir: string): Promise<boolean> {
+  for await (const _ of Deno.readDir(dir)) return false;
+  return true;
 }
 
 export interface CloneWorkflowsFromGitOptions {

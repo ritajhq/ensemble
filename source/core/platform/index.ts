@@ -1,4 +1,4 @@
-import { githubTriggerFeature } from "./workflow/triggers/github/index.ts";
+import { githubTriggerFeature, manualGithubTriggerFeature } from "./workflow/triggers/github/index.ts";
 import { manualTriggerFeature } from "./workflow/triggers/manual/index.ts";
 import { workflowRegistryFeature } from "./workflow/registry/index.ts";
 import {
@@ -33,6 +33,7 @@ export { dashboardStaticFeature } from "./dashboard-static/index.ts";
 export const allFeatures: Feature[] = [
   manualTriggerFeature,
   githubTriggerFeature,
+  manualGithubTriggerFeature,
   workflowRegistryFeature,
   gitIntegrationCloneFeature,
   gitIntegrationListRepositoriesFeature,

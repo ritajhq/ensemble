@@ -1,4 +1,19 @@
 import type { JobStatus, RunRecord, RunStatus, StepLog, StepRecord, WorkflowFileNode } from "@ensemble/core";
+import type { ManualInput } from "@ensemble/workflow";
+
+export interface WorkflowManualTriggerSummary {
+  type: "manual";
+  inputs: ManualInput[];
+}
+
+export interface WorkflowGithubTriggerSummary {
+  type: "github";
+  /** Glob patterns a pushed tag must match, from this trigger's `push.tags`. */
+  tagPatterns: string[];
+}
+
+/** One entry of a workflow's `on:` list, as shown/used by the dashboard. */
+export type WorkflowTriggerSummary = WorkflowManualTriggerSummary | WorkflowGithubTriggerSummary;
 
 export interface WorkflowSummary {
   /** URL-safe id — use this (not `name`) when building a route/API path for this workflow. */
@@ -6,6 +21,8 @@ export interface WorkflowSummary {
   name: string;
   lastStatus?: RunStatus;
   lastRunAt?: string;
+  /** This workflow's declared `on:` triggers, if any — empty when it only runs via direct invocation. */
+  triggers: WorkflowTriggerSummary[];
 }
 
 export interface ListWorkflowsResponse {

@@ -19,7 +19,15 @@ import type {
   ListWorkflowsResponse,
   ReadWorkflowFileResponse,
   RunWorkflowResponse,
+  WorkflowTriggerSummary,
 } from "./contract.ts";
+import type { Trigger } from "@ensemble/workflow";
+
+function summarizeTrigger(trigger: Trigger): WorkflowTriggerSummary | undefined {
+  if (trigger.manual) return { type: "manual", inputs: trigger.manual.inputs ?? [] };
+  if (trigger.github) return { type: "github", tagPatterns: trigger.github.push.tags };
+  return undefined;
+}
 
 /** Decodes the ":id" route param back into a workflow name, or responds 400 if missing/invalid. */
 function resolveWorkflowNameParam(
@@ -46,9 +54,12 @@ export async function handleListWorkflows(request: Request): Promise<Response> {
   }
 
   const resolved = await listWorkflows();
-  const workflows = await Promise.all(resolved.map(async ({ name }) => {
+  const workflows = await Promise.all(resolved.map(async ({ name, workflow }) => {
     const latest = await getLatestRun(name);
-    return { id: encodeWorkflowId(name), name, lastStatus: latest?.status, lastRunAt: latest?.startedAt };
+    const triggers = (workflow.on ?? [])
+      .map(summarizeTrigger)
+      .filter((t): t is WorkflowTriggerSummary => t !== undefined);
+    return { id: encodeWorkflowId(name), name, lastStatus: latest?.status, lastRunAt: latest?.startedAt, triggers };
   }));
 
   return Response.json({ workflows } satisfies ListWorkflowsResponse);

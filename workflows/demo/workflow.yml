@@ -1,10 +1,22 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ritajhq/ensemble/main/.ensemble/schemas/workflow.schema.json
 
+on:
+  - manual:
+      inputs:
+        - name: greeting
+          display: Greeting
+          type: string
+          default: Hello
+        - name: shout
+          display: Shout it
+          type: boolean
+          default: false
+
 jobs:
   demo:
     steps:
       - name: greet
-        run: echo "Hello from the demo workflow!"
+        run: echo "${{ trigger.greeting }} from the demo workflow!"
 
       - name: confirm_success
         run: echo "Demo workflow completed successfully."

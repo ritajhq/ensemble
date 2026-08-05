@@ -43,6 +43,7 @@ export {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "./components/ui/dropdown-menu.tsx";
+export { GithubIcon } from "./components/icons.tsx";
 export { Input } from "./components/input.tsx";
 export {
   InputGroup,

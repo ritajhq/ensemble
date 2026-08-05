@@ -1,11 +1,37 @@
 import { encodeWorkflowId } from "./workflow-id.ts";
 
+export type ManualInputType = "string" | "number" | "boolean" | "object" | "git-tags" | "context";
+
+export interface ManualInput {
+  name: string;
+  display?: string;
+  type: ManualInputType;
+  default?: unknown;
+  /** Only set (and only meaningful) for type: "git-tags". */
+  repository?: string;
+}
+
+export interface WorkflowManualTriggerSummary {
+  type: "manual";
+  inputs: ManualInput[];
+}
+
+export interface WorkflowGithubTriggerSummary {
+  type: "github";
+  /** Glob patterns a pushed tag must match, from this trigger's `push.tags`. */
+  tagPatterns: string[];
+}
+
+export type WorkflowTriggerSummary = WorkflowManualTriggerSummary | WorkflowGithubTriggerSummary;
+
 export interface WorkflowSummary {
   /** URL-safe id — use this (not `name`) when navigating to or fetching this workflow. */
   id: string;
   name: string;
   lastStatus?: string;
   lastRunAt?: string;
+  /** This workflow's declared `on:` triggers, if any — empty when it only runs via direct invocation. */
+  triggers: WorkflowTriggerSummary[];
 }
 
 export interface RunRecord {
@@ -93,8 +119,14 @@ export async function fetchRuns(workflowId: string): Promise<RunRecord[]> {
   return runs;
 }
 
-export async function runWorkflow(workflowId: string): Promise<void> {
-  await postJson(`/v1/workflows/${workflowId}/run`, {});
+/** Runs a workflow's declared manual trigger, submitting values for its `on: - manual: inputs`. */
+export async function triggerManualWorkflow(workflowId: string, inputs: Record<string, unknown>): Promise<void> {
+  await postJson(`/v1/workflows/${workflowId}/trigger`, { inputs });
+}
+
+/** Runs a workflow's declared github trigger, simulating a tag push with hand-entered data. */
+export async function triggerGithubWorkflow(workflowId: string, tag: string, sha?: string): Promise<void> {
+  await postJson(`/v1/workflows/${workflowId}/trigger/github`, { tag, sha });
 }
 
 export async function fetchRunSteps(workflowId: string, runId: string): Promise<StepRecord[]> {
