@@ -210,7 +210,7 @@ export async function runWorkflowByName(
   const context = options.context !== undefined
     ? { name: options.context, path: join(repoRoot, "contexts", options.context) }
     : undefined;
-  return await trackedRunWorkflow(name, (events) =>
+  return await trackedRunWorkflow(name, options.trigger, (events) =>
     runWorkflow(workflow, {
       workflowDir,
       job: options.job,

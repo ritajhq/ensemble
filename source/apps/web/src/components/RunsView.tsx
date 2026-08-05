@@ -1,56 +1,113 @@
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { useParams } from "react-router";
-import {
-  fetchRuns,
-  fetchRunSteps,
-  fetchStepLog,
-  fetchWorkflowFileContent,
-  fetchWorkflowFiles,
-  runWorkflow,
-  type RunRecord,
-  type StepLog,
-  type StepRecord,
-  type WorkflowFileNode,
-} from "../lib/api.ts";
+import { fetchRuns, runWorkflow, type RunRecord } from "../lib/api.ts";
 import { decodeWorkflowId } from "../lib/workflow-id.ts";
 import { formatDuration, formatRelativeTime, statusVariant } from "../lib/status.ts";
-import { WorkflowFileTree } from "./WorkflowFileTree.tsx";
-import { WorkflowFileViewer } from "./WorkflowFileViewer.tsx";
-import { StepLogViewer } from "./StepLogViewer.tsx";
 import {
   Badge,
   Button,
-  cn,
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
+  Card,
+  Tabs,
+  TabsList,
+  TabsPanel,
+  TabsTab,
 } from "@ritaj/ui";
-
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@ritaj/ui/components/table";
 
 import { Play } from "lucide-react";
 
-/** What the shared bottom-right viewer is currently showing: a workflow source file, or a run step's log. */
-type ViewerContent =
-  | { type: "file"; path: string }
-  | { type: "step"; jobId: string; index: number; label: string }
-  | null;
+/** "manual" / "github" / etc, or "—" when a run predates trigger tracking. */
+function triggerLabel(run: RunRecord): string {
+  const type = run.trigger?.type;
+  return typeof type === "string" ? type : "—";
+}
 
-function RunsList(
-  { workflowId, workflowName, selectedRunId, onSelectRun }: {
-    workflowId: string;
-    workflowName: string;
-    selectedRunId: string | null;
-    onSelectRun: (runId: string) => void;
+const ACTIVE_RUN_FIELDS: {
+  label: string;
+  render: (run: RunRecord) => ReactNode;
+}[] = [
+  { label: "Run ID", render: (run) => <span className="font-mono">{run.runId.slice(0, 8)}</span> },
+  { label: "Started", render: (run) => formatRelativeTime(run.startedAt) },
+  { label: "Duration", render: (run) => formatDuration(run.startedAt, run.finishedAt) },
+  { label: "Trigger", render: (run) => triggerLabel(run) },
+];
+
+function ActiveRunCard(
+  { run, running, runError, onRun }: {
+    run: RunRecord | null;
+    running: boolean;
+    runError: string | null;
+    onRun: () => void;
   },
 ) {
+  return (
+    <Card className="gap-0 py-0">
+      <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
+        <span className="text-sm font-medium">Active run</span>
+        <Button size="sm" onClick={onRun} disabled={running}>
+          <Play />
+          {running ? "Running…" : "Run"}
+        </Button>
+      </div>
+
+      <div className="px-4 py-3">
+        {runError && <p className="text-sm text-destructive">{runError}</p>}
+        {!run && !runError && <p className="text-sm text-muted-foreground">No runs yet.</p>}
+        {run && (
+          <div className="flex flex-wrap gap-x-8 gap-y-3">
+            {ACTIVE_RUN_FIELDS.map(({ label, render }) => (
+              <div key={label} className="flex flex-col gap-1">
+                <span className="text-xs text-muted-foreground">{label}</span>
+                <span className="text-sm">{render(run)}</span>
+              </div>
+            ))}
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground">Status</span>
+              <Badge variant={statusVariant(run.status)}>{run.status}</Badge>
+            </div>
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+function RunHistoryRow({ run }: { run: RunRecord }) {
+  return (
+    <div className="flex items-center gap-3 border-b px-4 py-3 text-sm last:border-0">
+      <Badge variant="secondary" className="font-mono">{run.runId.slice(0, 8)}</Badge>
+      <Badge variant={statusVariant(run.status)}>{run.status}</Badge>
+      <span className="text-muted-foreground">{triggerLabel(run)}</span>
+      <div className="flex flex-1 flex-wrap justify-end gap-1">
+        {Object.entries(run.jobs).map(([jobId, status]) => (
+          <Badge key={jobId} variant={statusVariant(status)}>
+            {jobId}: {status}
+          </Badge>
+        ))}
+      </div>
+      <span className="w-32 shrink-0 text-right text-muted-foreground" title={new Date(run.startedAt).toLocaleString()}>
+        {formatRelativeTime(run.startedAt)}
+      </span>
+    </div>
+  );
+}
+
+function RunHistory({ runs }: { runs: RunRecord[] }) {
+  return (
+    <div>
+      <h2 className="mb-2 text-sm font-medium">Run history</h2>
+      <p className="mb-3 text-sm text-muted-foreground">Every past run for this workflow.</p>
+      <Card className="gap-0 py-0">
+        {runs.length === 0
+          ? <p className="px-4 py-3 text-sm text-muted-foreground">No runs yet.</p>
+          : runs.map((run) => <RunHistoryRow key={run.runId} run={run} />)}
+      </Card>
+    </div>
+  );
+}
+
+export function RunsView() {
+  const { workflowId = "" } = useParams();
+  const workflowName = workflowId ? decodeWorkflowId(workflowId) : "";
   const [runs, setRuns] = useState<RunRecord[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
@@ -58,6 +115,7 @@ function RunsList(
 
   useEffect(() => {
     setRuns(null);
+    setError(null);
     fetchRuns(workflowId).then(setRuns).catch((e) => setError(e.message));
   }, [workflowId]);
 
@@ -75,274 +133,26 @@ function RunsList(
   }
 
   return (
-    <div className="h-full overflow-auto p-4">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <h1 className="text-lg font-medium">{workflowName}</h1>
-        <Button size="sm" onClick={handleRun} disabled={running}>
-          <Play />
-          {running ? "Running…" : "Run"}
-        </Button>
+    <div className="min-h-0 min-w-0 flex-1 overflow-auto">
+      <div className="mx-auto flex max-w-4xl flex-col">
+        <h1 className="px-6 pt-6 text-lg font-medium">{workflowName}</h1>
+
+        <Tabs defaultValue="runs" className="px-6 pt-4">
+          <TabsList>
+            <TabsTab value="runs">Runs</TabsTab>
+          </TabsList>
+          <TabsPanel value="runs" className="flex flex-col gap-6 py-4">
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            {!error && !runs && <p className="text-sm text-muted-foreground">Loading…</p>}
+            {!error && runs && (
+              <>
+                <ActiveRunCard run={runs[0] ?? null} running={running} runError={runError} onRun={handleRun} />
+                <RunHistory runs={runs} />
+              </>
+            )}
+          </TabsPanel>
+        </Tabs>
       </div>
-
-      {runError && <p className="mb-4 text-sm text-destructive">{runError}</p>}
-      {error && <p className="text-sm text-destructive">{error}</p>}
-      {!error && !runs && <p className="text-sm text-muted-foreground">Loading…</p>}
-      {!error && runs && runs.length === 0 && (
-        <p className="text-sm text-muted-foreground">No runs yet.</p>
-      )}
-
-      {!error && runs && runs.length > 0 && (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Run</TableHead>
-              <TableHead>Started</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Duration</TableHead>
-              <TableHead>Jobs</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {runs.map((run) => (
-              <TableRow
-                key={run.runId}
-                className={cn("cursor-pointer", run.runId === selectedRunId && "bg-accent")}
-                onClick={() => onSelectRun(run.runId)}
-              >
-                <TableCell>
-                  <Badge variant="secondary" className="font-mono">{run.runId.slice(0, 8)}</Badge>
-                </TableCell>
-                <TableCell title={new Date(run.startedAt).toLocaleString()}>
-                  {formatRelativeTime(run.startedAt)}
-                </TableCell>
-                <TableCell>
-                  <Badge variant={statusVariant(run.status)}>{run.status}</Badge>
-                </TableCell>
-                <TableCell>{formatDuration(run.startedAt, run.finishedAt)}</TableCell>
-                <TableCell>
-                  <div className="flex flex-wrap gap-1">
-                    {Object.entries(run.jobs).map(([jobId, status]) => (
-                      <Badge key={jobId} variant={statusVariant(status)}>
-                        {jobId}: {status}
-                      </Badge>
-                    ))}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
-    </div>
-  );
-}
-
-function RunStepsPanel(
-  { workflowId, runId, selectedStep, onSelectStep }: {
-    workflowId: string;
-    runId: string | null;
-    selectedStep: { jobId: string; index: number } | null;
-    onSelectStep: (jobId: string, index: number, label: string) => void;
-  },
-) {
-  const [steps, setSteps] = useState<StepRecord[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!runId) {
-      setSteps(null);
-      setError(null);
-      return;
-    }
-    setSteps(null);
-    setError(null);
-    fetchRunSteps(workflowId, runId).then(setSteps).catch((e) => setError(e.message));
-  }, [workflowId, runId]);
-
-  if (!runId) {
-    return <p className="p-4 text-sm text-muted-foreground">Select a run to view its state.</p>;
-  }
-
-  const stepsByJob = new Map<string, StepRecord[]>();
-  for (const step of steps ?? []) {
-    const forJob = stepsByJob.get(step.jobId) ?? [];
-    forJob.push(step);
-    stepsByJob.set(step.jobId, forJob);
-  }
-
-  return (
-    <div className="h-full overflow-auto p-3">
-      {error && <p className="text-sm text-destructive">{error}</p>}
-      {!error && !steps && <p className="text-sm text-muted-foreground">Loading…</p>}
-      {!error && steps && steps.length === 0 && (
-        <p className="text-sm text-muted-foreground">No step data recorded for this run.</p>
-      )}
-      {!error && steps && steps.length > 0 && (
-        <div className="flex flex-col gap-3">
-          {[...stepsByJob.entries()].map(([jobId, jobSteps]) => (
-            <div key={jobId}>
-              <div className="mb-1 text-xs font-medium text-muted-foreground">{jobId}</div>
-              <div className="flex flex-col gap-0.5">
-                {jobSteps.sort((a, b) => a.index - b.index).map((step) => (
-                  <button
-                    type="button"
-                    key={step.index}
-                    className={cn(
-                      "flex items-center justify-between gap-2 rounded-sm px-2 py-1 text-left text-sm hover:bg-accent hover:text-accent-foreground",
-                      selectedStep?.jobId === jobId && selectedStep.index === step.index && "bg-accent",
-                    )}
-                    onClick={() => onSelectStep(jobId, step.index, step.label)}
-                  >
-                    <span className="truncate">{step.label}</span>
-                    <Badge variant={statusVariant(step.status)}>{step.status}</Badge>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function WorkflowFilesPanel(
-  { workflowId, runId, viewer, onSelectFile }: {
-    workflowId: string;
-    runId: string | null;
-    viewer: ViewerContent;
-    onSelectFile: (path: string) => void;
-  },
-) {
-  const [files, setFiles] = useState<WorkflowFileNode[] | null>(null);
-  const [filesError, setFilesError] = useState<string | null>(null);
-  const [content, setContent] = useState<string | null>(null);
-  const [contentError, setContentError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setFiles(null);
-    setFilesError(null);
-    fetchWorkflowFiles(workflowId).then(setFiles).catch((e) => setFilesError(e.message));
-  }, [workflowId]);
-
-  useEffect(() => {
-    if (viewer?.type !== "file") return;
-    setContent(null);
-    setContentError(null);
-    fetchWorkflowFileContent(workflowId, viewer.path).then(setContent).catch((e) => setContentError(e.message));
-  }, [workflowId, viewer]);
-
-  return (
-    <ResizablePanelGroup className="h-full">
-      <ResizablePanel defaultSize={20} minSize={15} className="border-r">
-        {filesError && <p className="p-4 text-sm text-destructive">{filesError}</p>}
-        {!filesError && !files && <p className="p-4 text-sm text-muted-foreground">Loading…</p>}
-        {!filesError && files && (
-          <WorkflowFileTree
-            files={files}
-            selectedPath={viewer?.type === "file" ? viewer.path : null}
-            onSelectFile={onSelectFile}
-          />
-        )}
-      </ResizablePanel>
-      <ResizableHandle />
-      <ResizablePanel defaultSize={80} minSize={30}>
-        {viewer?.type === "step" && runId
-          ? (
-            <StepLogViewerHost
-              workflowId={workflowId}
-              runId={runId}
-              jobId={viewer.jobId}
-              index={viewer.index}
-              label={viewer.label}
-            />
-          )
-          : viewer?.type === "step"
-          ? <p className="p-4 text-sm text-muted-foreground">Select a run to view step logs.</p>
-          : (
-            <WorkflowFileViewer
-              path={viewer?.type === "file" ? viewer.path : null}
-              content={content}
-              error={contentError}
-            />
-          )}
-      </ResizablePanel>
-    </ResizablePanelGroup>
-  );
-}
-
-/**
- * Wraps StepLogViewer with its own fetch — kept separate from RunStepsPanel
- * since a step's log is tied to the *viewer*'s selection (which can persist
- * across changing which run is selected in the left-hand list), not to the
- * steps list itself.
- */
-function StepLogViewerHost(
-  { workflowId, runId, jobId, index, label }: {
-    workflowId: string;
-    runId: string;
-    jobId: string;
-    index: number;
-    label: string;
-  },
-) {
-  const [log, setLog] = useState<StepLog | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setLog(null);
-    setError(null);
-    fetchStepLog(workflowId, runId, jobId, index).then(setLog).catch((e) => setError(e.message));
-  }, [workflowId, runId, jobId, index]);
-
-  return <StepLogViewer jobId={jobId} label={label} log={log} error={error} />;
-}
-
-export function RunsView() {
-  const { workflowId = "" } = useParams();
-  const workflowName = workflowId ? decodeWorkflowId(workflowId) : "";
-  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
-  const [viewer, setViewer] = useState<ViewerContent>(null);
-
-  useEffect(() => {
-    setSelectedRunId(null);
-    setViewer(null);
-  }, [workflowId]);
-
-  return (
-    <div className="min-h-0 flex-1">
-      <ResizablePanelGroup className="h-full">
-        <ResizablePanel defaultSize={40} minSize={25}>
-          <RunsList
-            workflowId={workflowId}
-            workflowName={workflowName}
-            selectedRunId={selectedRunId}
-            onSelectRun={setSelectedRunId}
-          />
-        </ResizablePanel>
-        <ResizableHandle withHandle />
-        <ResizablePanel defaultSize={60} minSize={25}>
-          <ResizablePanelGroup orientation="vertical" className="h-full">
-            <ResizablePanel defaultSize={35} minSize={15} className="border-b">
-              <RunStepsPanel
-                workflowId={workflowId}
-                runId={selectedRunId}
-                selectedStep={viewer?.type === "step" ? { jobId: viewer.jobId, index: viewer.index } : null}
-                onSelectStep={(jobId, index, label) => setViewer({ type: "step", jobId, index, label })}
-              />
-            </ResizablePanel>
-            <ResizableHandle withHandle />
-            <ResizablePanel defaultSize={65} minSize={30}>
-              <WorkflowFilesPanel
-                workflowId={workflowId}
-                runId={selectedRunId}
-                viewer={viewer}
-                onSelectFile={(path) => setViewer({ type: "file", path })}
-              />
-            </ResizablePanel>
-          </ResizablePanelGroup>
-        </ResizablePanel>
-      </ResizablePanelGroup>
     </div>
   );
 }

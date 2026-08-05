@@ -1,10 +1,27 @@
 import { Delegate } from "@ritaj/event";
-import type { JobResult, RunWorkflowResult, StepLogCapture, StepResult, WorkflowEvent } from "@ensemble/workflow";
+import type {
+  JobResult,
+  RunWorkflowResult,
+  StepLogCapture,
+  StepResult,
+  WorkflowEvent,
+} from "@ensemble/workflow";
 import { findRepoRoot } from "./repo.ts";
 
 export type RunStatus = "pending" | "in_progress" | "succeeded" | "failed";
-export type JobStatus = "pending" | "in_progress" | "succeeded" | "failed" | "skipped" | "cancelled";
-export type StepStatus = "pending" | "in_progress" | "succeeded" | "failed" | "skipped";
+export type JobStatus =
+  | "pending"
+  | "in_progress"
+  | "succeeded"
+  | "failed"
+  | "skipped"
+  | "cancelled";
+export type StepStatus =
+  | "pending"
+  | "in_progress"
+  | "succeeded"
+  | "failed"
+  | "skipped";
 
 export interface StepRecord {
   jobId: string;
@@ -25,6 +42,8 @@ export interface RunRecord {
   jobs: Record<string, JobStatus>;
   /** Optional: absent on RunRecords persisted before step tracking existed. */
   steps?: StepRecord[];
+  /** Data the trigger that started this run supplied (e.g. `{type:"manual",...}`, `{type:"github",...}`), if any. */
+  trigger?: Record<string, unknown>;
 }
 
 export interface StepLog {
@@ -47,11 +66,11 @@ function mapStepResult(result: StepResult): StepStatus {
 
 let kvPromise: Promise<Deno.Kv> | undefined;
 
-async function getKv(): Promise<Deno.Kv> {
+function getKv(): Promise<Deno.Kv> {
   if (!kvPromise) {
     kvPromise = (async () => {
       const repoRoot = await findRepoRoot();
-      return await Deno.openKv(`${repoRoot}/.ensemble/runs.kv`);
+      return await Deno.openKv(`${repoRoot}/.ensemble/platform/runs.kv`);
     })();
   }
   return kvPromise;
@@ -67,7 +86,12 @@ function invertedTimestamp(ms: number): string {
 
 async function putRun(record: RunRecord): Promise<void> {
   const kv = await getKv();
-  const key = ["runs", record.workflowName, invertedTimestamp(new Date(record.startedAt).getTime()), record.runId];
+  const key = [
+    "runs",
+    record.workflowName,
+    invertedTimestamp(new Date(record.startedAt).getTime()),
+    record.runId,
+  ];
   await kv.atomic()
     .set(key, record)
     .set(["runs-latest", record.workflowName], record)
@@ -76,17 +100,23 @@ async function putRun(record: RunRecord): Promise<void> {
 }
 
 /** All runs for a workflow, newest first. */
-export async function listRunsForWorkflow(workflowName: string): Promise<RunRecord[]> {
+export async function listRunsForWorkflow(
+  workflowName: string,
+): Promise<RunRecord[]> {
   const kv = await getKv();
   const out: RunRecord[] = [];
-  for await (const entry of kv.list<RunRecord>({ prefix: ["runs", workflowName] })) {
+  for await (
+    const entry of kv.list<RunRecord>({ prefix: ["runs", workflowName] })
+  ) {
     out.push(entry.value);
   }
   return out;
 }
 
 /** The most recent run for a workflow, including one still in progress. */
-export async function getLatestRun(workflowName: string): Promise<RunRecord | undefined> {
+export async function getLatestRun(
+  workflowName: string,
+): Promise<RunRecord | undefined> {
   const kv = await getKv();
   const entry = await kv.get<RunRecord>(["runs-latest", workflowName]);
   return entry.value ?? undefined;
@@ -99,14 +129,24 @@ export async function getLatestRun(workflowName: string): Promise<RunRecord | un
  * `listRunsForWorkflow`'s scoping and stops a caller from fetching another
  * workflow's run just by guessing/reusing a runId.
  */
-export async function getRunSteps(runId: string, workflowName: string): Promise<StepRecord[] | undefined> {
+export async function getRunSteps(
+  runId: string,
+  workflowName: string,
+): Promise<StepRecord[] | undefined> {
   const kv = await getKv();
   const entry = await kv.get<RunRecord>(["runs-by-id", runId]);
-  if (!entry.value || entry.value.workflowName !== workflowName) return undefined;
+  if (!entry.value || entry.value.workflowName !== workflowName) {
+    return undefined;
+  }
   return entry.value.steps ?? [];
 }
 
-async function putStepLog(runId: string, jobId: string, index: number, log: StepLog): Promise<void> {
+async function putStepLog(
+  runId: string,
+  jobId: string,
+  index: number,
+  log: StepLog,
+): Promise<void> {
   const kv = await getKv();
   await kv.set(["run-logs", runId, jobId, index], log);
 }
@@ -120,7 +160,9 @@ export async function getStepLog(
 ): Promise<StepLog | undefined> {
   const kv = await getKv();
   const runEntry = await kv.get<RunRecord>(["runs-by-id", runId]);
-  if (!runEntry.value || runEntry.value.workflowName !== workflowName) return undefined;
+  if (!runEntry.value || runEntry.value.workflowName !== workflowName) {
+    return undefined;
+  }
   const entry = await kv.get<StepLog>(["run-logs", runId, jobId, index]);
   return entry.value ?? undefined;
 }
@@ -134,6 +176,7 @@ export async function getStepLog(
  */
 export async function trackedRunWorkflow(
   workflowName: string,
+  trigger: Record<string, unknown> | undefined,
   run: (events: Delegate<[WorkflowEvent]>) => Promise<RunWorkflowResult>,
 ): Promise<boolean> {
   const runId = crypto.randomUUID();
@@ -142,10 +185,20 @@ export async function trackedRunWorkflow(
   const steps: StepRecord[] = [];
   const events = new Delegate<[WorkflowEvent]>();
 
-  function findOrCreateStep(jobId: string, index: number, label: string): StepRecord {
+  function findOrCreateStep(
+    jobId: string,
+    index: number,
+    label: string,
+  ): StepRecord {
     let step = steps.find((s) => s.jobId === jobId && s.index === index);
     if (!step) {
-      step = { jobId, index, label, status: "pending", startedAt: new Date().toISOString() };
+      step = {
+        jobId,
+        index,
+        label,
+        status: "pending",
+        startedAt: new Date().toISOString(),
+      };
       steps.push(step);
     }
     return step;
@@ -174,10 +227,26 @@ export async function trackedRunWorkflow(
         break;
       }
     }
-    void putRun({ runId, workflowName, status: "in_progress", startedAt, jobs: { ...jobs }, steps: [...steps] });
+    void putRun({
+      runId,
+      workflowName,
+      status: "in_progress",
+      startedAt,
+      jobs: { ...jobs },
+      steps: [...steps],
+      trigger,
+    });
   });
 
-  await putRun({ runId, workflowName, status: "in_progress", startedAt, jobs: {}, steps: [] });
+  await putRun({
+    runId,
+    workflowName,
+    status: "in_progress",
+    startedAt,
+    jobs: {},
+    steps: [],
+    trigger,
+  });
 
   try {
     const { success } = await run(events);
@@ -189,6 +258,7 @@ export async function trackedRunWorkflow(
       finishedAt: new Date().toISOString(),
       jobs,
       steps,
+      trigger,
     });
     return success;
   } catch (error) {
@@ -200,6 +270,7 @@ export async function trackedRunWorkflow(
       finishedAt: new Date().toISOString(),
       jobs,
       steps,
+      trigger,
     });
     throw error;
   }

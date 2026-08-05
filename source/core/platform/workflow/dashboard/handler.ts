@@ -150,7 +150,7 @@ export async function handleRunWorkflow(
   if ("errorResponse" in resolved) return resolved.errorResponse;
 
   try {
-    const success = await runWorkflowByName(resolved.name, {});
+    const success = await runWorkflowByName(resolved.name, { trigger: { type: "manual" } });
     return Response.json({ success } satisfies RunWorkflowResponse);
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 });
