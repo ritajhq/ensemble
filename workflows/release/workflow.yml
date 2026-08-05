@@ -30,10 +30,18 @@ jobs:
           set -euo pipefail
           cd ensemble
 
-          ens build server
+          ens build -m production server
           ens pack -o cli cli deno.compile
 
           ens pack server docker
+
+      - name: build_web_image
+        run: |
+          set -euo pipefail
+          cd ensemble
+
+          ens build -m production web
+          ens pack web docker
       
       - name: publish_server_image
         run: |
@@ -50,23 +58,20 @@ jobs:
           docker push registry.ritaj.app/ensemble/server:latest
           docker push registry.ritaj.app/ensemble/server:"$VERSION"
 
-      - name: build_web
-        run: |
-          set -euo pipefail
-          cd ensemble
-          ens build web -m production
-
-      - name: publish_web
+      - name: publish_web_image
         run: |
           set -euo pipefail
 
           VERSION="${{ steps.checkout.outputs.tag }}"
 
           cd ensemble
-          mc alias set release-bucket https://s3.ritaj.app "$S3_ACCESS_KEY_ID" "$S3_SECRET_ACCESS_KEY"
+          docker image tag web:latest registry.ritaj.app/ensemble/web:latest
+          docker image tag web:latest registry.ritaj.app/ensemble/web:"$VERSION"
 
-          mc mirror --remove source/artifacts/web/ "release-bucket/releases/ensemble/web/${VERSION}"
-          mc mirror --remove source/artifacts/web/ release-bucket/releases/ensemble/web/latest
+          docker login registry.ritaj.app -u "$REGISTRY_USERNAME" -p "$REGISTRY_PASSWORD"
+
+          docker push registry.ritaj.app/ensemble/web:latest
+          docker push registry.ritaj.app/ensemble/web:"$VERSION"
 
       - name: update_changelog
         run: |
