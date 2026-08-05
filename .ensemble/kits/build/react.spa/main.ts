@@ -89,11 +89,14 @@ const cssOut = join(ctx.out, "index.css");
 
 const minifyArgs = ctx.mode === "production" ? ["--minify"] : [];
 const watchArgs = ctx.watch ? ["--watch"] : [];
+// Tailwind's own `--watch` stops as soon as stdin closes, which is always
+// the case for a spawned subprocess — `=always` keeps it watching regardless.
+const cssWatchArgs = ctx.watch ? ["--watch=always"] : [];
 
 const [bundleResult, cssResult] = await Promise.all([
   $`${denoExe} bundle --platform browser ${entry} -o ${jsOut} ${minifyArgs} ${watchArgs}`
     .noThrow(),
-  $`${tailwindBin} --cwd ${ctx.source} -i ${cssEntry} -o ${cssOut} ${minifyArgs} ${watchArgs}`
+  $`${tailwindBin} --cwd ${ctx.source} -i ${cssEntry} -o ${cssOut} ${minifyArgs} ${cssWatchArgs}`
     .noThrow(),
 ]);
 

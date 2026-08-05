@@ -26,7 +26,8 @@
         "mhutchie.git-graph",
         "Anthropic.claude-code",
         "hashicorp.terraform",
-        "denoland.vscode-deno"
+        "denoland.vscode-deno",
+        "ritaj.kivi"
       ]
     }
   }
