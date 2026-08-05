@@ -53,3 +53,18 @@ export function statusVariant(
       return "outline";
   }
 }
+
+/** Tailwind classes for a solid status dot — used by connected-circle status rails. */
+export function statusDotColor(status?: string): string {
+  switch (status) {
+    case "succeeded":
+      return "bg-success border-success";
+    case "failed":
+      return "bg-destructive border-destructive";
+    case "pending":
+    case "in_progress":
+      return "bg-info border-info";
+    default:
+      return "bg-transparent border-muted-foreground/40";
+  }
+}
