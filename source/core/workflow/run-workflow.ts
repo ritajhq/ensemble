@@ -14,6 +14,7 @@ import {
 import { runJob, type StepEvent } from "./run-job.ts";
 import { expandMatrix } from "./matrix.ts";
 import { JobLogger, printSummary, type SummaryRow } from "./logging.ts";
+import { checkoutRepositories } from "./checkout.ts";
 
 /**
  * Fired as jobs (and, for non-matrixed jobs, their steps) start/finish, so a
@@ -160,6 +161,8 @@ export async function runWorkflow(
   // workflowDir itself stays reserved for resolving `script:` paths.
   const runDir = await Deno.makeTempDir({ prefix: "ensemble-run-" });
   try {
+    const repositories = await checkoutRepositories(workflow.resources?.repositories, runDir);
+
     for (const batch of batches) {
       const results = pooledMap(
         Math.min(concurrency, batch.length) || 1,
@@ -178,12 +181,12 @@ export async function runWorkflow(
             needsResult = { result: "skipped", outputs: {} };
             durationMs = logger.flush("skipped");
           } else if (job.matrix !== undefined) {
-            const root = buildRootContext(variables, outcomes, undefined, options.trigger, options.context);
+            const root = buildRootContext(variables, outcomes, undefined, options.trigger, options.context, repositories);
             const matrixRun = await runMatrixJob(jobId, job, root, options.workflowDir, runDir, concurrency);
             needsResult = matrixRun.needsResult;
             durationMs = matrixRun.durationMs;
           } else {
-            const root = buildRootContext(variables, outcomes, undefined, options.trigger, options.context);
+            const root = buildRootContext(variables, outcomes, undefined, options.trigger, options.context, repositories);
             const outcome = await runJob(
               job,
               root,

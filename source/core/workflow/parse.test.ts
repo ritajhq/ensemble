@@ -646,6 +646,123 @@ jobs:
   );
 });
 
+Deno.test("parseWorkflowFile: valid resources.repositories parses", async () => {
+  await withFixture(
+    "valid-repositories.yml",
+    `
+resources:
+  repositories:
+    ensemble:
+      url: https://github.com/ritajhq/ensemble.git
+      ref: main
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      const workflow = await parseWorkflowFile(path);
+      assertEquals(workflow.resources, {
+        repositories: {
+          ensemble: { url: "https://github.com/ritajhq/ensemble.git", ref: "main" },
+        },
+      });
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: resources.repositories entry without ref parses", async () => {
+  await withFixture(
+    "repositories-no-ref.yml",
+    `
+resources:
+  repositories:
+    ensemble:
+      url: https://github.com/ritajhq/ensemble.git
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      const workflow = await parseWorkflowFile(path);
+      assertEquals(workflow.resources?.repositories?.ensemble, {
+        url: "https://github.com/ritajhq/ensemble.git",
+        ref: undefined,
+      });
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: resources.repositories entry missing url fails", async () => {
+  await withFixture(
+    "repositories-missing-url.yml",
+    `
+resources:
+  repositories:
+    ensemble:
+      ref: main
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      await assertRejects(
+        () => parseWorkflowFile(path),
+        WorkflowParseError,
+        'resources.repositories.ensemble must have a non-empty string "url"',
+      );
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: resources.repositories empty mapping fails", async () => {
+  await withFixture(
+    "repositories-empty.yml",
+    `
+resources:
+  repositories: {}
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      await assertRejects(
+        () => parseWorkflowFile(path),
+        WorkflowParseError,
+        '"resources.repositories" must be a non-empty mapping',
+      );
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: resources.repositories url with $(NAME) resolves from env", async () => {
+  Deno.env.set("ENSEMBLE_TEST_REPO_URL", "https://github.com/ritajhq/private.git");
+  try {
+    await withFixture(
+      "repositories-env-ref.yml",
+      `
+resources:
+  repositories:
+    private:
+      url: "$(ENSEMBLE_TEST_REPO_URL)"
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+      async (path) => {
+        const workflow = await parseWorkflowFile(path);
+        assertEquals(workflow.resources?.repositories?.private.url, "https://github.com/ritajhq/private.git");
+      },
+    );
+  } finally {
+    Deno.env.delete("ENSEMBLE_TEST_REPO_URL");
+  }
+});
+
 Deno.test("parseWorkflowFile: step with neither run nor script fails", async () => {
   await withFixture(
     "neither-run-nor-script.yml",

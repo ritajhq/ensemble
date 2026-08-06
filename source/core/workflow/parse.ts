@@ -1,5 +1,16 @@
 import { parse as parseYaml } from "@std/yaml";
-import type { GithubTrigger, Job, ManualInput, ManualTrigger, Matrix, Step, Trigger, Workflow } from "./schema.ts";
+import type {
+  GithubTrigger,
+  Job,
+  ManualInput,
+  ManualTrigger,
+  Matrix,
+  RepositoryResource,
+  Resources,
+  Step,
+  Trigger,
+  Workflow,
+} from "./schema.ts";
 
 const MANUAL_INPUT_TYPES = ["string", "number", "boolean", "object", "git-tags", "context"] as const;
 
@@ -209,6 +220,38 @@ function validateVariables(file: string, raw: unknown): Record<string, string> |
   return result;
 }
 
+function validateRepository(file: string, name: string, raw: unknown): RepositoryResource {
+  if (!isRecord(raw)) {
+    fail(file, `resources.repositories.${name} must be a mapping.`);
+  }
+  if (typeof raw.url !== "string" || raw.url.length === 0) {
+    fail(file, `resources.repositories.${name} must have a non-empty string "url".`);
+  }
+  if (raw.ref !== undefined && typeof raw.ref !== "string") {
+    fail(file, `resources.repositories.${name} has a non-string "ref".`);
+  }
+  return {
+    url: resolveEnvRefs(file, `resources.repositories.${name}.url`, raw.url),
+    ref: raw.ref !== undefined ? resolveEnvRefs(file, `resources.repositories.${name}.ref`, raw.ref as string) : undefined,
+  };
+}
+
+function validateResources(file: string, raw: unknown): Resources | undefined {
+  if (raw === undefined) return undefined;
+  if (!isRecord(raw)) {
+    fail(file, `"resources" must be a mapping.`);
+  }
+  if (raw.repositories === undefined) return {};
+  if (!isRecord(raw.repositories) || Object.keys(raw.repositories).length === 0) {
+    fail(file, `"resources.repositories" must be a non-empty mapping.`);
+  }
+  const repositories: Record<string, RepositoryResource> = {};
+  for (const [name, repo] of Object.entries(raw.repositories)) {
+    repositories[name] = validateRepository(file, name, repo);
+  }
+  return { repositories };
+}
+
 function validateJob(file: string, jobId: string, raw: unknown): Job {
   if (!isRecord(raw)) {
     fail(file, `job "${jobId}" must be a mapping.`);
@@ -279,6 +322,7 @@ export async function parseWorkflowFile(file: string): Promise<Workflow> {
 
   const on = validateOn(file, raw.on);
   const variables = validateVariables(file, raw.variables);
+  const resources = validateResources(file, raw.resources);
 
-  return { on, variables, jobs };
+  return { on, variables, resources, jobs };
 }

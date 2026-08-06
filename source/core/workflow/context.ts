@@ -52,6 +52,11 @@ export interface RunContext {
   path: string;
 }
 
+/** Where a resources.repositories entry was checked out. */
+export interface RepositoryContext {
+  path: string;
+}
+
 /** Root context shared across all jobs: variables and already-completed jobs' results/outputs. */
 export interface RootContext {
   variables: Record<string, string>;
@@ -62,6 +67,8 @@ export interface RootContext {
   trigger?: Record<string, unknown>;
   /** The deploy context this run was invoked with. Absent when no --context was given. */
   context?: RunContext;
+  /** Where each resources.repositories entry was checked out. Absent when the workflow declares none. */
+  repositories?: Record<string, RepositoryContext>;
 }
 
 /** Per-job context, accumulating `steps.*` as each step in that job completes. */
@@ -82,6 +89,7 @@ export interface StepContext {
   matrix?: Record<string, unknown>;
   trigger?: Record<string, unknown>;
   context?: RunContext;
+  repositories?: Record<string, RepositoryContext>;
 }
 
 export function buildRootContext(
@@ -90,11 +98,13 @@ export function buildRootContext(
   matrix?: Record<string, unknown>,
   trigger?: Record<string, unknown>,
   context?: RunContext,
+  repositories?: Record<string, RepositoryContext>,
 ): RootContext {
   const root: RootContext = { variables, needs: { ...completedJobs } };
   if (matrix !== undefined) root.matrix = matrix;
   if (trigger !== undefined) root.trigger = trigger;
   if (context !== undefined) root.context = context;
+  if (repositories !== undefined) root.repositories = repositories;
   return root;
 }
 
@@ -124,5 +134,6 @@ export function toStepContext(ctx: JobContext): StepContext {
   if (ctx.matrix !== undefined) stepContext.matrix = ctx.matrix;
   if (ctx.trigger !== undefined) stepContext.trigger = ctx.trigger;
   if (ctx.context !== undefined) stepContext.context = ctx.context;
+  if (ctx.repositories !== undefined) stepContext.repositories = ctx.repositories;
   return stepContext;
 }

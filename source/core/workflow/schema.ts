@@ -89,10 +89,24 @@ export interface Trigger {
   github?: GithubTrigger;
 }
 
+export interface RepositoryResource {
+  /** Git URL to clone. A value containing $(NAME) is resolved from the process's own env var NAME at parse time. */
+  url: string;
+  /** Branch, tag, or commit to check out. Defaults to the remote's default branch. */
+  ref?: string;
+}
+
+export interface Resources {
+  /** Repositories to check out automatically before jobs run, keyed by name. Exposed to every job/step as repositories.<name>.path. */
+  repositories?: Record<string, RepositoryResource>;
+}
+
 export interface Workflow {
   /** Network-facing ways this workflow can be triggered. Absent means it only runs via direct invocation (e.g. `ens workflow <name>`). */
   on?: Trigger[];
   /** Default variables for every job/step in this workflow. A value containing $(NAME) is resolved from the process's own env var NAME at parse time. Overridable by CLI/HTTP-trigger variables. */
   variables?: Record<string, string>;
+  /** Declarative resources this workflow needs, prepared automatically before jobs run. */
+  resources?: Resources;
   jobs: Record<string, Job>;
 }

@@ -6,6 +6,11 @@ on:
         tags:
           - '*.*.*'
 
+resources:
+  repositories:
+    ensemble:
+      url: https://github.com/ritajhq/ensemble.git
+
 jobs:
   release:
     steps:
@@ -13,8 +18,7 @@ jobs:
         name: checkout
         run: |
           set -euo pipefail
-          git clone https://github.com/ritajhq/ensemble.git
-          cd ensemble
+          cd ${{ repositories.ensemble.path }}
           git fetch --tags origin
           tag="$(git describe --tags --abbrev=0)"
           echo "tag=$tag" >> "$WORKFLOW_OUTPUT"
@@ -22,13 +26,13 @@ jobs:
       - name: compile_cli
         run: |
           set -euo pipefail
-          cd ensemble
+          cd ${{ repositories.ensemble.path }}
           ens pack cli deno.compile
 
       - name: build_server_image
         run: |
           set -euo pipefail
-          cd ensemble
+          cd ${{ repositories.ensemble.path }}
 
           ens build -m production server
           ens pack -o cli cli deno.compile
@@ -38,18 +42,18 @@ jobs:
       - name: build_web_image
         run: |
           set -euo pipefail
-          cd ensemble
+          cd ${{ repositories.ensemble.path }}
 
           ens build -m production web
           ens pack web docker
-      
+
       - name: publish_server_image
         run: |
           set -euo pipefail
 
           VERSION="${{ steps.checkout.outputs.tag }}"
 
-          cd ensemble
+          cd ${{ repositories.ensemble.path }}
           docker image tag server:latest registry.ritaj.app/ensemble/server:latest
           docker image tag server:latest registry.ritaj.app/ensemble/server:"$VERSION"
 
@@ -64,7 +68,7 @@ jobs:
 
           VERSION="${{ steps.checkout.outputs.tag }}"
 
-          cd ensemble
+          cd ${{ repositories.ensemble.path }}
           docker image tag web:latest registry.ritaj.app/ensemble/web:latest
           docker image tag web:latest registry.ritaj.app/ensemble/web:"$VERSION"
 
@@ -76,7 +80,7 @@ jobs:
       - name: update_changelog
         run: |
           set -euo pipefail
-          cd ensemble
+          cd ${{ repositories.ensemble.path }}
           tag="${{ steps.checkout.outputs.tag }}"
 
           cliff_version="2.13.1"
