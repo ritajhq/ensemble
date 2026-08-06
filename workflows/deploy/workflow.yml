@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ritajhq/ensemble/main/.ensemble/schemas/workflow.schema.json
+
+resources:
+  repositories:
+    ensemble:
+      url: https://github.com/ritajhq/ensemble.git
+
+contexts:
+  entries:
+    development:
+      local: ./contexts/development
+    production:
+      local: ./contexts/production
+
+jobs:
+  deploy:
+    in:
+      repository: ensemble
+    steps:
+      - id: install_terraform
+        name: install_terraform
+        run: |
+          set -euo pipefail
+          tf_version="1.9.8"
+          tf_bin="/tmp/terraform-${tf_version}/terraform"
+          if [ ! -x "$tf_bin" ]; then
+            mkdir -p "/tmp/terraform-${tf_version}"
+            wget -qO /tmp/terraform.zip \
+              "https://releases.hashicorp.com/terraform/${tf_version}/terraform_${tf_version}_linux_amd64.zip"
+            unzip -qo /tmp/terraform.zip -d "/tmp/terraform-${tf_version}"
+          fi
+          echo "tf_bin=$tf_bin" >> "$WORKFLOW_OUTPUT"
+
+      - name: terraform_init
+        run: |
+          set -euo pipefail
+          cd workflows/deploy/terraform
+          "${{ steps.install_terraform.outputs.tf_bin }}" init
+
+      - name: terraform_apply
+        run: |
+          set -euo pipefail
+
+          secrets_file="${{ context.path }}/terraform.secrets.tfvars.json"
+          if [ ! -f "$secrets_file" ]; then
+            echo "error: $secrets_file not found." >&2
+            echo "This file is gitignored and never committed — hand-provision it once on the deploy host with:" >&2
+            echo '  { "server_github_webhook_secret": "<a real secret>" }' >&2
+            exit 1
+          fi
+
+          cd workflows/deploy/terraform
+          "${{ steps.install_terraform.outputs.tf_bin }}" apply -auto-approve \
+            -var-file="${{ context.path }}/terraform.tfvars.json" \
+            -var-file="$secrets_file" \
+            -var="server_docker_gid=$(getent group docker | cut -d: -f3)"
