@@ -1,9 +1,11 @@
 import { dirname, join, normalize, relative } from "@std/path";
 import { exists, walk } from "@std/fs";
 import { TarStream, type TarStreamInput } from "@std/tar";
+import type { Delegate } from "@ritaj/event";
 import { findRepoRoot } from "./repo.ts";
-import { parseWorkflowFile, runWorkflow, type Workflow } from "@ensemble/workflow";
+import { parseWorkflowFile, runWorkflow, type RunWorkflowResult, type Workflow, type WorkflowEvent } from "@ensemble/workflow";
 import { trackedRunWorkflow } from "./runs.ts";
+import { runWorkflowInContainer } from "./run-workflow-in-container.ts";
 
 export interface RunWorkflowByNameOptions {
   job?: string;
@@ -19,6 +21,10 @@ export interface RunWorkflowByNameOptions {
   context?: string;
   /** Data from whatever triggered this run, made available as `trigger.*` in every job/step. */
   trigger?: Record<string, unknown>;
+  /** Run inside a spawned runner container instead of in-process. Only set by server-side trigger call sites — local CLI runs stay in-process. */
+  containerized?: boolean;
+  /** Notified as jobs/steps start/finish. Only meaningful to a caller that wants to track progress itself (e.g. trackedRunWorkflowByName) — a plain local run has no need for it. */
+  events?: Delegate<[WorkflowEvent]>;
 }
 
 export interface ResolvedWorkflow {
@@ -200,25 +206,58 @@ export async function createWorkflowArchive(workflowDir: string): Promise<Readab
     .pipeThrough(new CompressionStream("gzip"));
 }
 
-/** Resolves a workflow by name (workflows/<name>/workflow.yml) and runs it to completion. */
+/**
+ * Resolves a workflow by name (workflows/<name>/workflow.yml) and runs it to
+ * completion — in-process, or inside a spawned runner container when
+ * `options.containerized` is set. Pure: no run tracking/KV/persistence here
+ * — that's a platform-layer concern, added by wrapping this in
+ * `trackedRunWorkflowByName` (below) rather than baked in here, so a plain
+ * local `ens workflow` run (or the containerized run's own inner invocation)
+ * never needs `.ensemble/platform/runs.kv` to exist at all.
+ */
 export async function runWorkflowByName(
   name: string,
   options: RunWorkflowByNameOptions,
-): Promise<boolean> {
+): Promise<RunWorkflowResult> {
+  if (options.containerized) {
+    return await runWorkflowInContainer(name, {
+      job: options.job,
+      concurrency: options.concurrency,
+      context: options.context,
+      trigger: options.trigger,
+      events: options.events,
+    });
+  }
+
   const repoRoot = await findRepoRoot();
   const { workflow, workflowDir } = await getWorkflowByName(name);
   const context = options.context !== undefined
     ? { name: options.context, path: join(repoRoot, "contexts", options.context) }
     : undefined;
+  return await runWorkflow(workflow, {
+    workflowDir,
+    job: options.job,
+    concurrency: options.concurrency,
+    variables: options.variables,
+    trigger: options.trigger,
+    context,
+    repoRoot,
+    events: options.events,
+  });
+}
+
+/**
+ * Runs a workflow the way every server-side trigger (manual/GitHub/dashboard)
+ * needs: tracked in `.ensemble/platform/runs.kv` (so the dashboard/SSE can
+ * follow progress) and containerized (the server itself doesn't carry the
+ * workflow's own toolchain). `runWorkflowByName` stays plain/untracked so a
+ * local CLI run, or the containerized run's own inner `ens workflow`
+ * invocation, never touches KV at all.
+ */
+export async function trackedRunWorkflowByName(
+  name: string,
+  options: Omit<RunWorkflowByNameOptions, "containerized" | "events">,
+): Promise<boolean> {
   return await trackedRunWorkflow(name, options.trigger, (events) =>
-    runWorkflow(workflow, {
-      workflowDir,
-      job: options.job,
-      concurrency: options.concurrency,
-      variables: options.variables,
-      trigger: options.trigger,
-      context,
-      repoRoot,
-      events,
-    }));
+    runWorkflowByName(name, { ...options, containerized: true, events }));
 }

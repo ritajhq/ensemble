@@ -36,3 +36,4 @@ export {
   type RunWorkflowResult,
   type WorkflowEvent,
 } from "./run-workflow.ts";
+export { emitWorkflowEvent, isEventLine, parseEventLine } from "./event-log.ts";

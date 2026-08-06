@@ -59,6 +59,7 @@ export {
   type ResolvedWorkflow,
   type RunWorkflowByNameOptions,
   runWorkflowByName,
+  trackedRunWorkflowByName,
   type WorkflowFileNode,
 } from "./workflow.ts";
 export {

@@ -1,4 +1,4 @@
-import { decodeWorkflowId, getWorkflowByName, runWorkflowByName } from "@ensemble/core";
+import { decodeWorkflowId, getWorkflowByName, trackedRunWorkflowByName } from "@ensemble/core";
 import { isAuthorizedFor } from "../../../auth/tokens.ts";
 import { extractManualInputs, ManualInputError } from "./extract.ts";
 import { isManualTriggerRequest, type ManualTriggerResponse } from "./contract.ts";
@@ -65,7 +65,7 @@ export async function handleManualTrigger(
   trigger.type = "manual";
 
   try {
-    const success = await runWorkflowByName(name, {
+    const success = await trackedRunWorkflowByName(name, {
       job: body.job,
       concurrency: body.concurrency,
       variables: body.variables,

@@ -1,4 +1,4 @@
-import { decodeWorkflowId, getWorkflowByName, runWorkflowByName } from "@ensemble/core";
+import { decodeWorkflowId, getWorkflowByName, trackedRunWorkflowByName } from "@ensemble/core";
 import { isAuthorizedFor } from "../../../auth/tokens.ts";
 import { matchesAnyTagPattern } from "./match.ts";
 import { isManualGithubTriggerRequest, type ManualGithubTriggerResponse } from "./manual-contract.ts";
@@ -64,7 +64,7 @@ export async function handleManualGithubTrigger(
   }
 
   try {
-    const success = await runWorkflowByName(name, {
+    const success = await trackedRunWorkflowByName(name, {
       trigger: { type: "github", ref: `refs/tags/${body.tag}`, tag: body.tag, sha: body.sha },
     });
     return Response.json({ success } satisfies ManualGithubTriggerResponse);

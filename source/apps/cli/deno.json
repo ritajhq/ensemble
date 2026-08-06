@@ -4,6 +4,8 @@
     "@cliffy/prompt": "jsr:@cliffy/prompt@1.2.1",
     "@ensemble/core": "jsr:@ensemble/core",
     "@ensemble/platform": "jsr:@ensemble/platform",
+    "@ensemble/workflow": "jsr:@ensemble/workflow",
+    "@ritaj/event": "jsr:@ritaj/event",
     "@std/assert": "jsr:@std/assert@1.0.14"
   }
 }

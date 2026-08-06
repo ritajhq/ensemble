@@ -1,4 +1,4 @@
-import { listWorkflows, runWorkflowByName } from "@ensemble/core";
+import { listWorkflows, trackedRunWorkflowByName } from "@ensemble/core";
 import { extractTagFromRef, matchesAnyTagPattern } from "./match.ts";
 import { verifyGithubSignature } from "./signature.ts";
 
@@ -74,7 +74,7 @@ export async function handleGithubTrigger(request: Request): Promise<Response> {
   });
 
   for (const { name } of matches) {
-    runWorkflowByName(name, {
+    trackedRunWorkflowByName(name, {
       trigger: { type: "github", ref: payload.ref, tag, sha: payload.after },
     }).catch((error) => {
       console.error(

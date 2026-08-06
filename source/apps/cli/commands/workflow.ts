@@ -1,6 +1,8 @@
 import { Command, ValidationError } from "@cliffy/command";
 import { Input, Secret } from "@cliffy/prompt";
 import { createWorkflowArchive, getRemoteProfile, getWorkflowByName, runWorkflowByName, setRemoteProfile } from "@ensemble/core";
+import { emitWorkflowEvent, type WorkflowEvent } from "@ensemble/workflow";
+import { Delegate } from "@ritaj/event";
 import { extractManualInputs, ManualInputError, manualTriggerClient, workflowRegistryClient } from "@ensemble/platform";
 import * as CliUtil from "./util.ts";
 
@@ -67,7 +69,9 @@ export const workflowCommand = new Command()
     "Set a value for the workflow's declared manual trigger input (NAME=VALUE). VALUE is JSON-parsed when possible (e.g. -i replicas=3, -i enabled=true), else used as a plain string. Repeatable.",
     { collect: true },
   )
-  .action(async ({ job, concurrency, context, remote, var: vars, input: inputs }, name) => {
+  .option("--trigger-json <json:string>", "Internal: an already-resolved trigger object, used when this invocation is itself running inside a spawned runner container.", { hidden: true })
+  .option("--emit-events", "Internal: print structured ##ENSEMBLE-EVENT## lines on stdout as jobs/steps start and finish, for a caller (the runner container's outer process) to reconstruct progress.", { hidden: true })
+  .action(async ({ job, concurrency, context, remote, var: vars, input: inputs, triggerJson, emitEvents }, name) => {
     const overrides = CliUtil.parseVarOverrides(vars ?? []);
     const inputOverrides = CliUtil.parseInputOverrides(inputs ?? []);
     if (remote) {
@@ -84,20 +88,27 @@ export const workflowCommand = new Command()
       return;
     }
 
-    const { workflow } = await getWorkflowByName(name);
-    const manualTrigger = workflow.on?.find((t) => t.manual)?.manual;
     let trigger: Record<string, unknown> | undefined;
-    if (manualTrigger) {
-      try {
-        trigger = extractManualInputs(inputOverrides, manualTrigger.inputs ?? []);
-      } catch (error) {
-        if (error instanceof ManualInputError) throw new ValidationError(error.message);
-        throw error;
+    if (triggerJson !== undefined) {
+      trigger = JSON.parse(triggerJson);
+    } else {
+      const { workflow } = await getWorkflowByName(name);
+      const manualTrigger = workflow.on?.find((t) => t.manual)?.manual;
+      if (manualTrigger) {
+        try {
+          trigger = extractManualInputs(inputOverrides, manualTrigger.inputs ?? []);
+        } catch (error) {
+          if (error instanceof ManualInputError) throw new ValidationError(error.message);
+          throw error;
+        }
+        trigger.type = "manual";
       }
-      trigger.type = "manual";
     }
 
-    const success = await runWorkflowByName(name, { job, concurrency, context, variables: overrides, trigger });
+    const events = emitEvents ? new Delegate<[WorkflowEvent]>() : undefined;
+    events?.Do((event) => emitWorkflowEvent(event));
+
+    const { success } = await runWorkflowByName(name, { job, concurrency, context, variables: overrides, trigger, events });
     if (!success) Deno.exit(1);
   })
   .command("remote", remoteCommand);

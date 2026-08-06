@@ -11,8 +11,8 @@ import {
   listWorkflowFiles,
   listWorkflows,
   readWorkflowFile,
-  runWorkflowByName,
   subscribeToRun,
+  trackedRunWorkflowByName,
 } from "@ensemble/core";
 import { setCookie } from "@std/http/cookie";
 import { isAuthorizedFor, SSE_TOKEN_COOKIE } from "../../auth/tokens.ts";
@@ -176,7 +176,7 @@ export async function handleRunWorkflow(
   if ("errorResponse" in resolved) return resolved.errorResponse;
 
   try {
-    const success = await runWorkflowByName(resolved.name, { trigger: { type: "manual" } });
+    const success = await trackedRunWorkflowByName(resolved.name, { trigger: { type: "manual" } });
     return Response.json({ success } satisfies RunWorkflowResponse);
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 });
