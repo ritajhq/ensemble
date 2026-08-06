@@ -1,35 +1,43 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ritajhq/ensemble/main/.ensemble/schemas/workflow.schema.json
 
+resources:
+  repositories:
+    ensemble:
+      url: https://github.com/ritajhq/ensemble.git
+
 jobs:
   dev:
     steps:
       - name: build_web_once
+        in:
+          repository: ensemble
         run: |
           set -euo pipefail
-          cd "$ENSEMBLE_WORKSPACE"
           ens build web
 
       - name: pack_server_image
+        in:
+          repository: ensemble
         run: |
           set -euo pipefail
-          cd "$ENSEMBLE_WORKSPACE"
-
           ens build server
           ens pack cli deno.compile
           ens pack server docker
 
       - name: pack_hot_server_image
+        in:
+          repository: ensemble
         run: |
           set -euo pipefail
-          cd "$ENSEMBLE_WORKSPACE"
           ens pack hot-server docker
 
       - name: watch_and_serve
+        in:
+          repository: ensemble
         run: |
           set -euo pipefail
-          cd "$ENSEMBLE_WORKSPACE"
 
-          export ENSEMBLE_HOST_WORKFLOWS_PATH="$ENSEMBLE_WORKSPACE/workflows/local/workspace/workflows"
+          export ENSEMBLE_HOST_WORKFLOWS_PATH="${{ repositories.ensemble.path }}/workflows/local/workspace/workflows"
           export DOCKER_GID="$(getent group docker | cut -d: -f3)"
 
           ens build web --watch &
