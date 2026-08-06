@@ -27,6 +27,8 @@ export interface Job {
   needs?: string[];
   if?: string;
   matrix?: Matrix;
+  /** Default `in:` for every step in this job that doesn't declare its own. */
+  in?: StepIn;
   steps: Step[];
 }
 

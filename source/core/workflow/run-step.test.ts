@@ -131,3 +131,42 @@ Deno.test("runStep: no in: uses the default cwd", async () => {
   assertEquals(result.result, "success");
   assertEquals(result.log.stdout.trim(), cwd);
 });
+
+Deno.test("runStep: a step with no own in: falls back to the job's in:", async () => {
+  const ctx: JobContext = {
+    variables: {},
+    needs: {},
+    steps: {},
+    repositories: { demo: { path: workflowDir } },
+  };
+  const result = await runStep(
+    { run: "pwd" },
+    "/some/unrelated/workflow-dir",
+    "/some/unrelated/scratch-dir",
+    ctx,
+    undefined,
+    { repository: "demo" },
+  );
+  assertEquals(result.result, "success");
+  assertEquals(result.log.stdout.trim(), workflowDir);
+});
+
+Deno.test("runStep: a step's own in: overrides the job's in:", async () => {
+  const otherDir = "/tmp";
+  const ctx: JobContext = {
+    variables: {},
+    needs: {},
+    steps: {},
+    repositories: { demo: { path: workflowDir }, other: { path: otherDir } },
+  };
+  const result = await runStep(
+    { run: "pwd", in: { repository: "other" } },
+    "/some/unrelated/workflow-dir",
+    "/some/unrelated/scratch-dir",
+    ctx,
+    undefined,
+    { repository: "demo" },
+  );
+  assertEquals(result.result, "success");
+  assertEquals(result.log.stdout.trim(), otherDir);
+});

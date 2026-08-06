@@ -25,8 +25,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function validateStepIn(file: string, jobId: string, index: number, raw: unknown): StepIn {
-  const where = `job "${jobId}" step #${index + 1}'s "in"`;
+function validateIn(file: string, where: string, raw: unknown): StepIn {
   if (!isRecord(raw)) {
     fail(file, `${where} must be a mapping.`);
   }
@@ -61,7 +60,9 @@ function validateStep(file: string, jobId: string, index: number, raw: unknown):
   if (continueOnError !== undefined && typeof continueOnError !== "boolean") {
     fail(file, `job "${jobId}" step #${index + 1} has a non-boolean "continue-on-error".`);
   }
-  const stepIn = raw.in !== undefined ? validateStepIn(file, jobId, index, raw.in) : undefined;
+  const stepIn = raw.in !== undefined
+    ? validateIn(file, `job "${jobId}" step #${index + 1}'s "in"`, raw.in)
+    : undefined;
   return {
     id: raw.id as string | undefined,
     name: raw.name as string | undefined,
@@ -279,6 +280,7 @@ function validateJob(file: string, jobId: string, raw: unknown): Job {
     fail(file, `job "${jobId}" has a non-string "if".`);
   }
   const matrix = raw.matrix !== undefined ? validateMatrix(file, jobId, raw.matrix) : undefined;
+  const jobIn = raw.in !== undefined ? validateIn(file, `job "${jobId}"'s "in"`, raw.in) : undefined;
   if (!Array.isArray(raw.steps) || raw.steps.length === 0) {
     fail(file, `job "${jobId}" must have a non-empty "steps" list.`);
   }
@@ -298,6 +300,7 @@ function validateJob(file: string, jobId: string, raw: unknown): Job {
     needs: raw.needs as string[] | undefined,
     if: raw.if as string | undefined,
     matrix,
+    in: jobIn,
     steps,
   };
 }

@@ -1,7 +1,7 @@
 import { isAbsolute, resolve } from "@std/path";
 import { RealEnvironment, which } from "@david/which";
 import bootstrapSource from "./run-script-subprocess.ts" with { type: "text" };
-import type { Step } from "./schema.ts";
+import type { Step, StepIn } from "./schema.ts";
 import type { JobContext, StepResult } from "./context.ts";
 import { evaluateStepIf, interpolateStep, toStepContext } from "./context.ts";
 import { WorkflowExpressionError } from "./expressions.ts";
@@ -236,17 +236,19 @@ async function runScript(
 }
 
 /**
- * Resolves a step's effective cwd: `in: { repository: <name> }` points it at
+ * Resolves a step's effective cwd: `in: { repository: <name> }` — the step's
+ * own, or the job's default when the step doesn't declare one — points it at
  * that resources.repositories entry's checkout instead of the run's scratch
  * directory. `name` must be a key in `ctx.repositories` — i.e. actually
  * declared under the workflow's `resources.repositories`.
  */
-function resolveStepCwd(step: Step, defaultCwd: string, ctx: JobContext): string {
-  if (step.in === undefined) return defaultCwd;
-  const repo = ctx.repositories?.[step.in.repository];
+function resolveStepCwd(step: Step, jobIn: StepIn | undefined, defaultCwd: string, ctx: JobContext): string {
+  const stepIn = step.in ?? jobIn;
+  if (stepIn === undefined) return defaultCwd;
+  const repo = ctx.repositories?.[stepIn.repository];
   if (repo === undefined) {
     throw new WorkflowExpressionError(
-      `Step's "in.repository" references "${step.in.repository}", which isn't declared under resources.repositories.`,
+      `"in.repository" references "${stepIn.repository}", which isn't declared under resources.repositories.`,
     );
   }
   return repo.path;
@@ -255,8 +257,8 @@ function resolveStepCwd(step: Step, defaultCwd: string, ctx: JobContext): string
 /**
  * Executes a single step: evaluates `if:`, dispatches to run:/script:, and applies continue-on-error.
  * `cwd` is the run's own scratch directory (fresh per workflow run) — distinct from `workflowDir`,
- * which is only ever used to resolve a `script:` step's path on disk. A step's own `in:` can override
- * this default (see resolveStepCwd).
+ * which is only ever used to resolve a `script:` step's path on disk. A step's own `in:` (or, absent
+ * that, the job's `in:`) can override this default (see resolveStepCwd).
  */
 export async function runStep(
   step: Step,
@@ -264,12 +266,13 @@ export async function runStep(
   cwd: string,
   ctx: JobContext,
   signal: AbortSignal = new AbortController().signal,
+  jobIn?: StepIn,
 ): Promise<StepRunResult> {
   if (step.if !== undefined && !evaluateStepIf(step.if, ctx)) {
     return { result: "skipped", outputs: {}, continuedOnError: false, log: { stdout: "", stderr: "", truncated: false } };
   }
 
-  const effectiveCwd = resolveStepCwd(step, cwd, ctx);
+  const effectiveCwd = resolveStepCwd(step, jobIn, cwd, ctx);
   let capturedLog: StepLogCapture = { stdout: "", stderr: "", truncated: false };
 
   try {

@@ -34,6 +34,17 @@
   "required": ["jobs"],
   "additionalProperties": false,
   "definitions": {
+    "stepIn": {
+      "type": "object",
+      "properties": {
+        "repository": {
+          "description": "Name of a resources.repositories entry — the step's (or every step in the job's) cwd defaults to that repository's checkout.",
+          "type": "string"
+        }
+      },
+      "required": ["repository"],
+      "additionalProperties": false
+    },
     "resources": {
       "type": "object",
       "properties": {
@@ -153,6 +164,10 @@
         "matrix": {
           "$ref": "#/definitions/matrix"
         },
+        "in": {
+          "description": "Default \"in\" for every step in this job that doesn't declare its own.",
+          "$ref": "#/definitions/stepIn"
+        },
         "steps": {
           "type": "array",
           "minItems": 1,
@@ -226,16 +241,8 @@
           "type": "boolean"
         },
         "in": {
-          "description": "Runs this step inside a declared resource instead of the run's scratch directory.",
-          "type": "object",
-          "properties": {
-            "repository": {
-              "description": "Name of a resources.repositories entry — this step's cwd defaults to that repository's checkout.",
-              "type": "string"
-            }
-          },
-          "required": ["repository"],
-          "additionalProperties": false
+          "description": "Runs this step inside a declared resource instead of the run's scratch directory (or the job's own \"in\", if set). Overrides the job-level default when both are present.",
+          "$ref": "#/definitions/stepIn"
         }
       },
       "additionalProperties": false

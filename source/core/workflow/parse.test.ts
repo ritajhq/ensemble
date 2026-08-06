@@ -785,6 +785,53 @@ jobs:
   );
 });
 
+Deno.test("parseWorkflowFile: job-level in.repository parses and applies as every step's default", async () => {
+  await withFixture(
+    "job-in-repository.yml",
+    `
+resources:
+  repositories:
+    ensemble:
+      url: https://github.com/ritajhq/ensemble.git
+jobs:
+  build:
+    in:
+      repository: ensemble
+    steps:
+      - run: echo one
+      - run: echo two
+        in:
+          repository: ensemble
+`,
+    async (path) => {
+      const workflow = await parseWorkflowFile(path);
+      assertEquals(workflow.jobs.build.in, { repository: "ensemble" });
+      assertEquals(workflow.jobs.build.steps[0].in, undefined);
+      assertEquals(workflow.jobs.build.steps[1].in, { repository: "ensemble" });
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: job in: missing repository fails", async () => {
+  await withFixture(
+    "job-in-missing-repository.yml",
+    `
+jobs:
+  build:
+    in: {}
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      await assertRejects(
+        () => parseWorkflowFile(path),
+        WorkflowParseError,
+        `must have a non-empty string "repository"`,
+      );
+    },
+  );
+});
+
 Deno.test("parseWorkflowFile: step in: missing repository fails", async () => {
   await withFixture(
     "step-in-missing-repository.yml",

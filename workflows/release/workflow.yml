@@ -13,11 +13,11 @@ resources:
 
 jobs:
   release:
+    in:
+      repository: ensemble
     steps:
       - id: checkout
         name: checkout
-        in:
-          repository: ensemble
         run: |
           set -euo pipefail
           git fetch --tags origin
@@ -25,15 +25,11 @@ jobs:
           echo "tag=$tag" >> "$WORKFLOW_OUTPUT"
 
       - name: compile_cli
-        in:
-          repository: ensemble
         run: |
           set -euo pipefail
           ens pack cli deno.compile
 
       - name: build_server_image
-        in:
-          repository: ensemble
         run: |
           set -euo pipefail
           ens build -m production server
@@ -42,16 +38,12 @@ jobs:
           ens pack server docker
 
       - name: build_web_image
-        in:
-          repository: ensemble
         run: |
           set -euo pipefail
           ens build -m production web
           ens pack web docker
 
       - name: publish_server_image
-        in:
-          repository: ensemble
         run: |
           set -euo pipefail
 
@@ -66,8 +58,6 @@ jobs:
           docker push registry.ritaj.app/ensemble/server:"$VERSION"
 
       - name: publish_web_image
-        in:
-          repository: ensemble
         run: |
           set -euo pipefail
 
@@ -82,8 +72,6 @@ jobs:
           docker push registry.ritaj.app/ensemble/web:"$VERSION"
 
       - name: update_changelog
-        in:
-          repository: ensemble
         run: |
           set -euo pipefail
           tag="${{ steps.checkout.outputs.tag }}"
@@ -122,8 +110,6 @@ jobs:
           fi
 
       - name: create_github_release
-        in:
-          repository: ensemble
         run: |
           set -euo pipefail
           tag="${{ steps.checkout.outputs.tag }}"

@@ -73,7 +73,7 @@ export async function runJob(
     const startedAt = performance.now();
     let outcome;
     try {
-      outcome = await runStep(step, workflowDir, cwd, ctx, signal);
+      outcome = await runStep(step, workflowDir, cwd, ctx, signal, job.in);
     } catch (error) {
       if (error instanceof WorkflowExpressionError) throw error;
       result = signal.aborted ? "cancelled" : "failure";
