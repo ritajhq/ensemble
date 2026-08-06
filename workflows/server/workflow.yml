@@ -1,3 +1,11 @@
+on:
+  - manual:
+      inputs:
+        - name: job
+          type: job
+          default: server
+          display: "Job to run"
+
 resources:
   repositories:
     ensemble:
