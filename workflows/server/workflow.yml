@@ -12,6 +12,15 @@ resources:
       url: https://github.com/ritajhq/ensemble.git
 
 jobs:
+  cli:
+    in:
+      repository: ensemble
+    steps:
+      - name: compile_cli
+        run: |
+          echo "Compiling..."
+          ens pack cli deno.compile
+
   hot-server:
     in:
       repository: ensemble
@@ -31,6 +40,7 @@ jobs:
           docker push registry.ritaj.app/hot-server:latest
 
   server:
+    needs: [cli]
     in:
       repository: ensemble
     steps:
@@ -38,11 +48,6 @@ jobs:
         run: |
           echo "Building..."
           ens build -m production server
-
-      - name: compile_cli
-        run: |
-          echo "Compiling..."
-          ens pack cli deno.compile
 
       - name: pack_server
         run: |
@@ -83,14 +88,10 @@ jobs:
           docker push registry.ritaj.app/ensemble/web:latest
 
   runner:
+    needs: [cli]
     in:
       repository: ensemble
     steps:
-      - name: compile_cli
-        run: |
-          echo "Compiling..."
-          ens pack cli deno.compile
-
       - name: pack_runner
         run: |
           echo "Packing..."
