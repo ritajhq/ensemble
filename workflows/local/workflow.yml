@@ -29,6 +29,9 @@ jobs:
           set -euo pipefail
           cd "$ENSEMBLE_WORKSPACE"
 
+          export ENSEMBLE_HOST_WORKFLOWS_PATH="$ENSEMBLE_WORKSPACE/workflows/local/workspace/workflows"
+          export DOCKER_GID="$(getent group docker | cut -d: -f3)"
+
           ens build web --watch &
           build_web_pid=$!
           ens build server --watch &
