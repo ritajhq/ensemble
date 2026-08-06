@@ -24,15 +24,20 @@ at the repo root:
 ```
 ens workflow deploy
 ens workflow deploy --job build
+ens workflow deploy --job build --job runner
+ens workflow deploy --job build,runner
 ens workflow deploy --concurrency 2
 ens workflow deploy --context production
 ens workflow deploy -v GREETING=hi -v API_URL=https://staging.example.com
 ens workflow deploy -i sha=abc123 -i replicas=3
+ens workflow deploy -i job=build -i job=runner
 ```
 
-`--job <id>` runs only that job and its transitive dependencies. Script
-paths inside a workflow (`script: ./steps/build.ts`) resolve relative to
-that workflow's own folder.
+`--job <id>` runs only that job and its transitive dependencies. Repeatable
+(`--job a --job b`) and/or comma-separated (`--job a,b`) to run several jobs
+and the union of their dependencies. Script paths inside a workflow
+(`script: ./steps/build.ts`) resolve relative
+to that workflow's own folder.
 
 `--context <name>` is a deploy-context marker: it's exposed to every
 job/step as `context.name` (the name itself, e.g. `"production"`) and
@@ -356,7 +361,7 @@ jobs:
   list of named, typed values the caller must (or may) supply, each read
   from the trigger request's `inputs.<name>` and exposed as `trigger.<name>`:
   - **`name`** and **`type`** are required on every input. `type` is one of
-    `string`, `number`, `boolean`, `object`, `git-tags`, `context`.
+    `string`, `number`, `boolean`, `object`, `git-tags`, `context`, `job`.
   - **`default`**: makes the input optional — omitted from the request
     means `trigger.<name>` falls back to this value. An input with no
     `default` is **required**; a request missing it is rejected with 400.
@@ -364,17 +369,33 @@ jobs:
     input. Purely descriptive — never read by validation.
   - A submitted value is checked against `type` with a **strict** match
     (e.g. `type: number` rejects the string `"3"`) — no silent coercion.
-    `git-tags` and `context` validate as plain strings; `git-tags`
+    `git-tags`, `context`, and `job` validate as plain strings; `git-tags`
     additionally requires a **`repository`** property (a git URL) so a UI
-    can list that repo's tags to offer as a select, and `context` is a
+    can list that repo's tags to offer as a select, `context` is a
     context name (see `--context`/`context.*` above) with no extra
     property, since which contexts exist isn't an enumerated registry
-    today.
+    today, and `job` is one of this workflow's own job ids (checked at
+    parse time for `default`, and at trigger time for a submitted value).
+  - A **`job`** input implicitly selects which job (and its transitive
+    `needs:`) the run executes — the same restriction `--job`/`-j` or a
+    trigger request's own `job` field applies — so a workflow can expose
+    "which job to run" as a picker in its own trigger form instead of
+    requiring a separate out-of-band selector. An explicit `job`
+    passed alongside it (CLI `-j`, or the trigger request's `job` field)
+    still wins.
+  - **`multiple`** (only for `type: job`): accepts/requires a list of job
+    ids instead of one — `default` must then be a non-empty list, and a
+    submitted value must be a non-empty list of this workflow's own job
+    ids. The run executes the union of every selected job's transitive
+    `needs:`. Defaults to `false` (single job id).
   - Locally, `ens workflow <name> -i NAME=VALUE` (repeatable) sets input
     values the same way — `VALUE` is JSON-parsed when possible (so
     `-i replicas=3` yields the number `3`, `-i enabled=true` the boolean
     `true`), falling back to the raw string otherwise (so `-i sha=abc123`
-    works unquoted).
+    works unquoted). Repeating the same `NAME` collects its values into a
+    list instead of the last one winning — e.g. `-i job=build -i job=runner`
+    sets `job` to `["build", "runner"]`, the easiest way to fill a
+    `type: job, multiple: true` input without hand-writing JSON.
 - **`github`**: matches a GitHub `push` webhook whose pushed ref is a tag
   matching one of the given glob patterns (`tags: ["1.*"]`). `trigger.ref`,
   `trigger.tag`, and `trigger.sha` are populated automatically from the

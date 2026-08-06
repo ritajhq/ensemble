@@ -2,7 +2,8 @@ import type { Delegate } from "@ritaj/event";
 import { isEventLine, parseEventLine, type RunWorkflowResult, type WorkflowEvent } from "@ensemble/workflow";
 
 export interface RunWorkflowInContainerOptions {
-  job?: string;
+  /** Run only this job (or these jobs) and their transitive dependencies. */
+  job?: string | string[];
   concurrency?: number;
   context?: string;
   /** Data from whatever triggered this run, forwarded into the container as --trigger-json. */
@@ -86,7 +87,9 @@ export async function runWorkflowInContainer(
       name,
       "--emit-events",
     ];
-    if (options.job !== undefined) args.push("--job", options.job);
+    for (const job of options.job === undefined ? [] : Array.isArray(options.job) ? options.job : [options.job]) {
+      args.push("--job", job);
+    }
     if (options.concurrency !== undefined) args.push("--concurrency", String(options.concurrency));
     if (options.context !== undefined) args.push("--context", options.context);
     if (options.trigger !== undefined) args.push("--trigger-json", JSON.stringify(options.trigger));

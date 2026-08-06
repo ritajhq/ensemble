@@ -71,6 +71,14 @@ export interface ManualContextInput extends ManualInputBase {
   default?: string;
 }
 
+export interface ManualJobInput extends ManualInputBase {
+  type: "job";
+  /** Accept/require a list of job ids instead of one. Defaults to false (single job). */
+  multiple?: boolean;
+  /** A job id (or, when `multiple` is true, a non-empty list of job ids) — each must be one of this workflow's own job ids. */
+  default?: string | string[];
+}
+
 /** One input a manual trigger accepts. Required unless `default` is set. `type` governs which extra properties apply. */
 export type ManualInput =
   | ManualStringInput
@@ -78,7 +86,8 @@ export type ManualInput =
   | ManualBooleanInput
   | ManualObjectInput
   | ManualGitTagsInput
-  | ManualContextInput;
+  | ManualContextInput
+  | ManualJobInput;
 
 export interface ManualTrigger {
   /** Named, typed inputs this trigger accepts, read from the trigger request's `inputs.<name>` and exposed as `trigger.<name>`. */

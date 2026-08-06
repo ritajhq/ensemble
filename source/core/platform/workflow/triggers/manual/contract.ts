@@ -1,6 +1,6 @@
 export interface ManualTriggerRequest {
-  /** Run only this job and its transitive dependencies. */
-  job?: string;
+  /** Run only this job (or these jobs) and their transitive dependencies. */
+  job?: string | string[];
   /** Max number of jobs to run concurrently within a batch. */
   concurrency?: number;
   /** Extra variables merged on top of the server's own env vars for this run. */
@@ -19,7 +19,13 @@ export function isManualTriggerRequest(value: unknown): value is ManualTriggerRe
   if (typeof value !== "object" || value === null) return false;
   const body = value as Record<string, unknown>;
 
-  if (body.job !== undefined && typeof body.job !== "string") return false;
+  if (body.job !== undefined) {
+    if (Array.isArray(body.job)) {
+      if (body.job.some((j) => typeof j !== "string")) return false;
+    } else if (typeof body.job !== "string") {
+      return false;
+    }
+  }
   if (body.concurrency !== undefined && (!Number.isInteger(body.concurrency) || (body.concurrency as number) <= 0)) {
     return false;
   }

@@ -519,6 +519,145 @@ jobs:
   );
 });
 
+Deno.test("parseWorkflowFile: job input parses and defaults to a declared job", async () => {
+  await withFixture(
+    "manual-job-input.yml",
+    `
+on:
+  - manual:
+      inputs:
+        - name: which_job
+          type: job
+          default: build
+          display: "Job to run"
+jobs:
+  build:
+    steps:
+      - run: echo hi
+  deploy:
+    steps:
+      - run: echo bye
+`,
+    async (path) => {
+      const workflow = await parseWorkflowFile(path);
+      assertEquals(workflow.on?.[0].manual?.inputs, [{
+        name: "which_job",
+        type: "job",
+        default: "build",
+        display: "Job to run",
+      }]);
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: job input with a default that isn't a declared job fails", async () => {
+  await withFixture(
+    "manual-job-input-unknown-default.yml",
+    `
+on:
+  - manual:
+      inputs:
+        - name: which_job
+          type: job
+          default: nonexistent
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      await assertRejects(
+        () => parseWorkflowFile(path),
+        WorkflowParseError,
+        `has a "default" that isn't a declared job`,
+      );
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: job input with multiple: true parses a list default", async () => {
+  await withFixture(
+    "manual-job-input-multiple.yml",
+    `
+on:
+  - manual:
+      inputs:
+        - name: which_jobs
+          type: job
+          multiple: true
+          default: [build, deploy]
+jobs:
+  build:
+    steps:
+      - run: echo hi
+  deploy:
+    steps:
+      - run: echo bye
+`,
+    async (path) => {
+      const workflow = await parseWorkflowFile(path);
+      assertEquals(workflow.on?.[0].manual?.inputs, [{
+        name: "which_jobs",
+        type: "job",
+        multiple: true,
+        default: ["build", "deploy"],
+      }]);
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: job input with multiple: true and a non-array default fails", async () => {
+  await withFixture(
+    "manual-job-input-multiple-bad-default.yml",
+    `
+on:
+  - manual:
+      inputs:
+        - name: which_jobs
+          type: job
+          multiple: true
+          default: build
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      await assertRejects(
+        () => parseWorkflowFile(path),
+        WorkflowParseError,
+        `has a "default" that isn't a non-empty list of strings`,
+      );
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: job input with multiple: true and an unknown job in default fails", async () => {
+  await withFixture(
+    "manual-job-input-multiple-unknown-default.yml",
+    `
+on:
+  - manual:
+      inputs:
+        - name: which_jobs
+          type: job
+          multiple: true
+          default: [build, nonexistent]
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      await assertRejects(
+        () => parseWorkflowFile(path),
+        WorkflowParseError,
+        `has a "default" that isn't a declared job ("nonexistent")`,
+      );
+    },
+  );
+});
+
 Deno.test("parseWorkflowFile: manual trigger with duplicate input names fails", async () => {
   await withFixture(
     "manual-duplicate-input.yml",

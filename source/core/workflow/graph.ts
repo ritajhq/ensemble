@@ -36,10 +36,10 @@ export function buildBatches(workflow: Workflow): string[][] {
   return batches;
 }
 
-/** Returns the set of job ids that `jobId` transitively depends on (not including itself). */
-export function transitiveDeps(workflow: Workflow, jobId: string): Set<string> {
+/** Returns the set of job ids that `jobIds` (one or many) transitively depend on (not including themselves). */
+export function transitiveDeps(workflow: Workflow, jobIds: string | string[]): Set<string> {
   const result = new Set<string>();
-  const stack = [...(workflow.jobs[jobId]?.needs ?? [])];
+  const stack = (Array.isArray(jobIds) ? jobIds : [jobIds]).flatMap((id) => workflow.jobs[id]?.needs ?? []);
   while (stack.length > 0) {
     const dep = stack.pop()!;
     if (result.has(dep)) continue;

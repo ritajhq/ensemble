@@ -1,6 +1,6 @@
 import { decodeWorkflowId, getWorkflowByName, trackedRunWorkflowByName } from "@ensemble/core";
 import { isAuthorizedFor } from "../../../auth/tokens.ts";
-import { extractManualInputs, ManualInputError } from "./extract.ts";
+import { extractManualInputs, ManualInputError, resolveJobInput } from "./extract.ts";
 import { isManualTriggerRequest, type ManualTriggerResponse } from "./contract.ts";
 
 export async function handleManualTrigger(
@@ -34,7 +34,7 @@ export async function handleManualTrigger(
   if (!isManualTriggerRequest(body)) {
     return Response.json({
       error:
-        "Expected { job?: string, concurrency?: number, variables?: Record<string,string>, context?: string, inputs?: Record<string,unknown> }.",
+        "Expected { job?: string | string[], concurrency?: number, variables?: Record<string,string>, context?: string, inputs?: Record<string,unknown> }.",
     }, { status: 400 });
   }
 
@@ -53,9 +53,10 @@ export async function handleManualTrigger(
     );
   }
 
+  const declaredInputs = manualTrigger.inputs ?? [];
   let trigger: Record<string, unknown>;
   try {
-    trigger = extractManualInputs(body.inputs, manualTrigger.inputs ?? []);
+    trigger = extractManualInputs(body.inputs, declaredInputs, Object.keys(workflow.jobs));
   } catch (error) {
     if (error instanceof ManualInputError) {
       return Response.json({ error: error.message }, { status: 400 });
@@ -66,7 +67,7 @@ export async function handleManualTrigger(
 
   try {
     const success = await trackedRunWorkflowByName(name, {
-      job: body.job,
+      job: body.job ?? resolveJobInput(declaredInputs, trigger),
       concurrency: body.concurrency,
       variables: body.variables,
       context: body.context,

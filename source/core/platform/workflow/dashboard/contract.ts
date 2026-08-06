@@ -4,6 +4,8 @@ import type { ManualInput } from "@ensemble/workflow";
 export interface WorkflowManualTriggerSummary {
   type: "manual";
   inputs: ManualInput[];
+  /** This workflow's own job ids, for a UI to offer as choices for any `type: "job"` input. Empty when none of `inputs` needs it. */
+  jobs: string[];
 }
 
 export interface WorkflowGithubTriggerSummary {

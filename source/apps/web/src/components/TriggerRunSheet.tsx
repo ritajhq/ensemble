@@ -17,14 +17,16 @@ import {
   SheetTrigger,
 } from "@ritaj/ui";
 
-/** Current value for one declared manual input, keyed by its name — string/number inputs stay as their raw text until submit so an in-progress edit (e.g. "-", "1.") isn't clobbered. */
-type ManualInputValues = Record<string, string | boolean>;
+/** Current value for one declared manual input, keyed by its name — string/number inputs stay as their raw text until submit so an in-progress edit (e.g. "-", "1.") isn't clobbered. A `job` input with `multiple: true` holds a string array instead. */
+type ManualInputValues = Record<string, string | boolean | string[]>;
 
 function defaultManualValues(inputs: ManualInput[]): ManualInputValues {
   const values: ManualInputValues = {};
   for (const input of inputs) {
     if (input.type === "boolean") {
       values[input.name] = typeof input.default === "boolean" ? input.default : false;
+    } else if (input.type === "job" && input.multiple) {
+      values[input.name] = Array.isArray(input.default) ? input.default : [];
     } else {
       values[input.name] = input.default !== undefined ? String(input.default) : "";
     }
@@ -33,8 +35,16 @@ function defaultManualValues(inputs: ManualInput[]): ManualInputValues {
 }
 
 /** Parses a manual input's raw form value back into what the trigger expects, throwing a user-facing message on a bad value (e.g. malformed JSON). */
-function parseManualValue(input: ManualInput, raw: string | boolean): unknown {
+function parseManualValue(input: ManualInput, raw: string | boolean | string[]): unknown {
   if (input.type === "boolean") return raw;
+  if (input.type === "job" && input.multiple) {
+    const jobs = raw as string[];
+    if (jobs.length === 0) {
+      if (input.default !== undefined) return input.default;
+      throw new Error(`"${input.display ?? input.name}" is required.`);
+    }
+    return jobs;
+  }
   const text = String(raw);
   if (text.length === 0) {
     if (input.default !== undefined) return input.default;
@@ -55,12 +65,18 @@ function parseManualValue(input: ManualInput, raw: string | boolean): unknown {
     case "string":
     case "git-tags":
     case "context":
+    case "job":
       return text;
   }
 }
 
 function ManualInputField(
-  { input, value, onChange }: { input: ManualInput; value: string | boolean; onChange: (value: string | boolean) => void },
+  { input, value, onChange, jobs }: {
+    input: ManualInput;
+    value: string | boolean | string[];
+    onChange: (value: string | boolean | string[]) => void;
+    jobs: string[];
+  },
 ) {
   const label = input.display ?? input.name;
   const id = `manual-input-${input.name}`;
@@ -79,6 +95,48 @@ function ManualInputField(
           {label}
           {input.default === undefined && <span className="text-destructive"> *</span>}
         </label>
+      </div>
+    );
+  }
+
+  if (input.type === "job" && input.multiple) {
+    const selected = value as string[];
+    return (
+      <div className="flex flex-col gap-1">
+        <label className="text-xs text-muted-foreground" htmlFor={id}>
+          {label}
+          {input.default === undefined && <span className="text-destructive"> *</span>}
+        </label>
+        <select
+          id={id}
+          multiple
+          value={selected}
+          onChange={(event) => onChange(Array.from(event.target.selectedOptions, (o) => o.value))}
+          className="rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+        >
+          {jobs.map((jobId) => <option key={jobId} value={jobId}>{jobId}</option>)}
+        </select>
+        <p className="text-xs text-muted-foreground">Cmd/Ctrl-click to select multiple jobs.</p>
+      </div>
+    );
+  }
+
+  if (input.type === "job") {
+    return (
+      <div className="flex flex-col gap-1">
+        <label className="text-xs text-muted-foreground" htmlFor={id}>
+          {label}
+          {input.default === undefined && <span className="text-destructive"> *</span>}
+        </label>
+        <select
+          id={id}
+          value={String(value)}
+          onChange={(event) => onChange(event.target.value)}
+          className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+        >
+          <option value="" disabled>Select a job…</option>
+          {jobs.map((jobId) => <option key={jobId} value={jobId}>{jobId}</option>)}
+        </select>
       </div>
     );
   }
@@ -106,7 +164,7 @@ function ManualInputField(
 }
 
 function ManualTriggerForm(
-  { workflowId, inputs, onTriggered }: { workflowId: string; inputs: ManualInput[]; onTriggered: () => void },
+  { workflowId, inputs, jobs, onTriggered }: { workflowId: string; inputs: ManualInput[]; jobs: string[]; onTriggered: () => void },
 ) {
   const [values, setValues] = useState<ManualInputValues>(() => defaultManualValues(inputs));
   const [status, setStatus] = useState<
@@ -138,6 +196,7 @@ function ManualTriggerForm(
           input={input}
           value={values[input.name]}
           onChange={(value) => setValues((current) => ({ ...current, [input.name]: value }))}
+          jobs={jobs}
         />
       ))}
       <div>
@@ -239,6 +298,7 @@ export function TriggerRunSheet(
             <ManualTriggerForm
               workflowId={workflowId}
               inputs={trigger.inputs}
+              jobs={trigger.jobs}
               onTriggered={() => {
                 setOpen(false);
                 onTriggered();

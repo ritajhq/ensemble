@@ -170,7 +170,7 @@
         },
         "type": {
           "type": "string",
-          "enum": ["string", "number", "boolean", "object", "git-tags", "context"]
+          "enum": ["string", "number", "boolean", "object", "git-tags", "context", "job"]
         },
         "display": {
           "description": "Human-readable label for a UI to show alongside this input. Purely descriptive.",
@@ -182,6 +182,10 @@
         "repository": {
           "description": "Git repo URL a UI can list tags from to offer as a select. Only valid (and required) for type: git-tags.",
           "type": "string"
+        },
+        "multiple": {
+          "description": "Accept/require a list of job ids instead of one. Only valid for type: job. Defaults to false.",
+          "type": "boolean"
         }
       },
       "required": ["name", "type"],

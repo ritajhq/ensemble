@@ -31,8 +31,8 @@ import type {
 } from "./contract.ts";
 import type { Trigger } from "@ensemble/workflow";
 
-function summarizeTrigger(trigger: Trigger): WorkflowTriggerSummary | undefined {
-  if (trigger.manual) return { type: "manual", inputs: trigger.manual.inputs ?? [] };
+function summarizeTrigger(trigger: Trigger, jobIds: string[]): WorkflowTriggerSummary | undefined {
+  if (trigger.manual) return { type: "manual", inputs: trigger.manual.inputs ?? [], jobs: jobIds };
   if (trigger.github) return { type: "github", tagPatterns: trigger.github.push.tags };
   return undefined;
 }
@@ -64,8 +64,9 @@ export async function handleListWorkflows(request: Request): Promise<Response> {
   const resolved = await listWorkflows();
   const workflows = await Promise.all(resolved.map(async ({ name, workflow }) => {
     const latest = await getLatestRun(name);
+    const jobIds = Object.keys(workflow.jobs);
     const triggers = (workflow.on ?? [])
-      .map(summarizeTrigger)
+      .map((trigger) => summarizeTrigger(trigger, jobIds))
       .filter((t): t is WorkflowTriggerSummary => t !== undefined);
     return { id: encodeWorkflowId(name), name, lastStatus: latest?.status, lastRunAt: latest?.startedAt, triggers };
   }));

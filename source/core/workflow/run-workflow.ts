@@ -35,8 +35,8 @@ export type WorkflowEvent =
 export interface RunWorkflowOptions {
   workflowDir: string;
   variables?: Record<string, string>;
-  /** Run only this job and its transitive dependencies. */
-  job?: string;
+  /** Run only this job (or these jobs) and their transitive dependencies. */
+  job?: string | string[];
   /** Max number of jobs to run concurrently within a batch. */
   concurrency?: number;
   /** Data from whatever triggered this run, made available as `trigger.*` in every job/step. */
@@ -164,7 +164,8 @@ export async function runWorkflow(
 
   let batches = buildBatches(workflow);
   if (options.job !== undefined) {
-    const allowed = new Set([options.job, ...transitiveDeps(workflow, options.job)]);
+    const jobs = Array.isArray(options.job) ? options.job : [options.job];
+    const allowed = new Set([...jobs, ...transitiveDeps(workflow, jobs)]);
     batches = batches
       .map((batch) => batch.filter((id) => allowed.has(id)))
       .filter((batch) => batch.length > 0);

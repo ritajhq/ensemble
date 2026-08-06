@@ -29,3 +29,15 @@ Deno.test("parseInputOverrides: falls back to the raw string when not valid JSON
 Deno.test("parseInputOverrides: missing '=' throws ValidationError", () => {
   assertThrows(() => parseInputOverrides(["sha"]), ValidationError);
 });
+
+Deno.test("parseInputOverrides: repeating the same key collects values into a list", () => {
+  assertEquals(parseInputOverrides(["job=server", "job=web"]), { job: ["server", "web"] });
+});
+
+Deno.test("parseInputOverrides: a key given once still yields a plain scalar, not a single-element list", () => {
+  assertEquals(parseInputOverrides(["job=server"]), { job: "server" });
+});
+
+Deno.test("parseInputOverrides: repeated values are still individually JSON-parsed", () => {
+  assertEquals(parseInputOverrides(["n=1", "n=2"]), { n: [1, 2] });
+});

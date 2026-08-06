@@ -25,7 +25,7 @@ entry under its own `on:` (see `@ensemble/workflow`'s README) — a request
 for a workflow that hasn't opted in is rejected with 403.
 
 ```jsonc
-// request body
+// request body ("job" may also be a list, e.g. ["build", "runner"])
 { "job": "build", "concurrency": 2, "variables": { "FOO": "bar" }, "context": "production", "inputs": { "sha": "...", "replicas": 3 } }
 // response
 { "success": true }

@@ -3,7 +3,7 @@ import { Input, Secret } from "@cliffy/prompt";
 import { createWorkflowArchive, getRemoteProfile, getWorkflowByName, runWorkflowByName, setRemoteProfile } from "@ensemble/core";
 import { emitWorkflowEvent, type WorkflowEvent } from "@ensemble/workflow";
 import { Delegate } from "@ritaj/event";
-import { extractManualInputs, ManualInputError, manualTriggerClient, workflowRegistryClient } from "@ensemble/platform";
+import { extractManualInputs, ManualInputError, manualTriggerClient, resolveJobInput, workflowRegistryClient } from "@ensemble/platform";
 import * as CliUtil from "./util.ts";
 
 const remoteConfigureCommand = new Command()
@@ -53,7 +53,11 @@ export const workflowCommand = new Command()
   .name("workflow")
   .description("Run a workflow from the workflows/ folder.")
   .arguments("<name:string>")
-  .option("-j, --job <job:string>", "Run only this job and its transitive dependencies.")
+  .option(
+    "-j, --job <job:string>",
+    "Run only this job and its transitive dependencies. Repeatable, and/or comma-separated (-j a,b), to run several jobs (and their combined dependencies).",
+    { collect: true },
+  )
   .option("-c, --concurrency <concurrency:number>", "Max number of jobs to run concurrently.")
   .option(
     "--context <context:string>",
@@ -66,7 +70,7 @@ export const workflowCommand = new Command()
   .option("-v, --var <var:string>", "Override a workflow variable (KEY=VALUE). Repeatable.", { collect: true })
   .option(
     "-i, --input <input:string>",
-    "Set a value for the workflow's declared manual trigger input (NAME=VALUE). VALUE is JSON-parsed when possible (e.g. -i replicas=3, -i enabled=true), else used as a plain string. Repeatable.",
+    "Set a value for the workflow's declared manual trigger input (NAME=VALUE). VALUE is JSON-parsed when possible (e.g. -i replicas=3, -i enabled=true), else used as a plain string. Repeatable — repeating the same NAME collects its values into a list (e.g. -i job=server -i job=web) instead of the last one winning.",
     { collect: true },
   )
   .option("--trigger-json <json:string>", "Internal: an already-resolved trigger object, used when this invocation is itself running inside a spawned runner container.", { hidden: true })
@@ -74,11 +78,12 @@ export const workflowCommand = new Command()
   .action(async ({ job, concurrency, context, remote, var: vars, input: inputs, triggerJson, emitEvents }, name) => {
     const overrides = CliUtil.parseVarOverrides(vars ?? []);
     const inputOverrides = CliUtil.parseInputOverrides(inputs ?? []);
+    const jobs = job?.flatMap((j) => j.split(","));
     if (remote) {
       const profile = await getRemoteProfile(remote);
       const client = manualTriggerClient({ baseUrl: profile.url, token: profile.secret });
       const { success } = await client.actions.trigger(name, {
-        job,
+        job: jobs,
         concurrency,
         context,
         variables: overrides,
@@ -89,26 +94,29 @@ export const workflowCommand = new Command()
     }
 
     let trigger: Record<string, unknown> | undefined;
+    let resolvedJob: string | string[] | undefined = jobs;
     if (triggerJson !== undefined) {
       trigger = JSON.parse(triggerJson);
     } else {
       const { workflow } = await getWorkflowByName(name);
       const manualTrigger = workflow.on?.find((t) => t.manual)?.manual;
       if (manualTrigger) {
+        const declaredInputs = manualTrigger.inputs ?? [];
         try {
-          trigger = extractManualInputs(inputOverrides, manualTrigger.inputs ?? []);
+          trigger = extractManualInputs(inputOverrides, declaredInputs, Object.keys(workflow.jobs));
         } catch (error) {
           if (error instanceof ManualInputError) throw new ValidationError(error.message);
           throw error;
         }
         trigger.type = "manual";
+        resolvedJob ??= resolveJobInput(declaredInputs, trigger);
       }
     }
 
     const events = emitEvents ? new Delegate<[WorkflowEvent]>() : undefined;
     events?.Do((event) => emitWorkflowEvent(event));
 
-    const { success } = await runWorkflowByName(name, { job, concurrency, context, variables: overrides, trigger, events });
+    const { success } = await runWorkflowByName(name, { job: resolvedJob, concurrency, context, variables: overrides, trigger, events });
     if (!success) Deno.exit(1);
   })
   .command("remote", remoteCommand);

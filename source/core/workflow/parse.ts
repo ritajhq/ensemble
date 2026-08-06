@@ -16,7 +16,7 @@ import type {
   Workflow,
 } from "./schema.ts";
 
-const MANUAL_INPUT_TYPES = ["string", "number", "boolean", "object", "git-tags", "context"] as const;
+const MANUAL_INPUT_TYPES = ["string", "number", "boolean", "object", "git-tags", "context", "job"] as const;
 
 export class WorkflowParseError extends Error {}
 
@@ -104,7 +104,7 @@ function validateMatrix(file: string, jobId: string, raw: unknown): Matrix {
   };
 }
 
-function validateManualInput(file: string, index: number, inputIndex: number, raw: unknown): ManualInput {
+function validateManualInput(file: string, index: number, inputIndex: number, jobIds: string[], raw: unknown): ManualInput {
   const where = `on[${index}].manual.inputs[${inputIndex}]`;
   if (!isRecord(raw)) {
     fail(file, `${where} must be a mapping.`);
@@ -149,17 +149,39 @@ function validateManualInput(file: string, index: number, inputIndex: number, ra
         fail(file, `${where} has a "default" that isn't a string.`);
       }
       break;
+    case "job": {
+      if (raw.multiple !== undefined && typeof raw.multiple !== "boolean") {
+        fail(file, `${where} has a non-boolean "multiple".`);
+      }
+      const multiple = raw.multiple === true;
+      if (raw.default !== undefined) {
+        if (multiple) {
+          if (!Array.isArray(raw.default) || raw.default.length === 0 || raw.default.some((d) => typeof d !== "string")) {
+            fail(file, `${where} has a "default" that isn't a non-empty list of strings.`);
+          }
+        } else if (typeof raw.default !== "string") {
+          fail(file, `${where} has a "default" that isn't a string.`);
+        }
+        const defaults = Array.isArray(raw.default) ? raw.default as string[] : [raw.default as string];
+        for (const jobId of defaults) {
+          if (!jobIds.includes(jobId)) {
+            fail(file, `${where} has a "default" that isn't a declared job ("${jobId}").`);
+          }
+        }
+      }
+      break;
+    }
   }
 
   return raw as unknown as ManualInput;
 }
 
-function validateManualTrigger(file: string, index: number, raw: Record<string, unknown>): ManualTrigger {
+function validateManualTrigger(file: string, index: number, jobIds: string[], raw: Record<string, unknown>): ManualTrigger {
   if (raw.inputs === undefined) return {};
   if (!Array.isArray(raw.inputs)) {
     fail(file, `on[${index}].manual has an "inputs" that isn't a list.`);
   }
-  const inputs = raw.inputs.map((input, i) => validateManualInput(file, index, i, input));
+  const inputs = raw.inputs.map((input, i) => validateManualInput(file, index, i, jobIds, input));
 
   const seenNames = new Set<string>();
   for (const input of inputs) {
@@ -184,7 +206,7 @@ function validateGithubTrigger(file: string, index: number, raw: Record<string, 
   return { push: { tags: tags as string[] } };
 }
 
-function validateTrigger(file: string, index: number, raw: unknown): Trigger {
+function validateTrigger(file: string, index: number, jobIds: string[], raw: unknown): Trigger {
   if (!isRecord(raw)) {
     fail(file, `on[${index}] must be a mapping.`);
   }
@@ -200,17 +222,17 @@ function validateTrigger(file: string, index: number, raw: unknown): Trigger {
     fail(file, `on[${index}].github must be a mapping.`);
   }
   return {
-    manual: hasManual ? validateManualTrigger(file, index, raw.manual as Record<string, unknown>) : undefined,
+    manual: hasManual ? validateManualTrigger(file, index, jobIds, raw.manual as Record<string, unknown>) : undefined,
     github: hasGithub ? validateGithubTrigger(file, index, raw.github as Record<string, unknown>) : undefined,
   };
 }
 
-function validateOn(file: string, raw: unknown): Trigger[] | undefined {
+function validateOn(file: string, jobIds: string[], raw: unknown): Trigger[] | undefined {
   if (raw === undefined) return undefined;
   if (!Array.isArray(raw) || raw.length === 0) {
     fail(file, `"on" must be a non-empty list.`);
   }
-  return raw.map((t, i) => validateTrigger(file, i, t));
+  return raw.map((t, i) => validateTrigger(file, i, jobIds, t));
 }
 
 const ENV_REF = /\$\(([A-Za-z_][A-Za-z0-9_]*)\)/g;
@@ -401,7 +423,7 @@ export async function parseWorkflowFile(file: string): Promise<Workflow> {
     }
   }
 
-  const on = validateOn(file, raw.on);
+  const on = validateOn(file, jobIds, raw.on);
   const variables = validateVariables(file, raw.variables);
   const resources = validateResources(file, raw.resources);
   const contexts = validateContexts(file, raw.contexts);

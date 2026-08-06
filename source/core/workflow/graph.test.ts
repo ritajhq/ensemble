@@ -53,3 +53,11 @@ Deno.test("transitiveDeps: fan-out/fan-in", () => {
   assertEquals(transitiveDeps(workflow, "d"), new Set(["b", "c", "a"]));
   assertEquals(transitiveDeps(workflow, "a"), new Set());
 });
+
+Deno.test("transitiveDeps: accepts a list of job ids, unioning their deps", () => {
+  const workflow: Workflow = {
+    jobs: { a: job(), b: job(["a"]), c: job(["a"]), d: job(["b", "c"]) },
+  };
+  assertEquals(transitiveDeps(workflow, ["b", "c"]), new Set(["a"]));
+  assertEquals(transitiveDeps(workflow, ["d"]), new Set(["b", "c", "a"]));
+});

@@ -163,19 +163,27 @@ jobs, or triggers it on a remote Ensemble server. Full syntax (jobs, `needs`,
 ```sh
 ens workflow deploy
 ens workflow deploy -j build              # only that job + dependencies
+ens workflow deploy -j build -j runner    # union of both jobs + dependencies
+ens workflow deploy -j build,runner       # same, comma-separated in one flag
 ens workflow deploy -c 2                  # cap concurrency
 ens workflow deploy --context production
 ens workflow deploy -v GREETING=hi -v API_URL=https://staging.example.com
 ens workflow deploy -i sha=abc123 -i replicas=3
+ens workflow deploy -i job=build -i job=runner   # repeated NAME -> a list value
 ```
 
 - `-j, --job <id>` — run only this job and its transitive dependencies.
+  Repeatable, and/or comma-separated (`-j a,b`), to run several jobs and the
+  union of their dependencies.
 - `-c, --concurrency <n>` — max number of jobs to run concurrently.
 - `--context <name>` — deploy context to run with, exposed to jobs/steps as
   `context.name`/`context.path`.
 - `-v, --var <KEY=VALUE>` — override a workflow variable, repeatable.
 - `-i, --input <NAME=VALUE>` — set a manual trigger input (JSON-parsed when
-  possible), repeatable.
+  possible), repeatable. Repeating the same NAME collects its values into a
+  list instead of the last one winning (e.g. `-i job=build -i job=runner`
+  sets `job` to `["build", "runner"]` — handy for a `type: job, multiple:
+  true` input without writing JSON).
 - `-r, --remote <profile>` — trigger on a remote server instead of running
   locally (workflow must already be deployed there with a manual trigger).
   Blocks until the remote run finishes; logs aren't streamed back.

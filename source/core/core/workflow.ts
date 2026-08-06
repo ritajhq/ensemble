@@ -9,7 +9,8 @@ import { runWorkflowInContainer } from "./run-workflow-in-container.ts";
 import { getLocalRepositoryOverrides, loadLocalConfig } from "./config.ts";
 
 export interface RunWorkflowByNameOptions {
-  job?: string;
+  /** Run only this job (or these jobs) and their transitive dependencies. */
+  job?: string | string[];
   concurrency?: number;
   /** Extra variables merged on top of the process's own env vars for this run. */
   variables?: Record<string, string>;

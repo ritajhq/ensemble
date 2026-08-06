@@ -1,6 +1,6 @@
 import { encodeWorkflowId } from "./workflow-id.ts";
 
-export type ManualInputType = "string" | "number" | "boolean" | "object" | "git-tags" | "context";
+export type ManualInputType = "string" | "number" | "boolean" | "object" | "git-tags" | "context" | "job";
 
 export interface ManualInput {
   name: string;
@@ -9,11 +9,15 @@ export interface ManualInput {
   default?: unknown;
   /** Only set (and only meaningful) for type: "git-tags". */
   repository?: string;
+  /** Only set (and only meaningful) for type: "job" — accept/require a list of job ids instead of one. */
+  multiple?: boolean;
 }
 
 export interface WorkflowManualTriggerSummary {
   type: "manual";
   inputs: ManualInput[];
+  /** This workflow's own job ids, for rendering a choice list for any `type: "job"` input. */
+  jobs: string[];
 }
 
 export interface WorkflowGithubTriggerSummary {

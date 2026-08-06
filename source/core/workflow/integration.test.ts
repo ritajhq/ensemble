@@ -49,6 +49,13 @@ Deno.test("integration: --job selects only the job and its transitive deps", asy
   assertEquals(Object.keys(outcomes).sort(), ["a", "b"]);
 });
 
+Deno.test("integration: job: [...] selects the union of each job's transitive deps", async () => {
+  const file = join(examplesDir, "fan-out-fan-in.yml");
+  const workflow = await parseWorkflowFile(file);
+  const { outcomes } = await runWorkflow(workflow, { workflowDir: dirname(file), job: ["b", "c"] });
+  assertEquals(Object.keys(outcomes).sort(), ["a", "b", "c"]);
+});
+
 Deno.test("integration: an if: referencing an unknown context path fails loudly", async () => {
   const workflow = {
     jobs: {
