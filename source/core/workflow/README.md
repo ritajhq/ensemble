@@ -3,8 +3,14 @@
 A minimal CI-style pipeline/workflow runner: YAML workflow files, jobs, steps,
 `needs`, `if:` conditions, `${{ }}` expressions, and outputs passed between
 steps — in the spirit of GitHub Actions, but with no `uses:`, no actions
-marketplace, and no Docker/runner-registration protocol. A step is just a
-local TypeScript module with a `run()` function, or a raw shell command.
+marketplace, and no per-step Docker/runner-registration protocol. A step is
+just a local TypeScript module with a `run()` function, or a raw shell
+command; `runWorkflow` here always executes them the same way (in-process,
+subprocess-per-step) regardless of caller. Whether a whole *run* happens
+inside a container is a decision made one layer up, by `@ensemble/core`'s
+`runWorkflowByName` — see its own doc comment and `@ensemble/platform`'s
+README for where/why that applies (server-triggered runs only; this
+package and a plain local `ens workflow` run are unaffected).
 
 Expression parsing/evaluation is delegated to `npm:@actions/expressions`
 (MIT licensed, from `actions/languageservices`) rather than reimplemented.
@@ -96,6 +102,54 @@ jobs:
   `needs.<job>.result` is meaningful downstream. A job whose dependencies
   didn't all succeed is **skipped**, not run — matching Actions' default
   behavior. There's no `always()`/`failure()` yet (see below).
+
+## Resources (`resources:`)
+
+A workflow can declare `resources.repositories` — git repositories checked
+out automatically before any job runs, so a workflow doesn't need a
+hand-rolled `run: git clone ...` step:
+
+```yaml
+resources:
+  repositories:
+    ensemble:
+      url: https://github.com/ritajhq/ensemble.git
+      ref: main   # optional; branch/tag/commit, defaults to the remote's default branch
+
+jobs:
+  release:
+    in:
+      repository: ensemble   # every step in this job defaults to running inside the checkout
+    steps:
+      - run: git describe --tags --abbrev=0
+```
+
+- Cloned once per run, sequentially, into `<runDir>/repos/<name>` — a full
+  clone, not shallow, since steps commonly need tag history (`git describe`,
+  changelog generation).
+- Exposed as `${{ repositories.<name>.path }}` in expressions/`run:`/`name:`
+  interpolation, and `ctx.repositories.<name>.path` in `script:` steps —
+  see "Expression contexts" below.
+- **`in: { repository: <name> }`** (on a job or a step) defaults that
+  job's/step's `cwd` to the named repository's checkout instead of the run's
+  scratch directory — the usual reason to declare `resources.repositories`
+  in the first place, so steps don't each need their own `cd
+  ${{ repositories.<name>.path }}`. Job-level `in:` applies to every step
+  that doesn't declare its own; a step's own `in:` always wins over the
+  job's. `name` must be a key under `resources.repositories` — referencing
+  anything else is a `WorkflowExpressionError`.
+- **Local dev**: `.ensemble/config.local.yaml` (gitignored, per-developer)
+  can override a repository name to point at an existing local directory
+  instead of cloning:
+  ```yaml
+  workflows:
+    repositories:
+      ensemble: /home/you/ritaj/ensemble
+  ```
+  This is what makes "the same workflow runs everywhere" actually true in
+  practice — the exact same `workflow.yml` clones fresh on a server/CI run,
+  but operates on your live working tree (uncommitted changes included)
+  when you run it locally, with zero workflow-file changes either way.
 
 ## Variables
 
@@ -296,6 +350,8 @@ export async function run(ctx: StepContext): Promise<Record<string, string>> {
   //   includes trigger.type ("manual" or "github")
   // ctx.context - { name, path } for the deploy context this run was
   //   invoked with (--context), only present when one was given
+  // ctx.repositories - { <name>: { path } } for each resources.repositories
+  //   entry, only present when the workflow declares at least one
   return { ok: "true" };
 }
 ```
@@ -338,6 +394,11 @@ killed by fail-fast exits via its process signal, not a normal error.
   present when one was given; absent (and therefore an error to reference)
   otherwise. Unlike `variables.*`, `context` isn't overridable per-name and
   isn't injected as shell env — it's just these two fields.
+- `repositories.<name>.path` — where a `resources.repositories` entry was
+  checked out (see "Resources" above), only present when the workflow
+  declares at least one. `in: { repository: <name> }` on a job/step is the
+  common way to use this (defaulting that job's/step's `cwd` to it); the
+  path is also usable directly, e.g. `run: cat ${{ repositories.ensemble.path }}/CHANGELOG.md`.
 
 Referencing an unrecognized context path (e.g. `nonexistent.path`) throws a
 `WorkflowExpressionError` immediately — it does not silently evaluate to
@@ -355,6 +416,7 @@ const { outcomes, success } = await runWorkflow(workflow, {
   concurrency: undefined, // or a number to cap concurrent jobs per batch
   variables: undefined, // or overrides, layered on top of Deno.env + workflow.variables
   context: undefined, // or { name, path } — already resolved by the caller, unlike --context's plain name
+  localRepositoryOverrides: undefined, // or { <name>: /local/path }, from .ensemble/config.local.yaml — see "Resources" above
 });
 ```
 

@@ -132,8 +132,11 @@ something this codebase calls.
 deno task server            # local dev, PORT defaults to 8787
 ```
 
-See `source/ship/server/` for the Docker image used to actually deploy
-this (bundles both the CLI and the server, so `ens` is on PATH inside
-the container for `run:`/`script:` steps that shell out to it; the
-target project's `.ensemble/` + `workflows/` are expected to be
-bind-mounted at `/repo`, not baked into the image).
+See `source/ship/server/README.md` for the actual deployment steps
+(including the Docker socket + `runner` image wiring a server-triggered
+run needs — manual trigger, GitHub webhook, dashboard "run now" all
+execute inside a spawned `runner` container, not in-process; see
+`trackedRunWorkflowByName`/`run-workflow-in-container.ts` in
+`@ensemble/core` for the mechanism). A local, non-server-triggered `ens
+workflow <name>` run is unaffected by any of this — always in-process, no
+Docker involved.
