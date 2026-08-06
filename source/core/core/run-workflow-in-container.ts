@@ -42,6 +42,27 @@ async function dockerGid(): Promise<string> {
   return String(info.gid);
 }
 
+/** Env vars that configure spawning the runner container itself, not meaningful to forward into it. */
+const UNFORWARDED_ENV_VARS = new Set(["ENSEMBLE_RUNNER_IMAGE", "ENSEMBLE_HOST_WORKFLOWS_PATH"]);
+
+/**
+ * Writes every other env var on this process to a temp --env-file, so steps
+ * see the same env they'd get running in-process. An env file (not repeated
+ * -e NAME=value args) so secrets like REGISTRY_PASSWORD never appear in the
+ * spawned `docker run` process's own argv — visible host-side via `ps`
+ * while it runs, unlike a file only docker itself reads.
+ */
+async function writeForwardedEnvFile(): Promise<string> {
+  const lines: string[] = [];
+  for (const [name, value] of Object.entries(Deno.env.toObject())) {
+    if (UNFORWARDED_ENV_VARS.has(name)) continue;
+    lines.push(`${name}=${value}`);
+  }
+  const path = await Deno.makeTempFile({ prefix: "ensemble-runner-env-" });
+  await Deno.writeTextFile(path, lines.join("\n") + "\n");
+  return path;
+}
+
 /** Reads a piped stream line-by-line, dispatching structured event lines and mirroring everything else to `mirror`. */
 async function pumpEvents(
   stream: ReadableStream<Uint8Array>,
@@ -84,6 +105,15 @@ async function pumpEvents(
  * docker/docker compose (e.g. workflows/local, workflows/deploy) — the same
  * pattern server's own docker-compose.yml/main.tf use for itself.
  *
+ * The server process's own environment is forwarded into the container (via
+ * a temp --env-file, not repeated -e args — keeps secret values out of the
+ * `docker run` process's own argv) so steps that read secrets/config
+ * straight off the process env (e.g. `$REGISTRY_USERNAME`, per
+ * @ensemble/workflow's README — there's no separate secrets/allowlist
+ * mechanism) see the same values a step would've seen running in-process.
+ * This mirrors Deno.Command's default env inheritance, which `docker run`
+ * does not do on its own.
+ *
  * The inner `ens workflow --emit-events` invocation emits structured
  * WorkflowEvents on its own stdout (see event-log.ts); this reconstructs them
  * into `events`, so a caller tracking the run (trackedRunWorkflowByName, see
@@ -95,6 +125,7 @@ export async function runWorkflowInContainer(
   options: RunWorkflowInContainerOptions,
 ): Promise<RunWorkflowResult> {
   const emptyEnsembleDir = await Deno.makeTempDir({ prefix: "ensemble-runner-marker-" });
+  const envFile = await writeForwardedEnvFile();
   try {
     const args = [
       "run",
@@ -107,6 +138,8 @@ export async function runWorkflowInContainer(
       `${DOCKER_SOCKET_PATH}:${DOCKER_SOCKET_PATH}`,
       "--group-add",
       await dockerGid(),
+      "--env-file",
+      envFile,
       runnerImage(),
       "workflow",
       name,
@@ -131,5 +164,6 @@ export async function runWorkflowInContainer(
     return { outcomes: {}, success };
   } finally {
     await Deno.remove(emptyEnsembleDir, { recursive: true }).catch(() => {});
+    await Deno.remove(envFile).catch(() => {});
   }
 }
