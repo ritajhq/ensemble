@@ -47,6 +47,13 @@ export interface RunWorkflowOptions {
    * temp dir unrelated to the repo (see findRepoRoot in @ensemble/core).
    */
   repoRoot?: string;
+  /**
+   * Per-developer resources.repositories overrides (from
+   * .ensemble/config.local.yaml, resolved by the caller), keyed by
+   * repository name — points that name straight at an existing local
+   * checkout instead of cloning. See checkoutRepositories for details.
+   */
+  localRepositoryOverrides?: Record<string, string>;
   /** Notified as jobs start/finish, for callers that want to track run progress. */
   events?: Delegate<[WorkflowEvent]>;
 }
@@ -161,7 +168,11 @@ export async function runWorkflow(
   // workflowDir itself stays reserved for resolving `script:` paths.
   const runDir = await Deno.makeTempDir({ prefix: "ensemble-run-" });
   try {
-    const repositories = await checkoutRepositories(workflow.resources?.repositories, runDir);
+    const repositories = await checkoutRepositories(
+      workflow.resources?.repositories,
+      runDir,
+      options.localRepositoryOverrides,
+    );
 
     for (const batch of batches) {
       const results = pooledMap(

@@ -3,6 +3,7 @@ export {
   type BuildAppConfig,
   type EnsembleConfig,
   getAppBuildConfig,
+  getLocalRepositoryOverrides,
   getLocalVars,
   loadConfig,
   type LocalEnsembleConfig,

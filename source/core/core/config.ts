@@ -23,6 +23,8 @@ export type VarKind = "build" | "pack";
 
 export interface LocalEnsembleConfig {
   vars?: Record<VarKind, Record<string, Record<string, string>>>;
+  /** Per-developer resources.repositories overrides, keyed by repository name — points a name at an existing local checkout instead of cloning. */
+  repositories?: Record<string, string>;
 }
 
 function localConfigPath(repoRoot: string): string {
@@ -51,6 +53,11 @@ export function getLocalVars(
   name: string,
 ): Record<string, string> {
   return config.vars?.[kind]?.[name] ?? {};
+}
+
+/** Returns the locally configured resources.repositories overrides, or {} if none are set. */
+export function getLocalRepositoryOverrides(config: LocalEnsembleConfig): Record<string, string> {
+  return config.repositories ?? {};
 }
 
 /**

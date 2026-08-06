@@ -6,6 +6,7 @@ import { findRepoRoot } from "./repo.ts";
 import { parseWorkflowFile, runWorkflow, type RunWorkflowResult, type Workflow, type WorkflowEvent } from "@ensemble/workflow";
 import { trackedRunWorkflow } from "./runs.ts";
 import { runWorkflowInContainer } from "./run-workflow-in-container.ts";
+import { getLocalRepositoryOverrides, loadLocalConfig } from "./config.ts";
 
 export interface RunWorkflowByNameOptions {
   job?: string;
@@ -234,6 +235,7 @@ export async function runWorkflowByName(
   const context = options.context !== undefined
     ? { name: options.context, path: join(repoRoot, "contexts", options.context) }
     : undefined;
+  const localConfig = await loadLocalConfig(repoRoot);
   return await runWorkflow(workflow, {
     workflowDir,
     job: options.job,
@@ -242,6 +244,7 @@ export async function runWorkflowByName(
     trigger: options.trigger,
     context,
     repoRoot,
+    localRepositoryOverrides: getLocalRepositoryOverrides(localConfig),
     events: options.events,
   });
 }
