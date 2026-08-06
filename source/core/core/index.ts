@@ -8,6 +8,7 @@ export {
   loadConfig,
   type LocalEnsembleConfig,
   loadLocalConfig,
+  type LocalWorkflowsConfig,
   setAppBuildKit,
   setLocalVar,
   type VarKind,

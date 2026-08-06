@@ -21,10 +21,14 @@ export async function loadConfig(repoRoot: string): Promise<EnsembleConfig> {
 
 export type VarKind = "build" | "pack";
 
-export interface LocalEnsembleConfig {
-  vars?: Record<VarKind, Record<string, Record<string, string>>>;
+export interface LocalWorkflowsConfig {
   /** Per-developer resources.repositories overrides, keyed by repository name — points a name at an existing local checkout instead of cloning. */
   repositories?: Record<string, string>;
+}
+
+export interface LocalEnsembleConfig {
+  vars?: Record<VarKind, Record<string, Record<string, string>>>;
+  workflows?: LocalWorkflowsConfig;
 }
 
 function localConfigPath(repoRoot: string): string {
@@ -57,7 +61,7 @@ export function getLocalVars(
 
 /** Returns the locally configured resources.repositories overrides, or {} if none are set. */
 export function getLocalRepositoryOverrides(config: LocalEnsembleConfig): Record<string, string> {
-  return config.repositories ?? {};
+  return config.workflows?.repositories ?? {};
 }
 
 /**
