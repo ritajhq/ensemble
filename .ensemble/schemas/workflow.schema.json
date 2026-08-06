@@ -22,6 +22,10 @@
       "description": "Declarative resources this workflow needs, prepared automatically before jobs run.",
       "$ref": "#/definitions/resources"
     },
+    "contexts": {
+      "description": "Named deploy contexts this workflow accepts. Declaring this makes --context required for every run (subject to \"default\").",
+      "$ref": "#/definitions/contexts"
+    },
     "jobs": {
       "description": "Jobs in this workflow, keyed by job id.",
       "type": "object",
@@ -66,6 +70,60 @@
         },
         "ref": {
           "description": "Branch, tag, or commit to check out. Defaults to the remote's default branch.",
+          "type": "string"
+        }
+      },
+      "required": ["url"],
+      "additionalProperties": false
+    },
+    "contexts": {
+      "type": "object",
+      "properties": {
+        "default": {
+          "description": "Context name used when the caller doesn't pass --context. Must be a key in \"entries\".",
+          "type": "string"
+        },
+        "entries": {
+          "description": "Named contexts this workflow accepts. Once declared, a run requires a context (an explicit --context, or \"default\") — an unrecognized or missing context fails before any job runs.",
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": { "$ref": "#/definitions/contextEntry" }
+        }
+      },
+      "required": ["entries"],
+      "additionalProperties": false
+    },
+    "contextEntry": {
+      "description": "At least one of \"local\"/\"remote\" must be set. Both together: local's files resolve first, then remote's are copied on top.",
+      "type": "object",
+      "anyOf": [
+        { "required": ["local"] },
+        { "required": ["remote"] }
+      ],
+      "properties": {
+        "local": {
+          "description": "Path relative to the workflow's own folder, e.g. \"./contexts/production\".",
+          "type": "string"
+        },
+        "remote": {
+          "$ref": "#/definitions/remoteContextSource"
+        }
+      },
+      "additionalProperties": false
+    },
+    "remoteContextSource": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "description": "Git URL to clone. A value containing $(NAME) is resolved from the process's own env var NAME at parse time.",
+          "type": "string"
+        },
+        "ref": {
+          "description": "Branch, tag, or commit to check out. Defaults to the remote's default branch.",
+          "type": "string"
+        },
+        "path": {
+          "description": "Subdirectory within the cloned repo this context's files live under. Defaults to the repo root.",
           "type": "string"
         }
       },

@@ -110,6 +110,30 @@ export interface Resources {
   repositories?: Record<string, RepositoryResource>;
 }
 
+export interface RemoteContextSource {
+  /** Git URL to clone. A value containing $(NAME) is resolved from the process's own env var NAME at parse time. */
+  url: string;
+  /** Branch, tag, or commit to check out. Defaults to the remote's default branch. */
+  ref?: string;
+  /** Subdirectory within the cloned repo this context's files live under. Defaults to the repo root. */
+  path?: string;
+}
+
+/** At least one of `local`/`remote` must be set. Both together: local's files are resolved first, then remote's are copied on top (same-relative-path files from remote win). */
+export interface ContextEntry {
+  /** Path relative to the workflow's own folder, e.g. "./contexts/production" — the same convention `context.path` has always resolved to for a workflow-local context. */
+  local?: string;
+  /** A separately-versioned repo this context's files live in (e.g. one holding secrets/tfvars kept out of the source repo). */
+  remote?: RemoteContextSource;
+}
+
+export interface Contexts {
+  /** Context name used when the caller doesn't pass --context. Must be a key in `entries`. */
+  default?: string;
+  /** Named contexts this workflow accepts. Once declared, a run of this workflow requires a context (an explicit --context, or `default` above) — an unrecognized or missing context fails before any job runs. */
+  entries: Record<string, ContextEntry>;
+}
+
 export interface Workflow {
   /** Network-facing ways this workflow can be triggered. Absent means it only runs via direct invocation (e.g. `ens workflow <name>`). */
   on?: Trigger[];
@@ -117,5 +141,7 @@ export interface Workflow {
   variables?: Record<string, string>;
   /** Declarative resources this workflow needs, prepared automatically before jobs run. */
   resources?: Resources;
+  /** Named deploy contexts this workflow accepts. Declaring this makes --context required for every run (subject to `default`). */
+  contexts?: Contexts;
   jobs: Record<string, Job>;
 }

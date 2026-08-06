@@ -1,10 +1,13 @@
 import { parse as parseYaml } from "@std/yaml";
 import type {
+  ContextEntry,
+  Contexts,
   GithubTrigger,
   Job,
   ManualInput,
   ManualTrigger,
   Matrix,
+  RemoteContextSource,
   RepositoryResource,
   Resources,
   Step,
@@ -267,6 +270,67 @@ function validateResources(file: string, raw: unknown): Resources | undefined {
   return { repositories };
 }
 
+function validateRemoteContextSource(file: string, name: string, raw: unknown): RemoteContextSource {
+  const where = `contexts.entries.${name}.remote`;
+  if (!isRecord(raw)) {
+    fail(file, `${where} must be a mapping.`);
+  }
+  if (typeof raw.url !== "string" || raw.url.length === 0) {
+    fail(file, `${where} must have a non-empty string "url".`);
+  }
+  if (raw.ref !== undefined && typeof raw.ref !== "string") {
+    fail(file, `${where} has a non-string "ref".`);
+  }
+  if (raw.path !== undefined && typeof raw.path !== "string") {
+    fail(file, `${where} has a non-string "path".`);
+  }
+  return {
+    url: resolveEnvRefs(file, `${where}.url`, raw.url),
+    ref: raw.ref !== undefined ? resolveEnvRefs(file, `${where}.ref`, raw.ref as string) : undefined,
+    path: raw.path as string | undefined,
+  };
+}
+
+function validateContextEntry(file: string, name: string, raw: unknown): ContextEntry {
+  const where = `contexts.entries.${name}`;
+  if (!isRecord(raw)) {
+    fail(file, `${where} must be a mapping.`);
+  }
+  if (raw.local !== undefined && typeof raw.local !== "string") {
+    fail(file, `${where} has a non-string "local".`);
+  }
+  if (raw.local === undefined && raw.remote === undefined) {
+    fail(file, `${where} must have at least one of "local" or "remote".`);
+  }
+  return {
+    local: raw.local as string | undefined,
+    remote: raw.remote !== undefined ? validateRemoteContextSource(file, name, raw.remote) : undefined,
+  };
+}
+
+function validateContexts(file: string, raw: unknown): Contexts | undefined {
+  if (raw === undefined) return undefined;
+  if (!isRecord(raw)) {
+    fail(file, `"contexts" must be a mapping.`);
+  }
+  if (!isRecord(raw.entries) || Object.keys(raw.entries).length === 0) {
+    fail(file, `"contexts.entries" must be a non-empty mapping.`);
+  }
+  const entries: Record<string, ContextEntry> = {};
+  for (const [name, entry] of Object.entries(raw.entries)) {
+    entries[name] = validateContextEntry(file, name, entry);
+  }
+  if (raw.default !== undefined) {
+    if (typeof raw.default !== "string") {
+      fail(file, `"contexts.default" must be a string.`);
+    }
+    if (!Object.hasOwn(entries, raw.default)) {
+      fail(file, `"contexts.default" references unknown context "${raw.default}".`);
+    }
+  }
+  return { default: raw.default as string | undefined, entries };
+}
+
 function validateJob(file: string, jobId: string, raw: unknown): Job {
   if (!isRecord(raw)) {
     fail(file, `job "${jobId}" must be a mapping.`);
@@ -340,6 +404,7 @@ export async function parseWorkflowFile(file: string): Promise<Workflow> {
   const on = validateOn(file, raw.on);
   const variables = validateVariables(file, raw.variables);
   const resources = validateResources(file, raw.resources);
+  const contexts = validateContexts(file, raw.contexts);
 
-  return { on, variables, resources, jobs };
+  return { on, variables, resources, contexts, jobs };
 }

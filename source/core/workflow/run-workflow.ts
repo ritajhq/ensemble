@@ -1,4 +1,5 @@
 import { pooledMap } from "@std/async";
+import { join } from "@std/path";
 import type { Delegate } from "@ritaj/event";
 import type { Job, Workflow } from "./schema.ts";
 import { buildBatches, transitiveDeps } from "./graph.ts";
@@ -15,6 +16,7 @@ import { runJob, type StepEvent } from "./run-job.ts";
 import { expandMatrix } from "./matrix.ts";
 import { JobLogger, printSummary, type SummaryRow } from "./logging.ts";
 import { checkoutRepositories } from "./checkout.ts";
+import { resolveContext } from "./resolve-context.ts";
 
 /**
  * Fired as jobs (and, for non-matrixed jobs, their steps) start/finish, so a
@@ -39,8 +41,16 @@ export interface RunWorkflowOptions {
   concurrency?: number;
   /** Data from whatever triggered this run, made available as `trigger.*` in every job/step. */
   trigger?: Record<string, unknown>;
-  /** The deploy context this run was invoked with, made available as `context.*` in every job/step. Already resolved (name + absolute path) by the caller. */
-  context?: RunContext;
+  /**
+   * Deploy context name this run was invoked with (`--context <name>`), made
+   * available as `context.*` in every job/step once resolved (see
+   * resolveContext). A workflow that declares `contexts:` requires one
+   * (subject to `contexts.default`) — omitting it then throws
+   * WorkflowContextError. A workflow with no `contexts:` at all falls back
+   * to the legacy "<repoRoot>/contexts/<name>" path, unprepared/unvalidated
+   * by this engine (existing behavior, unchanged).
+   */
+  context?: string;
   /**
    * Repo root to expose to steps as `ENSEMBLE_WORKSPACE`, so an `ens` subcommand
    * invoked from a `run:` step can find it even though steps' `cwd` is a scratch
@@ -174,6 +184,12 @@ export async function runWorkflow(
       options.localRepositoryOverrides,
     );
 
+    const context = workflow.contexts !== undefined
+      ? await resolveContext(workflow.contexts, options.context, options.workflowDir, runDir)
+      : (options.context !== undefined && options.repoRoot !== undefined
+        ? { name: options.context, path: join(options.repoRoot, "contexts", options.context) }
+        : undefined);
+
     for (const batch of batches) {
       const results = pooledMap(
         Math.min(concurrency, batch.length) || 1,
@@ -192,12 +208,12 @@ export async function runWorkflow(
             needsResult = { result: "skipped", outputs: {} };
             durationMs = logger.flush("skipped");
           } else if (job.matrix !== undefined) {
-            const root = buildRootContext(variables, outcomes, undefined, options.trigger, options.context, repositories);
+            const root = buildRootContext(variables, outcomes, undefined, options.trigger, context, repositories);
             const matrixRun = await runMatrixJob(jobId, job, root, options.workflowDir, runDir, concurrency);
             needsResult = matrixRun.needsResult;
             durationMs = matrixRun.durationMs;
           } else {
-            const root = buildRootContext(variables, outcomes, undefined, options.trigger, options.context, repositories);
+            const root = buildRootContext(variables, outcomes, undefined, options.trigger, context, repositories);
             const outcome = await runJob(
               job,
               root,

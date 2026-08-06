@@ -324,7 +324,8 @@ Deno.test("integration: context.name/context.path are available in run: and if:"
   };
   const { outcomes, success } = await runWorkflow(workflow, {
     workflowDir,
-    context: { name: "production", path: "/repo/contexts/production" },
+    context: "production",
+    repoRoot: "/repo",
   });
   assertEquals(success, true);
   assertEquals(outcomes.build.result, "success");
@@ -358,10 +359,92 @@ Deno.test("integration: script: steps receive context via StepContext", async ()
   };
   const { outcomes, success } = await runWorkflow(workflow, {
     workflowDir,
-    context: { name: "staging", path: "/repo/contexts/staging" },
+    context: "staging",
+    repoRoot: "/repo",
   });
   assertEquals(success, true);
   assertEquals(outcomes.build.outputs, { name: "staging", path: "/repo/contexts/staging" });
+});
+
+Deno.test("integration: a workflow declaring contexts resolves a local context end-to-end", async () => {
+  const workflowDir = await Deno.makeTempDir({ prefix: "integration-contexts-" });
+  try {
+    await Deno.mkdir(join(workflowDir, "contexts", "production"), { recursive: true });
+    await Deno.writeTextFile(join(workflowDir, "contexts", "production", "marker.txt"), "prod-config");
+
+    const workflow = {
+      contexts: {
+        entries: { production: { local: "./contexts/production" } },
+      },
+      jobs: {
+        build: {
+          steps: [{ run: 'test "$(cat ${{ context.path }}/marker.txt)" = prod-config' }],
+        },
+      },
+    };
+    const { outcomes, success } = await runWorkflow(workflow, { workflowDir, context: "production" });
+    assertEquals(success, true);
+    assertEquals(outcomes.build.result, "success");
+  } finally {
+    await Deno.remove(workflowDir, { recursive: true });
+  }
+});
+
+Deno.test("integration: a workflow declaring contexts requires one (no default, none passed)", async () => {
+  const workflowDir = join(import.meta.dirname!, "tests", "fixtures");
+  const workflow = {
+    contexts: {
+      entries: { production: { local: "./contexts/production" } },
+    },
+    jobs: {
+      build: { steps: [{ run: "exit 0" }] },
+    },
+  };
+  await assertRejects(
+    () => runWorkflow(workflow, { workflowDir }),
+    Error,
+    "a --context is required",
+  );
+});
+
+Deno.test("integration: a workflow declaring contexts uses contexts.default when none is passed", async () => {
+  const workflowDir = await Deno.makeTempDir({ prefix: "integration-contexts-default-" });
+  try {
+    await Deno.mkdir(join(workflowDir, "contexts", "production"), { recursive: true });
+
+    const workflow = {
+      contexts: {
+        default: "production",
+        entries: { production: { local: "./contexts/production" } },
+      },
+      jobs: {
+        build: {
+          steps: [{ run: 'test "${{ context.name }}" = production' }],
+        },
+      },
+    };
+    const { success } = await runWorkflow(workflow, { workflowDir });
+    assertEquals(success, true);
+  } finally {
+    await Deno.remove(workflowDir, { recursive: true });
+  }
+});
+
+Deno.test("integration: an unknown --context name fails before any job runs", async () => {
+  const workflowDir = join(import.meta.dirname!, "tests", "fixtures");
+  const workflow = {
+    contexts: {
+      entries: { production: { local: "./contexts/production" } },
+    },
+    jobs: {
+      build: { steps: [{ run: "exit 0" }] },
+    },
+  };
+  await assertRejects(
+    () => runWorkflow(workflow, { workflowDir, context: "staging" }),
+    Error,
+    'Unknown context "staging"',
+  );
 });
 
 Deno.test("integration: trigger is absent (not just empty) when no trigger is passed", async () => {

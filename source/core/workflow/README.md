@@ -36,10 +36,13 @@ that workflow's own folder.
 
 `--context <name>` is a deploy-context marker: it's exposed to every
 job/step as `context.name` (the name itself, e.g. `"production"`) and
-`context.path` (an absolute path to `<repoRoot>/contexts/<name>`, resolved
-regardless of a step's own `cwd`). It doesn't read or write anything
-there itself — it's up to the workflow's own steps to use that folder
-however they need, e.g. `run: cat ${{ context.path }}/config.yml`.
+`context.path` (an absolute path to that context's own folder, resolved
+regardless of a step's own `cwd`). A workflow with no `contexts:` block
+gets the simple legacy behavior — `context.path` is just `<repoRoot>/contexts/<name>`,
+unvalidated, and it's entirely up to the workflow's own steps to use
+whatever's there. A workflow that declares `contexts:` gets more: a
+required, validated, checked-out-per-run context — see "Contexts
+(`contexts:`)" below.
 
 `-e KEY=VALUE` (repeatable) overrides a workflow variable for this run
 only — see "Variables" below for how it fits into the overall precedence
@@ -150,6 +153,61 @@ jobs:
   practice — the exact same `workflow.yml` clones fresh on a server/CI run,
   but operates on your live working tree (uncommitted changes included)
   when you run it locally, with zero workflow-file changes either way.
+
+`resources.repositories` is for **source** — the code being built/deployed.
+It's deliberately not overloaded to also carry deploy config/secrets: those
+have a different lifecycle (change rarely, often need tighter access
+control) and belong under `contexts:` instead — see below.
+
+## Contexts (`contexts:`)
+
+A workflow can declare `contexts:` to turn `--context` from an unvalidated
+free-form marker (see "Running a workflow" above) into a required, checked
+set of named environments, each with its own on-disk folder prepared before
+any job runs:
+
+```yaml
+contexts:
+  default: production   # optional — --context can be omitted when this is set
+  entries:
+    production:
+      local: ./contexts/production        # workflow-relative, like the legacy path
+    staging:
+      remote:
+        url: https://github.com/ritajhq/ensemble-deploy-config.git
+        path: staging                      # subdirectory within that repo
+        ref: main                          # optional, same shape as resources.repositories
+
+jobs:
+  deploy:
+    steps:
+      - run: cat ${{ context.path }}/secrets.json
+```
+
+- **Requires a context once declared**: `--context <name>` (or
+  `contexts.default`, if set) must resolve to a key in `contexts.entries` —
+  missing or unrecognized fails immediately, before any job runs, not
+  wherever a step first happens to reference `context.*`.
+- **`local:`** is a path relative to the workflow's own folder — the same
+  convention the legacy `context.path` always implied, just now actually
+  validated and copied into the run's own scratch dir rather than referenced
+  in place.
+- **`remote:`** clones a separately-versioned repo — the point being: things
+  like production secrets/tfvars often shouldn't live in the same repo (same
+  access-control boundary, same commit history) as source. `path:` picks a
+  subdirectory within that repo, for a config repo that holds multiple
+  contexts' files.
+- **Both together**: `local:`'s files are copied in first, then `remote:`'s
+  are copied on top — same-relative-path files from `remote:` win. Useful
+  for "structural config lives with the workflow (a Caddyfile, non-sensitive
+  layout), secrets come from a separately-permissioned repo" without having
+  to duplicate the structural half into the secrets repo too.
+- Either way, `context.path` is one real directory on disk, populated fresh
+  per run into `<runDir>/contexts/<name>` — steps never need to know whether
+  it came from `local:`, `remote:`, or both.
+- A workflow with no `contexts:` block at all keeps today's simple behavior
+  exactly: `--context <name>` is optional and unvalidated, `context.path` is
+  just `<repoRoot>/contexts/<name>` (see "Running a workflow" above).
 
 ## Variables
 
@@ -415,7 +473,8 @@ const { outcomes, success } = await runWorkflow(workflow, {
   job: undefined, // or a job id to run just that job + its deps
   concurrency: undefined, // or a number to cap concurrent jobs per batch
   variables: undefined, // or overrides, layered on top of Deno.env + workflow.variables
-  context: undefined, // or { name, path } — already resolved by the caller, unlike --context's plain name
+  context: undefined, // or a plain context name (e.g. "production") — resolved/validated internally against workflow.contexts, see "Contexts" above
+  repoRoot: undefined, // or the repo root, only used for a workflow with no `contexts:` (the legacy <repoRoot>/contexts/<name> path)
   localRepositoryOverrides: undefined, // or { <name>: /local/path }, from .ensemble/config.local.yaml — see "Resources" above
 });
 ```

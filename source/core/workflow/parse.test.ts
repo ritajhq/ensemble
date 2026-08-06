@@ -852,6 +852,213 @@ jobs:
   );
 });
 
+Deno.test("parseWorkflowFile: valid local context parses", async () => {
+  await withFixture(
+    "valid-local-context.yml",
+    `
+contexts:
+  entries:
+    production:
+      local: ./contexts/production
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      const workflow = await parseWorkflowFile(path);
+      assertEquals(workflow.contexts, {
+        default: undefined,
+        entries: { production: { local: "./contexts/production", remote: undefined } },
+      });
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: valid remote context parses", async () => {
+  await withFixture(
+    "valid-remote-context.yml",
+    `
+contexts:
+  entries:
+    staging:
+      remote:
+        url: https://github.com/ritajhq/ensemble-deploy-config.git
+        path: staging
+        ref: main
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      const workflow = await parseWorkflowFile(path);
+      assertEquals(workflow.contexts?.entries.staging, {
+        local: undefined,
+        remote: { url: "https://github.com/ritajhq/ensemble-deploy-config.git", ref: "main", path: "staging" },
+      });
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: context with both local and remote parses", async () => {
+  await withFixture(
+    "context-local-and-remote.yml",
+    `
+contexts:
+  entries:
+    production:
+      local: ./contexts/production
+      remote:
+        url: https://github.com/ritajhq/ensemble-deploy-config.git
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      const workflow = await parseWorkflowFile(path);
+      assertEquals(workflow.contexts?.entries.production.local, "./contexts/production");
+      assertEquals(workflow.contexts?.entries.production.remote?.url, "https://github.com/ritajhq/ensemble-deploy-config.git");
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: context with neither local nor remote fails", async () => {
+  await withFixture(
+    "context-neither.yml",
+    `
+contexts:
+  entries:
+    production: {}
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      await assertRejects(
+        () => parseWorkflowFile(path),
+        WorkflowParseError,
+        'must have at least one of "local" or "remote"',
+      );
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: contexts.default parses when it references a real entry", async () => {
+  await withFixture(
+    "context-default.yml",
+    `
+contexts:
+  default: production
+  entries:
+    production:
+      local: ./contexts/production
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      const workflow = await parseWorkflowFile(path);
+      assertEquals(workflow.contexts?.default, "production");
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: contexts.default referencing an unknown entry fails", async () => {
+  await withFixture(
+    "context-default-unknown.yml",
+    `
+contexts:
+  default: staging
+  entries:
+    production:
+      local: ./contexts/production
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      await assertRejects(
+        () => parseWorkflowFile(path),
+        WorkflowParseError,
+        'references unknown context "staging"',
+      );
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: contexts.entries empty mapping fails", async () => {
+  await withFixture(
+    "context-empty-entries.yml",
+    `
+contexts:
+  entries: {}
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      await assertRejects(
+        () => parseWorkflowFile(path),
+        WorkflowParseError,
+        '"contexts.entries" must be a non-empty mapping',
+      );
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: contexts missing entries fails", async () => {
+  await withFixture(
+    "context-missing-entries.yml",
+    `
+contexts:
+  default: production
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      await assertRejects(
+        () => parseWorkflowFile(path),
+        WorkflowParseError,
+        '"contexts.entries" must be a non-empty mapping',
+      );
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: remote context url with $(NAME) resolves from env", async () => {
+  Deno.env.set("ENSEMBLE_TEST_CONTEXT_URL", "https://github.com/ritajhq/private-config.git");
+  try {
+    await withFixture(
+      "context-env-ref.yml",
+      `
+contexts:
+  entries:
+    production:
+      remote:
+        url: "$(ENSEMBLE_TEST_CONTEXT_URL)"
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+      async (path) => {
+        const workflow = await parseWorkflowFile(path);
+        assertEquals(workflow.contexts?.entries.production.remote?.url, "https://github.com/ritajhq/private-config.git");
+      },
+    );
+  } finally {
+    Deno.env.delete("ENSEMBLE_TEST_CONTEXT_URL");
+  }
+});
+
 Deno.test("parseWorkflowFile: step with neither run nor script fails", async () => {
   await withFixture(
     "neither-run-nor-script.yml",

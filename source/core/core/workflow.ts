@@ -232,9 +232,6 @@ export async function runWorkflowByName(
 
   const repoRoot = await findRepoRoot();
   const { workflow, workflowDir } = await getWorkflowByName(name);
-  const context = options.context !== undefined
-    ? { name: options.context, path: join(repoRoot, "contexts", options.context) }
-    : undefined;
   const localConfig = await loadLocalConfig(repoRoot);
   return await runWorkflow(workflow, {
     workflowDir,
@@ -242,7 +239,7 @@ export async function runWorkflowByName(
     concurrency: options.concurrency,
     variables: options.variables,
     trigger: options.trigger,
-    context,
+    context: options.context,
     repoRoot,
     localRepositoryOverrides: getLocalRepositoryOverrides(localConfig),
     events: options.events,
