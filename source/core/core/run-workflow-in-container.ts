@@ -25,6 +25,23 @@ function runnerImage(): string {
   return Deno.env.get("ENSEMBLE_RUNNER_IMAGE") ?? "runner:latest";
 }
 
+const DOCKER_SOCKET_PATH = "/var/run/docker.sock";
+
+/**
+ * The docker socket's owning GID, so the runner container's non-root user can
+ * be added to it via --group-add. Read directly off the socket file rather
+ * than via `getent group docker` — inside a container, /etc/group has no
+ * named "docker" entry even when the socket itself is bind-mounted in, since
+ * that group only exists by name on the host.
+ */
+async function dockerGid(): Promise<string> {
+  const info = await Deno.stat(DOCKER_SOCKET_PATH);
+  if (info.gid === null) {
+    throw new Error(`Could not determine the owning GID of ${DOCKER_SOCKET_PATH}`);
+  }
+  return String(info.gid);
+}
+
 /** Reads a piped stream line-by-line, dispatching structured event lines and mirroring everything else to `mirror`. */
 async function pumpEvents(
   stream: ReadableStream<Uint8Array>,
@@ -62,6 +79,10 @@ async function pumpEvents(
  * getWorkflowByName needs to resolve workflows/<name>/workflow.yml — a
  * read-only bind of the host's workflows/ directory plus an empty .ensemble/
  * marker dir (its contents are never read on this path) — not the whole repo.
+ * The docker socket is also bind-mounted (with --group-add so the runner's
+ * non-root user can use it) since workflow steps themselves may shell out to
+ * docker/docker compose (e.g. workflows/local, workflows/deploy) — the same
+ * pattern server's own docker-compose.yml/main.tf use for itself.
  *
  * The inner `ens workflow --emit-events` invocation emits structured
  * WorkflowEvents on its own stdout (see event-log.ts); this reconstructs them
@@ -82,6 +103,10 @@ export async function runWorkflowInContainer(
       `${hostWorkflowsPath()}:/workspace/workflows:ro`,
       "-v",
       `${emptyEnsembleDir}:/workspace/.ensemble`,
+      "-v",
+      `${DOCKER_SOCKET_PATH}:${DOCKER_SOCKET_PATH}`,
+      "--group-add",
+      await dockerGid(),
       runnerImage(),
       "workflow",
       name,
