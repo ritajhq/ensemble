@@ -236,9 +236,27 @@ async function runScript(
 }
 
 /**
+ * Resolves a step's effective cwd: `in: { repository: <name> }` points it at
+ * that resources.repositories entry's checkout instead of the run's scratch
+ * directory. `name` must be a key in `ctx.repositories` — i.e. actually
+ * declared under the workflow's `resources.repositories`.
+ */
+function resolveStepCwd(step: Step, defaultCwd: string, ctx: JobContext): string {
+  if (step.in === undefined) return defaultCwd;
+  const repo = ctx.repositories?.[step.in.repository];
+  if (repo === undefined) {
+    throw new WorkflowExpressionError(
+      `Step's "in.repository" references "${step.in.repository}", which isn't declared under resources.repositories.`,
+    );
+  }
+  return repo.path;
+}
+
+/**
  * Executes a single step: evaluates `if:`, dispatches to run:/script:, and applies continue-on-error.
  * `cwd` is the run's own scratch directory (fresh per workflow run) — distinct from `workflowDir`,
- * which is only ever used to resolve a `script:` step's path on disk.
+ * which is only ever used to resolve a `script:` step's path on disk. A step's own `in:` can override
+ * this default (see resolveStepCwd).
  */
 export async function runStep(
   step: Step,
@@ -251,20 +269,21 @@ export async function runStep(
     return { result: "skipped", outputs: {}, continuedOnError: false, log: { stdout: "", stderr: "", truncated: false } };
   }
 
+  const effectiveCwd = resolveStepCwd(step, cwd, ctx);
   let capturedLog: StepLogCapture = { stdout: "", stderr: "", truncated: false };
 
   try {
     let outputs: Record<string, string> = {};
     if (step.run !== undefined) {
       const command = interpolateStep(step.run, ctx);
-      const shellResult = await runShell(command, cwd, ctx.variables, signal);
+      const shellResult = await runShell(command, effectiveCwd, ctx.variables, signal);
       capturedLog = shellResult.log;
       if (shellResult.code !== 0) {
         throw new StepRunError(`Command exited with code ${shellResult.code}: ${command}`, capturedLog);
       }
       outputs = shellResult.outputs;
     } else {
-      const scriptResult = await runScript(step.script!, workflowDir, cwd, ctx, signal);
+      const scriptResult = await runScript(step.script!, workflowDir, effectiveCwd, ctx, signal);
       capturedLog = scriptResult.log;
       outputs = scriptResult.outputs;
     }

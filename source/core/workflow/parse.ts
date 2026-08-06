@@ -8,6 +8,7 @@ import type {
   RepositoryResource,
   Resources,
   Step,
+  StepIn,
   Trigger,
   Workflow,
 } from "./schema.ts";
@@ -22,6 +23,17 @@ function fail(file: string, message: string): never {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function validateStepIn(file: string, jobId: string, index: number, raw: unknown): StepIn {
+  const where = `job "${jobId}" step #${index + 1}'s "in"`;
+  if (!isRecord(raw)) {
+    fail(file, `${where} must be a mapping.`);
+  }
+  if (typeof raw.repository !== "string" || raw.repository.length === 0) {
+    fail(file, `${where} must have a non-empty string "repository".`);
+  }
+  return { repository: raw.repository };
 }
 
 function validateStep(file: string, jobId: string, index: number, raw: unknown): Step {
@@ -49,6 +61,7 @@ function validateStep(file: string, jobId: string, index: number, raw: unknown):
   if (continueOnError !== undefined && typeof continueOnError !== "boolean") {
     fail(file, `job "${jobId}" step #${index + 1} has a non-boolean "continue-on-error".`);
   }
+  const stepIn = raw.in !== undefined ? validateStepIn(file, jobId, index, raw.in) : undefined;
   return {
     id: raw.id as string | undefined,
     name: raw.name as string | undefined,
@@ -56,6 +69,7 @@ function validateStep(file: string, jobId: string, index: number, raw: unknown):
     script: raw.script as string | undefined,
     if: raw.if as string | undefined,
     "continue-on-error": continueOnError as boolean | undefined,
+    in: stepIn,
   };
 }
 

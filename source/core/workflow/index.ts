@@ -9,7 +9,10 @@ export type {
   ManualStringInput,
   ManualTrigger,
   Matrix,
+  RepositoryResource,
+  Resources,
   Step,
+  StepIn,
   Trigger,
   Workflow,
 } from "./schema.ts";
@@ -22,6 +25,7 @@ export type {
   JobResult,
   MatrixNeedsResult,
   NeedsResult,
+  RepositoryContext,
   RootContext,
   SimpleNeedsResult,
   StepContext,

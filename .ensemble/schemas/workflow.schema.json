@@ -224,6 +224,18 @@
         "continue-on-error": {
           "description": "Don't fail the job if this step fails.",
           "type": "boolean"
+        },
+        "in": {
+          "description": "Runs this step inside a declared resource instead of the run's scratch directory.",
+          "type": "object",
+          "properties": {
+            "repository": {
+              "description": "Name of a resources.repositories entry — this step's cwd defaults to that repository's checkout.",
+              "type": "string"
+            }
+          },
+          "required": ["repository"],
+          "additionalProperties": false
         }
       },
       "additionalProperties": false

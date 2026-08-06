@@ -100,3 +100,34 @@ Deno.test("runStep: run: with no $WORKFLOW_OUTPUT writes has empty outputs", asy
   const result = await runStep({ run: "exit 0" }, workflowDir, cwd, emptyCtx());
   assertEquals(result.outputs, {});
 });
+
+Deno.test("runStep: in.repository runs the step inside that repository's checkout", async () => {
+  const ctx: JobContext = {
+    variables: {},
+    needs: {},
+    steps: {},
+    repositories: { demo: { path: workflowDir } },
+  };
+  const result = await runStep(
+    { run: "pwd", in: { repository: "demo" } },
+    "/some/unrelated/workflow-dir",
+    "/some/unrelated/scratch-dir",
+    ctx,
+  );
+  assertEquals(result.result, "success");
+  assertEquals(result.log.stdout.trim(), workflowDir);
+});
+
+Deno.test("runStep: in.repository referencing an undeclared repository fails", async () => {
+  await assertRejects(
+    () => runStep({ run: "exit 0", in: { repository: "missing" } }, workflowDir, cwd, emptyCtx()),
+    Error,
+    'references "missing", which isn\'t declared under resources.repositories',
+  );
+});
+
+Deno.test("runStep: no in: uses the default cwd", async () => {
+  const result = await runStep({ run: "pwd" }, workflowDir, cwd, emptyCtx());
+  assertEquals(result.result, "success");
+  assertEquals(result.log.stdout.trim(), cwd);
+});

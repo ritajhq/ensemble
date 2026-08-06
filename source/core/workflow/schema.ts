@@ -1,3 +1,8 @@
+export interface StepIn {
+  /** Name of a resources.repositories entry — this step's cwd defaults to that repository's checkout instead of the run's scratch directory. */
+  repository: string;
+}
+
 export interface Step {
   id?: string;
   /** Human-readable label for this step, shown in logs. Falls back to the step type ("shell"/"script") when unset. */
@@ -6,6 +11,8 @@ export interface Step {
   script?: string;
   if?: string;
   "continue-on-error"?: boolean;
+  /** Runs this step inside a declared resource instead of the run's scratch directory — currently just { repository: <name> }. */
+  in?: StepIn;
 }
 
 export interface Matrix {

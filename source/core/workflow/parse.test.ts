@@ -763,6 +763,48 @@ jobs:
   }
 });
 
+Deno.test("parseWorkflowFile: step with in.repository parses", async () => {
+  await withFixture(
+    "step-in-repository.yml",
+    `
+resources:
+  repositories:
+    ensemble:
+      url: https://github.com/ritajhq/ensemble.git
+jobs:
+  build:
+    steps:
+      - run: echo hi
+        in:
+          repository: ensemble
+`,
+    async (path) => {
+      const workflow = await parseWorkflowFile(path);
+      assertEquals(workflow.jobs.build.steps[0].in, { repository: "ensemble" });
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: step in: missing repository fails", async () => {
+  await withFixture(
+    "step-in-missing-repository.yml",
+    `
+jobs:
+  build:
+    steps:
+      - run: echo hi
+        in: {}
+`,
+    async (path) => {
+      await assertRejects(
+        () => parseWorkflowFile(path),
+        WorkflowParseError,
+        `must have a non-empty string "repository"`,
+      );
+    },
+  );
+});
+
 Deno.test("parseWorkflowFile: step with neither run nor script fails", async () => {
   await withFixture(
     "neither-run-nor-script.yml",
