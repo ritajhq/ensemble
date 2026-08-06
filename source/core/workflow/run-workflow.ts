@@ -73,6 +73,32 @@ export interface RunWorkflowResult {
   success: boolean;
 }
 
+export class WorkflowSecretsError extends Error {}
+
+/**
+ * Scopes the process environment down to a workflow's declared `secrets:`
+ * names, failing fast if one isn't actually set — before any job runs, same
+ * as an invalid/missing `--context` (see resolveContext). A workflow with no
+ * `secrets:` at all falls back to the legacy behavior: every step sees the
+ * whole process environment, unscoped.
+ */
+function resolveSecretsEnv(secrets: string[] | undefined): Record<string, string> {
+  if (secrets === undefined) return Deno.env.toObject();
+  // PATH is about finding binaries on disk, not a credential — always
+  // forwarded so `run:`/`script:` steps can still shell out to bare command
+  // names (docker, git, terraform, ...) without every secrets:-scoped
+  // workflow having to remember to declare it like an actual secret.
+  const env: Record<string, string> = { PATH: Deno.env.get("PATH") ?? "" };
+  for (const name of secrets) {
+    const value = Deno.env.get(name);
+    if (value === undefined) {
+      throw new WorkflowSecretsError(`"secrets" declares "${name}", which isn't set in the environment.`);
+    }
+    env[name] = value;
+  }
+  return env;
+}
+
 function matrixInstanceLabel(jobId: string, combo: Record<string, unknown>): string {
   const parts = Object.entries(combo).map(([k, v]) => `${k}=${v}`);
   return `${jobId}[${parts.join(", ")}]`;
@@ -153,7 +179,7 @@ export async function runWorkflow(
   options: RunWorkflowOptions,
 ): Promise<RunWorkflowResult> {
   const variables = {
-    ...Deno.env.toObject(),
+    ...resolveSecretsEnv(workflow.secrets),
     ...workflow.variables,
     ...options.variables,
   };

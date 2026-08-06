@@ -43,5 +43,6 @@ export {
   type RunWorkflowOptions,
   type RunWorkflowResult,
   type WorkflowEvent,
+  WorkflowSecretsError,
 } from "./run-workflow.ts";
 export { emitWorkflowEvent, isEventLine, parseEventLine } from "./event-log.ts";

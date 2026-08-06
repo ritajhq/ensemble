@@ -148,6 +148,15 @@ export interface Workflow {
   on?: Trigger[];
   /** Default variables for every job/step in this workflow. A value containing $(NAME) is resolved from the process's own env var NAME at parse time. Overridable by CLI/HTTP-trigger variables. */
   variables?: Record<string, string>;
+  /**
+   * Names of env vars from the process's own environment this workflow's
+   * steps may read (e.g. ["REGISTRY_USERNAME", "REGISTRY_PASSWORD"]).
+   * Declaring this scopes every step down to just these names instead of the
+   * whole process environment — a run fails fast, before any job starts, if
+   * a declared name isn't actually set. Absent means the legacy behavior:
+   * every step sees the whole process environment, unscoped.
+   */
+  secrets?: string[];
   /** Declarative resources this workflow needs, prepared automatically before jobs run. */
   resources?: Resources;
   /** Named deploy contexts this workflow accepts. Declaring this makes --context required for every run (subject to `default`). */

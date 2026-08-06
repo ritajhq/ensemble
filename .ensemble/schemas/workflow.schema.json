@@ -18,6 +18,12 @@
       "type": "object",
       "additionalProperties": { "type": "string" }
     },
+    "secrets": {
+      "description": "Names of env vars from the process's own environment this workflow's steps may read. Declaring this scopes every step down to just these names instead of the whole process environment; a run fails fast if a declared name isn't set.",
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" }
+    },
     "resources": {
       "description": "Declarative resources this workflow needs, prepared automatically before jobs run.",
       "$ref": "#/definitions/resources"

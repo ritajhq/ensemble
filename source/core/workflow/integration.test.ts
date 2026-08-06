@@ -471,6 +471,87 @@ Deno.test("integration: trigger is absent (not just empty) when no trigger is pa
   );
 });
 
+Deno.test("integration: secrets: scopes run: steps to just the declared names (plus PATH)", async () => {
+  const workflowDir = join(import.meta.dirname!, "tests", "fixtures");
+  Deno.env.set("ENSEMBLE_TEST_ALLOWED_SECRET", "visible");
+  Deno.env.set("ENSEMBLE_TEST_FORBIDDEN_SECRET", "hidden");
+  try {
+    const workflow = {
+      secrets: ["ENSEMBLE_TEST_ALLOWED_SECRET"],
+      jobs: {
+        build: {
+          steps: [{
+            run:
+              'test "$ENSEMBLE_TEST_ALLOWED_SECRET" = visible && test -z "$ENSEMBLE_TEST_FORBIDDEN_SECRET" && test -n "$PATH"',
+          }],
+        },
+      },
+    };
+    const { outcomes, success } = await runWorkflow(workflow, { workflowDir });
+    assertEquals(success, true);
+    assertEquals(outcomes.build.result, "success");
+  } finally {
+    Deno.env.delete("ENSEMBLE_TEST_ALLOWED_SECRET");
+    Deno.env.delete("ENSEMBLE_TEST_FORBIDDEN_SECRET");
+  }
+});
+
+Deno.test("integration: secrets: scopes script: steps to just the declared names (plus PATH)", async () => {
+  const workflowDir = join(import.meta.dirname!, "tests", "fixtures");
+  Deno.env.set("ENSEMBLE_TEST_ALLOWED_SECRET", "visible");
+  Deno.env.set("ENSEMBLE_TEST_FORBIDDEN_SECRET", "hidden");
+  try {
+    const workflow = {
+      secrets: ["ENSEMBLE_TEST_ALLOWED_SECRET"],
+      jobs: {
+        build: {
+          steps: [{ script: "./reads-process-env.ts" }],
+        },
+      },
+    };
+    const { outcomes, success } = await runWorkflow(workflow, { workflowDir });
+    assertEquals(success, true);
+    assertEquals(outcomes.build.outputs, { allowed: "visible", forbidden: "" });
+  } finally {
+    Deno.env.delete("ENSEMBLE_TEST_ALLOWED_SECRET");
+    Deno.env.delete("ENSEMBLE_TEST_FORBIDDEN_SECRET");
+  }
+});
+
+Deno.test("integration: secrets: declaring an unset name fails before any job runs", async () => {
+  const workflowDir = join(import.meta.dirname!, "tests", "fixtures");
+  Deno.env.delete("ENSEMBLE_TEST_UNSET_SECRET");
+  const workflow = {
+    secrets: ["ENSEMBLE_TEST_UNSET_SECRET"],
+    jobs: {
+      build: { steps: [{ run: "exit 0" }] },
+    },
+  };
+  await assertRejects(
+    () => runWorkflow(workflow, { workflowDir }),
+    Error,
+    '"secrets" declares "ENSEMBLE_TEST_UNSET_SECRET", which isn\'t set',
+  );
+});
+
+Deno.test("integration: no secrets: at all preserves full env passthrough (legacy behavior)", async () => {
+  const workflowDir = join(import.meta.dirname!, "tests", "fixtures");
+  Deno.env.set("ENSEMBLE_TEST_UNSCOPED", "still-visible");
+  try {
+    const workflow = {
+      jobs: {
+        build: {
+          steps: [{ run: 'test "$ENSEMBLE_TEST_UNSCOPED" = still-visible' }],
+        },
+      },
+    };
+    const { success } = await runWorkflow(workflow, { workflowDir });
+    assertEquals(success, true);
+  } finally {
+    Deno.env.delete("ENSEMBLE_TEST_UNSCOPED");
+  }
+});
+
 Deno.test("integration: a job depending on a hard-failed job is skipped, not run", async () => {
   const file = join(examplesDir, "failing-step.yml");
   const workflow = await parseWorkflowFile(file);

@@ -6,6 +6,11 @@ on:
         tags:
           - '*.*.*'
 
+secrets:
+  - GH_TOKEN
+  - REGISTRY_USERNAME
+  - REGISTRY_PASSWORD
+
 resources:
   repositories:
     ensemble:

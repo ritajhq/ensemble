@@ -146,6 +146,10 @@ async function runShell(
     const cmd = new Deno.Command(Deno.build.os === "windows" ? "cmd" : "/bin/sh", {
       args: Deno.build.os === "windows" ? ["/c", command] : ["-c", command],
       cwd,
+      // clearEnv: without it, Deno.Command merges `env` on top of this
+      // process's own full environment rather than replacing it — silently
+      // defeating secrets: scoping (see run-workflow.ts's resolveSecretsEnv).
+      clearEnv: true,
       env: { ...variables, WORKFLOW_OUTPUT: outputHandle },
       stdout: "piped",
       stderr: "piped",
@@ -200,6 +204,12 @@ async function runScript(
     const cmd = new Deno.Command(denoExe, {
       args: ["run", "-A", "-q", bootstrapPath, absPath, resultHandle],
       cwd,
+      // clearEnv: see runShell's identical comment — without it, `env` only
+      // merges on top of this process's real environment instead of
+      // replacing it, silently defeating secrets: scoping. Safe because
+      // ctx.variables (built by resolveSecretsEnv) always carries PATH.
+      clearEnv: true,
+      env: ctx.variables,
       stdin: "piped",
       stdout: "piped",
       stderr: "piped",

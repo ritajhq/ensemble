@@ -1198,6 +1198,83 @@ jobs:
   }
 });
 
+Deno.test("parseWorkflowFile: valid secrets list parses", async () => {
+  await withFixture(
+    "valid-secrets.yml",
+    `
+secrets:
+  - REGISTRY_USERNAME
+  - REGISTRY_PASSWORD
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      const workflow = await parseWorkflowFile(path);
+      assertEquals(workflow.secrets, ["REGISTRY_USERNAME", "REGISTRY_PASSWORD"]);
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: empty secrets list fails", async () => {
+  await withFixture(
+    "empty-secrets.yml",
+    `
+secrets: []
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      await assertRejects(
+        () => parseWorkflowFile(path),
+        WorkflowParseError,
+        '"secrets" must be a non-empty list of non-empty strings',
+      );
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: secrets with a non-string entry fails", async () => {
+  await withFixture(
+    "invalid-secrets.yml",
+    `
+secrets:
+  - REGISTRY_USERNAME
+  - 5
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      await assertRejects(
+        () => parseWorkflowFile(path),
+        WorkflowParseError,
+        '"secrets" must be a non-empty list of non-empty strings',
+      );
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: workflow with no secrets: leaves it undefined", async () => {
+  await withFixture(
+    "no-secrets.yml",
+    `
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      const workflow = await parseWorkflowFile(path);
+      assertEquals(workflow.secrets, undefined);
+    },
+  );
+});
+
 Deno.test("parseWorkflowFile: step with neither run nor script fails", async () => {
   await withFixture(
     "neither-run-nor-script.yml",

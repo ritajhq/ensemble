@@ -238,7 +238,8 @@ jobs:
   shell subshell execution. A `$(NAME)` referencing an unset env var fails
   parsing immediately (`WorkflowParseError`), rather than silently
   resolving to `""`.
-- Precedence, lowest to highest: the process's own `Deno.env` → this
+- Precedence, lowest to highest: the process's own environment (see
+  "Secrets (`secrets:`)" below for how that base layer is scoped) → this
   `variables:` block → whatever the caller supplies at run time (the CLI's
   repeatable `-e KEY=VALUE`, or the HTTP trigger's `variables` body field,
   or `RunWorkflowOptions.variables` when calling the engine directly). Any
@@ -250,6 +251,35 @@ jobs:
   A non-string expression result is stringified. `script:` steps don't need
   this — they already receive the full context as structured JSON (see
   "The `script:` module contract" below).
+
+## Secrets (`secrets:`)
+
+By default, every step (`run:` and `script:` alike) sees the **whole**
+process environment — there's no separate secrets store, just `Deno.env`.
+A workflow can optionally scope that down to a declared allowlist:
+
+```yaml
+secrets:
+  - REGISTRY_USERNAME
+  - REGISTRY_PASSWORD
+
+jobs:
+  publish:
+    steps:
+      - run: docker login registry.example.com -u "$REGISTRY_USERNAME" -p "$REGISTRY_PASSWORD"
+```
+
+- Once declared, every step's subprocess sees **only** the listed names
+  (plus `PATH`, always forwarded so steps can still find `docker`/`git`/etc.
+  on disk — `PATH` isn't a credential) — not the rest of the real process
+  environment. A run fails fast, before any job starts, if a declared name
+  isn't actually set (`WorkflowSecretsError`), the same fail-fast contract as
+  an invalid `--context`.
+- Absent `secrets:` entirely, behavior is unchanged from before this existed:
+  every step's subprocess inherits the whole process environment.
+- This only scopes what comes from the process's own environment — the
+  `variables:` block and CLI/HTTP-trigger-supplied variables still layer on
+  top exactly as described above, regardless of `secrets:`.
 
 ## Matrix jobs
 
@@ -512,7 +542,9 @@ const { outcomes, success } = await runWorkflow(workflow, {
   it ever touched is cleaned up."
 - No retries.
 - No remote/marketplace actions or Docker steps — by design.
-- No secrets management beyond `Deno.env`.
+- No secrets management beyond `Deno.env` — `secrets:` (see above) scopes
+  which names a step sees, but there's still no separate vault/store; every
+  declared name has to already be set in the process's own environment.
 - No `always()` / `failure()` expression functions (GitHub Actions uses
   these to run cleanup steps/jobs even after a failure). `@actions/expressions`
   itself doesn't ship these as well-known functions, so supporting them

@@ -260,6 +260,14 @@ function validateVariables(file: string, raw: unknown): Record<string, string> |
   return result;
 }
 
+function validateSecrets(file: string, raw: unknown): string[] | undefined {
+  if (raw === undefined) return undefined;
+  if (!Array.isArray(raw) || raw.length === 0 || raw.some((s) => typeof s !== "string" || s.length === 0)) {
+    fail(file, `"secrets" must be a non-empty list of non-empty strings.`);
+  }
+  return raw as string[];
+}
+
 function validateRepository(file: string, name: string, raw: unknown): RepositoryResource {
   if (!isRecord(raw)) {
     fail(file, `resources.repositories.${name} must be a mapping.`);
@@ -425,8 +433,9 @@ export async function parseWorkflowFile(file: string): Promise<Workflow> {
 
   const on = validateOn(file, jobIds, raw.on);
   const variables = validateVariables(file, raw.variables);
+  const secrets = validateSecrets(file, raw.secrets);
   const resources = validateResources(file, raw.resources);
   const contexts = validateContexts(file, raw.contexts);
 
-  return { on, variables, resources, contexts, jobs };
+  return { on, variables, secrets, resources, contexts, jobs };
 }
