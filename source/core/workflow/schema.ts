@@ -119,28 +119,42 @@ export interface Resources {
   repositories?: Record<string, RepositoryResource>;
 }
 
-export interface RemoteContextSource {
-  /** Git URL to clone. A value containing $(NAME) is resolved from the process's own env var NAME at parse time. */
-  url: string;
-  /** Branch, tag, or commit to check out. Defaults to the remote's default branch. */
-  ref?: string;
-  /** Subdirectory within the cloned repo this context's files live under. Defaults to the repo root. */
-  path?: string;
-}
-
-/** At least one of `local`/`remote` must be set. Both together: local's files are resolved first, then remote's are copied on top (same-relative-path files from remote win). */
-export interface ContextEntry {
-  /** Path relative to the workflow's own folder, e.g. "./contexts/production" — the same convention `context.path` has always resolved to for a workflow-local context. */
-  local?: string;
-  /** A separately-versioned repo this context's files live in (e.g. one holding secrets/tfvars kept out of the source repo). */
-  remote?: RemoteContextSource;
-}
-
-export interface Contexts {
-  /** Context name used when the caller doesn't pass --context. Must be a key in `entries`. */
+/** One named value a workflow needs at deploy time. */
+export interface ContextVariable {
+  /** Hard-coded value, or an expression string. When set, this variable is never sourced from a loader. */
+  value?: string;
+  /** Used only when no loader supplies this variable and no `value` is set. */
   default?: string;
-  /** Named contexts this workflow accepts. Once declared, a run of this workflow requires a context (an explicit --context, or `default` above) — an unrecognized or missing context fails before any job runs. */
-  entries: Record<string, ContextEntry>;
+}
+
+/** One named secret a workflow needs at deploy time — always sourced from a loader, never hard-coded inline. */
+export interface ContextSecret {
+  name: string;
+  /** Used only when no loader supplies this secret. */
+  default?: string;
+}
+
+/**
+ * What this workflow needs from its deploy context, declared by name rather
+ * than by location — resolution (which loader supplies each value, from
+ * where) is the engine's job, not the workflow's. Every declared variable and
+ * secret is exposed to steps as two env vars: `NAME` (its value) and
+ * `NAME_FILE` (an absolute path to that same value materialized as a file),
+ * regardless of whether the loader that supplied it produced a scalar, a
+ * file, or both.
+ *
+ * A value/secret needed by more than one workflow on this host (e.g.
+ * registry credentials) doesn't need to be re-provisioned per workflow: once
+ * no per-`--context` loader supplies a declared entry, resolution falls back
+ * to a shared `.ensemble/global/` tier before failing — see
+ * context-loaders/resolve.ts's selectLoaders. Still declared here like any
+ * other entry; only *where the value lives* is more convenient.
+ */
+export interface Context {
+  /** Named values this workflow needs. A loader-sourced entry (no `value`) fails the run before any job starts if unsatisfied and no `default` exists. */
+  variables?: Record<string, ContextVariable>;
+  /** Named secrets this workflow needs. Fails the run before any job starts if a loader can't supply one and it has no `default`. */
+  secrets?: ContextSecret[];
 }
 
 export interface Workflow {
@@ -148,18 +162,9 @@ export interface Workflow {
   on?: Trigger[];
   /** Default variables for every job/step in this workflow. A value containing $(NAME) is resolved from the process's own env var NAME at parse time. Overridable by CLI/HTTP-trigger variables. */
   variables?: Record<string, string>;
-  /**
-   * Names of env vars from the process's own environment this workflow's
-   * steps may read (e.g. ["REGISTRY_USERNAME", "REGISTRY_PASSWORD"]).
-   * Declaring this scopes every step down to just these names instead of the
-   * whole process environment — a run fails fast, before any job starts, if
-   * a declared name isn't actually set. Absent means the legacy behavior:
-   * every step sees the whole process environment, unscoped.
-   */
-  secrets?: string[];
   /** Declarative resources this workflow needs, prepared automatically before jobs run. */
   resources?: Resources;
-  /** Named deploy contexts this workflow accepts. Declaring this makes --context required for every run (subject to `default`). */
-  contexts?: Contexts;
+  /** Named variables/secrets this workflow needs from its deploy context — see Context. */
+  context?: Context;
   jobs: Record<string, Job>;
 }

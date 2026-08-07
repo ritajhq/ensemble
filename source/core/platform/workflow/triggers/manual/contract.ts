@@ -5,7 +5,7 @@ export interface ManualTriggerRequest {
   concurrency?: number;
   /** Extra variables merged on top of the server's own env vars for this run. */
   variables?: Record<string, string>;
-  /** Deploy context name, resolved server-side into context.name/context.path (see RunWorkflowByNameOptions.context). */
+  /** Deploy context name a loader should resolve this workflow's declared context.variables/context.secrets against (see RunWorkflowByNameOptions.context). */
   context?: string;
   /** Values for the workflow's declared `on: - manual: inputs`, read by name and exposed as `trigger.<name>`. */
   inputs?: Record<string, unknown>;

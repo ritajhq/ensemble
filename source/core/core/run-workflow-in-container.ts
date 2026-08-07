@@ -1,11 +1,12 @@
 import type { Delegate } from "@ritaj/event";
-import { isEventLine, parseEventLine, type RunWorkflowResult, type WorkflowEvent } from "@ensemble/workflow";
+import { type ContextSource, isEventLine, parseEventLine, type RunWorkflowResult, type WorkflowEvent } from "@ensemble/workflow";
 
 export interface RunWorkflowInContainerOptions {
   /** Run only this job (or these jobs) and their transitive dependencies. */
   job?: string | string[];
   concurrency?: number;
   context?: string;
+  contextSource?: ContextSource;
   /** Data from whatever triggered this run, forwarded into the container as --trigger-json. */
   trigger?: Record<string, unknown>;
   /** Notified as jobs/steps start/finish inside the container, reconstructed from its stdout. */
@@ -150,6 +151,7 @@ export async function runWorkflowInContainer(
     }
     if (options.concurrency !== undefined) args.push("--concurrency", String(options.concurrency));
     if (options.context !== undefined) args.push("--context", options.context);
+    if (options.contextSource !== undefined) args.push("--context-source", options.contextSource);
     if (options.trigger !== undefined) args.push("--trigger-json", JSON.stringify(options.trigger));
 
     const command = new Deno.Command("docker", { args, stdout: "piped", stderr: "piped" });

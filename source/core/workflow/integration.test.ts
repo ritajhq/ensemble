@@ -319,74 +319,31 @@ Deno.test("integration: variables precedence is Deno.env < workflow.variables < 
   }
 });
 
-Deno.test("integration: context.name/context.path are available in run: and if:", async () => {
+Deno.test("integration: a context.variables entry with an inline value never touches a loader", async () => {
   const workflowDir = join(import.meta.dirname!, "tests", "fixtures");
   const workflow = {
+    context: { variables: { REGION: { value: "us-east-1" } } },
     jobs: {
       build: {
-        if: "context.name == 'production'",
-        steps: [{ run: 'test "${{ context.name }}" = production && test "${{ context.path }}" = /repo/contexts/production' }],
+        steps: [{ run: 'test "$REGION" = us-east-1 && test -f "$REGION_FILE" && test "$(cat "$REGION_FILE")" = us-east-1' }],
       },
     },
   };
-  const { outcomes, success } = await runWorkflow(workflow, {
-    workflowDir,
-    context: "production",
-    repoRoot: "/repo",
-  });
+  const { outcomes, success } = await runWorkflow(workflow, { workflowDir });
   assertEquals(success, true);
   assertEquals(outcomes.build.result, "success");
 });
 
-Deno.test("integration: context is absent (not just empty) when no --context is given", async () => {
-  const workflowDir = join(import.meta.dirname!, "tests", "fixtures");
-  const workflow = {
-    jobs: {
-      build: {
-        if: "context.name == 'production'",
-        steps: [{ run: "exit 0" }],
-      },
-    },
-  };
-  await assertRejects(
-    () => runWorkflow(workflow, { workflowDir }),
-    WorkflowExpressionError,
-    "Unrecognized named-value: 'context'",
-  );
-});
-
-Deno.test("integration: script: steps receive context via StepContext", async () => {
-  const workflowDir = join(import.meta.dirname!, "tests", "fixtures");
-  const workflow = {
-    jobs: {
-      build: {
-        steps: [{ script: "./uses-ctx-context.ts" }],
-      },
-    },
-  };
-  const { outcomes, success } = await runWorkflow(workflow, {
-    workflowDir,
-    context: "staging",
-    repoRoot: "/repo",
-  });
-  assertEquals(success, true);
-  assertEquals(outcomes.build.outputs, { name: "staging", path: "/repo/contexts/staging" });
-});
-
-Deno.test("integration: a workflow declaring contexts resolves a local context end-to-end", async () => {
-  const workflowDir = await Deno.makeTempDir({ prefix: "integration-contexts-" });
+Deno.test("integration: a workflow resolves a variable from the local loader's contexts/<name>/variables/<key>.env", async () => {
+  const workflowDir = await Deno.makeTempDir({ prefix: "integration-context-local-" });
   try {
-    await Deno.mkdir(join(workflowDir, "contexts", "production"), { recursive: true });
-    await Deno.writeTextFile(join(workflowDir, "contexts", "production", "marker.txt"), "prod-config");
+    await Deno.mkdir(join(workflowDir, "contexts", "production", "variables"), { recursive: true });
+    await Deno.writeTextFile(join(workflowDir, "contexts", "production", "variables", "IMAGE_TAG.env"), "IMAGE_TAG=v1.2.3\n");
 
     const workflow = {
-      contexts: {
-        entries: { production: { local: "./contexts/production" } },
-      },
+      context: { variables: { IMAGE_TAG: {} } },
       jobs: {
-        build: {
-          steps: [{ run: 'test "$(cat ${{ context.path }}/marker.txt)" = prod-config' }],
-        },
+        build: { steps: [{ run: 'test "$IMAGE_TAG" = v1.2.3' }] },
       },
     };
     const { outcomes, success } = await runWorkflow(workflow, { workflowDir, context: "production" });
@@ -397,12 +354,10 @@ Deno.test("integration: a workflow declaring contexts resolves a local context e
   }
 });
 
-Deno.test("integration: a workflow declaring contexts requires one (no default, none passed)", async () => {
+Deno.test("integration: a loader-required variable with no matching loader value and no default fails before any job runs", async () => {
   const workflowDir = join(import.meta.dirname!, "tests", "fixtures");
   const workflow = {
-    contexts: {
-      entries: { production: { local: "./contexts/production" } },
-    },
+    context: { variables: { DB_HOST: {} } },
     jobs: {
       build: { steps: [{ run: "exit 0" }] },
     },
@@ -410,48 +365,61 @@ Deno.test("integration: a workflow declaring contexts requires one (no default, 
   await assertRejects(
     () => runWorkflow(workflow, { workflowDir }),
     Error,
-    "a --context is required",
+    "DB_HOST",
   );
 });
 
-Deno.test("integration: a workflow declaring contexts uses contexts.default when none is passed", async () => {
-  const workflowDir = await Deno.makeTempDir({ prefix: "integration-contexts-default-" });
+Deno.test("integration: a loader-required variable falls back to its default when no context is selected", async () => {
+  const workflowDir = join(import.meta.dirname!, "tests", "fixtures");
+  const workflow = {
+    context: { variables: { IMAGE_TAG: { default: "latest" } } },
+    jobs: {
+      build: { steps: [{ run: 'test "$IMAGE_TAG" = latest' }] },
+    },
+  };
+  const { success } = await runWorkflow(workflow, { workflowDir });
+  assertEquals(success, true);
+});
+
+Deno.test("integration: --context-source local restricts resolution to the local loader only", async () => {
+  const workflowDir = await Deno.makeTempDir({ prefix: "integration-context-source-" });
   try {
-    await Deno.mkdir(join(workflowDir, "contexts", "production"), { recursive: true });
+    await Deno.mkdir(join(workflowDir, "contexts", "production", "variables"), { recursive: true });
+    await Deno.writeTextFile(join(workflowDir, "contexts", "production", "variables", "IMAGE_TAG.env"), "IMAGE_TAG=v1.2.3\n");
 
     const workflow = {
-      contexts: {
-        default: "production",
-        entries: { production: { local: "./contexts/production" } },
-      },
+      context: { variables: { IMAGE_TAG: {} } },
       jobs: {
-        build: {
-          steps: [{ run: 'test "${{ context.name }}" = production' }],
-        },
+        build: { steps: [{ run: 'test "$IMAGE_TAG" = v1.2.3' }] },
       },
     };
-    const { success } = await runWorkflow(workflow, { workflowDir });
+    const { success } = await runWorkflow(workflow, { workflowDir, context: "production", contextSource: "local" });
     assertEquals(success, true);
   } finally {
     await Deno.remove(workflowDir, { recursive: true });
   }
 });
 
-Deno.test("integration: an unknown --context name fails before any job runs", async () => {
-  const workflowDir = join(import.meta.dirname!, "tests", "fixtures");
-  const workflow = {
-    contexts: {
-      entries: { production: { local: "./contexts/production" } },
-    },
-    jobs: {
-      build: { steps: [{ run: "exit 0" }] },
-    },
-  };
-  await assertRejects(
-    () => runWorkflow(workflow, { workflowDir, context: "staging" }),
-    Error,
-    'Unknown context "staging"',
-  );
+Deno.test("integration: --context-source vault does not fall through to a local contexts/ folder that exists on disk", async () => {
+  const workflowDir = await Deno.makeTempDir({ prefix: "integration-context-source-vault-" });
+  try {
+    await Deno.mkdir(join(workflowDir, "contexts", "production", "variables"), { recursive: true });
+    await Deno.writeTextFile(join(workflowDir, "contexts", "production", "variables", "IMAGE_TAG.env"), "IMAGE_TAG=v1.2.3\n");
+
+    const workflow = {
+      context: { variables: { IMAGE_TAG: {} } },
+      jobs: {
+        build: { steps: [{ run: "exit 0" }] },
+      },
+    };
+    await assertRejects(
+      () => runWorkflow(workflow, { workflowDir, context: "production", contextSource: "vault" }),
+      Error,
+      "IMAGE_TAG",
+    );
+  } finally {
+    await Deno.remove(workflowDir, { recursive: true });
+  }
 });
 
 Deno.test("integration: trigger is absent (not just empty) when no trigger is passed", async () => {
@@ -471,58 +439,61 @@ Deno.test("integration: trigger is absent (not just empty) when no trigger is pa
   );
 });
 
-Deno.test("integration: secrets: scopes run: steps to just the declared names (plus PATH/HOME)", async () => {
-  const workflowDir = join(import.meta.dirname!, "tests", "fixtures");
-  Deno.env.set("ENSEMBLE_TEST_ALLOWED_SECRET", "visible");
-  Deno.env.set("ENSEMBLE_TEST_FORBIDDEN_SECRET", "hidden");
+Deno.test("integration: context.secrets resolves from the local loader's contexts/<name>/secrets/<key>.env in run: steps", async () => {
+  const workflowDir = await Deno.makeTempDir({ prefix: "integration-context-secret-" });
   try {
+    await Deno.mkdir(join(workflowDir, "contexts", "production", "secrets"), { recursive: true });
+    await Deno.writeTextFile(
+      join(workflowDir, "contexts", "production", "secrets", "GITHUB_WEBHOOK_SECRET.env"),
+      "GITHUB_WEBHOOK_SECRET=super-secret\n",
+    );
+
     const workflow = {
-      secrets: ["ENSEMBLE_TEST_ALLOWED_SECRET"],
+      context: { secrets: [{ name: "GITHUB_WEBHOOK_SECRET" }] },
       jobs: {
         build: {
-          steps: [{
-            run:
-              'test "$ENSEMBLE_TEST_ALLOWED_SECRET" = visible && test -z "$ENSEMBLE_TEST_FORBIDDEN_SECRET" && test -n "$PATH" && test -n "$HOME"',
-          }],
+          steps: [{ run: 'test "$GITHUB_WEBHOOK_SECRET" = super-secret && test -n "$PATH" && test -n "$HOME"' }],
         },
       },
     };
-    const { outcomes, success } = await runWorkflow(workflow, { workflowDir });
+    const { outcomes, success } = await runWorkflow(workflow, { workflowDir, context: "production" });
     assertEquals(success, true);
     assertEquals(outcomes.build.result, "success");
   } finally {
-    Deno.env.delete("ENSEMBLE_TEST_ALLOWED_SECRET");
-    Deno.env.delete("ENSEMBLE_TEST_FORBIDDEN_SECRET");
+    await Deno.remove(workflowDir, { recursive: true });
   }
 });
 
-Deno.test("integration: secrets: scopes script: steps to just the declared names (plus PATH/HOME)", async () => {
-  const workflowDir = join(import.meta.dirname!, "tests", "fixtures");
-  Deno.env.set("ENSEMBLE_TEST_ALLOWED_SECRET", "visible");
-  Deno.env.set("ENSEMBLE_TEST_FORBIDDEN_SECRET", "hidden");
+Deno.test("integration: context.secrets is available to script: steps via ctx.variables", async () => {
+  const workflowDir = await Deno.makeTempDir({ prefix: "integration-context-secret-script-" });
   try {
+    await Deno.mkdir(join(workflowDir, "contexts", "production", "secrets"), { recursive: true });
+    await Deno.writeTextFile(
+      join(workflowDir, "contexts", "production", "secrets", "ENSEMBLE_TEST_ALLOWED_SECRET.env"),
+      "ENSEMBLE_TEST_ALLOWED_SECRET=visible\n",
+    );
+    Deno.env.delete("ENSEMBLE_TEST_FORBIDDEN_SECRET");
+
     const workflow = {
-      secrets: ["ENSEMBLE_TEST_ALLOWED_SECRET"],
+      context: { secrets: [{ name: "ENSEMBLE_TEST_ALLOWED_SECRET" }] },
       jobs: {
         build: {
-          steps: [{ script: "./reads-process-env.ts" }],
+          steps: [{ script: join(import.meta.dirname!, "tests", "fixtures", "reads-process-env.ts") }],
         },
       },
     };
-    const { outcomes, success } = await runWorkflow(workflow, { workflowDir });
+    const { outcomes, success } = await runWorkflow(workflow, { workflowDir, context: "production" });
     assertEquals(success, true);
     assertEquals(outcomes.build.outputs, { allowed: "visible", forbidden: "" });
   } finally {
-    Deno.env.delete("ENSEMBLE_TEST_ALLOWED_SECRET");
-    Deno.env.delete("ENSEMBLE_TEST_FORBIDDEN_SECRET");
+    await Deno.remove(workflowDir, { recursive: true });
   }
 });
 
-Deno.test("integration: secrets: declaring an unset name fails before any job runs", async () => {
+Deno.test("integration: context.secrets declaring an unresolvable name fails before any job runs", async () => {
   const workflowDir = join(import.meta.dirname!, "tests", "fixtures");
-  Deno.env.delete("ENSEMBLE_TEST_UNSET_SECRET");
   const workflow = {
-    secrets: ["ENSEMBLE_TEST_UNSET_SECRET"],
+    context: { secrets: [{ name: "ENSEMBLE_TEST_UNSET_SECRET" }] },
     jobs: {
       build: { steps: [{ run: "exit 0" }] },
     },
@@ -530,15 +501,15 @@ Deno.test("integration: secrets: declaring an unset name fails before any job ru
   await assertRejects(
     () => runWorkflow(workflow, { workflowDir }),
     Error,
-    '"secrets" declares "ENSEMBLE_TEST_UNSET_SECRET", which isn\'t set',
+    "ENSEMBLE_TEST_UNSET_SECRET",
   );
 });
 
-Deno.test("integration: secrets: can be satisfied by options.variables without touching Deno.env", async () => {
+Deno.test("integration: context.secrets can be satisfied by options.variables without touching Deno.env", async () => {
   const workflowDir = join(import.meta.dirname!, "tests", "fixtures");
   Deno.env.delete("ENSEMBLE_TEST_CALLER_SECRET");
   const workflow = {
-    secrets: ["ENSEMBLE_TEST_CALLER_SECRET"],
+    context: { secrets: [{ name: "ENSEMBLE_TEST_CALLER_SECRET" }] },
     jobs: {
       build: {
         steps: [{ run: 'test "$ENSEMBLE_TEST_CALLER_SECRET" = from-caller' }],
@@ -554,14 +525,14 @@ Deno.test("integration: secrets: can be satisfied by options.variables without t
   assertEquals(Deno.env.get("ENSEMBLE_TEST_CALLER_SECRET"), undefined);
 });
 
-Deno.test("integration: no secrets: at all preserves full env passthrough (legacy behavior)", async () => {
+Deno.test("integration: no context: at all still forwards only PATH/HOME, not the full process env", async () => {
   const workflowDir = join(import.meta.dirname!, "tests", "fixtures");
   Deno.env.set("ENSEMBLE_TEST_UNSCOPED", "still-visible");
   try {
     const workflow = {
       jobs: {
         build: {
-          steps: [{ run: 'test "$ENSEMBLE_TEST_UNSCOPED" = still-visible' }],
+          steps: [{ run: 'test -z "$ENSEMBLE_TEST_UNSCOPED" && test -n "$PATH" && test -n "$HOME"' }],
         },
       },
     };

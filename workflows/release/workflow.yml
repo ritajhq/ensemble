@@ -6,10 +6,11 @@ on:
         tags:
           - '*.*.*'
 
-secrets:
-  - GH_TOKEN
-  - REGISTRY_USERNAME
-  - REGISTRY_PASSWORD
+context:
+  secrets:
+    - name: GH_TOKEN
+    - name: REGISTRY_USERNAME
+    - name: REGISTRY_PASSWORD
 
 resources:
   repositories:

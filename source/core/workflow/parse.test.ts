@@ -991,14 +991,14 @@ jobs:
   );
 });
 
-Deno.test("parseWorkflowFile: valid local context parses", async () => {
+Deno.test("parseWorkflowFile: valid context.variables with an inline value parses", async () => {
   await withFixture(
-    "valid-local-context.yml",
+    "valid-context-variable-value.yml",
     `
-contexts:
-  entries:
-    production:
-      local: ./contexts/production
+context:
+  variables:
+    REGION:
+      value: us-east-1
 jobs:
   build:
     steps:
@@ -1006,25 +1006,19 @@ jobs:
 `,
     async (path) => {
       const workflow = await parseWorkflowFile(path);
-      assertEquals(workflow.contexts, {
-        default: undefined,
-        entries: { production: { local: "./contexts/production", remote: undefined } },
-      });
+      assertEquals(workflow.context?.variables, { REGION: { value: "us-east-1", default: undefined } });
     },
   );
 });
 
-Deno.test("parseWorkflowFile: valid remote context parses", async () => {
+Deno.test("parseWorkflowFile: context.variables entry with only a default parses", async () => {
   await withFixture(
-    "valid-remote-context.yml",
+    "valid-context-variable-default.yml",
     `
-contexts:
-  entries:
-    staging:
-      remote:
-        url: https://github.com/ritajhq/ensemble-deploy-config.git
-        path: staging
-        ref: main
+context:
+  variables:
+    IMAGE_TAG:
+      default: latest
 jobs:
   build:
     steps:
@@ -1032,24 +1026,18 @@ jobs:
 `,
     async (path) => {
       const workflow = await parseWorkflowFile(path);
-      assertEquals(workflow.contexts?.entries.staging, {
-        local: undefined,
-        remote: { url: "https://github.com/ritajhq/ensemble-deploy-config.git", ref: "main", path: "staging" },
-      });
+      assertEquals(workflow.context?.variables, { IMAGE_TAG: { value: undefined, default: "latest" } });
     },
   );
 });
 
-Deno.test("parseWorkflowFile: context with both local and remote parses", async () => {
+Deno.test("parseWorkflowFile: context.variables entry with neither value nor default parses (loader-required)", async () => {
   await withFixture(
-    "context-local-and-remote.yml",
+    "valid-context-variable-empty.yml",
     `
-contexts:
-  entries:
-    production:
-      local: ./contexts/production
-      remote:
-        url: https://github.com/ritajhq/ensemble-deploy-config.git
+context:
+  variables:
+    DB_HOST: {}
 jobs:
   build:
     steps:
@@ -1057,19 +1045,19 @@ jobs:
 `,
     async (path) => {
       const workflow = await parseWorkflowFile(path);
-      assertEquals(workflow.contexts?.entries.production.local, "./contexts/production");
-      assertEquals(workflow.contexts?.entries.production.remote?.url, "https://github.com/ritajhq/ensemble-deploy-config.git");
+      assertEquals(workflow.context?.variables, { DB_HOST: { value: undefined, default: undefined } });
     },
   );
 });
 
-Deno.test("parseWorkflowFile: context with neither local nor remote fails", async () => {
+Deno.test("parseWorkflowFile: context.variables entry with a non-string value fails", async () => {
   await withFixture(
-    "context-neither.yml",
+    "invalid-context-variable-value.yml",
     `
-contexts:
-  entries:
-    production: {}
+context:
+  variables:
+    COUNT:
+      value: 5
 jobs:
   build:
     steps:
@@ -1079,110 +1067,22 @@ jobs:
       await assertRejects(
         () => parseWorkflowFile(path),
         WorkflowParseError,
-        'must have at least one of "local" or "remote"',
+        `context.variables.COUNT has a non-string "value"`,
       );
     },
   );
 });
 
-Deno.test("parseWorkflowFile: contexts.default parses when it references a real entry", async () => {
-  await withFixture(
-    "context-default.yml",
-    `
-contexts:
-  default: production
-  entries:
-    production:
-      local: ./contexts/production
-jobs:
-  build:
-    steps:
-      - run: echo hi
-`,
-    async (path) => {
-      const workflow = await parseWorkflowFile(path);
-      assertEquals(workflow.contexts?.default, "production");
-    },
-  );
-});
-
-Deno.test("parseWorkflowFile: contexts.default referencing an unknown entry fails", async () => {
-  await withFixture(
-    "context-default-unknown.yml",
-    `
-contexts:
-  default: staging
-  entries:
-    production:
-      local: ./contexts/production
-jobs:
-  build:
-    steps:
-      - run: echo hi
-`,
-    async (path) => {
-      await assertRejects(
-        () => parseWorkflowFile(path),
-        WorkflowParseError,
-        'references unknown context "staging"',
-      );
-    },
-  );
-});
-
-Deno.test("parseWorkflowFile: contexts.entries empty mapping fails", async () => {
-  await withFixture(
-    "context-empty-entries.yml",
-    `
-contexts:
-  entries: {}
-jobs:
-  build:
-    steps:
-      - run: echo hi
-`,
-    async (path) => {
-      await assertRejects(
-        () => parseWorkflowFile(path),
-        WorkflowParseError,
-        '"contexts.entries" must be a non-empty mapping',
-      );
-    },
-  );
-});
-
-Deno.test("parseWorkflowFile: contexts missing entries fails", async () => {
-  await withFixture(
-    "context-missing-entries.yml",
-    `
-contexts:
-  default: production
-jobs:
-  build:
-    steps:
-      - run: echo hi
-`,
-    async (path) => {
-      await assertRejects(
-        () => parseWorkflowFile(path),
-        WorkflowParseError,
-        '"contexts.entries" must be a non-empty mapping',
-      );
-    },
-  );
-});
-
-Deno.test("parseWorkflowFile: remote context url with $(NAME) resolves from env", async () => {
-  Deno.env.set("ENSEMBLE_TEST_CONTEXT_URL", "https://github.com/ritajhq/private-config.git");
+Deno.test("parseWorkflowFile: context.variables value with $(NAME) resolves from env", async () => {
+  Deno.env.set("ENSEMBLE_TEST_CTX_VAR_REF", "resolved-value");
   try {
     await withFixture(
-      "context-env-ref.yml",
+      "context-variable-env-ref.yml",
       `
-contexts:
-  entries:
-    production:
-      remote:
-        url: "$(ENSEMBLE_TEST_CONTEXT_URL)"
+context:
+  variables:
+    FROM_ENV:
+      value: "$(ENSEMBLE_TEST_CTX_VAR_REF)"
 jobs:
   build:
     steps:
@@ -1190,21 +1090,23 @@ jobs:
 `,
       async (path) => {
         const workflow = await parseWorkflowFile(path);
-        assertEquals(workflow.contexts?.entries.production.remote?.url, "https://github.com/ritajhq/private-config.git");
+        assertEquals(workflow.context?.variables?.FROM_ENV.value, "resolved-value");
       },
     );
   } finally {
-    Deno.env.delete("ENSEMBLE_TEST_CONTEXT_URL");
+    Deno.env.delete("ENSEMBLE_TEST_CTX_VAR_REF");
   }
 });
 
-Deno.test("parseWorkflowFile: valid secrets list parses", async () => {
+Deno.test("parseWorkflowFile: valid context.secrets list parses", async () => {
   await withFixture(
-    "valid-secrets.yml",
+    "valid-context-secrets.yml",
     `
-secrets:
-  - REGISTRY_USERNAME
-  - REGISTRY_PASSWORD
+context:
+  secrets:
+    - name: GITHUB_WEBHOOK_SECRET
+    - name: TF_VARS
+      default: "{}"
 jobs:
   build:
     steps:
@@ -1212,16 +1114,20 @@ jobs:
 `,
     async (path) => {
       const workflow = await parseWorkflowFile(path);
-      assertEquals(workflow.secrets, ["REGISTRY_USERNAME", "REGISTRY_PASSWORD"]);
+      assertEquals(workflow.context?.secrets, [
+        { name: "GITHUB_WEBHOOK_SECRET", default: undefined },
+        { name: "TF_VARS", default: "{}" },
+      ]);
     },
   );
 });
 
-Deno.test("parseWorkflowFile: empty secrets list fails", async () => {
+Deno.test("parseWorkflowFile: empty context.secrets list fails", async () => {
   await withFixture(
-    "empty-secrets.yml",
+    "empty-context-secrets.yml",
     `
-secrets: []
+context:
+  secrets: []
 jobs:
   build:
     steps:
@@ -1231,19 +1137,19 @@ jobs:
       await assertRejects(
         () => parseWorkflowFile(path),
         WorkflowParseError,
-        '"secrets" must be a non-empty list of non-empty strings',
+        '"context.secrets" must be a non-empty list',
       );
     },
   );
 });
 
-Deno.test("parseWorkflowFile: secrets with a non-string entry fails", async () => {
+Deno.test("parseWorkflowFile: context.secrets entry missing name fails", async () => {
   await withFixture(
-    "invalid-secrets.yml",
+    "context-secret-missing-name.yml",
     `
-secrets:
-  - REGISTRY_USERNAME
-  - 5
+context:
+  secrets:
+    - default: x
 jobs:
   build:
     steps:
@@ -1253,15 +1159,38 @@ jobs:
       await assertRejects(
         () => parseWorkflowFile(path),
         WorkflowParseError,
-        '"secrets" must be a non-empty list of non-empty strings',
+        `context.secrets[0] must have a non-empty string "name"`,
       );
     },
   );
 });
 
-Deno.test("parseWorkflowFile: workflow with no secrets: leaves it undefined", async () => {
+Deno.test("parseWorkflowFile: context.secrets with a duplicate name fails", async () => {
   await withFixture(
-    "no-secrets.yml",
+    "context-secrets-duplicate.yml",
+    `
+context:
+  secrets:
+    - name: TOKEN
+    - name: TOKEN
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      await assertRejects(
+        () => parseWorkflowFile(path),
+        WorkflowParseError,
+        'duplicate name "TOKEN"',
+      );
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: workflow with no context: leaves it undefined", async () => {
+  await withFixture(
+    "no-context.yml",
     `
 jobs:
   build:
@@ -1270,7 +1199,7 @@ jobs:
 `,
     async (path) => {
       const workflow = await parseWorkflowFile(path);
-      assertEquals(workflow.secrets, undefined);
+      assertEquals(workflow.context, undefined);
     },
   );
 });

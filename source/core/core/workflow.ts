@@ -3,7 +3,14 @@ import { exists, walk } from "@std/fs";
 import { TarStream, type TarStreamInput } from "@std/tar";
 import type { Delegate } from "@ritaj/event";
 import { findRepoRoot } from "./repo.ts";
-import { parseWorkflowFile, runWorkflow, type RunWorkflowResult, type Workflow, type WorkflowEvent } from "@ensemble/workflow";
+import {
+  type ContextSource,
+  parseWorkflowFile,
+  runWorkflow,
+  type RunWorkflowResult,
+  type Workflow,
+  type WorkflowEvent,
+} from "@ensemble/workflow";
 import { trackedRunWorkflow } from "./runs.ts";
 import { runWorkflowInContainer } from "./run-workflow-in-container.ts";
 import { getLocalRepositoryOverrides, loadLocalConfig } from "./config.ts";
@@ -17,12 +24,13 @@ export interface RunWorkflowByNameOptions {
   /** Extra variables merged on top of the process's own env vars for this run. */
   variables?: Record<string, string>;
   /**
-   * Deploy context name (e.g. "development", "stage", "production"). Exposed
-   * to every job/step as `context.name` and `context.path` (an absolute path
-   * to "<repoRoot>/contexts/<name>", so steps can read files from it
-   * regardless of their own cwd).
+   * Deploy context name (e.g. "development", "stage", "production") — which
+   * named context a loader should resolve this workflow's declared
+   * `context.variables`/`context.secrets` against.
    */
   context?: string;
+  /** Restricts context resolution to just one loader ("local" or "vault") instead of trying local then vault. */
+  contextSource?: ContextSource;
   /** Data from whatever triggered this run, made available as `trigger.*` in every job/step. */
   trigger?: Record<string, unknown>;
   /** Run inside a spawned runner container instead of in-process. Only set by server-side trigger call sites — local CLI runs stay in-process. */
@@ -269,6 +277,7 @@ export async function runWorkflowByName(
       job: options.job,
       concurrency: options.concurrency,
       context: options.context,
+      contextSource: options.contextSource,
       trigger: options.trigger,
       events: options.events,
     });
@@ -284,6 +293,7 @@ export async function runWorkflowByName(
     variables: options.variables,
     trigger: options.trigger,
     context: options.context,
+    contextSource: options.contextSource,
     repoRoot,
     localRepositoryOverrides: getLocalRepositoryOverrides(localConfig),
     events: options.events,

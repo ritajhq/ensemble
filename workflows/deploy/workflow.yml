@@ -1,4 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ritajhq/ensemble/main/.ensemble/schemas/workflow.schema.json
+# yaml-embedded-languages: shell
 
 on:
   - manual: {}
@@ -8,12 +9,11 @@ resources:
     ensemble:
       url: https://github.com/ritajhq/ensemble.git
 
-contexts:
-  entries:
-    development:
-      local: ./contexts/development
-    production:
-      local: ./contexts/production
+context:
+  variables:
+    TF_VARS: {}
+  secrets:
+    - name: GITHUB_WEBHOOK_SECRET
 
 jobs:
   deploy:
@@ -44,19 +44,11 @@ jobs:
         run: |
           set -euo pipefail
 
-          secrets_file="${{ context.path }}/terraform.secrets.tfvars.json"
-          if [ ! -f "$secrets_file" ]; then
-            echo "error: $secrets_file not found." >&2
-            echo "This file is gitignored and never committed — hand-provision it once on the deploy host with:" >&2
-            echo '  { "server_github_webhook_secret": "<a real secret>" }' >&2
-            exit 1
-          fi
-
           ARTIFACTS_DIR=$(realpath source/artifacts)
 
           cd workflows/deploy/terraform
           "${{ steps.install_terraform.outputs.tf_bin }}" apply -auto-approve \
-            -var-file="${{ context.path }}/terraform.tfvars.json" \
-            -var-file="$secrets_file" \
+            -var-file="$TF_VARS_FILE" \
             -var="artifacts_dir=$ARTIFACTS_DIR" \
+            -var="server_github_webhook_secret=$GITHUB_WEBHOOK_SECRET" \
             -var="server_docker_gid=$(getent group docker | cut -d: -f3)"

@@ -45,13 +45,6 @@ export interface MatrixNeedsResult {
 
 export type NeedsResult = SimpleNeedsResult | MatrixNeedsResult;
 
-/** The deploy context this run was invoked with (e.g. `--context production`). Absent when no context was given. */
-export interface RunContext {
-  name: string;
-  /** Absolute path to this context's own folder (e.g. "<repoRoot>/contexts/production"), so steps can read files from it regardless of their own cwd. */
-  path: string;
-}
-
 /** Where a resources.repositories entry was checked out. */
 export interface RepositoryContext {
   path: string;
@@ -65,8 +58,6 @@ export interface RootContext {
   matrix?: Record<string, unknown>;
   /** Data from whatever triggered this run (see schema.ts's Trigger). Absent for a direct/untriggered invocation. */
   trigger?: Record<string, unknown>;
-  /** The deploy context this run was invoked with. Absent when no --context was given. */
-  context?: RunContext;
   /** Where each resources.repositories entry was checked out. Absent when the workflow declares none. */
   repositories?: Record<string, RepositoryContext>;
 }
@@ -88,7 +79,6 @@ export interface StepContext {
   needs: Record<string, NeedsResult>;
   matrix?: Record<string, unknown>;
   trigger?: Record<string, unknown>;
-  context?: RunContext;
   repositories?: Record<string, RepositoryContext>;
 }
 
@@ -97,13 +87,11 @@ export function buildRootContext(
   completedJobs: Record<string, NeedsResult>,
   matrix?: Record<string, unknown>,
   trigger?: Record<string, unknown>,
-  context?: RunContext,
   repositories?: Record<string, RepositoryContext>,
 ): RootContext {
   const root: RootContext = { variables, needs: { ...completedJobs } };
   if (matrix !== undefined) root.matrix = matrix;
   if (trigger !== undefined) root.trigger = trigger;
-  if (context !== undefined) root.context = context;
   if (repositories !== undefined) root.repositories = repositories;
   return root;
 }
@@ -133,7 +121,6 @@ export function toStepContext(ctx: JobContext): StepContext {
   const stepContext: StepContext = { variables: ctx.variables, needs: ctx.needs };
   if (ctx.matrix !== undefined) stepContext.matrix = ctx.matrix;
   if (ctx.trigger !== undefined) stepContext.trigger = ctx.trigger;
-  if (ctx.context !== undefined) stepContext.context = ctx.context;
   if (ctx.repositories !== undefined) stepContext.repositories = ctx.repositories;
   return stepContext;
 }

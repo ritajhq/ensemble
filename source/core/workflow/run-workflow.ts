@@ -1,7 +1,6 @@
 import { pooledMap } from "@std/async";
-import { join } from "@std/path";
-import type { Delegate } from "@ritaj/event";
 import type { Job, Workflow } from "./schema.ts";
+import type { Delegate } from "@ritaj/event";
 import { buildBatches, transitiveDeps } from "./graph.ts";
 import {
   buildRootContext,
@@ -10,13 +9,12 @@ import {
   type MatrixNeedsResult,
   type NeedsResult,
   type RootContext,
-  type RunContext,
 } from "./context.ts";
 import { runJob, type StepEvent } from "./run-job.ts";
 import { expandMatrix } from "./matrix.ts";
 import { JobLogger, printSummary, type SummaryRow } from "./logging.ts";
 import { checkoutRepositories } from "./checkout.ts";
-import { resolveContext } from "./resolve-context.ts";
+import { type ContextSource, resolveContext } from "./context-loaders/resolve.ts";
 
 /**
  * Fired as jobs (and, for non-matrixed jobs, their steps) start/finish, so a
@@ -42,15 +40,20 @@ export interface RunWorkflowOptions {
   /** Data from whatever triggered this run, made available as `trigger.*` in every job/step. */
   trigger?: Record<string, unknown>;
   /**
-   * Deploy context name this run was invoked with (`--context <name>`), made
-   * available as `context.*` in every job/step once resolved (see
-   * resolveContext). A workflow that declares `contexts:` requires one
-   * (subject to `contexts.default`) — omitting it then throws
-   * WorkflowContextError. A workflow with no `contexts:` at all falls back
-   * to the legacy "<repoRoot>/contexts/<name>" path, unprepared/unvalidated
-   * by this engine (existing behavior, unchanged).
+   * Deploy context name this run was invoked with (`--context <name>`) —
+   * which named context a loader should resolve `workflow.context`'s
+   * declared variables/secrets against (see context-loaders/resolve.ts).
+   * Ignored (no-op) when the workflow declares no `context:` block, or when
+   * every declared entry has an inline `value`/`default`.
    */
   context?: string;
+  /**
+   * Restricts context resolution to just this loader (`local` or `vault`),
+   * skipping the other entirely rather than falling through to it — see
+   * context-loaders/resolve.ts's selectLoaders. Defaults to
+   * `ENSEMBLE_CONTEXT_SOURCE`'s value, or unset (try local then vault).
+   */
+  contextSource?: ContextSource;
   /**
    * Repo root to expose to steps as `ENSEMBLE_WORKSPACE`, so an `ens` subcommand
    * invoked from a `run:` step can find it even though steps' `cwd` is a scratch
@@ -71,38 +74,6 @@ export interface RunWorkflowOptions {
 export interface RunWorkflowResult {
   outcomes: Record<string, NeedsResult>;
   success: boolean;
-}
-
-export class WorkflowSecretsError extends Error {}
-
-/**
- * Scopes the environment down to a workflow's declared `secrets:` names,
- * failing fast if one isn't actually set — before any job runs, same as an
- * invalid/missing `--context` (see resolveContext). Each name is looked up in
- * `callerVars` first (e.g. values loaded from `--env-file`/`-v`, which never
- * touch the real process environment) and falls back to `Deno.env` — so a
- * secret can be supplied either way without every step seeing the whole
- * process environment regardless of source. A workflow with no `secrets:` at
- * all falls back to the legacy behavior: every step sees the whole process
- * environment, unscoped.
- */
-function resolveSecretsEnv(secrets: string[] | undefined, callerVars: Record<string, string>): Record<string, string> {
-  if (secrets === undefined) return Deno.env.toObject();
-  // PATH and HOME locate binaries and per-user config/state on disk, not
-  // credentials — always forwarded so `run:`/`script:` steps can still shell
-  // out to bare command names (docker, git, terraform, ...) and have tools
-  // like `git`/`gh` find their config (e.g. `gh auth setup-git`, which fails
-  // outright without $HOME) without every secrets:-scoped workflow having to
-  // remember to declare them like actual secrets.
-  const env: Record<string, string> = { PATH: Deno.env.get("PATH") ?? "", HOME: Deno.env.get("HOME") ?? "" };
-  for (const name of secrets) {
-    const value = callerVars[name] ?? Deno.env.get(name);
-    if (value === undefined) {
-      throw new WorkflowSecretsError(`"secrets" declares "${name}", which isn't set in the environment.`);
-    }
-    env[name] = value;
-  }
-  return env;
 }
 
 function matrixInstanceLabel(jobId: string, combo: Record<string, unknown>): string {
@@ -185,13 +156,7 @@ export async function runWorkflow(
   options: RunWorkflowOptions,
 ): Promise<RunWorkflowResult> {
   const callerVars = { ...workflow.variables, ...options.variables };
-  const variables = {
-    ...resolveSecretsEnv(workflow.secrets, callerVars),
-    ...callerVars,
-  };
-  if (options.repoRoot !== undefined) {
-    variables.ENSEMBLE_WORKSPACE = options.repoRoot;
-  }
+  const contextSource = options.contextSource ?? (Deno.env.get("ENSEMBLE_CONTEXT_SOURCE") as ContextSource | undefined);
   const concurrency = options.concurrency ?? Infinity;
 
   let batches = buildBatches(workflow);
@@ -217,11 +182,29 @@ export async function runWorkflow(
       options.localRepositoryOverrides,
     );
 
-    const context = workflow.contexts !== undefined
-      ? await resolveContext(workflow.contexts, options.context, options.workflowDir, runDir)
-      : (options.context !== undefined && options.repoRoot !== undefined
-        ? { name: options.context, path: join(options.repoRoot, "contexts", options.context) }
-        : undefined);
+    const resolved = await resolveContext(
+      workflow.context,
+      options.context,
+      options.workflowDir,
+      runDir,
+      contextSource,
+      callerVars,
+      options.repoRoot,
+    );
+    // PATH/HOME locate binaries and per-user config/state on disk, not
+    // credentials — always forwarded so `run:`/`script:` steps can still
+    // shell out to bare command names (docker, git, terraform, ...) and have
+    // tools like `git`/`gh` find their config regardless of whether this
+    // workflow declares any `context.secrets` at all.
+    const variables: Record<string, string> = {
+      PATH: Deno.env.get("PATH") ?? "",
+      HOME: Deno.env.get("HOME") ?? "",
+      ...resolved.env,
+      ...callerVars,
+    };
+    if (options.repoRoot !== undefined) {
+      variables.ENSEMBLE_WORKSPACE = options.repoRoot;
+    }
 
     for (const batch of batches) {
       const results = pooledMap(
@@ -241,12 +224,12 @@ export async function runWorkflow(
             needsResult = { result: "skipped", outputs: {} };
             durationMs = logger.flush("skipped");
           } else if (job.matrix !== undefined) {
-            const root = buildRootContext(variables, outcomes, undefined, options.trigger, context, repositories);
+            const root = buildRootContext(variables, outcomes, undefined, options.trigger, repositories);
             const matrixRun = await runMatrixJob(jobId, job, root, options.workflowDir, runDir, concurrency);
             needsResult = matrixRun.needsResult;
             durationMs = matrixRun.durationMs;
           } else {
-            const root = buildRootContext(variables, outcomes, undefined, options.trigger, context, repositories);
+            const root = buildRootContext(variables, outcomes, undefined, options.trigger, repositories);
             const outcome = await runJob(
               job,
               root,
