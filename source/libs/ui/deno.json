@@ -19,6 +19,7 @@
     "./components/tabs": "./components/tabs.tsx",
     "./components/tooltip": "./components/tooltip.tsx",
     "./components/ui/dropdown-menu": "./components/ui/dropdown-menu.tsx",
+    "./components/ui/select": "./components/ui/select.tsx",
     "./components/ui/table": "./components/ui/table.tsx",
     "./hooks/use-mobile": "./hooks/use-mobile.ts",
     "./lib/utils": "./lib/utils.ts"

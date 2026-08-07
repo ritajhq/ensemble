@@ -71,6 +71,18 @@ export {
   ResizablePanel,
   ResizablePanelGroup,
 } from "./components/resizable.tsx";
+export {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectScrollDownButton,
+  SelectScrollUpButton,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from "./components/ui/select.tsx";
 export { Separator } from "./components/separator.tsx";
 export {
   Sheet,

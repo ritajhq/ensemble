@@ -10,6 +10,11 @@ import { TriggerIcon, triggerTypeLabel } from "../lib/triggers.tsx";
 import {
   Button,
   Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Sheet,
   SheetContent,
   SheetDescription,
@@ -174,15 +179,14 @@ function ContextField(
         Context
         {contexts.defaultName === undefined && <span className="text-destructive"> *</span>}
       </label>
-      <select
-        id="manual-trigger-context"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
-      >
-        <option value="" disabled>Select a context…</option>
-        {contexts.names.map((name) => <option key={name} value={name}>{name}</option>)}
-      </select>
+      <Select value={value || undefined} onValueChange={(next) => onChange(next ?? "")}>
+        <SelectTrigger id="manual-trigger-context" className="w-full">
+          <SelectValue placeholder="Select a context…" />
+        </SelectTrigger>
+        <SelectContent>
+          {contexts.names.map((name) => <SelectItem key={name} value={name}>{name}</SelectItem>)}
+        </SelectContent>
+      </Select>
     </div>
   );
 }
