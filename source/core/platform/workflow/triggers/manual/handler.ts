@@ -1,4 +1,4 @@
-import { decodeWorkflowId, getWorkflowByName, trackedRunWorkflowByName } from "@ensemble/core";
+import { decodeWorkflowId, getWorkflowByName, syncGitIntegrationForWorkflow, trackedRunWorkflowByName } from "@ensemble/core";
 import { isAuthorizedFor } from "../../../auth/tokens.ts";
 import { extractManualInputs, ManualInputError, resolveJobInput } from "./extract.ts";
 import { isManualTriggerRequest, type ManualTriggerResponse } from "./contract.ts";
@@ -40,6 +40,7 @@ export async function handleManualTrigger(
 
   let workflow;
   try {
+    await syncGitIntegrationForWorkflow(name);
     ({ workflow } = await getWorkflowByName(name));
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 404 });

@@ -12,6 +12,7 @@ import {
   listWorkflows,
   readWorkflowFile,
   subscribeToRun,
+  syncGitIntegrationForWorkflow,
   trackedRunWorkflowByName,
 } from "@ensemble/core";
 import { setCookie } from "@std/http/cookie";
@@ -177,6 +178,7 @@ export async function handleRunWorkflow(
   if ("errorResponse" in resolved) return resolved.errorResponse;
 
   try {
+    await syncGitIntegrationForWorkflow(resolved.name);
     const success = await trackedRunWorkflowByName(resolved.name, { trigger: { type: "manual" } });
     return Response.json({ success } satisfies RunWorkflowResponse);
   } catch (error) {

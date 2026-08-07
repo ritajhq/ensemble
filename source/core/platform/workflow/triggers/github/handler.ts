@@ -1,4 +1,4 @@
-import { listWorkflows, trackedRunWorkflowByName } from "@ensemble/core";
+import { listWorkflows, syncAllGitIntegrations, trackedRunWorkflowByName } from "@ensemble/core";
 import { extractTagFromRef, matchesAnyTagPattern } from "./match.ts";
 import { verifyGithubSignature } from "./signature.ts";
 
@@ -63,6 +63,8 @@ export async function handleGithubTrigger(request: Request): Promise<Response> {
   if (!tag) {
     return new Response(null, { status: 204 }); // not a tag push
   }
+
+  await syncAllGitIntegrations();
 
   const workflows = await listWorkflows();
 

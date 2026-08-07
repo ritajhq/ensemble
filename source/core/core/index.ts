@@ -61,6 +61,8 @@ export {
   type ResolvedWorkflow,
   type RunWorkflowByNameOptions,
   runWorkflowByName,
+  syncAllGitIntegrations,
+  syncGitIntegrationForWorkflow,
   trackedRunWorkflowByName,
   type WorkflowFileNode,
 } from "./workflow.ts";

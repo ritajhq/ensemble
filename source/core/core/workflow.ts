@@ -7,6 +7,8 @@ import { parseWorkflowFile, runWorkflow, type RunWorkflowResult, type Workflow, 
 import { trackedRunWorkflow } from "./runs.ts";
 import { runWorkflowInContainer } from "./run-workflow-in-container.ts";
 import { getLocalRepositoryOverrides, loadLocalConfig } from "./config.ts";
+import { refreshGitRepository } from "./git-integration.ts";
+import { getGitRepository, listGitRepositories } from "./git-repositories.ts";
 
 export interface RunWorkflowByNameOptions {
   /** Run only this job (or these jobs) and their transitive dependencies. */
@@ -209,13 +211,54 @@ export async function createWorkflowArchive(workflowDir: string): Promise<Readab
 }
 
 /**
+ * If `name` belongs to a git-integrated project (i.e. it's shaped
+ * "<projectName>/<workflowName>" and that projectName has a
+ * GitRepositoryRecord), re-clones it so whatever reads it next sees the
+ * newest content on the remote — the same thing the dashboard's manual
+ * "refresh" button does, just automatic. A name with no "/", or one whose
+ * leading segment isn't actually an integrated project (a plain local
+ * workflow that merely contains a slash-like path), is left untouched: sync
+ * only ever applies to workflows that actually came from a git integration
+ * in the first place.
+ *
+ * Callers that both validate a workflow's declared trigger AND then run it
+ * (the manual/github-manual trigger handlers) must call this once, before
+ * their *first* getWorkflowByName — not rely on runWorkflowByName's own
+ * internal resolution, which happens too late for that earlier validation
+ * to see fresh content, and calling it again there would re-clone twice per
+ * run for no benefit.
+ */
+export async function syncGitIntegrationForWorkflow(name: string): Promise<void> {
+  const slash = name.indexOf("/");
+  if (slash === -1) return;
+  const projectName = name.slice(0, slash);
+  const record = await getGitRepository(projectName);
+  if (!record) return;
+  await refreshGitRepository(projectName);
+}
+
+/**
+ * Re-clones every git-integrated project, in parallel. For the real GitHub
+ * webhook path (github/handler.ts), which doesn't know in advance which
+ * project(s) a pushed tag might match — it scans every workflow via
+ * listWorkflows() first — so it can't target syncGitIntegrationForWorkflow
+ * at just one project the way the other trigger paths can.
+ */
+export async function syncAllGitIntegrations(): Promise<void> {
+  const records = await listGitRepositories();
+  await Promise.all(records.map((record) => refreshGitRepository(record.projectName)));
+}
+
+/**
  * Resolves a workflow by name (workflows/<name>/workflow.yml) and runs it to
  * completion — in-process, or inside a spawned runner container when
  * `options.containerized` is set. Pure: no run tracking/KV/persistence here
  * — that's a platform-layer concern, added by wrapping this in
  * `trackedRunWorkflowByName` (below) rather than baked in here, so a plain
  * local `ens workflow` run (or the containerized run's own inner invocation)
- * never needs `.ensemble/platform/runs.kv` to exist at all.
+ * never needs `.ensemble/platform/runs.kv` to exist at all. Does not sync
+ * git-integration state itself — callers that haven't already done so (see
+ * syncGitIntegrationForWorkflow) should call it before this.
  */
 export async function runWorkflowByName(
   name: string,
