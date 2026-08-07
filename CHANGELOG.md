@@ -1,3 +1,99 @@
+## [0.0.25-test] - 2026-08-07
+
+### 🐛 Bug Fixes
+
+- *(workflow)* Move docker login step to the beginning of the release job
+## [0.0.24-test] - 2026-08-06
+
+### 🚀 Features
+
+- *(workflow)* Add secrets: to scope which env vars steps can read
+
+### 🚜 Refactor
+
+- *(workflows/release)* Docker login once per job instead of per push step
+## [0.0.23-test] - 2026-08-06
+
+### 🚀 Features
+
+- *(workflow)* Add resources.repositories for declarative checkout
+- *(ship)* Add dedicated runner image, trim server to just docker-cli
+- *(workflow)* Run server-triggered workflows in a spawned container
+- *(workflows/local)* Wire docker socket + host path so server can spawn runner containers
+- *(workflow)* Allow local config.local.yaml overrides for resources.repositories
+- *(workflow)* Add step-level in.repository to default a step's cwd to a checkout
+- *(workflows)* Convert server and local to resources.repositories + in.repository
+- *(workflow)* Allow job-level in.repository as every step's default
+- *(workflow)* Add contexts: for required, validated, local-or-remote deploy contexts
+- *(workflows/deploy)* Add deploy workflow for ensemble's own server+web via Terraform
+- *(workflow)* Add packing and pushing steps for runner
+- *(ship/server)* Add git and curl
+- *(workflow/server)* Split in multiple jobs
+- *(workflow/server)* Add manual job input for workflow
+- *(workflow)* Support running multiple jobs via -j/--job and manual job inputs
+
+### 🐛 Bug Fixes
+
+- *(workflows/release)* Install git-cliff to /tmp instead of /usr/local/bin
+- *(workflow/server)* Dedupe compile_cli into its own job to avoid a concurrent-write race
+- *(core)* Mount docker socket into spawned runner containers
+- *(core)* Forward server's env into spawned runner containers
+
+### 🚜 Refactor
+
+- *(core/config)* Namespace local repository overrides under workflows:
+
+### 📚 Documentation
+
+- Document resources.repositories, in:, and container-per-run deployment
+## [0.0.22-test] - 2026-08-05
+
+### 🐛 Bug Fixes
+
+- *(kits/build/react.spa)* Download the musl Tailwind binary on Alpine, install libstdc++/libgcc to run it
+## [0.0.20-test] - 2026-08-05
+
+### 🚀 Features
+
+- *(dashboard)* Add realtime run/step status via SSE
+- *(dashboard)* Add run deletion with confirmation dialog
+
+### 🐛 Bug Fixes
+
+- *(core)* Prefer walking cwd over ENSEMBLE_WORKSPACE in findRepoRoot
+- *(kits/pack/docker)* Disable build cache to avoid stale COPY --from=packages layers
+- *(ship/server)* Copy ensemble-linux-x64 instead of stale cli.exe
+- *(core)* Silence remaining deno subprocess logs, chunk step logs to fit Deno KV's size limit
+- *(apps/web)* Update import path for Table component
+- *(workflow/server)* Add production flag to build_server and build_web steps
+## [0.0.19-test] - 2026-08-05
+
+### 🚀 Features
+
+- *(workflows/server)* Log in to registry before pushing server image
+- *(workflows/server)* Add packing and pushing for web artifacts
+- *(ship/web)* Use hot-server image
+
+### 🐛 Bug Fixes
+
+- *(workflows)* Add manual publishing to workflow server and correct s3 path in workflow release
+- *(deno)* Silence download/cache output with -q flag
+- *(ship/server)* Install minio-client and alias it to mc
+- *(ship/server)* Add env vars in dockerfile as reference
+- *(workflows/server)* Correct s3 env var names
+- *(workflows/server)* Cd to ENSEMBLE_WORKSPACE before referencing source/ paths
+- *(workflows)* Correct release bucket name
+- *(workflows/server)* Mirror web artifacts instead of cp to avoid stale files
+- *(workflows/release)* Mirror web artifacts instead of cp to avoid stale files
+- *(ship/server)* Remove secrets from Dockerfile ENV to avoid baking them into image layers
+- *(workflows/server)* Add hot-server publishing
+- *(workflows/server)* Simplify hot-server packing and tagging
+- *(platform)* Remove dashboard-static feature, hot-server owns serving the web app
+- *(workflows/release)* Update web image build and publish steps for production
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.0.18-test
 ## [0.0.18-test] - 2026-08-05
 
 ### 🚀 Features
