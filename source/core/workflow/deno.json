@@ -9,6 +9,7 @@
     "@std/assert": "jsr:@std/assert@1.0.14",
     "@david/which": "jsr:@david/which@0.4.2",
     "@actions/expressions": "npm:@actions/expressions@0.3.60",
+    "@actions/expressions/ast": "npm:@actions/expressions@0.3.60/ast",
     "@ritaj/event": "jsr:@ritaj/event"
   }
 }

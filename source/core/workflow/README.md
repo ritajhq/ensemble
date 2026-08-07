@@ -490,7 +490,15 @@ killed by fail-fast exits via its process signal, not a normal error.
 - `needs.<job>.result` / `needs.<job>.outputs.*` — already-completed jobs
   (array-shaped per-key if `<job>` is matrixed — see "Matrix jobs").
 - `steps.<id>.outputs.*` — steps completed earlier in the *same* job (only
-  steps with an explicit `id:` are addressable).
+  steps with an explicit `id:` are addressable). Every statically-resolvable
+  `steps.<id>` reference (i.e. not a dynamic index like `steps[expr]`) in a
+  job's own `if:`, or any of its steps' `if:`/`name:`/`run:`, is checked at
+  **parse time** against that job's own declared step ids — `<id>` must be a
+  real id declared *earlier* in the same job (a job-level `if:` can't
+  reference any step at all, since none have run yet when it's evaluated).
+  A stale, misspelled, or forward-referenced id fails `parseWorkflowFile`
+  immediately with a clear error, instead of silently evaluating to the
+  string `"null"` at run time.
 - `matrix.*` — the current instance's own combination, only present inside
   a matrixed job's own steps/`if:` (absent, and therefore an error to
   reference, everywhere else).
@@ -509,9 +517,11 @@ killed by fail-fast exits via its process signal, not a normal error.
   common way to use this (defaulting that job's/step's `cwd` to it); the
   path is also usable directly, e.g. `run: cat ${{ repositories.ensemble.path }}/CHANGELOG.md`.
 
-Referencing an unrecognized context path (e.g. `nonexistent.path`) throws a
-`WorkflowExpressionError` immediately — it does not silently evaluate to
-`undefined` and continue.
+Referencing an unrecognized top-level context name (e.g. `nonexistent.path`)
+throws a `WorkflowExpressionError` immediately — it does not silently
+evaluate to `undefined` and continue. `steps.<id>` specifically is checked
+even earlier, at parse time (see above), since a step id's validity is known
+statically from the job's own step list.
 
 ## Programmatic API
 

@@ -1,4 +1,5 @@
 import { parse as parseYaml } from "@std/yaml";
+import { findStaticStepReferences } from "./expressions.ts";
 import type {
   ContextEntry,
   Contexts,
@@ -361,6 +362,40 @@ function validateContexts(file: string, raw: unknown): Contexts | undefined {
   return { default: raw.default as string | undefined, entries };
 }
 
+/**
+ * Statically checks every `steps.<id>` reference in a job's own `if:` and
+ * its steps' `run:`/`name:`/`if:` against step ids actually declared earlier
+ * in that same job — matching real runtime semantics exactly (run-job.ts
+ * only populates ctx.steps[id] as each step completes, so a job-level `if:`
+ * can't see any step, and a step can only see steps before it). Catches a
+ * stale/renamed/forward-referenced step id at parse time instead of it
+ * silently evaluating to the string "null" at run time (see
+ * expressions.ts's findStaticStepReferences for how references are found;
+ * this only rejects statically-resolvable references it can prove wrong —
+ * a dynamic index like `steps[someExpr]` is never flagged).
+ */
+function validateStepReferences(file: string, jobId: string, job: Job): void {
+  const checkText = (where: string, text: string | undefined, visibleIds: Set<string>) => {
+    if (text === undefined) return;
+    for (const id of findStaticStepReferences(text)) {
+      if (!visibleIds.has(id)) {
+        fail(file, `${where} references "steps.${id}", which isn't a step id declared earlier in job "${jobId}".`);
+      }
+    }
+  };
+
+  checkText(`job "${jobId}"'s "if"`, job.if, new Set());
+
+  const visibleIds = new Set<string>();
+  for (const [index, step] of job.steps.entries()) {
+    const where = `job "${jobId}" step #${index + 1}`;
+    checkText(`${where}'s "if"`, step.if, visibleIds);
+    checkText(`${where}'s "name"`, step.name, visibleIds);
+    checkText(`${where}'s "run"`, step.run, visibleIds);
+    if (step.id !== undefined) visibleIds.add(step.id);
+  }
+}
+
 function validateJob(file: string, jobId: string, raw: unknown): Job {
   if (!isRecord(raw)) {
     fail(file, `job "${jobId}" must be a mapping.`);
@@ -390,13 +425,15 @@ function validateJob(file: string, jobId: string, raw: unknown): Job {
     seenIds.add(step.id);
   }
 
-  return {
+  const job: Job = {
     needs: raw.needs as string[] | undefined,
     if: raw.if as string | undefined,
     matrix,
     in: jobIn,
     steps,
   };
+  validateStepReferences(file, jobId, job);
+  return job;
 }
 
 /** Reads and validates a workflow YAML file, throwing WorkflowParseError with file context on failure. */

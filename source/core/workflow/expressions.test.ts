@@ -1,5 +1,5 @@
 import { assertEquals, assertThrows } from "@std/assert";
-import { evaluate, evaluateCondition, interpolate } from "./expressions.ts";
+import { evaluate, evaluateCondition, findStaticStepReferences, interpolate } from "./expressions.ts";
 
 Deno.test("evaluate: literal equality", () => {
   assertEquals(evaluate("1 == 2", {}), false);
@@ -70,4 +70,48 @@ Deno.test("interpolate: multiple expressions in one string", () => {
 Deno.test("interpolate: non-string result is stringified", () => {
   const ctx = { steps: { a: { outputs: { ok: "true" } } } };
   assertEquals(interpolate("result is ${{ steps.a.outputs.ok == 'true' }}", ctx), "result is true");
+});
+
+Deno.test("findStaticStepReferences: finds a simple dot-access reference", () => {
+  assertEquals(findStaticStepReferences('VERSION="${{ steps.tag.outputs.tag }}"'), ["tag"]);
+});
+
+Deno.test("findStaticStepReferences: finds multiple references in one string", () => {
+  assertEquals(
+    findStaticStepReferences('echo "${{ steps.a.outputs.x }} and ${{ steps.b.outputs.y }}"'),
+    ["a", "b"],
+  );
+});
+
+Deno.test("findStaticStepReferences: finds a reference inside a comparison", () => {
+  assertEquals(findStaticStepReferences("${{ steps.checkout.outputs.tag == '1.0' }}"), ["checkout"]);
+});
+
+Deno.test("findStaticStepReferences: finds references combined with &&", () => {
+  assertEquals(
+    findStaticStepReferences("${{ steps.a.result == 'success' && steps.b.result == 'success' }}"),
+    ["a", "b"],
+  );
+});
+
+Deno.test("findStaticStepReferences: finds a reference under negation and grouping", () => {
+  assertEquals(findStaticStepReferences("${{ !steps.a.outputs.failed }}"), ["a"]);
+  assertEquals(findStaticStepReferences("${{ (steps.a.outputs.x) }}"), ["a"]);
+});
+
+Deno.test("findStaticStepReferences: finds a bracket-string-literal reference", () => {
+  assertEquals(findStaticStepReferences("${{ steps['weird id'].outputs.x }}"), ["weird id"]);
+});
+
+Deno.test("findStaticStepReferences: skips a dynamic index rather than false-flagging it", () => {
+  assertEquals(findStaticStepReferences("${{ steps[variables.dynamicId].outputs.x }}"), []);
+});
+
+Deno.test("findStaticStepReferences: ignores non-steps references", () => {
+  assertEquals(findStaticStepReferences("${{ needs.build.result }}"), []);
+  assertEquals(findStaticStepReferences("${{ trigger.sha }}"), []);
+});
+
+Deno.test("findStaticStepReferences: text with no expression returns nothing", () => {
+  assertEquals(findStaticStepReferences("no expression here"), []);
 });

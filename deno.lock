@@ -39,6 +39,7 @@
     "jsr:@std/tar@0.1.10": "0.1.10",
     "jsr:@std/text@^1.0.19": "1.0.19",
     "jsr:@std/yaml@1.1.2": "1.1.2",
+    "npm:@actions/expressions@*": "0.3.60",
     "npm:@actions/expressions@0.3.60": "0.3.60",
     "npm:@base-ui/react@1.6.0": "1.6.0_@types+react@19.2.17_react@19.2.8_react-dom@19.2.8__react@19.2.8",
     "npm:@opentelemetry/exporter-trace-otlp-http@0.57.0": "0.57.0_@opentelemetry+api@1.9.1",

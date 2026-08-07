@@ -1275,6 +1275,109 @@ jobs:
   );
 });
 
+Deno.test("parseWorkflowFile: steps.<id> referencing an undeclared step id fails", async () => {
+  await withFixture(
+    "steps-ref-undeclared.yml",
+    `
+jobs:
+  release:
+    steps:
+      - id: tag
+        run: echo "tag=1.0" >> "$WORKFLOW_OUTPUT"
+      - run: echo "\${{ steps.checkout.outputs.tag }}"
+`,
+    async (path) => {
+      await assertRejects(
+        () => parseWorkflowFile(path),
+        WorkflowParseError,
+        'references "steps.checkout", which isn\'t a step id declared earlier',
+      );
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: steps.<id> referencing a step declared later in the same job fails", async () => {
+  await withFixture(
+    "steps-ref-forward.yml",
+    `
+jobs:
+  build:
+    steps:
+      - run: echo "\${{ steps.later.outputs.x }}"
+      - id: later
+        run: echo "x=1" >> "$WORKFLOW_OUTPUT"
+`,
+    async (path) => {
+      await assertRejects(
+        () => parseWorkflowFile(path),
+        WorkflowParseError,
+        'references "steps.later", which isn\'t a step id declared earlier',
+      );
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: steps.<id> referencing a step declared earlier parses fine", async () => {
+  await withFixture(
+    "steps-ref-valid.yml",
+    `
+jobs:
+  build:
+    steps:
+      - id: first
+        run: echo "x=1" >> "$WORKFLOW_OUTPUT"
+      - run: echo "\${{ steps.first.outputs.x }}"
+        name: "value is \${{ steps.first.outputs.x }}"
+        if: \${{ steps.first.outputs.x == '1' }}
+`,
+    async (path) => {
+      const workflow = await parseWorkflowFile(path);
+      assertEquals(workflow.jobs.build.steps.length, 2);
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: a job-level if: referencing steps.<id> always fails (no step has run yet)", async () => {
+  await withFixture(
+    "job-if-refs-step.yml",
+    `
+jobs:
+  build:
+    if: \${{ steps.first.outputs.x == '1' }}
+    steps:
+      - id: first
+        run: echo "x=1" >> "$WORKFLOW_OUTPUT"
+`,
+    async (path) => {
+      await assertRejects(
+        () => parseWorkflowFile(path),
+        WorkflowParseError,
+        'references "steps.first", which isn\'t a step id declared earlier',
+      );
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: steps.<id> reference via a dynamic index is not statically checked", async () => {
+  await withFixture(
+    "steps-ref-dynamic.yml",
+    `
+variables:
+  WHICH: first
+jobs:
+  build:
+    steps:
+      - id: first
+        run: echo "x=1" >> "$WORKFLOW_OUTPUT"
+      - run: echo "\${{ steps[variables.WHICH].outputs.x }}"
+`,
+    async (path) => {
+      const workflow = await parseWorkflowFile(path);
+      assertEquals(workflow.jobs.build.steps.length, 2);
+    },
+  );
+});
+
 Deno.test("parseWorkflowFile: step with neither run nor script fails", async () => {
   await withFixture(
     "neither-run-nor-script.yml",

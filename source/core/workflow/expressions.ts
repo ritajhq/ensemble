@@ -1,4 +1,5 @@
 import { data, Evaluator, ExpressionError, ExpressionEvaluationError, Lexer, Parser } from "@actions/expressions";
+import { Binary, ContextAccess, FunctionCall, Grouping, IndexAccess, Literal, Logical, Unary } from "@actions/expressions/ast";
 
 /** Thrown when an expression fails to parse or evaluate (e.g. an unrecognized context path). */
 export class WorkflowExpressionError extends Error {}
@@ -108,7 +109,98 @@ export function evaluateCondition(expr: string, context: Record<string, JsonValu
   return isTruthy(parseAndEvaluate(expr, context));
 }
 
+/**
+ * Walks a parsed expression AST to reconstruct a static dotted path (e.g.
+ * `steps.checkout.outputs.tag` -> ["steps", "checkout", "outputs", "tag"]),
+ * without evaluating against real data. Returns undefined for anything not
+ * statically resolvable (e.g. a dynamic index like `steps[someExpr]`) —
+ * those are skipped by callers rather than false-flagged.
+ */
+function extractStaticPath(node: unknown): string[] | undefined {
+  if (node instanceof ContextAccess) {
+    return [node.name.lexeme];
+  }
+  if (node instanceof IndexAccess) {
+    const base = extractStaticPath(node.expr);
+    if (base === undefined) return undefined;
+    if (node.index instanceof Literal && node.index.literal instanceof data.StringData) {
+      return [...base, node.index.literal.value];
+    }
+    return undefined;
+  }
+  return undefined;
+}
+
 const EXPR_REF = /\$\{\{(.*?)\}\}/gs;
+
+/**
+ * Every top-level context name a workflow expression can ever reference
+ * (see context.ts's RootContext/JobContext) — used only to let the parser
+ * accept a reference to any of them without throwing "unrecognized
+ * named-value"; findStaticStepReferences only cares about `steps.*` paths,
+ * ignoring the rest.
+ */
+const ALL_CONTEXT_NAMES = ["variables", "needs", "matrix", "trigger", "context", "repositories", "steps"];
+
+/**
+ * Statically finds every `steps.<id>...` reference inside `text` (e.g. a
+ * step's `run:`/`name:`/`if:`), without evaluating anything — for parse-time
+ * validation that a referenced step id is real (see parse.ts). Skips
+ * anything that doesn't parse or isn't statically resolvable (e.g. a dynamic
+ * index like `steps[someExpr]`) rather than throwing; those still fail
+ * normally at run time via the existing evaluate()/interpolate() path.
+ */
+export function findStaticStepReferences(text: string): string[] {
+  const ids: string[] = [];
+  for (const match of text.matchAll(EXPR_REF)) {
+    try {
+      const lexer = new Lexer(unwrap(match[0]));
+      const { tokens } = lexer.lex();
+      const parser = new Parser(tokens, ALL_CONTEXT_NAMES, []);
+      const ast = parser.parse();
+      walkForStepReferences(ast, ids);
+    } catch {
+      // Genuinely malformed, or references a function/context name outside
+      // ALL_CONTEXT_NAMES — let the real evaluator surface this at run time.
+    }
+  }
+  return ids;
+}
+
+/** Recursively visits every sub-expression, collecting the step id from any statically-resolvable `steps.<id>...` reference found. */
+function walkForStepReferences(node: unknown, out: string[]): void {
+  if (node instanceof IndexAccess) {
+    const path = extractStaticPath(node);
+    if (path !== undefined && path.length >= 2 && path[0] === "steps") {
+      out.push(path[1]);
+      return;
+    }
+    walkForStepReferences(node.expr, out);
+    walkForStepReferences(node.index, out);
+    return;
+  }
+  if (node instanceof Unary) {
+    walkForStepReferences(node.expr, out);
+    return;
+  }
+  if (node instanceof Binary) {
+    walkForStepReferences(node.left, out);
+    walkForStepReferences(node.right, out);
+    return;
+  }
+  if (node instanceof Logical) {
+    for (const arg of node.args) walkForStepReferences(arg, out);
+    return;
+  }
+  if (node instanceof Grouping) {
+    walkForStepReferences(node.group, out);
+    return;
+  }
+  if (node instanceof FunctionCall) {
+    for (const arg of node.args) walkForStepReferences(arg, out);
+    return;
+  }
+}
 
 /** Replaces every `${{ ... }}` occurrence in `text` with its evaluated value (stringified if not already a string). Text with no occurrences passes through unchanged. */
 export function interpolate(text: string, context: Record<string, JsonValue>): string {
