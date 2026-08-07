@@ -17,6 +17,14 @@ export interface WorkflowGithubTriggerSummary {
 /** One entry of a workflow's `on:` list, as shown/used by the dashboard. */
 export type WorkflowTriggerSummary = WorkflowManualTriggerSummary | WorkflowGithubTriggerSummary;
 
+/** A workflow's declared `contexts:`, as shown/used by the dashboard — just enough for a UI to offer a picker, not the resolved contents. */
+export interface WorkflowContextsSummary {
+  /** Names of every entry under `contexts.entries`. */
+  names: string[];
+  /** `contexts.default`, if set — the name a UI should preselect. */
+  defaultName?: string;
+}
+
 export interface WorkflowSummary {
   /** URL-safe id — use this (not `name`) when building a route/API path for this workflow. */
   id: string;
@@ -25,6 +33,8 @@ export interface WorkflowSummary {
   lastRunAt?: string;
   /** This workflow's declared `on:` triggers, if any — empty when it only runs via direct invocation. */
   triggers: WorkflowTriggerSummary[];
+  /** This workflow's declared `contexts:`, if any — absent when it declares none (no --context required or offered). */
+  contexts?: WorkflowContextsSummary;
 }
 
 export interface ListWorkflowsResponse {

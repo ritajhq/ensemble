@@ -1,5 +1,8 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ritajhq/ensemble/main/.ensemble/schemas/workflow.schema.json
 
+on:
+  - manual: {}
+
 resources:
   repositories:
     ensemble:

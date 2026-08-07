@@ -28,14 +28,20 @@ import type {
   ReadWorkflowFileResponse,
   RunJobNode,
   RunWorkflowResponse,
+  WorkflowContextsSummary,
   WorkflowTriggerSummary,
 } from "./contract.ts";
-import type { Trigger } from "@ensemble/workflow";
+import type { Contexts, Trigger } from "@ensemble/workflow";
 
 function summarizeTrigger(trigger: Trigger, jobIds: string[]): WorkflowTriggerSummary | undefined {
   if (trigger.manual) return { type: "manual", inputs: trigger.manual.inputs ?? [], jobs: jobIds };
   if (trigger.github) return { type: "github", tagPatterns: trigger.github.push.tags };
   return undefined;
+}
+
+function summarizeContexts(contexts: Contexts | undefined): WorkflowContextsSummary | undefined {
+  if (contexts === undefined) return undefined;
+  return { names: Object.keys(contexts.entries), defaultName: contexts.default };
 }
 
 /** Decodes the ":id" route param back into a workflow name, or responds 400 if missing/invalid. */
@@ -69,7 +75,14 @@ export async function handleListWorkflows(request: Request): Promise<Response> {
     const triggers = (workflow.on ?? [])
       .map((trigger) => summarizeTrigger(trigger, jobIds))
       .filter((t): t is WorkflowTriggerSummary => t !== undefined);
-    return { id: encodeWorkflowId(name), name, lastStatus: latest?.status, lastRunAt: latest?.startedAt, triggers };
+    return {
+      id: encodeWorkflowId(name),
+      name,
+      lastStatus: latest?.status,
+      lastRunAt: latest?.startedAt,
+      triggers,
+      contexts: summarizeContexts(workflow.contexts),
+    };
   }));
 
   return Response.json({ workflows } satisfies ListWorkflowsResponse);

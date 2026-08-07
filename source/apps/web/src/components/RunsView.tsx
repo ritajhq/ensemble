@@ -1,6 +1,13 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import { deleteRun, fetchRuns, fetchWorkflows, type RunRecord, type WorkflowTriggerSummary } from "../lib/api.ts";
+import {
+  deleteRun,
+  fetchRuns,
+  fetchWorkflows,
+  type RunRecord,
+  type WorkflowContextsSummary,
+  type WorkflowTriggerSummary,
+} from "../lib/api.ts";
 import { formatDuration, formatRelativeTime, statusVariant } from "../lib/status.ts";
 import { TriggerRunSheet } from "./TriggerRunSheet.tsx";
 import {
@@ -36,9 +43,10 @@ const ACTIVE_RUN_FIELDS: {
 ];
 
 function ActiveRunCard(
-  { workflowId, triggers, run, onRun }: {
+  { workflowId, triggers, contexts, run, onRun }: {
     workflowId: string;
     triggers: WorkflowTriggerSummary[];
+    contexts?: WorkflowContextsSummary;
     run: RunRecord | null;
     onRun: () => void;
   },
@@ -49,7 +57,13 @@ function ActiveRunCard(
         <span className="text-sm font-medium">Active run</span>
         <div className="flex items-center gap-2">
           {triggers.map((trigger, index) => (
-            <TriggerRunSheet key={index} workflowId={workflowId} trigger={trigger} onTriggered={onRun} />
+            <TriggerRunSheet
+              key={index}
+              workflowId={workflowId}
+              trigger={trigger}
+              contexts={contexts}
+              onTriggered={onRun}
+            />
           ))}
         </div>
       </div>
@@ -168,6 +182,7 @@ export function RunsView() {
   const { workflowId = "" } = useParams();
   const [runs, setRuns] = useState<RunRecord[] | null>(null);
   const [triggers, setTriggers] = useState<WorkflowTriggerSummary[]>([]);
+  const [contexts, setContexts] = useState<WorkflowContextsSummary | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
 
   function refetchRuns() {
@@ -179,7 +194,11 @@ export function RunsView() {
     setError(null);
     refetchRuns();
     fetchWorkflows()
-      .then((workflows) => setTriggers(workflows.find((w) => w.id === workflowId)?.triggers ?? []))
+      .then((workflows) => {
+        const workflow = workflows.find((w) => w.id === workflowId);
+        setTriggers(workflow?.triggers ?? []);
+        setContexts(workflow?.contexts);
+      })
       .catch(() => {});
   }, [workflowId]);
 
@@ -192,6 +211,7 @@ export function RunsView() {
           <ActiveRunCard
             workflowId={workflowId}
             triggers={triggers}
+            contexts={contexts}
             run={runs[0] ?? null}
             onRun={refetchRuns}
           />

@@ -28,6 +28,14 @@ export interface WorkflowGithubTriggerSummary {
 
 export type WorkflowTriggerSummary = WorkflowManualTriggerSummary | WorkflowGithubTriggerSummary;
 
+/** A workflow's declared `contexts:`, just enough for a UI to offer a picker. */
+export interface WorkflowContextsSummary {
+  /** Names of every entry under `contexts.entries`. */
+  names: string[];
+  /** `contexts.default`, if set — the name to preselect. */
+  defaultName?: string;
+}
+
 export interface WorkflowSummary {
   /** URL-safe id — use this (not `name`) when navigating to or fetching this workflow. */
   id: string;
@@ -36,6 +44,8 @@ export interface WorkflowSummary {
   lastRunAt?: string;
   /** This workflow's declared `on:` triggers, if any — empty when it only runs via direct invocation. */
   triggers: WorkflowTriggerSummary[];
+  /** This workflow's declared `contexts:`, if any — absent when it declares none. */
+  contexts?: WorkflowContextsSummary;
 }
 
 export interface StepRecord {
@@ -144,9 +154,18 @@ export async function fetchRuns(workflowId: string): Promise<RunRecord[]> {
   return runs;
 }
 
-/** Runs a workflow's declared manual trigger, submitting values for its `on: - manual: inputs`. */
-export async function triggerManualWorkflow(workflowId: string, inputs: Record<string, unknown>): Promise<void> {
-  await postJson(`/v1/workflows/${workflowId}/trigger`, { inputs });
+/**
+ * Runs a workflow's declared manual trigger, submitting values for its
+ * `on: - manual: inputs` and, separately, a `--context` selection when the
+ * workflow declares `contexts:` (unrelated to `inputs` — resolved
+ * server-side into `context.name`/`context.path`, not `trigger.*`).
+ */
+export async function triggerManualWorkflow(
+  workflowId: string,
+  inputs: Record<string, unknown>,
+  context?: string,
+): Promise<void> {
+  await postJson(`/v1/workflows/${workflowId}/trigger`, { inputs, context });
 }
 
 /** Runs a workflow's declared github trigger, simulating a tag push with hand-entered data. */

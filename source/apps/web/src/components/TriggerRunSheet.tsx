@@ -3,6 +3,7 @@ import {
   triggerGithubWorkflow,
   triggerManualWorkflow,
   type ManualInput,
+  type WorkflowContextsSummary,
   type WorkflowTriggerSummary,
 } from "../lib/api.ts";
 import { TriggerIcon, triggerTypeLabel } from "../lib/triggers.tsx";
@@ -163,23 +164,57 @@ function ManualInputField(
   );
 }
 
+/** Dropdown for a workflow's declared `contexts:` — resolved server-side into `context.name`/`context.path`, unrelated to `trigger.*`/`inputs`. */
+function ContextField(
+  { contexts, value, onChange }: { contexts: WorkflowContextsSummary; value: string; onChange: (value: string) => void },
+) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="text-xs text-muted-foreground" htmlFor="manual-trigger-context">
+        Context
+        {contexts.defaultName === undefined && <span className="text-destructive"> *</span>}
+      </label>
+      <select
+        id="manual-trigger-context"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+      >
+        <option value="" disabled>Select a context…</option>
+        {contexts.names.map((name) => <option key={name} value={name}>{name}</option>)}
+      </select>
+    </div>
+  );
+}
+
 function ManualTriggerForm(
-  { workflowId, inputs, jobs, onTriggered }: { workflowId: string; inputs: ManualInput[]; jobs: string[]; onTriggered: () => void },
+  { workflowId, inputs, jobs, contexts, onTriggered }: {
+    workflowId: string;
+    inputs: ManualInput[];
+    jobs: string[];
+    contexts?: WorkflowContextsSummary;
+    onTriggered: () => void;
+  },
 ) {
   const [values, setValues] = useState<ManualInputValues>(() => defaultManualValues(inputs));
+  const [context, setContext] = useState(() => contexts?.defaultName ?? "");
   const [status, setStatus] = useState<
     { state: "idle" } | { state: "loading" } | { state: "error"; message: string }
   >({ state: "idle" });
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    if (contexts !== undefined && context === "") {
+      setStatus({ state: "error", message: "A context is required." });
+      return;
+    }
     setStatus({ state: "loading" });
     try {
       const parsed: Record<string, unknown> = {};
       for (const input of inputs) {
         parsed[input.name] = parseManualValue(input, values[input.name]);
       }
-      await triggerManualWorkflow(workflowId, parsed);
+      await triggerManualWorkflow(workflowId, parsed, contexts !== undefined ? context : undefined);
       setStatus({ state: "idle" });
       onTriggered();
     } catch (error) {
@@ -189,7 +224,10 @@ function ManualTriggerForm(
 
   return (
     <form className="flex flex-col gap-3 p-4 pt-0" onSubmit={handleSubmit}>
-      {inputs.length === 0 && <p className="text-sm text-muted-foreground">This trigger takes no inputs.</p>}
+      {inputs.length === 0 && contexts === undefined && (
+        <p className="text-sm text-muted-foreground">This trigger takes no inputs.</p>
+      )}
+      {contexts !== undefined && <ContextField contexts={contexts} value={context} onChange={setContext} />}
       {inputs.map((input) => (
         <ManualInputField
           key={input.name}
@@ -271,7 +309,13 @@ function GithubTriggerForm(
 
 /** A trigger's run button — opens a sheet on the right to collect that trigger's inputs, then runs it. */
 export function TriggerRunSheet(
-  { workflowId, trigger, onTriggered }: { workflowId: string; trigger: WorkflowTriggerSummary; onTriggered: () => void },
+  { workflowId, trigger, contexts, onTriggered }: {
+    workflowId: string;
+    trigger: WorkflowTriggerSummary;
+    /** This workflow's declared `contexts:`, if any — only meaningful for a "manual" trigger's own form. */
+    contexts?: WorkflowContextsSummary;
+    onTriggered: () => void;
+  },
 ) {
   const [open, setOpen] = useState(false);
 
@@ -299,6 +343,7 @@ export function TriggerRunSheet(
               workflowId={workflowId}
               inputs={trigger.inputs}
               jobs={trigger.jobs}
+              contexts={contexts}
               onTriggered={() => {
                 setOpen(false);
                 onTriggered();
