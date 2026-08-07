@@ -57,7 +57,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          VERSION="${{ steps.checkout.outputs.tag }}"
+          VERSION="${{ steps.tag.outputs.tag }}"
 
           docker image tag server:latest registry.ritaj.app/ensemble/server:latest
           docker image tag server:latest registry.ritaj.app/ensemble/server:"$VERSION"
@@ -69,7 +69,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          VERSION="${{ steps.checkout.outputs.tag }}"
+          VERSION="${{ steps.tag.outputs.tag }}"
 
           docker image tag web:latest registry.ritaj.app/ensemble/web:latest
           docker image tag web:latest registry.ritaj.app/ensemble/web:"$VERSION"
@@ -80,7 +80,7 @@ jobs:
       - name: update_changelog
         run: |
           set -euo pipefail
-          tag="${{ steps.checkout.outputs.tag }}"
+          tag="${{ steps.tag.outputs.tag }}"
 
           cliff_version="2.13.1"
           git_cliff="/tmp/git-cliff-${cliff_version}/git-cliff"
@@ -118,7 +118,7 @@ jobs:
       - name: create_github_release
         run: |
           set -euo pipefail
-          tag="${{ steps.checkout.outputs.tag }}"
+          tag="${{ steps.tag.outputs.tag }}"
           gh release create "$tag" \
             source/artifacts/packages/ensemble-linux-x64 \
             --title "$tag" \
