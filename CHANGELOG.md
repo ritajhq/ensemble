@@ -1,3 +1,22 @@
+## [0.0.29-test] - 2026-08-07
+
+### 🐛 Bug Fixes
+
+- *(workflow)* Let secrets: be satisfied by caller variables, not just Deno.env
+- *(workflow)* Always forward HOME to secrets:-scoped steps
+## [0.0.28-test] - 2026-08-07
+
+### 🚀 Features
+
+- *(cli)* Add --env-file to ens workflow for loading variables/secrets from a .env file
+
+### 🐛 Bug Fixes
+
+- *(platform)* Resync git-integrated workflows automatically before every run
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for null
 ## [0.0.27-test] - 2026-08-07
 
 ### 🚀 Features
