@@ -21,13 +21,18 @@ jobs:
     in:
       repository: ensemble
     steps:
-      - id: checkout
-        name: checkout
+      - id: tag
+        name: tag
         run: |
           set -euo pipefail
           git fetch --tags origin
           tag="$(git describe --tags --abbrev=0)"
           echo "tag=$tag" >> "$WORKFLOW_OUTPUT"
+
+      - name: docker_login
+        run: |
+          set -euo pipefail
+          docker login registry.ritaj.app -u "$REGISTRY_USERNAME" -p "$REGISTRY_PASSWORD"
 
       - name: compile_cli
         run: |
@@ -47,11 +52,6 @@ jobs:
           set -euo pipefail
           ens build -m production web
           ens pack web docker
-
-      - name: docker_login
-        run: |
-          set -euo pipefail
-          docker login registry.ritaj.app -u "$REGISTRY_USERNAME" -p "$REGISTRY_PASSWORD"
 
       - name: publish_server_image
         run: |
