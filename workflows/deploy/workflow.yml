@@ -52,8 +52,11 @@ jobs:
             exit 1
           fi
 
+          ARTIFACTS_DIR=$(realpath source/artifacts)
+
           cd workflows/deploy/terraform
           "${{ steps.install_terraform.outputs.tf_bin }}" apply -auto-approve \
             -var-file="${{ context.path }}/terraform.tfvars.json" \
             -var-file="$secrets_file" \
+            -var="artifacts_dir=$ARTIFACTS_DIR" \
             -var="server_docker_gid=$(getent group docker | cut -d: -f3)"
