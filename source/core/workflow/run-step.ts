@@ -207,7 +207,7 @@ async function runScript(
       // clearEnv: see runShell's identical comment — without it, `env` only
       // merges on top of this process's real environment instead of
       // replacing it, silently defeating secrets: scoping. Safe because
-      // ctx.variables (built by resolveSecretsEnv) always carries PATH.
+      // ctx.variables (built by resolveSecretsEnv) always carries PATH/HOME.
       clearEnv: true,
       env: ctx.variables,
       stdin: "piped",

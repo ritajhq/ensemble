@@ -88,11 +88,13 @@ export class WorkflowSecretsError extends Error {}
  */
 function resolveSecretsEnv(secrets: string[] | undefined, callerVars: Record<string, string>): Record<string, string> {
   if (secrets === undefined) return Deno.env.toObject();
-  // PATH is about finding binaries on disk, not a credential — always
-  // forwarded so `run:`/`script:` steps can still shell out to bare command
-  // names (docker, git, terraform, ...) without every secrets:-scoped
-  // workflow having to remember to declare it like an actual secret.
-  const env: Record<string, string> = { PATH: Deno.env.get("PATH") ?? "" };
+  // PATH and HOME locate binaries and per-user config/state on disk, not
+  // credentials — always forwarded so `run:`/`script:` steps can still shell
+  // out to bare command names (docker, git, terraform, ...) and have tools
+  // like `git`/`gh` find their config (e.g. `gh auth setup-git`, which fails
+  // outright without $HOME) without every secrets:-scoped workflow having to
+  // remember to declare them like actual secrets.
+  const env: Record<string, string> = { PATH: Deno.env.get("PATH") ?? "", HOME: Deno.env.get("HOME") ?? "" };
   for (const name of secrets) {
     const value = callerVars[name] ?? Deno.env.get(name);
     if (value === undefined) {

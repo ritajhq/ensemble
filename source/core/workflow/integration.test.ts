@@ -471,7 +471,7 @@ Deno.test("integration: trigger is absent (not just empty) when no trigger is pa
   );
 });
 
-Deno.test("integration: secrets: scopes run: steps to just the declared names (plus PATH)", async () => {
+Deno.test("integration: secrets: scopes run: steps to just the declared names (plus PATH/HOME)", async () => {
   const workflowDir = join(import.meta.dirname!, "tests", "fixtures");
   Deno.env.set("ENSEMBLE_TEST_ALLOWED_SECRET", "visible");
   Deno.env.set("ENSEMBLE_TEST_FORBIDDEN_SECRET", "hidden");
@@ -482,7 +482,7 @@ Deno.test("integration: secrets: scopes run: steps to just the declared names (p
         build: {
           steps: [{
             run:
-              'test "$ENSEMBLE_TEST_ALLOWED_SECRET" = visible && test -z "$ENSEMBLE_TEST_FORBIDDEN_SECRET" && test -n "$PATH"',
+              'test "$ENSEMBLE_TEST_ALLOWED_SECRET" = visible && test -z "$ENSEMBLE_TEST_FORBIDDEN_SECRET" && test -n "$PATH" && test -n "$HOME"',
           }],
         },
       },
@@ -496,7 +496,7 @@ Deno.test("integration: secrets: scopes run: steps to just the declared names (p
   }
 });
 
-Deno.test("integration: secrets: scopes script: steps to just the declared names (plus PATH)", async () => {
+Deno.test("integration: secrets: scopes script: steps to just the declared names (plus PATH/HOME)", async () => {
   const workflowDir = join(import.meta.dirname!, "tests", "fixtures");
   Deno.env.set("ENSEMBLE_TEST_ALLOWED_SECRET", "visible");
   Deno.env.set("ENSEMBLE_TEST_FORBIDDEN_SECRET", "hidden");
