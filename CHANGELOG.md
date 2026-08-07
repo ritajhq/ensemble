@@ -1,3 +1,16 @@
+## [0.0.27-test] - 2026-08-07
+
+### 🚀 Features
+
+- *(workflow)* Reject stale or forward-referenced steps.<id> at parse time
+
+### 🐛 Bug Fixes
+
+- *(workflows/release)* Use trigger.tag instead of git describe
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.0.26-test
 ## [0.0.26-test] - 2026-08-07
 
 ### 🐛 Bug Fixes
