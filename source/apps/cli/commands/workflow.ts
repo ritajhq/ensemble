@@ -4,6 +4,7 @@ import { createWorkflowArchive, getRemoteProfile, getWorkflowByName, runWorkflow
 import { emitWorkflowEvent, type WorkflowEvent } from "@ensemble/workflow";
 import { Delegate } from "@ritaj/event";
 import { extractManualInputs, ManualInputError, manualTriggerClient, resolveJobInput, workflowRegistryClient } from "@ensemble/platform";
+import { load as loadEnv } from "@std/dotenv";
 import * as CliUtil from "./util.ts";
 
 const remoteConfigureCommand = new Command()
@@ -69,14 +70,21 @@ export const workflowCommand = new Command()
   )
   .option("-v, --var <var:string>", "Override a workflow variable (KEY=VALUE). Repeatable.", { collect: true })
   .option(
+    "--env-file <path:string>",
+    "Load workflow variables from a .env file. Merged under -v/--var, so an explicit -v for the same key wins.",
+  )
+  .option(
     "-i, --input <input:string>",
     "Set a value for the workflow's declared manual trigger input (NAME=VALUE). VALUE is JSON-parsed when possible (e.g. -i replicas=3, -i enabled=true), else used as a plain string. Repeatable — repeating the same NAME collects its values into a list (e.g. -i job=server -i job=web) instead of the last one winning.",
     { collect: true },
   )
   .option("--trigger-json <json:string>", "Internal: an already-resolved trigger object, used when this invocation is itself running inside a spawned runner container.", { hidden: true })
   .option("--emit-events", "Internal: print structured ##ENSEMBLE-EVENT## lines on stdout as jobs/steps start and finish, for a caller (the runner container's outer process) to reconstruct progress.", { hidden: true })
-  .action(async ({ job, concurrency, context, remote, var: vars, input: inputs, triggerJson, emitEvents }, name) => {
-    const overrides = CliUtil.parseVarOverrides(vars ?? []);
+  .action(async ({ job, concurrency, context, remote, var: vars, envFile, input: inputs, triggerJson, emitEvents }, name) => {
+    // export: true so `secrets:`-declared names loaded from the file are visible
+    // to resolveSecretsEnv, which reads Deno.env directly (see run-workflow.ts).
+    const fileVars = envFile ? await loadEnv({ envPath: envFile, export: true }) : {};
+    const overrides = { ...fileVars, ...CliUtil.parseVarOverrides(vars ?? []) };
     const inputOverrides = CliUtil.parseInputOverrides(inputs ?? []);
     const jobs = job?.flatMap((j) => j.split(","));
     if (remote) {
