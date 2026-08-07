@@ -1,3 +1,15 @@
+## [0.0.30-test] - 2026-08-07
+
+### 🚀 Features
+
+- *(workflow,dashboard)* Add manual trigger to deploy, dashboard context picker for contexts:
+- *(ui)* Export Select component, use it for the context picker
+- *(workflow/deploy)* Add artifacts_dir variable to terraform apply step
+- *(workflow/server)* Add .gitignore to exclude .env files
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.0.29-test
 ## [0.0.29-test] - 2026-08-07
 
 ### 🐛 Bug Fixes
