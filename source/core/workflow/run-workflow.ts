@@ -76,13 +76,17 @@ export interface RunWorkflowResult {
 export class WorkflowSecretsError extends Error {}
 
 /**
- * Scopes the process environment down to a workflow's declared `secrets:`
- * names, failing fast if one isn't actually set — before any job runs, same
- * as an invalid/missing `--context` (see resolveContext). A workflow with no
- * `secrets:` at all falls back to the legacy behavior: every step sees the
- * whole process environment, unscoped.
+ * Scopes the environment down to a workflow's declared `secrets:` names,
+ * failing fast if one isn't actually set — before any job runs, same as an
+ * invalid/missing `--context` (see resolveContext). Each name is looked up in
+ * `callerVars` first (e.g. values loaded from `--env-file`/`-v`, which never
+ * touch the real process environment) and falls back to `Deno.env` — so a
+ * secret can be supplied either way without every step seeing the whole
+ * process environment regardless of source. A workflow with no `secrets:` at
+ * all falls back to the legacy behavior: every step sees the whole process
+ * environment, unscoped.
  */
-function resolveSecretsEnv(secrets: string[] | undefined): Record<string, string> {
+function resolveSecretsEnv(secrets: string[] | undefined, callerVars: Record<string, string>): Record<string, string> {
   if (secrets === undefined) return Deno.env.toObject();
   // PATH is about finding binaries on disk, not a credential — always
   // forwarded so `run:`/`script:` steps can still shell out to bare command
@@ -90,7 +94,7 @@ function resolveSecretsEnv(secrets: string[] | undefined): Record<string, string
   // workflow having to remember to declare it like an actual secret.
   const env: Record<string, string> = { PATH: Deno.env.get("PATH") ?? "" };
   for (const name of secrets) {
-    const value = Deno.env.get(name);
+    const value = callerVars[name] ?? Deno.env.get(name);
     if (value === undefined) {
       throw new WorkflowSecretsError(`"secrets" declares "${name}", which isn't set in the environment.`);
     }
@@ -178,10 +182,10 @@ export async function runWorkflow(
   workflow: Workflow,
   options: RunWorkflowOptions,
 ): Promise<RunWorkflowResult> {
+  const callerVars = { ...workflow.variables, ...options.variables };
   const variables = {
-    ...resolveSecretsEnv(workflow.secrets),
-    ...workflow.variables,
-    ...options.variables,
+    ...resolveSecretsEnv(workflow.secrets, callerVars),
+    ...callerVars,
   };
   if (options.repoRoot !== undefined) {
     variables.ENSEMBLE_WORKSPACE = options.repoRoot;

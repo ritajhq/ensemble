@@ -81,9 +81,7 @@ export const workflowCommand = new Command()
   .option("--trigger-json <json:string>", "Internal: an already-resolved trigger object, used when this invocation is itself running inside a spawned runner container.", { hidden: true })
   .option("--emit-events", "Internal: print structured ##ENSEMBLE-EVENT## lines on stdout as jobs/steps start and finish, for a caller (the runner container's outer process) to reconstruct progress.", { hidden: true })
   .action(async ({ job, concurrency, context, remote, var: vars, envFile, input: inputs, triggerJson, emitEvents }, name) => {
-    // export: true so `secrets:`-declared names loaded from the file are visible
-    // to resolveSecretsEnv, which reads Deno.env directly (see run-workflow.ts).
-    const fileVars = envFile ? await loadEnv({ envPath: envFile, export: true }) : {};
+    const fileVars = envFile ? await loadEnv({ envPath: envFile, export: false }) : {};
     const overrides = { ...fileVars, ...CliUtil.parseVarOverrides(vars ?? []) };
     const inputOverrides = CliUtil.parseInputOverrides(inputs ?? []);
     const jobs = job?.flatMap((j) => j.split(","));

@@ -534,6 +534,26 @@ Deno.test("integration: secrets: declaring an unset name fails before any job ru
   );
 });
 
+Deno.test("integration: secrets: can be satisfied by options.variables without touching Deno.env", async () => {
+  const workflowDir = join(import.meta.dirname!, "tests", "fixtures");
+  Deno.env.delete("ENSEMBLE_TEST_CALLER_SECRET");
+  const workflow = {
+    secrets: ["ENSEMBLE_TEST_CALLER_SECRET"],
+    jobs: {
+      build: {
+        steps: [{ run: 'test "$ENSEMBLE_TEST_CALLER_SECRET" = from-caller' }],
+      },
+    },
+  };
+  const { outcomes, success } = await runWorkflow(workflow, {
+    workflowDir,
+    variables: { ENSEMBLE_TEST_CALLER_SECRET: "from-caller" },
+  });
+  assertEquals(success, true);
+  assertEquals(outcomes.build.result, "success");
+  assertEquals(Deno.env.get("ENSEMBLE_TEST_CALLER_SECRET"), undefined);
+});
+
 Deno.test("integration: no secrets: at all preserves full env passthrough (legacy behavior)", async () => {
   const workflowDir = join(import.meta.dirname!, "tests", "fixtures");
   Deno.env.set("ENSEMBLE_TEST_UNSCOPED", "still-visible");
