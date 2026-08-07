@@ -1,3 +1,12 @@
+## [0.0.26-test] - 2026-08-07
+
+### 🐛 Bug Fixes
+
+- *(workflows/release)* Reference the tag step by its actual id
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.0.25-test
 ## [0.0.25-test] - 2026-08-07
 
 ### 🐛 Bug Fixes
