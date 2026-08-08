@@ -2,15 +2,15 @@
 # Manual edits may be lost in future updates.
 
 provider "registry.terraform.io/ritajhq/dockercompose" {
-  version     = "0.1.0"
-  constraints = "~> 0.1"
+  version     = "0.2.0"
+  constraints = "~> 0.2"
   hashes = [
-    "h1:Cn9F4qlDskV2TPCBWZfxnFPxeCRgqk9vMUAQyR1qy9U=",
-    "zh:47674b4c872e321b1e2a77aee48addfd7c50bc0671634a55f0c8aa290cb0993e",
-    "zh:78132e6e4e35baa79ce9c10c256083eb1aa6c4074dc046729f44a4d99b84fae2",
-    "zh:7dc5632621abf59cd6e580b373c98816fdccf89ddad9ed24a06e6111e36ed01d",
-    "zh:c4da36def014a82cb41a88d72151ab84465bb0aee43c2926067678d9827d3ad4",
-    "zh:d00eaa5bf8f3f1a492ba8717b9c738cb9561db401e23ad22290d1cea8cf9e94a",
-    "zh:d242a803f530a9d437120eb58b15c314de12854cdced61a44526db60b515ad77",
+    "h1:Gzr31YxoKfbJ74xDKdHd8bwZ81//ZWM+8Bch1ilpwyo=",
+    "zh:56beef590174b55d9c28a6999ee5f179efe12d453bfdad2557c42b86bb04a022",
+    "zh:9cfa98c57ff29a7947c50ef7b33e3ffd003989953e171033816e9e0da845123d",
+    "zh:c6aeb96f251993475f538c948ee4ff13ba6e82635741a0f76ee00489e0e1d013",
+    "zh:d1936f4ba965f6e8ffffc8bf532cdc377c9314af1dd31718de8212c7baf90779",
+    "zh:e2f1d498b79b331d53c75297146bf76177acda65811dc8ce26e80ad96a863b8b",
+    "zh:f4a3d76912a43f9774be4de2ce722ff0ab52d5024063992a23de1a7d9248a1d1",
   ]
 }

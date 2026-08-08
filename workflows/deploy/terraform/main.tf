@@ -2,11 +2,20 @@ resource "dockercompose_stack" "ensemble" {
   name  = "ensemble"
   watch = var.enable_watch
 
-  # Caddy is assumed already running on this host, outside this stack —
-  # it terminates TLS and reverse-proxies into server/web over this
-  # network. "edge" itself is created once, out of band (see
-  # workflows/deploy's own README), the same way Caddy itself is —
-  # external = true so this stack never tries to own/create it.
+  # "dev" only ever active when enable_watch is (i.e. local development) —
+  # reusing enable_watch instead of a second toggle, since both mean the
+  # same thing: this apply is running someone's own machine, not a real
+  # deploy target. Gates the caddy service below.
+  active_profiles = var.enable_watch ? ["dev"] : []
+
+  # In production, Caddy is assumed already running on this host, outside
+  # this stack, terminating TLS and reverse-proxying into server/web over
+  # this network. Locally (enable_watch = true), the "dev" caddy service
+  # below stands in for it instead — a plain HTTP mock of that same
+  # routing, not TLS-terminating, just enough to develop against. Either
+  # way "edge" itself is created once, out of band (see workflows/deploy's
+  # own README) — external = true so this stack never tries to own/create
+  # it, in dev or production.
   network {
     name     = "edge"
     external = true
@@ -75,5 +84,23 @@ resource "dockercompose_stack" "ensemble" {
         target = develop_watch.value.target
       }
     }
+  }
+
+  # Dev-only stand-in for the real Caddy that fronts server/web in
+  # production (see the network block's doc comment above) — never starts
+  # unless the "dev" profile is active. Routing mirrors
+  # workflows/local/Caddyfile's server/web split; kept as a separate copy
+  # rather than a shared file since the two dev paths (this Terraform-based
+  # one and workflows/local's plain-compose one) are intentionally
+  # independent.
+  service {
+    name           = "caddy"
+    image          = "caddy:alpine"
+    container_name = "ensemble-caddy"
+    networks       = ["edge"]
+    profiles       = ["dev"]
+    ports          = ["8999:8000"]
+    volumes        = ["${path.module}/Caddyfile:/etc/caddy/Caddyfile:ro"]
+    depends_on     = ["server", "web"]
   }
 }
