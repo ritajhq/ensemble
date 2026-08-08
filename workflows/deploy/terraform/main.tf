@@ -100,7 +100,13 @@ resource "dockercompose_stack" "ensemble" {
     networks       = ["edge"]
     profiles       = ["dev"]
     ports          = ["8999:8000"]
-    volumes        = ["${path.module}/Caddyfile:/etc/caddy/Caddyfile:ro"]
-    depends_on     = ["server", "web"]
+    # abspath(), not a bare path.module interpolation: this is a root
+    # module run from its own directory, so path.module resolves to "."
+    # and a relative "./Caddyfile" gets bind-mounted relative to the
+    # provider's own staging dir (~/.terraform-docker-compose/<stack>/),
+    # not this directory — silently mounting a nonexistent path as an
+    # empty directory instead of this real file.
+    volumes    = ["${abspath(path.module)}/Caddyfile:/etc/caddy/Caddyfile:ro"]
+    depends_on = ["server", "web"]
   }
 }
