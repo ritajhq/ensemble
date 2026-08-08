@@ -337,8 +337,8 @@ Deno.test("integration: a context.variables entry with an inline value never tou
 Deno.test("integration: a workflow resolves a variable from the local loader's contexts/<name>/variables/<key>", async () => {
   const workflowDir = await Deno.makeTempDir({ prefix: "integration-context-local-" });
   try {
-    await Deno.mkdir(join(workflowDir, "contexts", "production", "variables"), { recursive: true });
-    await Deno.writeTextFile(join(workflowDir, "contexts", "production", "variables", "IMAGE_TAG"), "v1.2.3\n");
+    await Deno.mkdir(join(workflowDir, "contexts", "production"), { recursive: true });
+    await Deno.writeTextFile(join(workflowDir, "contexts", "production", "variables.env"), "IMAGE_TAG=v1.2.3\n");
 
     const workflow = {
       context: { variables: [{ name: "IMAGE_TAG" }] },
@@ -384,8 +384,8 @@ Deno.test("integration: a loader-required variable falls back to its default whe
 Deno.test("integration: --context-source local restricts resolution to the local loader only", async () => {
   const workflowDir = await Deno.makeTempDir({ prefix: "integration-context-source-" });
   try {
-    await Deno.mkdir(join(workflowDir, "contexts", "production", "variables"), { recursive: true });
-    await Deno.writeTextFile(join(workflowDir, "contexts", "production", "variables", "IMAGE_TAG"), "v1.2.3\n");
+    await Deno.mkdir(join(workflowDir, "contexts", "production"), { recursive: true });
+    await Deno.writeTextFile(join(workflowDir, "contexts", "production", "variables.env"), "IMAGE_TAG=v1.2.3\n");
 
     const workflow = {
       context: { variables: [{ name: "IMAGE_TAG" }] },
@@ -403,8 +403,8 @@ Deno.test("integration: --context-source local restricts resolution to the local
 Deno.test("integration: --context-source vault does not fall through to a local contexts/ folder that exists on disk", async () => {
   const workflowDir = await Deno.makeTempDir({ prefix: "integration-context-source-vault-" });
   try {
-    await Deno.mkdir(join(workflowDir, "contexts", "production", "variables"), { recursive: true });
-    await Deno.writeTextFile(join(workflowDir, "contexts", "production", "variables", "IMAGE_TAG"), "v1.2.3\n");
+    await Deno.mkdir(join(workflowDir, "contexts", "production"), { recursive: true });
+    await Deno.writeTextFile(join(workflowDir, "contexts", "production", "variables.env"), "IMAGE_TAG=v1.2.3\n");
 
     const workflow = {
       context: { variables: [{ name: "IMAGE_TAG" }] },
@@ -442,10 +442,10 @@ Deno.test("integration: trigger is absent (not just empty) when no trigger is pa
 Deno.test("integration: context.secrets resolves from the local loader's contexts/<name>/secrets/<key> in run: steps", async () => {
   const workflowDir = await Deno.makeTempDir({ prefix: "integration-context-secret-" });
   try {
-    await Deno.mkdir(join(workflowDir, "contexts", "production", "secrets"), { recursive: true });
+    await Deno.mkdir(join(workflowDir, "contexts", "production"), { recursive: true });
     await Deno.writeTextFile(
-      join(workflowDir, "contexts", "production", "secrets", "GITHUB_WEBHOOK_SECRET"),
-      "super-secret\n",
+      join(workflowDir, "contexts", "production", "secrets.env"),
+      "GITHUB_WEBHOOK_SECRET=super-secret\n",
     );
 
     const workflow = {
@@ -467,10 +467,10 @@ Deno.test("integration: context.secrets resolves from the local loader's context
 Deno.test("integration: context.secrets is available to script: steps via ctx.variables", async () => {
   const workflowDir = await Deno.makeTempDir({ prefix: "integration-context-secret-script-" });
   try {
-    await Deno.mkdir(join(workflowDir, "contexts", "production", "secrets"), { recursive: true });
+    await Deno.mkdir(join(workflowDir, "contexts", "production"), { recursive: true });
     await Deno.writeTextFile(
-      join(workflowDir, "contexts", "production", "secrets", "ENSEMBLE_TEST_ALLOWED_SECRET"),
-      "visible\n",
+      join(workflowDir, "contexts", "production", "secrets.env"),
+      "ENSEMBLE_TEST_ALLOWED_SECRET=visible\n",
     );
     Deno.env.delete("ENSEMBLE_TEST_FORBIDDEN_SECRET");
 

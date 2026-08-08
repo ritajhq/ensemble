@@ -1,5 +1,6 @@
 # Secrets live here, hand-provisioned once on the actual deploy host —
 # never committed. See terraform/variables.tf's server_github_webhook_secret.
+contexts/*/secrets.env
 contexts/*/secrets/
 
 # terraform's own local state/cache — this deploy uses local state (no

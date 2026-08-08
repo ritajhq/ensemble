@@ -51,8 +51,8 @@ Deno.test("resolveContext: context.secrets are not included in the structured va
 
 Deno.test("resolveContext: a loader-sourced variable resolves from the local loader", async () => {
   await withDirs(async (workflowDir, runDir) => {
-    await Deno.mkdir(join(workflowDir, "contexts", "production", "variables"), { recursive: true });
-    await Deno.writeTextFile(join(workflowDir, "contexts", "production", "variables", "IMAGE_TAG"), "v1\n");
+    await Deno.mkdir(join(workflowDir, "contexts", "production"), { recursive: true });
+    await Deno.writeTextFile(join(workflowDir, "contexts", "production", "variables.env"), "IMAGE_TAG=v1\n");
 
     const context: Context = { variables: [{ name: "IMAGE_TAG" }] };
     const result = await resolveContext(context, [], "production", workflowDir, runDir, undefined);
@@ -94,10 +94,10 @@ Deno.test("resolveContext: secrets are always loader-sourced (never inline) and 
   });
 });
 
-Deno.test("resolveContext: a secret resolves from the local loader's secrets/<key> file", async () => {
+Deno.test("resolveContext: a secret resolves from the local loader's secrets.env", async () => {
   await withDirs(async (workflowDir, runDir) => {
-    await Deno.mkdir(join(workflowDir, "contexts", "production", "secrets"), { recursive: true });
-    await Deno.writeTextFile(join(workflowDir, "contexts", "production", "secrets", "TOKEN"), "abc123\n");
+    await Deno.mkdir(join(workflowDir, "contexts", "production"), { recursive: true });
+    await Deno.writeTextFile(join(workflowDir, "contexts", "production", "secrets.env"), "TOKEN=abc123\n");
 
     const context: Context = { secrets: [{ name: "TOKEN" }] };
     const result = await resolveContext(context, [], "production", workflowDir, runDir, undefined);
@@ -107,8 +107,8 @@ Deno.test("resolveContext: a secret resolves from the local loader's secrets/<ke
 
 Deno.test("resolveContext: --context-source local restricts to the local loader only", async () => {
   await withDirs(async (workflowDir, runDir) => {
-    await Deno.mkdir(join(workflowDir, "contexts", "production", "variables"), { recursive: true });
-    await Deno.writeTextFile(join(workflowDir, "contexts", "production", "variables", "IMAGE_TAG"), "v1\n");
+    await Deno.mkdir(join(workflowDir, "contexts", "production"), { recursive: true });
+    await Deno.writeTextFile(join(workflowDir, "contexts", "production", "variables.env"), "IMAGE_TAG=v1\n");
 
     const context: Context = { variables: [{ name: "IMAGE_TAG" }] };
     const result = await resolveContext(context, [], "production", workflowDir, runDir, "local");
@@ -118,8 +118,8 @@ Deno.test("resolveContext: --context-source local restricts to the local loader 
 
 Deno.test("resolveContext: --context-source vault does not fall through to a local contexts/ folder that has the value", async () => {
   await withDirs(async (workflowDir, runDir) => {
-    await Deno.mkdir(join(workflowDir, "contexts", "production", "variables"), { recursive: true });
-    await Deno.writeTextFile(join(workflowDir, "contexts", "production", "variables", "IMAGE_TAG"), "v1\n");
+    await Deno.mkdir(join(workflowDir, "contexts", "production"), { recursive: true });
+    await Deno.writeTextFile(join(workflowDir, "contexts", "production", "variables.env"), "IMAGE_TAG=v1\n");
 
     const context: Context = { variables: [{ name: "IMAGE_TAG" }] };
     await assertRejects(
@@ -134,8 +134,8 @@ Deno.test("resolveContext: falls back to the .ensemble/global/ tier when no per-
   await withDirs(async (workflowDir, runDir) => {
     const repoRoot = await Deno.makeTempDir({ prefix: "resolve-repo-" });
     try {
-      await Deno.mkdir(join(repoRoot, ".ensemble", "global", "secrets"), { recursive: true });
-      await Deno.writeTextFile(join(repoRoot, ".ensemble", "global", "secrets", "REGISTRY_PASSWORD"), "hunter2\n");
+      await Deno.mkdir(join(repoRoot, ".ensemble", "global"), { recursive: true });
+      await Deno.writeTextFile(join(repoRoot, ".ensemble", "global", "secrets.env"), "REGISTRY_PASSWORD=hunter2\n");
 
       const context: Context = { secrets: [{ name: "REGISTRY_PASSWORD" }] };
       // No --context passed at all — the global tier doesn't need one.
@@ -151,10 +151,10 @@ Deno.test("resolveContext: a per-context loader's value wins over the global tie
   await withDirs(async (workflowDir, runDir) => {
     const repoRoot = await Deno.makeTempDir({ prefix: "resolve-repo-" });
     try {
-      await Deno.mkdir(join(workflowDir, "contexts", "production", "secrets"), { recursive: true });
-      await Deno.writeTextFile(join(workflowDir, "contexts", "production", "secrets", "TOKEN"), "per-context\n");
-      await Deno.mkdir(join(repoRoot, ".ensemble", "global", "secrets"), { recursive: true });
-      await Deno.writeTextFile(join(repoRoot, ".ensemble", "global", "secrets", "TOKEN"), "global\n");
+      await Deno.mkdir(join(workflowDir, "contexts", "production"), { recursive: true });
+      await Deno.writeTextFile(join(workflowDir, "contexts", "production", "secrets.env"), "TOKEN=per-context\n");
+      await Deno.mkdir(join(repoRoot, ".ensemble", "global"), { recursive: true });
+      await Deno.writeTextFile(join(repoRoot, ".ensemble", "global", "secrets.env"), "TOKEN=global\n");
 
       const context: Context = { secrets: [{ name: "TOKEN" }] };
       const result = await resolveContext(context, [], "production", workflowDir, runDir, undefined, {}, repoRoot);
