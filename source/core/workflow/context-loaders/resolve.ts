@@ -11,9 +11,18 @@ export class ContextResolutionError extends Error {}
 
 export type ContextSource = "local" | "vault";
 
+/** One resolved `context.variables` entry, addressable via `${{ context.variables.<key> }}` as an alternative to its `NAME`/`NAME_FILE` env vars. */
+export interface ResolvedVariable {
+  name: string;
+  value: string;
+  path: string;
+}
+
 export interface ResolvedContext {
   /** Every declared variable/secret's env vars: `NAME` (+ `NAME_FILE` once materialized). */
   env: Record<string, string>;
+  /** `context.variables` only (not secrets), keyed by name, for `${{ context.variables.<key>.{name,value,path} }}` interpolation. */
+  variables: Record<string, ResolvedVariable>;
 }
 
 /**
@@ -122,7 +131,8 @@ export async function resolveContext(
   repoRoot: string | undefined = undefined,
 ): Promise<ResolvedContext> {
   const env: Record<string, string> = {};
-  if (context === undefined) return { env };
+  const variables: Record<string, ResolvedVariable> = {};
+  if (context === undefined) return { env, variables };
 
   const loaders = selectLoaders(workflowDir, repoRoot, source);
   const missing: string[] = [];
@@ -140,6 +150,9 @@ export async function resolveContext(
       env,
       callerVars,
     });
+    if (env[key] !== undefined) {
+      variables[key] = { name: key, value: env[key], path: env[`${key}_FILE`] };
+    }
   }
 
   for (const secret of context.secrets ?? []) {
@@ -167,5 +180,5 @@ export async function resolveContext(
     );
   }
 
-  return { env };
+  return { env, variables };
 }

@@ -1,5 +1,6 @@
 import type { JsonValue } from "./expressions.ts";
 import { evaluateCondition, interpolate } from "./expressions.ts";
+import type { ResolvedVariable } from "./context-loaders/resolve.ts";
 
 /**
  * "cancelled" applies only at job-instance granularity — a not-yet-started
@@ -60,6 +61,8 @@ export interface RootContext {
   trigger?: Record<string, unknown>;
   /** Where each resources.repositories entry was checked out. Absent when the workflow declares none. */
   repositories?: Record<string, RepositoryContext>;
+  /** `context.variables` (not secrets), addressable as `context.variables.<key>.{name,value,path}` — an alternative to their `NAME`/`NAME_FILE` env vars. Absent when the workflow declares no `context.variables`. */
+  context?: { variables: Record<string, ResolvedVariable> };
 }
 
 /** Per-job context, accumulating `steps.*` as each step in that job completes. */
@@ -80,6 +83,7 @@ export interface StepContext {
   matrix?: Record<string, unknown>;
   trigger?: Record<string, unknown>;
   repositories?: Record<string, RepositoryContext>;
+  context?: { variables: Record<string, ResolvedVariable> };
 }
 
 export function buildRootContext(
@@ -88,11 +92,13 @@ export function buildRootContext(
   matrix?: Record<string, unknown>,
   trigger?: Record<string, unknown>,
   repositories?: Record<string, RepositoryContext>,
+  contextVariables?: Record<string, ResolvedVariable>,
 ): RootContext {
   const root: RootContext = { variables, needs: { ...completedJobs } };
   if (matrix !== undefined) root.matrix = matrix;
   if (trigger !== undefined) root.trigger = trigger;
   if (repositories !== undefined) root.repositories = repositories;
+  if (contextVariables !== undefined) root.context = { variables: contextVariables };
   return root;
 }
 
@@ -122,5 +128,6 @@ export function toStepContext(ctx: JobContext): StepContext {
   if (ctx.matrix !== undefined) stepContext.matrix = ctx.matrix;
   if (ctx.trigger !== undefined) stepContext.trigger = ctx.trigger;
   if (ctx.repositories !== undefined) stepContext.repositories = ctx.repositories;
+  if (ctx.context !== undefined) stepContext.context = ctx.context;
   return stepContext;
 }

@@ -85,6 +85,27 @@ Deno.test("runStep: run: interpolates ${{ variables.* }} before executing", asyn
   assertEquals(result.result, "success");
 });
 
+Deno.test("runStep: run: interpolates ${{ context.variables.*.{name,value,path} }} before executing", async () => {
+  const ctx: JobContext = {
+    variables: {},
+    needs: {},
+    steps: {},
+    context: { variables: { TF_VARS: { name: "TF_VARS", value: "region=us-east-1", path: "/tmp/tf-vars.txt" } } },
+  };
+  const result = await runStep(
+    {
+      run:
+        'test "${{ context.variables.TF_VARS.name }}" = TF_VARS && '
+        + 'test "${{ context.variables.TF_VARS.value }}" = "region=us-east-1" && '
+        + 'test "${{ context.variables.TF_VARS.path }}" = /tmp/tf-vars.txt',
+    },
+    workflowDir,
+    cwd,
+    ctx,
+  );
+  assertEquals(result.result, "success");
+});
+
 Deno.test("runStep: run: writes to $WORKFLOW_OUTPUT to produce outputs", async () => {
   const result = await runStep(
     { run: "echo \"tag=1.2.3\" >> \"$WORKFLOW_OUTPUT\"" },

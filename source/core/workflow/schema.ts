@@ -141,7 +141,9 @@ export interface ContextSecret {
  * secret is exposed to steps as two env vars: `NAME` (its value) and
  * `NAME_FILE` (an absolute path to that same value materialized as a file),
  * regardless of whether the loader that supplied it produced a scalar, a
- * file, or both.
+ * file, or both. `context.variables` (not secrets) is additionally
+ * addressable via `${{ context.variables.<key>.{name,value,path} }}`
+ * interpolation — see context.ts's RootContext.context.
  *
  * A value/secret needed by more than one workflow on this host (e.g.
  * registry credentials) doesn't need to be re-provisioned per workflow: once

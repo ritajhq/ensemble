@@ -30,6 +30,25 @@ Deno.test("resolveContext: an inline value skips loaders entirely and materializ
   });
 });
 
+Deno.test("resolveContext: also returns each context.variables entry structured, for context.variables.<key>.{name,value,path} interpolation", async () => {
+  await withDirs(async (workflowDir, runDir) => {
+    const context: Context = { variables: { REGION: { value: "us-east-1" } } };
+    const result = await resolveContext(context, undefined, workflowDir, runDir, undefined);
+    assertEquals(result.variables.REGION.name, "REGION");
+    assertEquals(result.variables.REGION.value, "us-east-1");
+    assertEquals(result.variables.REGION.path, result.env.REGION_FILE);
+  });
+});
+
+Deno.test("resolveContext: context.secrets are not included in the structured variables map", async () => {
+  await withDirs(async (workflowDir, runDir) => {
+    const context: Context = { secrets: [{ name: "TOKEN", default: "shh" }] };
+    const result = await resolveContext(context, undefined, workflowDir, runDir, undefined);
+    assertEquals(result.env.TOKEN, "shh");
+    assertEquals(result.variables.TOKEN, undefined);
+  });
+});
+
 Deno.test("resolveContext: a loader-sourced variable resolves from the local loader", async () => {
   await withDirs(async (workflowDir, runDir) => {
     await Deno.mkdir(join(workflowDir, "contexts", "production", "variables"), { recursive: true });

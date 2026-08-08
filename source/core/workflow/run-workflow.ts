@@ -224,12 +224,12 @@ export async function runWorkflow(
             needsResult = { result: "skipped", outputs: {} };
             durationMs = logger.flush("skipped");
           } else if (job.matrix !== undefined) {
-            const root = buildRootContext(variables, outcomes, undefined, options.trigger, repositories);
+            const root = buildRootContext(variables, outcomes, undefined, options.trigger, repositories, resolved.variables);
             const matrixRun = await runMatrixJob(jobId, job, root, options.workflowDir, runDir, concurrency);
             needsResult = matrixRun.needsResult;
             durationMs = matrixRun.durationMs;
           } else {
-            const root = buildRootContext(variables, outcomes, undefined, options.trigger, repositories);
+            const root = buildRootContext(variables, outcomes, undefined, options.trigger, repositories, resolved.variables);
             const outcome = await runJob(
               job,
               root,

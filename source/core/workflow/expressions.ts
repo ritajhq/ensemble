@@ -140,7 +140,7 @@ const EXPR_REF = /\$\{\{(.*?)\}\}/gs;
  * named-value"; findStaticStepReferences only cares about `steps.*` paths,
  * ignoring the rest.
  */
-const ALL_CONTEXT_NAMES = ["variables", "needs", "matrix", "trigger", "repositories", "steps"];
+const ALL_CONTEXT_NAMES = ["variables", "needs", "matrix", "trigger", "repositories", "steps", "context"];
 
 /**
  * Statically finds every `steps.<id>...` reference inside `text` (e.g. a
