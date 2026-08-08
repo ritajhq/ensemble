@@ -31,6 +31,41 @@ export interface ListWorkflowsResponse {
   workflows: WorkflowSummary[];
 }
 
+/** Where a new workflow's initial content comes from, if not the default empty stub. */
+export interface CreateWorkflowGitSourceRequest {
+  projectName: string;
+  pathInRepo: string;
+}
+
+export interface CreateWorkflowRequest {
+  name: string;
+  /** Seeds the workflow from a registered repo's own workflows/<pathInRepo> instead of the default empty stub — the workflow keeps auto-resyncing from there on future triggers. */
+  source?: CreateWorkflowGitSourceRequest;
+}
+
+function isCreateWorkflowGitSourceRequest(value: unknown): value is CreateWorkflowGitSourceRequest {
+  if (typeof value !== "object" || value === null) return false;
+  const record = value as Record<string, unknown>;
+  return typeof record.projectName === "string" && record.projectName.trim().length > 0 &&
+    typeof record.pathInRepo === "string" && record.pathInRepo.trim().length > 0;
+}
+
+export function isCreateWorkflowRequest(value: unknown): value is CreateWorkflowRequest {
+  if (typeof value !== "object" || value === null) return false;
+  const record = value as Record<string, unknown>;
+  if (typeof record.name !== "string" || record.name.trim().length === 0) return false;
+  if (record.source !== undefined && !isCreateWorkflowGitSourceRequest(record.source)) return false;
+  return true;
+}
+
+export interface CreateWorkflowResponse {
+  workflow: WorkflowSummary;
+}
+
+export interface DeleteWorkflowResponse {
+  success: boolean;
+}
+
 export interface ListRunsResponse {
   runs: RunRecord[];
 }

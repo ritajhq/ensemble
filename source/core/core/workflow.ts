@@ -11,11 +11,11 @@ import {
   type Workflow,
   type WorkflowEvent,
 } from "@ensemble/workflow";
-import { trackedRunWorkflow } from "./runs.ts";
+import { RunStore } from "./runs.ts";
 import { runWorkflowInContainer } from "./run-workflow-in-container.ts";
 import { getLocalRepositoryOverrides, loadLocalConfig } from "./config.ts";
-import { refreshGitRepository } from "./git-integration.ts";
-import { getGitRepository, listGitRepositories } from "./git-repositories.ts";
+import { syncWorkflowFromGit, unlinkWorkflowFromGit } from "./git-integration.ts";
+import { GitRepositoryStore, WorkflowGitLinkStore } from "./git-repositories.ts";
 
 export interface RunWorkflowByNameOptions {
   /** Run only this job (or these jobs) and their transitive dependencies. */
@@ -97,21 +97,6 @@ export async function listWorkflows(): Promise<ResolvedWorkflow[]> {
   }
 
   return await Promise.all(names.map((name) => getWorkflowByName(name)));
-}
-
-/**
- * Every resolved workflow whose name starts with `${projectName}/`, i.e. the
- * ones landed under workflows/<projectName>/ by the git integration. Names
- * are returned relative to the project (the "workflows/<projectName>/"
- * prefix stripped), matching the paths removeGitRepositoryWorkflow and
- * restoreGitRepositoryWorkflow expect.
- */
-export async function listWorkflowsForProject(projectName: string): Promise<{ name: string; workflow: Workflow }[]> {
-  const prefix = `${projectName}/`;
-  const all = await listWorkflows();
-  return all
-    .filter(({ name }) => name.startsWith(prefix))
-    .map(({ name, workflow }) => ({ name: name.slice(prefix.length), workflow }));
 }
 
 export interface WorkflowFileNode {
@@ -218,43 +203,106 @@ export async function createWorkflowArchive(workflowDir: string): Promise<Readab
     .pipeThrough(new CompressionStream("gzip"));
 }
 
+const WORKFLOW_NAME_PATTERN = /^[a-zA-Z0-9](?:[a-zA-Z0-9._\-/]*[a-zA-Z0-9])?$/;
+
+/** Where a new workflow's initial content comes from — a registered repo's own workflows/<pathInRepo>, instead of the default empty stub. */
+export interface CreateWorkflowGitSource {
+  projectName: string;
+  pathInRepo: string;
+}
+
 /**
- * If `name` belongs to a git-integrated project (i.e. it's shaped
- * "<projectName>/<workflowName>" and that projectName has a
- * GitRepositoryRecord), re-clones it so whatever reads it next sees the
- * newest content on the remote — the same thing the dashboard's manual
- * "refresh" button does, just automatic. A name with no "/", or one whose
- * leading segment isn't actually an integrated project (a plain local
- * workflow that merely contains a slash-like path), is left untouched: sync
- * only ever applies to workflows that actually came from a git integration
- * in the first place.
+ * Creates a new workflow at workflows/<name>/workflow.yml. With no `source`,
+ * this is a minimal stub with no `on:` trigger (invocation-only until edited
+ * or synced from git), so it shows up in listWorkflows()/the dashboard
+ * immediately like any other workflow. With `source`, the content instead
+ * comes from a registered repo's own workflows/<pathInRepo> — the same as
+ * creating the stub and then calling syncWorkflowFromGit, in one step,
+ * including the ongoing WorkflowGitLink so it keeps auto-resyncing from
+ * there on future triggers (see syncWorkflowFromGitLinkIfPresent). Throws if
+ * `name` is invalid or a workflow already exists there.
+ */
+export async function createWorkflow(
+  repositories: GitRepositoryStore,
+  links: WorkflowGitLinkStore,
+  name: string,
+  source?: CreateWorkflowGitSource,
+): Promise<ResolvedWorkflow> {
+  const trimmed = name.trim();
+  if (!WORKFLOW_NAME_PATTERN.test(trimmed)) {
+    throw new Error(
+      `Invalid workflow name "${name}" — expected letters, digits, ".", "_", "-", or "/", ` +
+        `not starting or ending with a separator.`,
+    );
+  }
+
+  const repoRoot = await findRepoRoot();
+  const workflowDir = join(repoRoot, "workflows", trimmed);
+  const workflowFile = join(workflowDir, "workflow.yml");
+  if (await exists(workflowFile, { isFile: true })) {
+    throw new Error(`Workflow "${trimmed}" already exists.`);
+  }
+
+  if (source) {
+    await syncWorkflowFromGit(repositories, links, trimmed, source.projectName, source.pathInRepo);
+    return await getWorkflowByName(trimmed);
+  }
+
+  await Deno.mkdir(workflowDir, { recursive: true });
+  await Deno.writeTextFile(
+    workflowFile,
+    `jobs:\n  build:\n    steps:\n      - run: echo "hello from ${trimmed}"\n`,
+  );
+
+  return await getWorkflowByName(trimmed);
+}
+
+/** Deletes workflows/<name>/ entirely and drops any WorkflowGitLink for it. */
+export async function deleteWorkflow(links: WorkflowGitLinkStore, name: string): Promise<void> {
+  const repoRoot = await findRepoRoot();
+  const workflowDir = join(repoRoot, "workflows", name);
+  await Deno.remove(workflowDir, { recursive: true }).catch((error) => {
+    if (!(error instanceof Deno.errors.NotFound)) throw error;
+  });
+  await unlinkWorkflowFromGit(links, name);
+}
+
+/**
+ * If `name` has a WorkflowGitLink (i.e. it was previously synced from a
+ * registered git repo — see syncWorkflowFromGit), re-syncs it so whatever
+ * reads it next sees the newest content on the remote — the same thing a
+ * manual "sync now" does, just automatic. A no-op for the common case of a
+ * workflow with no git link.
  *
  * Callers that both validate a workflow's declared trigger AND then run it
  * (the manual/github-manual trigger handlers) must call this once, before
  * their *first* getWorkflowByName — not rely on runWorkflowByName's own
  * internal resolution, which happens too late for that earlier validation
- * to see fresh content, and calling it again there would re-clone twice per
+ * to see fresh content, and calling it again there would re-sync twice per
  * run for no benefit.
  */
-export async function syncGitIntegrationForWorkflow(name: string): Promise<void> {
-  const slash = name.indexOf("/");
-  if (slash === -1) return;
-  const projectName = name.slice(0, slash);
-  const record = await getGitRepository(projectName);
-  if (!record) return;
-  await refreshGitRepository(projectName);
+export async function syncWorkflowFromGitLinkIfPresent(
+  repositories: GitRepositoryStore,
+  links: WorkflowGitLinkStore,
+  name: string,
+): Promise<void> {
+  const link = await links.get(name);
+  if (!link) return;
+  await syncWorkflowFromGit(repositories, links, link.workflowName, link.projectName, link.pathInRepo);
 }
 
 /**
- * Re-clones every git-integrated project, in parallel. For the real GitHub
+ * Re-syncs every git-linked workflow, in parallel. For the real GitHub
  * webhook path (github/handler.ts), which doesn't know in advance which
- * project(s) a pushed tag might match — it scans every workflow via
- * listWorkflows() first — so it can't target syncGitIntegrationForWorkflow
- * at just one project the way the other trigger paths can.
+ * workflow(s) a pushed tag might match — it scans every workflow via
+ * listWorkflows() first — so it can't target syncWorkflowFromGitLinkIfPresent
+ * at just one workflow the way the other trigger paths can.
  */
-export async function syncAllGitIntegrations(): Promise<void> {
-  const records = await listGitRepositories();
-  await Promise.all(records.map((record) => refreshGitRepository(record.projectName)));
+export async function syncAllWorkflowGitLinks(repositories: GitRepositoryStore, links: WorkflowGitLinkStore): Promise<void> {
+  const allLinks = await links.listAll();
+  await Promise.all(
+    allLinks.map((link) => syncWorkflowFromGit(repositories, links, link.workflowName, link.projectName, link.pathInRepo)),
+  );
 }
 
 /**
@@ -265,8 +313,8 @@ export async function syncAllGitIntegrations(): Promise<void> {
  * `trackedRunWorkflowByName` (below) rather than baked in here, so a plain
  * local `ens workflow` run (or the containerized run's own inner invocation)
  * never needs `.ensemble/platform/runs.kv` to exist at all. Does not sync
- * git-integration state itself — callers that haven't already done so (see
- * syncGitIntegrationForWorkflow) should call it before this.
+ * a workflow's git link itself — callers that haven't already done so (see
+ * syncWorkflowFromGitLinkIfPresent) should call it before this.
  */
 export async function runWorkflowByName(
   name: string,
@@ -309,9 +357,10 @@ export async function runWorkflowByName(
  * invocation, never touches KV at all.
  */
 export async function trackedRunWorkflowByName(
+  runs: RunStore,
   name: string,
   options: Omit<RunWorkflowByNameOptions, "containerized" | "events">,
 ): Promise<boolean> {
-  return await trackedRunWorkflow(name, options.trigger, (events) =>
+  return await runs.trackedRunWorkflow(name, options.trigger, (events) =>
     runWorkflowByName(name, { ...options, containerized: true, events }));
 }

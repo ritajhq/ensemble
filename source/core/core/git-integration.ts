@@ -4,12 +4,10 @@ import { $ } from "@david/dax";
 import { findRepoRoot } from "./repo.ts";
 import { parseWorkflowFile } from "@ensemble/workflow";
 import {
-  deleteGitRepository,
+  type GitAuthStrategy,
   type GitRepositoryRecord,
-  getGitRepository,
-  markWorkflowRemoved,
-  markWorkflowRestored,
-  putGitRepository,
+  GitRepositoryStore,
+  WorkflowGitLinkStore,
 } from "./git-repositories.ts";
 
 const PROJECT_NAME_PATTERN = /^[a-zA-Z0-9](?:[a-zA-Z0-9._-]*[a-zA-Z0-9])?$/;
@@ -36,23 +34,44 @@ async function removeIfExists(path: string): Promise<void> {
   });
 }
 
+async function gitCacheRoot(): Promise<string> {
+  const repoRoot = await findRepoRoot();
+  return join(repoRoot, ".ensemble", "platform", "git-repos");
+}
+
+/**
+ * Extra `git` argv elements needed to authenticate as `auth`, prepended right
+ * after `clone`/before the repo URL. `-c http.extraHeader=...` is passed as
+ * its own discrete argument (dax spreads an interpolated array into separate
+ * shell-escaped tokens) — the token never touches a shell string, is never
+ * written into the resulting checkout's `.git/config` (a one-off `-c`
+ * override doesn't persist), and never appears in the stored `repoUrl`.
+ */
+function buildGitAuthArgs(auth: GitAuthStrategy): string[] {
+  if (auth.type === "pat") {
+    return ["-c", `http.extraHeader=Authorization: Bearer ${auth.token}`];
+  }
+  return [];
+}
+
 /**
  * Sparse-checks out only the `workflows/` folder of a git repository into a
  * fresh staging directory (blobless, single commit) so a bad URL or a repo
- * lacking a workflows/ folder never touches the live workflows/ tree. Caller
- * is responsible for moving what it needs out of the returned dir and then
+ * lacking a workflows/ folder never touches the live cache. Caller is
+ * responsible for moving what it needs out of the returned dir and then
  * removing the staging dir.
  */
-async function sparseCloneWorkflows(repoUrl: string, workflowsDir: string, projectName: string): Promise<string> {
-  const stagingDir = join(workflowsDir, `.git-integration-${projectName}-${crypto.randomUUID()}`);
+async function sparseCloneWorkflows(record: Pick<GitRepositoryRecord, "repoUrl" | "auth">, stagingParentDir: string, label: string): Promise<string> {
+  const stagingDir = join(stagingParentDir, `.git-integration-${label}-${crypto.randomUUID()}`);
+  const authArgs = buildGitAuthArgs(record.auth);
 
-  const cloneResult = await $`git clone --filter=blob:none --no-checkout --depth 1 ${repoUrl} ${stagingDir}`
+  const cloneResult = await $`git clone ${authArgs} --filter=blob:none --no-checkout --depth 1 ${record.repoUrl} ${stagingDir}`
     .stdout("null")
     .stderr("piped")
     .noThrow();
   if (cloneResult.code !== 0) {
     await removeIfExists(stagingDir);
-    throw new Error(`Failed to clone "${repoUrl}": ${cloneResult.stderr.trim()}`);
+    throw new Error(`Failed to clone "${record.repoUrl}": ${cloneResult.stderr.trim()}`);
   }
 
   const sparseResult = await $`git sparse-checkout set --no-cone workflows`
@@ -65,179 +84,199 @@ async function sparseCloneWorkflows(repoUrl: string, workflowsDir: string, proje
     : sparseResult;
   if (checkoutResult.code !== 0) {
     await removeIfExists(stagingDir);
-    throw new Error(`Failed to sparse-checkout "workflows/" from "${repoUrl}": ${checkoutResult.stderr.trim()}`);
+    throw new Error(`Failed to sparse-checkout "workflows/" from "${record.repoUrl}": ${checkoutResult.stderr.trim()}`);
   }
 
   const clonedWorkflowsDir = join(stagingDir, "workflows");
   if (!await exists(clonedWorkflowsDir, { isDirectory: true })) {
     await removeIfExists(stagingDir);
-    throw new Error(`"${repoUrl}" has no workflows/ folder.`);
+    throw new Error(`"${record.repoUrl}" has no workflows/ folder.`);
   }
-
-  await pruneLocalOnlyWorkflows(clonedWorkflowsDir);
 
   return stagingDir;
 }
 
 /**
- * Removes every workflow directory under `workflowsDir` whose workflow.yml
- * has no `on:` trigger declared — git integration only syncs workflows a
- * remote can actually fire (manual/github trigger), since anything without
- * one is meant to stay local to whatever repo defines it.
+ * Re-fetches `record`'s repository into its cache dir
+ * (`.ensemble/platform/git-repos/<projectName>`), replacing whatever was
+ * cached there before. This is the one clone routine shared by registration
+ * (to validate access), refresh, and reading candidate workflow content for
+ * a sync — none of them touch `workflows/` directly; only
+ * `syncWorkflowFromGit` copies out of this cache into a live workflow
+ * directory, and only after validating the specific path it's copying.
  */
-async function pruneLocalOnlyWorkflows(workflowsDir: string): Promise<void> {
-  const workflowDirs: string[] = [];
-  for await (const entry of walk(workflowsDir, { match: [/workflow\.yml$/], includeDirs: false })) {
-    workflowDirs.push(dirname(entry.path));
-  }
+async function refreshRepoCache(record: Pick<GitRepositoryRecord, "projectName" | "repoUrl" | "auth">): Promise<string> {
+  const cacheRoot = await gitCacheRoot();
+  const targetDir = join(cacheRoot, record.projectName);
 
-  for (const workflowDir of workflowDirs) {
-    const workflow = await parseWorkflowFile(join(workflowDir, "workflow.yml")).catch(() => undefined);
-    if (workflow && workflow.on && workflow.on.length > 0) continue;
-    await removeIfExists(workflowDir);
-  }
+  const stagingDir = await sparseCloneWorkflows(record, cacheRoot, record.projectName);
+  const clonedWorkflowsDir = join(stagingDir, "workflows");
 
-  await removeEmptyDirs(workflowsDir);
+  await removeIfExists(targetDir);
+  await Deno.mkdir(dirname(targetDir), { recursive: true });
+  await Deno.rename(clonedWorkflowsDir, targetDir);
+  await removeIfExists(stagingDir);
+
+  return targetDir;
 }
 
-/** Recursively removes now-empty directories left behind after pruning, so a project with no networked workflows lands as nothing at all. Leaves `dir` itself in place even if it ends up empty — the caller still needs it to exist. */
-async function removeEmptyDirs(dir: string): Promise<void> {
-  for await (const entry of Deno.readDir(dir)) {
-    if (!entry.isDirectory) continue;
-    const childDir = join(dir, entry.name);
-    await removeEmptyDirs(childDir);
-    if (await isEmptyDir(childDir)) await removeIfExists(childDir);
-  }
-}
-
-async function isEmptyDir(dir: string): Promise<boolean> {
-  for await (const _ of Deno.readDir(dir)) return false;
-  return true;
-}
-
-export interface CloneWorkflowsFromGitOptions {
+export interface RegisterGitRepositoryOptions {
   repoUrl: string;
   /** Defaults to the repo URL's last path segment. */
   projectName?: string;
-}
-
-export interface CloneWorkflowsFromGitResult {
-  projectName: string;
-  workflowsDir: string;
+  /** Defaults to { type: "none" } (public repo, no credentials). */
+  auth?: GitAuthStrategy;
 }
 
 /**
- * Sparse-checks out only the `workflows/` folder of a git repository and
- * lands it at workflows/<projectName>/ in this repo, so multiple integrated
- * repos' workflows can't collide by name. Replaces the whole projectName/
- * directory (clearing any per-workflow removals previously recorded) and
- * persists a GitRepositoryRecord so the repo can later be listed, refreshed,
- * or removed.
+ * Registers a git repository: validates access by cloning its `workflows/`
+ * folder into a cache dir under `.ensemble/platform/git-repos/<projectName>`
+ * (never `workflows/` itself — registration creates no workflow directories),
+ * then persists a GitRepositoryRecord so it can later be listed, refreshed,
+ * removed, or used as a source for syncing an individual workflow's content.
  */
-export async function cloneWorkflowsFromGit(
-  options: CloneWorkflowsFromGitOptions,
-): Promise<CloneWorkflowsFromGitResult> {
+export async function registerGitRepository(
+  repositories: GitRepositoryStore,
+  options: RegisterGitRepositoryOptions,
+): Promise<GitRepositoryRecord> {
   const projectName = options.projectName?.trim() || deriveProjectName(options.repoUrl);
   assertValidProjectName(projectName);
+  const auth = options.auth ?? { type: "none" };
 
-  const repoRoot = await findRepoRoot();
-  const workflowsDir = join(repoRoot, "workflows");
-  const targetDir = join(workflowsDir, projectName);
+  await refreshRepoCache({ projectName, repoUrl: options.repoUrl, auth });
 
-  const stagingDir = await sparseCloneWorkflows(options.repoUrl, workflowsDir, projectName);
-  const clonedWorkflowsDir = join(stagingDir, "workflows");
-
-  if (await exists(targetDir)) {
-    await removeIfExists(targetDir);
-  }
-  await Deno.rename(clonedWorkflowsDir, targetDir);
-  await removeIfExists(stagingDir);
-
-  await putGitRepository({
+  const now = new Date().toISOString();
+  const record: GitRepositoryRecord = {
     projectName,
     repoUrl: options.repoUrl,
-    clonedAt: new Date().toISOString(),
-    removedWorkflows: [],
-  });
-
-  return { projectName, workflowsDir: targetDir };
+    auth,
+    registeredAt: now,
+    lastFetchedAt: now,
+  };
+  await repositories.put(record);
+  return record;
 }
 
-/** Re-clones an already-integrated repository, refreshing every workflow currently present under it (previously-removed workflows stay removed). */
-export async function refreshGitRepository(projectName: string): Promise<GitRepositoryRecord> {
-  const record = await getGitRepository(projectName);
+/** Re-fetches an already-registered repository's cached checkout. Does not touch any workflow directory. */
+export async function refreshGitRepository(repositories: GitRepositoryStore, projectName: string): Promise<GitRepositoryRecord> {
+  const record = await repositories.get(projectName);
   if (!record) {
-    throw new Error(`Repository "${projectName}" is not integrated.`);
+    throw new Error(`Repository "${projectName}" is not registered.`);
   }
 
-  const repoRoot = await findRepoRoot();
-  const workflowsDir = join(repoRoot, "workflows");
-  const targetDir = join(workflowsDir, projectName);
+  await refreshRepoCache(record);
 
-  const stagingDir = await sparseCloneWorkflows(record.repoUrl, workflowsDir, projectName);
-  const clonedWorkflowsDir = join(stagingDir, "workflows");
-
-  for (const removedWorkflow of record.removedWorkflows) {
-    await removeIfExists(join(clonedWorkflowsDir, removedWorkflow));
-  }
-
-  await removeIfExists(targetDir);
-  await Deno.rename(clonedWorkflowsDir, targetDir);
-  await removeIfExists(stagingDir);
-
-  const updated: GitRepositoryRecord = { ...record, clonedAt: new Date().toISOString() };
-  await putGitRepository(updated);
+  const updated: GitRepositoryRecord = { ...record, lastFetchedAt: new Date().toISOString() };
+  await repositories.put(updated);
   return updated;
 }
 
-/** Removes an integrated repository entirely: its workflows/<projectName>/ directory and its persisted record. */
-export async function removeGitRepository(projectName: string): Promise<void> {
-  const repoRoot = await findRepoRoot();
-  const targetDir = join(repoRoot, "workflows", projectName);
-  await removeIfExists(targetDir);
-  await deleteGitRepository(projectName);
-}
-
-/** Removes a single workflow's directory from an integrated repo's project, without affecting sibling workflows. */
-export async function removeGitRepositoryWorkflow(projectName: string, workflowName: string): Promise<void> {
-  const record = await getGitRepository(projectName);
-  if (!record) {
-    throw new Error(`Repository "${projectName}" is not integrated.`);
-  }
-
-  const repoRoot = await findRepoRoot();
-  const workflowDir = join(repoRoot, "workflows", projectName, workflowName);
-  await removeIfExists(workflowDir);
-  await markWorkflowRemoved(projectName, workflowName);
+/**
+ * Removes a registered repository entirely: its cached checkout and its
+ * persisted record. Does not touch `workflows/` or any WorkflowGitLink —
+ * a workflow previously synced from this repo keeps its last-synced content;
+ * only the ability to re-sync it from this repo is lost (its link now points
+ * at a project that no longer resolves).
+ */
+export async function removeGitRepository(repositories: GitRepositoryStore, projectName: string): Promise<void> {
+  const cacheRoot = await gitCacheRoot();
+  await removeIfExists(join(cacheRoot, projectName));
+  await repositories.delete(projectName);
 }
 
 /**
- * Re-clones just enough of an integrated repo to (re)fetch one workflow's
- * current directory from git, leaving its siblings untouched. Works for both
- * a previously-removed workflow (restoring it) and one that's already
- * present (refetching its latest content) — either way it un-marks the
- * workflow as removed.
+ * Every candidate workflow in `projectName`'s repo (relative paths within
+ * its own `workflows/` folder, e.g. "deploy" for workflows/deploy/workflow.yml)
+ * a user could sync into a local workflow — refreshes the repo's cache first
+ * so the list reflects its current default-branch content. A workflow with
+ * no `on:` trigger is still included (a synced workflow might reasonably be
+ * invocation-only) but flagged via `hasTrigger: false`, purely as a UI hint.
  */
-export async function restoreGitRepositoryWorkflow(projectName: string, workflowName: string): Promise<void> {
-  const record = await getGitRepository(projectName);
+export interface RepoWorkflowCandidate {
+  pathInRepo: string;
+  hasTrigger: boolean;
+}
+
+export async function listRepoWorkflowCandidates(
+  repositories: GitRepositoryStore,
+  projectName: string,
+): Promise<RepoWorkflowCandidate[]> {
+  const record = await repositories.get(projectName);
   if (!record) {
-    throw new Error(`Repository "${projectName}" is not integrated.`);
+    throw new Error(`Repository "${projectName}" is not registered.`);
   }
+
+  const cacheDir = await refreshRepoCache(record);
+  await repositories.put({ ...record, lastFetchedAt: new Date().toISOString() });
+
+  const candidates: RepoWorkflowCandidate[] = [];
+  for await (const entry of walk(cacheDir, { match: [/workflow\.yml$/], includeDirs: false })) {
+    const workflowDir = dirname(entry.path);
+    const pathInRepo = workflowDir.slice(cacheDir.length + 1) || ".";
+    const workflow = await parseWorkflowFile(entry.path).catch(() => undefined);
+    candidates.push({ pathInRepo, hasTrigger: Boolean(workflow?.on && workflow.on.length > 0) });
+  }
+  return candidates;
+}
+
+/**
+ * Syncs one workflow's on-disk content from `pathInRepo` within
+ * `projectName`'s registered repo: refreshes the repo's cache, validates the
+ * candidate's `workflow.yml` parses (staged — never touching the live
+ * workflow dir until valid, same safety property as the plain upload
+ * endpoint), replaces `workflows/<workflowName>/` with it, and records the
+ * link so a later "sync now" knows what to re-fetch.
+ */
+export async function syncWorkflowFromGit(
+  repositories: GitRepositoryStore,
+  links: WorkflowGitLinkStore,
+  workflowName: string,
+  projectName: string,
+  pathInRepo: string,
+): Promise<void> {
+  const record = await repositories.get(projectName);
+  if (!record) {
+    throw new Error(`Repository "${projectName}" is not registered.`);
+  }
+
+  const cacheDir = await refreshRepoCache(record);
+  await repositories.put({ ...record, lastFetchedAt: new Date().toISOString() });
+
+  const candidateDir = join(cacheDir, pathInRepo);
+  const candidateWorkflowFile = join(candidateDir, "workflow.yml");
+  if (!await exists(candidateWorkflowFile, { isFile: true })) {
+    throw new Error(`"${pathInRepo}" in "${record.repoUrl}" has no workflow.yml.`);
+  }
+  await parseWorkflowFile(candidateWorkflowFile);
 
   const repoRoot = await findRepoRoot();
-  const workflowsDir = join(repoRoot, "workflows");
-  const targetWorkflowDir = join(workflowsDir, projectName, workflowName);
+  const targetDir = join(repoRoot, "workflows", workflowName);
+  await removeIfExists(targetDir);
+  await Deno.mkdir(dirname(targetDir), { recursive: true });
+  await copyDir(candidateDir, targetDir);
 
-  const stagingDir = await sparseCloneWorkflows(record.repoUrl, workflowsDir, projectName);
-  const clonedWorkflowDir = join(stagingDir, "workflows", workflowName);
-  if (!await exists(clonedWorkflowDir, { isDirectory: true })) {
-    await removeIfExists(stagingDir);
-    throw new Error(`Workflow "${workflowName}" no longer exists in "${record.repoUrl}".`);
+  await links.put({
+    workflowName,
+    projectName,
+    pathInRepo,
+    syncedAt: new Date().toISOString(),
+  });
+}
+
+async function copyDir(src: string, dest: string): Promise<void> {
+  await Deno.mkdir(dest, { recursive: true });
+  for await (const entry of Deno.readDir(src)) {
+    const srcPath = join(src, entry.name);
+    const destPath = join(dest, entry.name);
+    if (entry.isDirectory) {
+      await copyDir(srcPath, destPath);
+    } else {
+      await Deno.copyFile(srcPath, destPath);
+    }
   }
+}
 
-  await removeIfExists(targetWorkflowDir);
-  await Deno.rename(clonedWorkflowDir, targetWorkflowDir);
-  await removeIfExists(stagingDir);
-
-  await markWorkflowRestored(projectName, workflowName);
+/** Drops `workflowName`'s git link, e.g. when the workflow itself is deleted. Leaves its content on disk untouched. */
+export async function unlinkWorkflowFromGit(links: WorkflowGitLinkStore, workflowName: string): Promise<void> {
+  await links.delete(workflowName);
 }

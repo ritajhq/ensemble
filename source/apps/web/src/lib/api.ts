@@ -1,5 +1,3 @@
-import { encodeWorkflowId } from "./workflow-id.ts";
-
 export type ManualInputType = "string" | "number" | "boolean" | "object" | "git-tags" | "context" | "job";
 
 export interface ManualInput {
@@ -218,20 +216,23 @@ export function openRunEvents(
   };
 }
 
-export async function cloneGitWorkflows(repoUrl: string, projectName?: string): Promise<{ projectName: string }> {
-  return await postJson<{ projectName: string }>("/v1/integrations/git/clone", { repoUrl, projectName });
-}
+/** How the server should authenticate to a registered repository. Discriminated union — extensible for a future strategy (e.g. a GitHub App installation) without a schema change. */
+export type GitAuthStrategy =
+  | { type: "none" }
+  | { type: "pat"; token: string };
 
-export interface GitWorkflowSummary {
-  name: string;
+/** Registers a git repository: validates access by cloning it into a server-side cache — never creates or touches any workflow directory. */
+export async function registerGitRepository(repoUrl: string, projectName?: string, auth?: GitAuthStrategy): Promise<{ projectName: string }> {
+  return await postJson<{ projectName: string }>("/v1/integrations/git/register", { repoUrl, projectName, auth });
 }
 
 export interface GitRepositorySummary {
   projectName: string;
   repoUrl: string;
-  clonedAt: string;
-  workflows: GitWorkflowSummary[];
-  removedWorkflows: string[];
+  /** "none" | "pat" — never the credential itself. */
+  authType: "none" | "pat";
+  registeredAt: string;
+  lastFetchedAt?: string;
 }
 
 export async function fetchGitRepositories(): Promise<GitRepositorySummary[]> {
@@ -239,26 +240,49 @@ export async function fetchGitRepositories(): Promise<GitRepositorySummary[]> {
   return repositories;
 }
 
+/** Re-fetches a registered repository's cached checkout. Does not touch any workflow. */
 export async function refreshGitRepository(projectName: string): Promise<void> {
   await postJson(`/v1/integrations/git/repositories/${encodeURIComponent(projectName)}/refresh`, {});
 }
 
+/** Unregisters a repository. Workflows previously synced from it keep their last-synced content. */
 export async function removeGitRepository(projectName: string): Promise<void> {
   await postJson(`/v1/integrations/git/repositories/${encodeURIComponent(projectName)}/remove`, {});
 }
 
-export async function removeGitRepositoryWorkflow(projectName: string, workflowName: string): Promise<void> {
-  await postJson(
-    `/v1/integrations/git/repositories/${encodeURIComponent(projectName)}/workflows/${encodeWorkflowId(workflowName)}/remove`,
-    {},
-  );
+export interface RepoWorkflowCandidate {
+  pathInRepo: string;
+  hasTrigger: boolean;
 }
 
-export async function restoreGitRepositoryWorkflow(projectName: string, workflowName: string): Promise<void> {
-  await postJson(
-    `/v1/integrations/git/repositories/${encodeURIComponent(projectName)}/workflows/${encodeWorkflowId(workflowName)}/restore`,
-    {},
+/** Every workflow.yml found in a registered repo's own workflows/ folder, for a "sync from git" picker. */
+export async function fetchRepoWorkflowCandidates(projectName: string): Promise<RepoWorkflowCandidate[]> {
+  const { candidates } = await getJson<{ candidates: RepoWorkflowCandidate[] }>(
+    `/v1/integrations/git/repositories/${encodeURIComponent(projectName)}/candidates`,
   );
+  return candidates;
+}
+
+/** Where a new workflow's initial content comes from, if not the default empty stub. */
+export interface CreateWorkflowGitSource {
+  projectName: string;
+  pathInRepo: string;
+}
+
+/**
+ * Creates a new workflow. With no `source`, a minimal empty stub (no trigger
+ * yet). With `source`, seeds it from a registered repo's own
+ * workflows/<pathInRepo> instead — it keeps auto-resyncing from there on
+ * future triggers.
+ */
+export async function createWorkflow(name: string, source?: CreateWorkflowGitSource): Promise<WorkflowSummary> {
+  const { workflow } = await postJson<{ workflow: WorkflowSummary }>("/v1/workflows", { name, source });
+  return workflow;
+}
+
+/** Permanently deletes a workflow's directory and drops any git link it has. */
+export async function deleteWorkflow(workflowId: string): Promise<void> {
+  await deleteJson(`/v1/workflows/${workflowId}`);
 }
 
 export async function fetchWorkflowFiles(workflowId: string): Promise<WorkflowFileNode[]> {

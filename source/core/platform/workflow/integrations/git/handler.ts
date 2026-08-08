@@ -1,54 +1,20 @@
 import {
-  cloneWorkflowsFromGit,
-  decodeWorkflowId,
-  listGitRepositories,
-  listWorkflowsForProject,
+  type GitAuthStrategy,
+  type GitRepositoryStore,
+  listRepoWorkflowCandidates,
   refreshGitRepository,
+  registerGitRepository,
   removeGitRepository,
-  removeGitRepositoryWorkflow,
-  restoreGitRepositoryWorkflow,
 } from "@ensemble/core";
 import { isAuthorizedFor } from "../../../auth/tokens.ts";
 import {
-  type CloneGitWorkflowsResponse,
   type GitRepositorySummary,
-  isCloneGitWorkflowsRequest,
+  isRegisterGitRepositoryRequest,
   type ListGitRepositoriesResponse,
+  type ListRepoWorkflowCandidatesResponse,
   type RefreshGitRepositoryResponse,
+  type RegisterGitRepositoryResponse,
 } from "./contract.ts";
-
-/**
- * POST /v1/integrations/git/clone — sparse-checks out only a git repo's
- * workflows/ folder and lands it at workflows/<projectName>/ in this repo
- * (see cloneWorkflowsFromGit), so pipelines from multiple external repos can
- * be brought in without colliding on workflow names.
- */
-export async function handleCloneGitWorkflows(request: Request): Promise<Response> {
-  if (!await isAuthorizedFor(request, "upload")) {
-    return Response.json({ error: "Missing or invalid bearer token." }, { status: 401 });
-  }
-
-  const text = await request.text();
-  let body: unknown;
-  try {
-    body = JSON.parse(text);
-  } catch {
-    return Response.json({ error: "Request body must be valid JSON." }, { status: 400 });
-  }
-  if (!isCloneGitWorkflowsRequest(body)) {
-    return Response.json({ error: "Expected { repoUrl: string, projectName?: string }." }, { status: 400 });
-  }
-
-  try {
-    const { projectName } = await cloneWorkflowsFromGit({
-      repoUrl: body.repoUrl,
-      projectName: body.projectName,
-    });
-    return Response.json({ projectName } satisfies CloneGitWorkflowsResponse);
-  } catch (error) {
-    return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 });
-  }
-}
 
 /** Reads the ":projectName" route param, or responds 400 if missing. */
 function resolveProjectNameParam(
@@ -61,48 +27,68 @@ function resolveProjectNameParam(
   return { projectName };
 }
 
-/** Decodes the ":workflowName" route param (base64url, since workflow names can contain "/"), or responds 400 if missing/invalid. */
-function resolveWorkflowNameParam(
-  params: Record<string, string | undefined>,
-): { workflowName: string } | { errorResponse: Response } {
-  const encoded = params.workflowName;
-  if (!encoded) {
-    return { errorResponse: Response.json({ error: "Missing workflow name in URL." }, { status: 400 }) };
+/**
+ * POST /v1/integrations/git/register — validates access to a git repository
+ * (a real clone of its workflows/ folder into a server-side cache, never
+ * `workflows/` itself) and persists it as a registered repository. Creates
+ * no workflow directories — a repository's content is only ever copied into
+ * a workflow via createWorkflow's optional `source`, either at creation time
+ * or through the ongoing WorkflowGitLink that keeps it resynced on triggers
+ * (see core/workflow.ts's syncWorkflowFromGitLinkIfPresent).
+ */
+export async function handleRegisterGitRepository(repositories: GitRepositoryStore, request: Request): Promise<Response> {
+  if (!await isAuthorizedFor(request, "upload")) {
+    return Response.json({ error: "Missing or invalid bearer token." }, { status: 401 });
   }
+
+  const text = await request.text();
+  let body: unknown;
   try {
-    return { workflowName: decodeWorkflowId(encoded) };
+    body = JSON.parse(text);
+  } catch {
+    return Response.json({ error: "Request body must be valid JSON." }, { status: 400 });
+  }
+  if (!isRegisterGitRepositoryRequest(body)) {
+    return Response.json({
+      error: 'Expected { repoUrl: string, projectName?: string, auth?: { type: "none" } | { type: "pat", token: string } }.',
+    }, { status: 400 });
+  }
+
+  const auth: GitAuthStrategy = body.auth ?? { type: "none" };
+
+  try {
+    const { projectName } = await registerGitRepository(repositories, {
+      repoUrl: body.repoUrl,
+      projectName: body.projectName,
+      auth,
+    });
+    return Response.json({ projectName } satisfies RegisterGitRepositoryResponse);
   } catch (error) {
-    return {
-      errorResponse: Response.json({
-        error: error instanceof Error ? error.message : String(error),
-      }, { status: 400 }),
-    };
+    return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 });
   }
 }
 
-/** GET /v1/integrations/git/repositories — every integrated repository, each with the workflows it currently contains. */
-export async function handleListGitRepositories(request: Request): Promise<Response> {
+/** GET /v1/integrations/git/repositories — every registered repository. */
+export async function handleListGitRepositories(repositories: GitRepositoryStore, request: Request): Promise<Response> {
   if (!await isAuthorizedFor(request, "read")) {
     return Response.json({ error: "Missing or invalid bearer token." }, { status: 401 });
   }
 
-  const records = await listGitRepositories();
-  const repositories = await Promise.all(records.map(async (record): Promise<GitRepositorySummary> => {
-    const workflows = await listWorkflowsForProject(record.projectName);
-    return {
-      projectName: record.projectName,
-      repoUrl: record.repoUrl,
-      clonedAt: record.clonedAt,
-      workflows: workflows.map(({ name }) => ({ name })),
-      removedWorkflows: record.removedWorkflows,
-    };
+  const records = await repositories.list();
+  const summaries: GitRepositorySummary[] = records.map((record) => ({
+    projectName: record.projectName,
+    repoUrl: record.repoUrl,
+    authType: record.auth.type,
+    registeredAt: record.registeredAt,
+    lastFetchedAt: record.lastFetchedAt,
   }));
 
-  return Response.json({ repositories } satisfies ListGitRepositoriesResponse);
+  return Response.json({ repositories: summaries } satisfies ListGitRepositoriesResponse);
 }
 
-/** POST /v1/integrations/git/repositories/:projectName/refresh — re-clones an integrated repository. */
+/** POST /v1/integrations/git/repositories/:projectName/refresh — re-fetches a registered repository's cached checkout. Does not touch any workflow. */
 export async function handleRefreshGitRepository(
+  repositories: GitRepositoryStore,
   request: Request,
   params: Record<string, string | undefined>,
 ): Promise<Response> {
@@ -114,15 +100,16 @@ export async function handleRefreshGitRepository(
   if ("errorResponse" in resolved) return resolved.errorResponse;
 
   try {
-    const { projectName, clonedAt } = await refreshGitRepository(resolved.projectName);
-    return Response.json({ projectName, clonedAt } satisfies RefreshGitRepositoryResponse);
+    const { projectName, lastFetchedAt } = await refreshGitRepository(repositories, resolved.projectName);
+    return Response.json({ projectName, lastFetchedAt } satisfies RefreshGitRepositoryResponse);
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 });
   }
 }
 
-/** POST /v1/integrations/git/repositories/:projectName/remove — drops an integrated repository and its workflows. */
+/** POST /v1/integrations/git/repositories/:projectName/remove — unregisters a repository. Workflows previously synced from it keep their last-synced content. */
 export async function handleRemoveGitRepository(
+  repositories: GitRepositoryStore,
   request: Request,
   params: Record<string, string | undefined>,
 ): Promise<Response> {
@@ -134,52 +121,29 @@ export async function handleRemoveGitRepository(
   if ("errorResponse" in resolved) return resolved.errorResponse;
 
   try {
-    await removeGitRepository(resolved.projectName);
+    await removeGitRepository(repositories, resolved.projectName);
     return Response.json({});
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 });
   }
 }
 
-/** POST /v1/integrations/git/repositories/:projectName/workflows/:workflowName/remove — removes one workflow, leaving siblings and the repo intact. */
-export async function handleRemoveGitRepositoryWorkflow(
+/** GET /v1/integrations/git/repositories/:projectName/candidates — every workflow.yml found in the repo's own workflows/ folder, for the "sync from git" picker. */
+export async function handleListRepoWorkflowCandidates(
+  repositories: GitRepositoryStore,
   request: Request,
   params: Record<string, string | undefined>,
 ): Promise<Response> {
-  if (!await isAuthorizedFor(request, "upload")) {
+  if (!await isAuthorizedFor(request, "read")) {
     return Response.json({ error: "Missing or invalid bearer token." }, { status: 401 });
   }
 
   const resolved = resolveProjectNameParam(params);
   if ("errorResponse" in resolved) return resolved.errorResponse;
-  const resolvedWorkflow = resolveWorkflowNameParam(params);
-  if ("errorResponse" in resolvedWorkflow) return resolvedWorkflow.errorResponse;
 
   try {
-    await removeGitRepositoryWorkflow(resolved.projectName, resolvedWorkflow.workflowName);
-    return Response.json({});
-  } catch (error) {
-    return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 });
-  }
-}
-
-/** POST /v1/integrations/git/repositories/:projectName/workflows/:workflowName/restore — re-clones just this one previously-removed workflow. */
-export async function handleRestoreGitRepositoryWorkflow(
-  request: Request,
-  params: Record<string, string | undefined>,
-): Promise<Response> {
-  if (!await isAuthorizedFor(request, "upload")) {
-    return Response.json({ error: "Missing or invalid bearer token." }, { status: 401 });
-  }
-
-  const resolved = resolveProjectNameParam(params);
-  if ("errorResponse" in resolved) return resolved.errorResponse;
-  const resolvedWorkflow = resolveWorkflowNameParam(params);
-  if ("errorResponse" in resolvedWorkflow) return resolvedWorkflow.errorResponse;
-
-  try {
-    await restoreGitRepositoryWorkflow(resolved.projectName, resolvedWorkflow.workflowName);
-    return Response.json({});
+    const candidates = await listRepoWorkflowCandidates(repositories, resolved.projectName);
+    return Response.json({ candidates } satisfies ListRepoWorkflowCandidatesResponse);
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 });
   }

@@ -1,5 +1,6 @@
 {
   "imports": {
+    "@ensemble/core": "jsr:@ensemble/core",
     "@ensemble/platform": "jsr:@ensemble/platform"
   }
 }
