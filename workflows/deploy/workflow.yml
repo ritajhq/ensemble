@@ -10,8 +10,6 @@ resources:
       url: https://github.com/ritajhq/ensemble.git
 
 context:
-  variables:
-    - name: TF_VARS
   secrets:
     - name: GITHUB_WEBHOOK_SECRET
 
@@ -48,7 +46,7 @@ jobs:
 
           cd workflows/deploy/terraform
           "${{ steps.install_terraform.outputs.tf_bin }}" apply -auto-approve \
-            -var-file="$TF_VARS_FILE" \
+            -var-file="${{ contextFile('TF_VARS.json') }}" \
             -var="artifacts_dir=$ARTIFACTS_DIR" \
             -var="server_github_webhook_secret=$GITHUB_WEBHOOK_SECRET" \
             -var="server_docker_gid=$(getent group docker | cut -d: -f3)"

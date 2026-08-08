@@ -15,6 +15,7 @@ import { expandMatrix } from "./matrix.ts";
 import { JobLogger, printSummary, type SummaryRow } from "./logging.ts";
 import { checkoutRepositories } from "./checkout.ts";
 import { type ContextSource, resolveContext } from "./context-loaders/resolve.ts";
+import { findContextFileReferences } from "./parse.ts";
 
 /**
  * Fired as jobs (and, for non-matrixed jobs, their steps) start/finish, so a
@@ -184,6 +185,7 @@ export async function runWorkflow(
 
     const resolved = await resolveContext(
       workflow.context,
+      findContextFileReferences(workflow),
       options.context,
       options.workflowDir,
       runDir,
@@ -224,12 +226,24 @@ export async function runWorkflow(
             needsResult = { result: "skipped", outputs: {} };
             durationMs = logger.flush("skipped");
           } else if (job.matrix !== undefined) {
-            const root = buildRootContext(variables, outcomes, undefined, options.trigger, repositories, resolved.variables);
+            const root = buildRootContext(variables, outcomes, {
+              trigger: options.trigger,
+              repositories,
+              contextVariables: resolved.variables,
+              contextFiles: resolved.files,
+              contextSecretFiles: resolved.secretFiles,
+            });
             const matrixRun = await runMatrixJob(jobId, job, root, options.workflowDir, runDir, concurrency);
             needsResult = matrixRun.needsResult;
             durationMs = matrixRun.durationMs;
           } else {
-            const root = buildRootContext(variables, outcomes, undefined, options.trigger, repositories, resolved.variables);
+            const root = buildRootContext(variables, outcomes, {
+              trigger: options.trigger,
+              repositories,
+              contextVariables: resolved.variables,
+              contextFiles: resolved.files,
+              contextSecretFiles: resolved.secretFiles,
+            });
             const outcome = await runJob(
               job,
               root,

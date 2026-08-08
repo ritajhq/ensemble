@@ -1,5 +1,5 @@
 import { parse as parseYaml } from "@std/yaml";
-import { findStaticStepReferences } from "./expressions.ts";
+import { type ContextFileReference, findStaticContextFileReferences, findStaticStepReferences } from "./expressions.ts";
 import type {
   Context,
   ContextSecret,
@@ -403,6 +403,33 @@ function validateStepReferences(file: string, jobId: string, job: Job): void {
     checkText(`${where}'s "run"`, step.run, visibleIds);
     if (step.id !== undefined) visibleIds.add(step.id);
   }
+}
+
+/**
+ * Statically finds every `contextFile("<filename>")`/
+ * `contextSecretFile("<filename>")` call across the whole workflow (job
+ * `if:`, every step's `if:`/`name:`/`run:`) — the same text fields
+ * validateStepReferences walks for `steps.*`. Used by
+ * context-loaders/resolve.ts to pre-resolve every referenced file, before
+ * any job runs, alongside the existing context.variables/secrets
+ * resolution.
+ */
+export function findContextFileReferences(workflow: Pick<Workflow, "jobs">): ContextFileReference[] {
+  const refs: ContextFileReference[] = [];
+  const scan = (text: string | undefined) => {
+    if (text === undefined) return;
+    refs.push(...findStaticContextFileReferences(text));
+  };
+
+  for (const job of Object.values(workflow.jobs)) {
+    scan(job.if);
+    for (const step of job.steps) {
+      scan(step.if);
+      scan(step.name);
+      scan(step.run);
+    }
+  }
+  return refs;
 }
 
 function validateJob(file: string, jobId: string, raw: unknown): Job {

@@ -1,5 +1,6 @@
 import { data, Evaluator, ExpressionError, ExpressionEvaluationError, Lexer, Parser } from "@actions/expressions";
 import { Binary, ContextAccess, FunctionCall, Grouping, IndexAccess, Literal, Logical, Unary } from "@actions/expressions/ast";
+import type { FunctionDefinition, FunctionInfo } from "@actions/expressions/funcs/info";
 
 /** Thrown when an expression fails to parse or evaluate (e.g. an unrecognized context path). */
 export class WorkflowExpressionError extends Error {}
@@ -84,15 +85,58 @@ function reraise(expr: string, error: unknown): never {
   throw error;
 }
 
+/**
+ * `contextFile("<filename>")`/`contextSecretFile("<filename>")`: read a
+ * pre-resolved path out of `context.files`/`context.secretFiles` (populated
+ * up front by context-loaders/resolve.ts from every static
+ * findStaticContextFileReferences() hit — see parse.ts) — never a live
+ * loader call, since the expression evaluator's functions are synchronous
+ * and loaders are async. Declared here (not in @actions/expressions) because
+ * they're workflow-specific: their only job is looking up this run's own
+ * pre-resolved data, not general-purpose computation.
+ */
+const CONTEXT_FILE_FUNCTIONS: FunctionInfo[] = [
+  { name: "contextFile", minArgs: 1, maxArgs: 1 },
+  { name: "contextSecretFile", minArgs: 1, maxArgs: 1 },
+];
+
+function contextFileLookup(context: Record<string, JsonValue>, kind: "files" | "secretFiles", filename: string): data.ExpressionData {
+  const contextData = context.context;
+  const files = contextData !== null && typeof contextData === "object" && !Array.isArray(contextData) ? contextData[kind] : undefined;
+  const path = files !== null && typeof files === "object" && !Array.isArray(files) ? files[filename] : undefined;
+  if (typeof path !== "string") {
+    const fnName = kind === "files" ? "contextFile" : "contextSecretFile";
+    throw new WorkflowExpressionError(`${fnName}("${filename}") has no resolved path — this should have been caught before the run started.`);
+  }
+  return new data.StringData(path);
+}
+
+function buildContextFileFunctions(context: Record<string, JsonValue>): Map<string, FunctionDefinition> {
+  return new Map<string, FunctionDefinition>([
+    ["contextfile", {
+      name: "contextFile",
+      minArgs: 1,
+      maxArgs: 1,
+      call: (arg: data.ExpressionData) => contextFileLookup(context, "files", fromExpressionData(arg) as string),
+    }],
+    ["contextsecretfile", {
+      name: "contextSecretFile",
+      minArgs: 1,
+      maxArgs: 1,
+      call: (arg: data.ExpressionData) => contextFileLookup(context, "secretFiles", fromExpressionData(arg) as string),
+    }],
+  ]);
+}
+
 function parseAndEvaluate(expr: string, context: Record<string, JsonValue>): data.ExpressionData {
   const contextNames = Object.keys(context);
   try {
     const lexer = new Lexer(unwrap(expr));
     const { tokens } = lexer.lex();
-    const parser = new Parser(tokens, contextNames, []);
+    const parser = new Parser(tokens, contextNames, CONTEXT_FILE_FUNCTIONS);
     const ast = parser.parse();
     const contextDict = toExpressionData(context) as data.Dictionary;
-    const evaluator = new Evaluator(ast, contextDict);
+    const evaluator = new Evaluator(ast, contextDict, buildContextFileFunctions(context));
     return evaluator.evaluate();
   } catch (error) {
     reraise(expr, error);
@@ -156,7 +200,7 @@ export function findStaticStepReferences(text: string): string[] {
     try {
       const lexer = new Lexer(unwrap(match[0]));
       const { tokens } = lexer.lex();
-      const parser = new Parser(tokens, ALL_CONTEXT_NAMES, []);
+      const parser = new Parser(tokens, ALL_CONTEXT_NAMES, CONTEXT_FILE_FUNCTIONS);
       const ast = parser.parse();
       walkForStepReferences(ast, ids);
     } catch {
@@ -165,6 +209,75 @@ export function findStaticStepReferences(text: string): string[] {
     }
   }
   return ids;
+}
+
+/** One `contextFile("<filename>")`/`contextSecretFile("<filename>")` call statically found in a workflow's expression text. */
+export interface ContextFileReference {
+  kind: "file" | "secretFile";
+  filename: string;
+}
+
+/**
+ * Statically finds every `contextFile("<filename>")`/
+ * `contextSecretFile("<filename>")` call inside `text`, for the same
+ * before-any-job-runs pre-resolution parse.ts already does for
+ * `context.variables`/`context.secrets` (see context-loaders/resolve.ts).
+ * Only a string-literal argument is resolvable statically; a dynamic
+ * argument (e.g. `contextFile(matrix.env)`) is skipped here and fails
+ * normally at run time via contextFileLookup's own error instead.
+ */
+export function findStaticContextFileReferences(text: string): ContextFileReference[] {
+  const refs: ContextFileReference[] = [];
+  for (const match of text.matchAll(EXPR_REF)) {
+    try {
+      const lexer = new Lexer(unwrap(match[0]));
+      const { tokens } = lexer.lex();
+      const parser = new Parser(tokens, ALL_CONTEXT_NAMES, CONTEXT_FILE_FUNCTIONS);
+      const ast = parser.parse();
+      walkForContextFileReferences(ast, refs);
+    } catch {
+      // Genuinely malformed — let the real evaluator surface this at run time.
+    }
+  }
+  return refs;
+}
+
+function walkForContextFileReferences(node: unknown, out: ContextFileReference[]): void {
+  if (node instanceof FunctionCall) {
+    const fnName = node.functionName.lexeme.toLowerCase();
+    if (
+      (fnName === "contextfile" || fnName === "contextsecretfile") &&
+      node.args.length === 1 &&
+      node.args[0] instanceof Literal &&
+      node.args[0].literal instanceof data.StringData
+    ) {
+      out.push({ kind: fnName === "contextfile" ? "file" : "secretFile", filename: node.args[0].literal.value });
+    }
+    for (const arg of node.args) walkForContextFileReferences(arg, out);
+    return;
+  }
+  if (node instanceof IndexAccess) {
+    walkForContextFileReferences(node.expr, out);
+    walkForContextFileReferences(node.index, out);
+    return;
+  }
+  if (node instanceof Unary) {
+    walkForContextFileReferences(node.expr, out);
+    return;
+  }
+  if (node instanceof Binary) {
+    walkForContextFileReferences(node.left, out);
+    walkForContextFileReferences(node.right, out);
+    return;
+  }
+  if (node instanceof Logical) {
+    for (const arg of node.args) walkForContextFileReferences(arg, out);
+    return;
+  }
+  if (node instanceof Grouping) {
+    walkForContextFileReferences(node.group, out);
+    return;
+  }
 }
 
 /** Recursively visits every sub-expression, collecting the step id from any statically-resolvable `steps.<id>...` reference found. */

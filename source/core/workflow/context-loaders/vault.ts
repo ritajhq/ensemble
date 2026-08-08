@@ -19,5 +19,11 @@ export function createVaultLoader(): ContextLoader {
     loadSecret(_contextName: string, _key: string): Promise<LoadedValue | undefined> {
       return Promise.resolve(undefined);
     },
+    loadVariableFile(_contextName: string, _filename: string): Promise<string | undefined> {
+      return Promise.resolve(undefined);
+    },
+    loadSecretFile(_contextName: string, _filename: string): Promise<string | undefined> {
+      return Promise.resolve(undefined);
+    },
   };
 }

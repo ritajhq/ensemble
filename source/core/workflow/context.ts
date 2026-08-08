@@ -61,8 +61,22 @@ export interface RootContext {
   trigger?: Record<string, unknown>;
   /** Where each resources.repositories entry was checked out. Absent when the workflow declares none. */
   repositories?: Record<string, RepositoryContext>;
-  /** `context.variables` (not secrets), addressable as `context.variables.<key>.{name,value,path}` — an alternative to their `NAME`/`NAME_FILE` env vars. Absent when the workflow declares no `context.variables`. */
-  context?: { variables: Record<string, ResolvedVariable> };
+  /**
+   * `context.variables` (not secrets), addressable as
+   * `context.variables.<key>.{name,value,path}` — an alternative to their
+   * `NAME`/`NAME_FILE` env vars. `files`/`secretFiles` back the
+   * `contextFile("<filename>")`/`contextSecretFile("<filename>")` expression
+   * functions (see expressions.ts) — every filename statically referenced
+   * anywhere in the workflow, pre-resolved to a real path before any job
+   * runs (see context-loaders/resolve.ts). Absent entirely when the
+   * workflow declares no `context.variables` and references no
+   * `contextFile`/`contextSecretFile` calls.
+   */
+  context?: {
+    variables: Record<string, ResolvedVariable>;
+    files: Record<string, string>;
+    secretFiles: Record<string, string>;
+  };
 }
 
 /** Per-job context, accumulating `steps.*` as each step in that job completes. */
@@ -83,22 +97,34 @@ export interface StepContext {
   matrix?: Record<string, unknown>;
   trigger?: Record<string, unknown>;
   repositories?: Record<string, RepositoryContext>;
-  context?: { variables: Record<string, ResolvedVariable> };
+  context?: { variables: Record<string, ResolvedVariable>; files: Record<string, string>; secretFiles: Record<string, string> };
+}
+
+export interface BuildRootContextOptions {
+  matrix?: Record<string, unknown>;
+  trigger?: Record<string, unknown>;
+  repositories?: Record<string, RepositoryContext>;
+  contextVariables?: Record<string, ResolvedVariable>;
+  contextFiles?: Record<string, string>;
+  contextSecretFiles?: Record<string, string>;
 }
 
 export function buildRootContext(
   variables: Record<string, string>,
   completedJobs: Record<string, NeedsResult>,
-  matrix?: Record<string, unknown>,
-  trigger?: Record<string, unknown>,
-  repositories?: Record<string, RepositoryContext>,
-  contextVariables?: Record<string, ResolvedVariable>,
+  options: BuildRootContextOptions = {},
 ): RootContext {
   const root: RootContext = { variables, needs: { ...completedJobs } };
-  if (matrix !== undefined) root.matrix = matrix;
-  if (trigger !== undefined) root.trigger = trigger;
-  if (repositories !== undefined) root.repositories = repositories;
-  if (contextVariables !== undefined) root.context = { variables: contextVariables };
+  if (options.matrix !== undefined) root.matrix = options.matrix;
+  if (options.trigger !== undefined) root.trigger = options.trigger;
+  if (options.repositories !== undefined) root.repositories = options.repositories;
+  if (options.contextVariables !== undefined || options.contextFiles !== undefined || options.contextSecretFiles !== undefined) {
+    root.context = {
+      variables: options.contextVariables ?? {},
+      files: options.contextFiles ?? {},
+      secretFiles: options.contextSecretFiles ?? {},
+    };
+  }
   return root;
 }
 

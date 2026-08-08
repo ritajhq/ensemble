@@ -3,47 +3,36 @@ import { exists } from "@std/fs/exists";
 import type { ContextLoader, LoadedValue } from "./types.ts";
 
 /**
- * Parses a single-value `.env` file: the first non-blank `KEY=value` line's
- * value, ignoring the key itself (the file's own name, not its declared key,
- * is what maps it to a variable/secret — see readEnvFile).
+ * Reads a file's raw content verbatim, stripping a single trailing newline
+ * (for editor-friendliness — files are commonly saved with one). No parsing:
+ * a variable/secret's value is exactly the file's bytes, whether that's a
+ * plain scalar or a JSON blob a `run:` step wants as-is.
  */
-function parseEnvValue(text: string): string | undefined {
-  for (const line of text.split("\n")) {
-    const trimmed = line.trim();
-    if (trimmed === "" || trimmed.startsWith("#")) continue;
-    const eq = trimmed.indexOf("=");
-    if (eq <= 0) continue;
-    let value = trimmed.slice(eq + 1).trim();
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-    return value;
-  }
-  return undefined;
-}
-
-/**
- * Reads one `.env`-style file into a scalar value. No `filePath` on the
- * result — the `.env` file itself holds `KEY=value` syntax, not the bare
- * value a `_FILE` companion should contain, so the engine materializes that
- * companion from the parsed scalar instead (see context-loaders/resolve.ts).
- */
-async function readEnvFile(path: string): Promise<LoadedValue | undefined> {
+async function readRawFile(path: string): Promise<string | undefined> {
   if (!await exists(path, { isFile: true })) return undefined;
   const text = await Deno.readTextFile(path);
-  const scalar = parseEnvValue(text);
+  return text.endsWith("\n") ? text.slice(0, -1) : text;
+}
+
+async function loadScalar(path: string): Promise<LoadedValue | undefined> {
+  const scalar = await readRawFile(path);
   return scalar !== undefined ? { scalar } : undefined;
+}
+
+async function loadFile(path: string): Promise<string | undefined> {
+  return await exists(path, { isFile: true }) ? path : undefined;
 }
 
 /**
  * Reads variables/secrets from a folder convention next to the workflow's
- * own `workflow.yml`: `contexts/<name>/variables/<key>.env` and
- * `contexts/<name>/secrets/<key>.env`, each a one-line `KEY=value` file —
+ * own `workflow.yml`: `contexts/<name>/variables/<filename>` and
+ * `contexts/<name>/secrets/<filename>`, each holding raw content verbatim —
  * the same shape a developer can create by hand to run a workflow locally
- * with the same context data a deployed run would use.
+ * with the same context data a deployed run would use. A declared
+ * `context.variables`/`context.secrets` entry reads the file named after its
+ * own key; `contextFile("NAME.ext")`/`contextSecretFile("NAME.ext")` reads
+ * any explicitly-named file in the same folder (e.g. for a tool that needs a
+ * real extension, like `terraform -var-file`).
  */
 export function createLocalLoader(workflowDir: string): ContextLoader {
   const contextsRoot = join(workflowDir, "contexts");
@@ -54,16 +43,22 @@ export function createLocalLoader(workflowDir: string): ContextLoader {
       return await exists(join(contextsRoot, contextName), { isDirectory: true });
     },
     loadVariable(contextName: string, key: string): Promise<LoadedValue | undefined> {
-      return readEnvFile(join(contextsRoot, contextName, "variables", `${key}.env`));
+      return loadScalar(join(contextsRoot, contextName, "variables", key));
     },
     loadSecret(contextName: string, key: string): Promise<LoadedValue | undefined> {
-      return readEnvFile(join(contextsRoot, contextName, "secrets", `${key}.env`));
+      return loadScalar(join(contextsRoot, contextName, "secrets", key));
+    },
+    loadVariableFile(contextName: string, filename: string): Promise<string | undefined> {
+      return loadFile(join(contextsRoot, contextName, "variables", filename));
+    },
+    loadSecretFile(contextName: string, filename: string): Promise<string | undefined> {
+      return loadFile(join(contextsRoot, contextName, "secrets", filename));
     },
   };
 }
 
 /**
- * Same `.env`-per-key convention as createLocalLoader, but rooted at
+ * Same per-key-file convention as createLocalLoader, but rooted at
  * `<repoRoot>/.ensemble/global/` instead of a single workflow's own
  * `contexts/<name>/` — one shared place to provision a value every workflow
  * on this host needs (e.g. registry credentials), instead of copy-pasting it
@@ -82,10 +77,16 @@ export function createLocalGlobalLoader(repoRoot: string): ContextLoader {
       return await exists(globalRoot, { isDirectory: true });
     },
     loadVariable(_contextName: string, key: string): Promise<LoadedValue | undefined> {
-      return readEnvFile(join(globalRoot, "variables", `${key}.env`));
+      return loadScalar(join(globalRoot, "variables", key));
     },
     loadSecret(_contextName: string, key: string): Promise<LoadedValue | undefined> {
-      return readEnvFile(join(globalRoot, "secrets", `${key}.env`));
+      return loadScalar(join(globalRoot, "secrets", key));
+    },
+    loadVariableFile(_contextName: string, filename: string): Promise<string | undefined> {
+      return loadFile(join(globalRoot, "variables", filename));
+    },
+    loadSecretFile(_contextName: string, filename: string): Promise<string | undefined> {
+      return loadFile(join(globalRoot, "secrets", filename));
     },
   };
 }

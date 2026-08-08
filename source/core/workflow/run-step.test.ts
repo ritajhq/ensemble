@@ -90,7 +90,11 @@ Deno.test("runStep: run: interpolates ${{ context.variables.*.{name,value,path} 
     variables: {},
     needs: {},
     steps: {},
-    context: { variables: { TF_VARS: { name: "TF_VARS", value: "region=us-east-1", path: "/tmp/tf-vars.txt" } } },
+    context: {
+      variables: { TF_VARS: { name: "TF_VARS", value: "region=us-east-1", path: "/tmp/tf-vars.txt" } },
+      files: {},
+      secretFiles: {},
+    },
   };
   const result = await runStep(
     {
