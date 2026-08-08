@@ -1,4 +1,11 @@
-import { listWorkflows, syncAllGitIntegrations, trackedRunWorkflowByName } from "@ensemble/core";
+import {
+  type GitRepositoryStore,
+  listWorkflows,
+  type RunStore,
+  syncAllWorkflowGitLinks,
+  trackedRunWorkflowByName,
+  type WorkflowGitLinkStore,
+} from "@ensemble/core";
 import { extractTagFromRef, matchesAnyTagPattern } from "./match.ts";
 import { verifyGithubSignature } from "./signature.ts";
 
@@ -17,7 +24,12 @@ function isGithubPushPayload(value: unknown): value is GithubPushPayload {
  * every workflow under workflows/ for an `on: - github:` entry whose
  * `push.tags` matches the pushed tag, and triggers all matches.
  */
-export async function handleGithubTrigger(request: Request): Promise<Response> {
+export async function handleGithubTrigger(
+  repositories: GitRepositoryStore,
+  links: WorkflowGitLinkStore,
+  runs: RunStore,
+  request: Request,
+): Promise<Response> {
   const rawBody = await request.text();
 
   const secret = Deno.env.get("GITHUB_WEBHOOK_SECRET");
@@ -64,7 +76,7 @@ export async function handleGithubTrigger(request: Request): Promise<Response> {
     return new Response(null, { status: 204 }); // not a tag push
   }
 
-  await syncAllGitIntegrations();
+  await syncAllWorkflowGitLinks(repositories, links);
 
   const workflows = await listWorkflows();
 
@@ -76,7 +88,7 @@ export async function handleGithubTrigger(request: Request): Promise<Response> {
   });
 
   for (const { name } of matches) {
-    trackedRunWorkflowByName(name, {
+    trackedRunWorkflowByName(runs, name, {
       trigger: { type: "github", ref: payload.ref, tag, sha: payload.after },
     }).catch((error) => {
       console.error(

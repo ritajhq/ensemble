@@ -17,14 +17,6 @@ export interface WorkflowGithubTriggerSummary {
 /** One entry of a workflow's `on:` list, as shown/used by the dashboard. */
 export type WorkflowTriggerSummary = WorkflowManualTriggerSummary | WorkflowGithubTriggerSummary;
 
-/** A workflow's declared `contexts:`, as shown/used by the dashboard — just enough for a UI to offer a picker, not the resolved contents. */
-export interface WorkflowContextsSummary {
-  /** Names of every entry under `contexts.entries`. */
-  names: string[];
-  /** `contexts.default`, if set — the name a UI should preselect. */
-  defaultName?: string;
-}
-
 export interface WorkflowSummary {
   /** URL-safe id — use this (not `name`) when building a route/API path for this workflow. */
   id: string;
@@ -33,12 +25,45 @@ export interface WorkflowSummary {
   lastRunAt?: string;
   /** This workflow's declared `on:` triggers, if any — empty when it only runs via direct invocation. */
   triggers: WorkflowTriggerSummary[];
-  /** This workflow's declared `contexts:`, if any — absent when it declares none (no --context required or offered). */
-  contexts?: WorkflowContextsSummary;
 }
 
 export interface ListWorkflowsResponse {
   workflows: WorkflowSummary[];
+}
+
+/** Where a new workflow's initial content comes from, if not the default empty stub. */
+export interface CreateWorkflowGitSourceRequest {
+  projectName: string;
+  pathInRepo: string;
+}
+
+export interface CreateWorkflowRequest {
+  name: string;
+  /** Seeds the workflow from a registered repo's own workflows/<pathInRepo> instead of the default empty stub — the workflow keeps auto-resyncing from there on future triggers. */
+  source?: CreateWorkflowGitSourceRequest;
+}
+
+function isCreateWorkflowGitSourceRequest(value: unknown): value is CreateWorkflowGitSourceRequest {
+  if (typeof value !== "object" || value === null) return false;
+  const record = value as Record<string, unknown>;
+  return typeof record.projectName === "string" && record.projectName.trim().length > 0 &&
+    typeof record.pathInRepo === "string" && record.pathInRepo.trim().length > 0;
+}
+
+export function isCreateWorkflowRequest(value: unknown): value is CreateWorkflowRequest {
+  if (typeof value !== "object" || value === null) return false;
+  const record = value as Record<string, unknown>;
+  if (typeof record.name !== "string" || record.name.trim().length === 0) return false;
+  if (record.source !== undefined && !isCreateWorkflowGitSourceRequest(record.source)) return false;
+  return true;
+}
+
+export interface CreateWorkflowResponse {
+  workflow: WorkflowSummary;
+}
+
+export interface DeleteWorkflowResponse {
+  success: boolean;
 }
 
 export interface ListRunsResponse {

@@ -1,9 +1,20 @@
-import { decodeWorkflowId, getWorkflowByName, syncGitIntegrationForWorkflow, trackedRunWorkflowByName } from "@ensemble/core";
+import {
+  decodeWorkflowId,
+  getWorkflowByName,
+  type GitRepositoryStore,
+  type RunStore,
+  syncWorkflowFromGitLinkIfPresent,
+  trackedRunWorkflowByName,
+  type WorkflowGitLinkStore,
+} from "@ensemble/core";
 import { isAuthorizedFor } from "../../../auth/tokens.ts";
 import { extractManualInputs, ManualInputError, resolveJobInput } from "./extract.ts";
 import { isManualTriggerRequest, type ManualTriggerResponse } from "./contract.ts";
 
 export async function handleManualTrigger(
+  repositories: GitRepositoryStore,
+  links: WorkflowGitLinkStore,
+  runs: RunStore,
   request: Request,
   params: Record<string, string | undefined>,
 ): Promise<Response> {
@@ -40,7 +51,7 @@ export async function handleManualTrigger(
 
   let workflow;
   try {
-    await syncGitIntegrationForWorkflow(name);
+    await syncWorkflowFromGitLinkIfPresent(repositories, links, name);
     ({ workflow } = await getWorkflowByName(name));
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 404 });
@@ -67,7 +78,7 @@ export async function handleManualTrigger(
   trigger.type = "manual";
 
   try {
-    const success = await trackedRunWorkflowByName(name, {
+    const success = await trackedRunWorkflowByName(runs, name, {
       job: body.job ?? resolveJobInput(declaredInputs, trigger),
       concurrency: body.concurrency,
       variables: body.variables,

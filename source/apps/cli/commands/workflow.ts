@@ -62,7 +62,19 @@ export const workflowCommand = new Command()
   .option("-c, --concurrency <concurrency:number>", "Max number of jobs to run concurrently.")
   .option(
     "--context <context:string>",
-    "Deploy context to run with. Exposed to every job/step as context.name and context.path (an absolute path to contexts/<context>).",
+    "Deploy context name to resolve this workflow's declared context.variables/context.secrets against.",
+  )
+  .option(
+    "--context-source <source:string>",
+    'Restrict context resolution to just one loader ("local" or "vault") instead of trying local then vault. Defaults to ENSEMBLE_CONTEXT_SOURCE.',
+    {
+      value: (value: string) => {
+        if (value !== "local" && value !== "vault") {
+          throw new ValidationError('--context-source must be "local" or "vault".');
+        }
+        return value;
+      },
+    },
   )
   .option(
     "-r, --remote <profile:string>",
@@ -80,7 +92,7 @@ export const workflowCommand = new Command()
   )
   .option("--trigger-json <json:string>", "Internal: an already-resolved trigger object, used when this invocation is itself running inside a spawned runner container.", { hidden: true })
   .option("--emit-events", "Internal: print structured ##ENSEMBLE-EVENT## lines on stdout as jobs/steps start and finish, for a caller (the runner container's outer process) to reconstruct progress.", { hidden: true })
-  .action(async ({ job, concurrency, context, remote, var: vars, envFile, input: inputs, triggerJson, emitEvents }, name) => {
+  .action(async ({ job, concurrency, context, contextSource, remote, var: vars, envFile, input: inputs, triggerJson, emitEvents }, name) => {
     const fileVars = envFile ? await loadEnv({ envPath: envFile, export: false }) : {};
     const overrides = { ...fileVars, ...CliUtil.parseVarOverrides(vars ?? []) };
     const inputOverrides = CliUtil.parseInputOverrides(inputs ?? []);
@@ -122,7 +134,15 @@ export const workflowCommand = new Command()
     const events = emitEvents ? new Delegate<[WorkflowEvent]>() : undefined;
     events?.Do((event) => emitWorkflowEvent(event));
 
-    const { success } = await runWorkflowByName(name, { job: resolvedJob, concurrency, context, variables: overrides, trigger, events });
+    const { success } = await runWorkflowByName(name, {
+      job: resolvedJob,
+      concurrency,
+      context,
+      contextSource,
+      variables: overrides,
+      trigger,
+      events,
+    });
     if (!success) Deno.exit(1);
   })
   .command("remote", remoteCommand);

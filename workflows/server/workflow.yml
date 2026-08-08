@@ -6,9 +6,10 @@ on:
           default: server
           display: "Job to run"
 
-secrets:
-  - REGISTRY_USERNAME
-  - REGISTRY_PASSWORD
+context:
+  secrets:
+    - name: REGISTRY_USERNAME
+    - name: REGISTRY_PASSWORD
 
 resources:
   repositories:

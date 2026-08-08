@@ -1,68 +1,106 @@
-import { findRepoRoot } from "./repo.ts";
+/**
+ * How the server authenticates to a registered git repository when cloning
+ * it. A discriminated union so a future strategy (e.g. a GitHub App
+ * installation) can be added as a new variant without migrating existing
+ * records — every reader must switch on `type`.
+ */
+export type GitAuthStrategy =
+  | { type: "none" }
+  | { type: "pat"; token: string };
 
 export interface GitRepositoryRecord {
   projectName: string;
   repoUrl: string;
-  clonedAt: string;
-  /** Workflow names (relative to the repo's own workflows/ folder) removed from this project without dropping the repo itself. */
-  removedWorkflows: string[];
+  auth: GitAuthStrategy;
+  registeredAt: string;
+  /** Set once the validation/refresh clone into .ensemble/platform/git-repos/<projectName> has actually run. */
+  lastFetchedAt?: string;
 }
 
-let kvPromise: Promise<Deno.Kv> | undefined;
+/** Links one workflow's on-disk content to where it was last synced from in a registered repo, so a later "sync now" knows what to re-fetch. */
+export interface WorkflowGitLink {
+  workflowName: string;
+  projectName: string;
+  /** Path within the repo's own workflows/ folder, e.g. "deploy" for workflows/deploy/workflow.yml. */
+  pathInRepo: string;
+  syncedAt: string;
+}
 
-async function getKv(): Promise<Deno.Kv> {
-  if (!kvPromise) {
-    kvPromise = (async () => {
-      const repoRoot = await findRepoRoot();
-      return await Deno.openKv(`${repoRoot}/.ensemble/platform/git-repositories.kv`);
-    })();
+/**
+ * Persists registered git repositories. Takes its `Deno.Kv` connection via
+ * constructor injection — opened once by the caller (an entrypoint, e.g.
+ * apps/server/main.ts/apps/cli/main.ts) rather than lazily inside this
+ * module, so tests can construct a store against an isolated instance
+ * instead of sharing one process-wide connection.
+ */
+export class GitRepositoryStore {
+  constructor(private readonly kv: Deno.Kv) {}
+
+  /** All registered git repositories, in no particular order. */
+  async list(): Promise<GitRepositoryRecord[]> {
+    const out: GitRepositoryRecord[] = [];
+    for await (const entry of this.kv.list<GitRepositoryRecord>({ prefix: ["git-repositories"] })) {
+      out.push(entry.value);
+    }
+    return out;
   }
-  return kvPromise;
-}
 
-/** All integrated git repositories, in no particular order. */
-export async function listGitRepositories(): Promise<GitRepositoryRecord[]> {
-  const kv = await getKv();
-  const out: GitRepositoryRecord[] = [];
-  for await (const entry of kv.list<GitRepositoryRecord>({ prefix: ["git-repositories"] })) {
-    out.push(entry.value);
+  async get(projectName: string): Promise<GitRepositoryRecord | undefined> {
+    const entry = await this.kv.get<GitRepositoryRecord>(["git-repositories", projectName]);
+    return entry.value ?? undefined;
   }
-  return out;
+
+  /** Inserts or fully overwrites a repository's record (e.g. after registration or a refresh). */
+  async put(record: GitRepositoryRecord): Promise<void> {
+    await this.kv.set(["git-repositories", record.projectName], record);
+  }
+
+  async delete(projectName: string): Promise<void> {
+    await this.kv.delete(["git-repositories", projectName]);
+  }
 }
 
-export async function getGitRepository(projectName: string): Promise<GitRepositoryRecord | undefined> {
-  const kv = await getKv();
-  const entry = await kv.get<GitRepositoryRecord>(["git-repositories", projectName]);
-  return entry.value ?? undefined;
+/**
+ * Persists workflow↔repo git links. Same constructor-injection shape as
+ * GitRepositoryStore, and a separate class (not folded into it) since the
+ * two persist to distinct `Deno.Kv` files and have no shared state.
+ */
+export class WorkflowGitLinkStore {
+  constructor(private readonly kv: Deno.Kv) {}
+
+  async get(workflowName: string): Promise<WorkflowGitLink | undefined> {
+    const entry = await this.kv.get<WorkflowGitLink>(["workflow-git-links", workflowName]);
+    return entry.value ?? undefined;
+  }
+
+  /** Inserts or fully overwrites a workflow's git link (e.g. after a sync). */
+  async put(link: WorkflowGitLink): Promise<void> {
+    await this.kv.set(["workflow-git-links", link.workflowName], link);
+  }
+
+  async delete(workflowName: string): Promise<void> {
+    await this.kv.delete(["workflow-git-links", workflowName]);
+  }
+
+  /** All workflows currently linked to `projectName`, in no particular order. */
+  async listForProject(projectName: string): Promise<WorkflowGitLink[]> {
+    const out: WorkflowGitLink[] = [];
+    for await (const entry of this.kv.list<WorkflowGitLink>({ prefix: ["workflow-git-links"] })) {
+      if (entry.value.projectName === projectName) out.push(entry.value);
+    }
+    return out;
+  }
+
+  /** Every workflow's git link, in no particular order — used to refresh all of them (e.g. from a GitHub webhook that doesn't know in advance which project a pushed tag targets). */
+  async listAll(): Promise<WorkflowGitLink[]> {
+    const out: WorkflowGitLink[] = [];
+    for await (const entry of this.kv.list<WorkflowGitLink>({ prefix: ["workflow-git-links"] })) {
+      out.push(entry.value);
+    }
+    return out;
+  }
 }
 
-/** Inserts or fully overwrites a repository's record (e.g. after a fresh clone or a refresh). */
-export async function putGitRepository(record: GitRepositoryRecord): Promise<void> {
-  const kv = await getKv();
-  await kv.set(["git-repositories", record.projectName], record);
-}
-
-export async function deleteGitRepository(projectName: string): Promise<void> {
-  const kv = await getKv();
-  await kv.delete(["git-repositories", projectName]);
-}
-
-/** Records that `workflowName` was removed from `projectName` without touching the rest of the repo's record. */
-export async function markWorkflowRemoved(projectName: string, workflowName: string): Promise<void> {
-  const record = await getGitRepository(projectName);
-  if (!record) return;
-  if (record.removedWorkflows.includes(workflowName)) return;
-  await putGitRepository({ ...record, removedWorkflows: [...record.removedWorkflows, workflowName] });
-}
-
-/** Un-records `workflowName` as removed, e.g. once it's been restored to disk. */
-async function markWorkflowRestored(projectName: string, workflowName: string): Promise<void> {
-  const record = await getGitRepository(projectName);
-  if (!record) return;
-  await putGitRepository({
-    ...record,
-    removedWorkflows: record.removedWorkflows.filter((name) => name !== workflowName),
-  });
-}
-
-export { markWorkflowRestored };
+/** Where each store's `Deno.Kv` file lives, relative to the repo root — for entrypoints to open. */
+export const GIT_REPOSITORY_STORE_KV_PATH = ".ensemble/platform/git-repositories.kv";
+export const WORKFLOW_GIT_LINK_STORE_KV_PATH = ".ensemble/platform/workflow-git-links.kv";

@@ -1,13 +1,12 @@
-import { ChevronDown, ChevronRight, GitBranch, Plus, RefreshCw, RotateCcw, Search, Trash2 } from "lucide-react";
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { GitBranch, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  cloneGitWorkflows,
-  fetchGitRepositories,
+  type GitAuthStrategy,
   type GitRepositorySummary,
+  fetchGitRepositories,
   refreshGitRepository,
+  registerGitRepository,
   removeGitRepository,
-  removeGitRepositoryWorkflow,
-  restoreGitRepositoryWorkflow,
 } from "../lib/api.ts";
 import { deriveProjectName } from "../lib/git.ts";
 import { formatRelativeTime } from "../lib/status.ts";
@@ -18,6 +17,11 @@ import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Sheet,
   SheetContent,
   SheetDescription,
@@ -59,20 +63,22 @@ export function GitIntegrationView() {
             <GitBranch className="size-6" />
             <div>
               <h1 className="text-xl font-semibold">Git</h1>
-              <p className="text-sm text-muted-foreground">Integrate repositories to pull in their workflows.</p>
+              <p className="text-sm text-muted-foreground">
+                Register repositories so their content can be synced into workflows you create.
+              </p>
             </div>
           </div>
           <Sheet open={addOpen} onOpenChange={setAddOpen}>
             <SheetTrigger render={<Button />}>
-              <Plus className="size-4" /> Add repository
+              <Plus className="size-4" /> Register repository
             </SheetTrigger>
             <SheetContent>
               <SheetHeader>
-                <SheetTitle>Add a repository</SheetTitle>
+                <SheetTitle>Register a repository</SheetTitle>
                 <SheetDescription>
-                  Clones only the repository's <code>workflows/</code> folder (sparse checkout, no
-                  other files) and places it under <code>workflows/&lt;project name&gt;/</code> here, so
-                  its workflows show up without colliding with anything already local.
+                  Validates access to the repository — this doesn't create or change any workflow.
+                  Once registered, sync a repository's content into a workflow from that workflow's
+                  own page.
                 </SheetDescription>
               </SheetHeader>
               <AddRepositoryForm
@@ -110,6 +116,8 @@ function AddRepositoryForm({ onAdded }: { onAdded: () => void }) {
   const [repoUrl, setRepoUrl] = useState("");
   const [projectName, setProjectName] = useState("");
   const [projectNameEdited, setProjectNameEdited] = useState(false);
+  const [authType, setAuthType] = useState<"none" | "pat">("none");
+  const [token, setToken] = useState("");
   const [status, setStatus] = useState<
     { state: "idle" } | { state: "loading" } | { state: "error"; message: string }
   >({ state: "idle" });
@@ -125,10 +133,13 @@ function AddRepositoryForm({ onAdded }: { onAdded: () => void }) {
     event.preventDefault();
     setStatus({ state: "loading" });
     try {
-      await cloneGitWorkflows(repoUrl.trim(), projectName.trim() || undefined);
+      const auth: GitAuthStrategy = authType === "pat" ? { type: "pat", token: token.trim() } : { type: "none" };
+      await registerGitRepository(repoUrl.trim(), projectName.trim() || undefined, auth);
       setRepoUrl("");
       setProjectName("");
       setProjectNameEdited(false);
+      setAuthType("none");
+      setToken("");
       setStatus({ state: "idle" });
       onAdded();
     } catch (error) {
@@ -164,9 +175,42 @@ function AddRepositoryForm({ onAdded }: { onAdded: () => void }) {
           }}
         />
       </div>
+      <div className="flex flex-col gap-1">
+        <label className="text-xs text-muted-foreground" htmlFor="git-auth-type">
+          Access
+        </label>
+        <Select value={authType} onValueChange={(value) => setAuthType(value as "none" | "pat")}>
+          <SelectTrigger id="git-auth-type" className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Public — no credentials</SelectItem>
+            <SelectItem value="pat">Personal access token</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      {authType === "pat" && (
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-muted-foreground" htmlFor="git-pat-token">
+            Personal access token
+          </label>
+          <Input
+            id="git-pat-token"
+            type="password"
+            placeholder="ghp_…"
+            value={token}
+            onChange={(event) => setToken(event.target.value)}
+            required
+          />
+        </div>
+      )}
       <div>
-        <Button type="submit" disabled={status.state === "loading" || repoUrl.trim().length === 0}>
-          {status.state === "loading" ? "Cloning…" : "Clone workflows"}
+        <Button
+          type="submit"
+          disabled={status.state === "loading" || repoUrl.trim().length === 0 ||
+            (authType === "pat" && token.trim().length === 0)}
+        >
+          {status.state === "loading" ? "Registering…" : "Register"}
         </Button>
       </div>
       {status.state === "error" && <p className="text-sm text-destructive">{status.message}</p>}
@@ -177,21 +221,8 @@ function AddRepositoryForm({ onAdded }: { onAdded: () => void }) {
 function RepositoriesTable(
   { repositories, onChange }: { repositories: GitRepositorySummary[]; onChange: () => void },
 ) {
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-
-  function toggleExpanded(projectName: string) {
-    setExpanded((current) => {
-      const next = new Set(current);
-      if (next.has(projectName)) {
-        next.delete(projectName);
-      } else {
-        next.add(projectName);
-      }
-      return next;
-    });
-  }
 
   async function runAction(key: string, action: () => Promise<void>) {
     setPendingAction(key);
@@ -213,10 +244,10 @@ function RepositoriesTable(
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-8" />
               <TableHead>Project</TableHead>
               <TableHead>Repository</TableHead>
-              <TableHead>Last synced</TableHead>
+              <TableHead>Access</TableHead>
+              <TableHead>Last fetched</TableHead>
               <TableHead className="w-20" />
             </TableRow>
           </TableHeader>
@@ -224,160 +255,54 @@ function RepositoriesTable(
             {repositories.length === 0 && (
               <TableRow>
                 <TableCell colSpan={5} className="text-center text-muted-foreground">
-                  No repositories found.
+                  No repositories registered.
                 </TableCell>
               </TableRow>
             )}
             {repositories.map((repository) => {
-              const isExpanded = expanded.has(repository.projectName);
               const refreshKey = `refresh:${repository.projectName}`;
               const removeKey = `remove:${repository.projectName}`;
               return (
-                <Fragment key={repository.projectName}>
-                  <TableRow
-                    className="cursor-pointer"
-                    onClick={() => toggleExpanded(repository.projectName)}
-                  >
-                    <TableCell>
-                      {isExpanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
-                    </TableCell>
-                    <TableCell className="font-medium">{repository.projectName}</TableCell>
-                    <TableCell className="text-muted-foreground">{repository.repoUrl}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {formatRelativeTime(repository.clonedAt)}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          className="text-muted-foreground hover:text-foreground"
-                          disabled={pendingAction === refreshKey}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            runAction(refreshKey, () => refreshGitRepository(repository.projectName));
-                          }}
-                        >
-                          <RefreshCw className={pendingAction === refreshKey ? "size-3.5 animate-spin" : "size-3.5"} />
-                          <span className="sr-only">Refresh</span>
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          className="text-muted-foreground hover:text-destructive"
-                          disabled={pendingAction === removeKey}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            runAction(removeKey, () => removeGitRepository(repository.projectName));
-                          }}
-                        >
-                          <Trash2 className="size-3.5" />
-                          <span className="sr-only">Remove</span>
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                  {isExpanded && (
-                    <WorkflowSubrows
-                      repository={repository}
-                      pendingAction={pendingAction}
-                      onAction={runAction}
-                    />
-                  )}
-                </Fragment>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </Card>
-    </div>
-  );
-}
-
-function WorkflowSubrows({
-  repository,
-  pendingAction,
-  onAction,
-}: {
-  repository: GitRepositorySummary;
-  pendingAction: string | null;
-  onAction: (key: string, action: () => Promise<void>) => void;
-}) {
-  const rows = [
-    ...repository.workflows.map((workflow) => ({ name: workflow.name, removed: false })),
-    ...repository.removedWorkflows.map((name) => ({ name, removed: true })),
-  ];
-
-  if (rows.length === 0) {
-    return (
-      <TableRow>
-        <TableCell />
-        <TableCell colSpan={4} className="text-sm text-muted-foreground">No workflows.</TableCell>
-      </TableRow>
-    );
-  }
-
-  return (
-    <>
-      {rows.map((row) => {
-        const removeKey = `remove-workflow:${repository.projectName}:${row.name}`;
-        const restoreKey = `restore-workflow:${repository.projectName}:${row.name}`;
-        const refetchKey = `refetch-workflow:${repository.projectName}:${row.name}`;
-        return (
-          <TableRow key={row.name} className="bg-muted/30">
-            <TableCell />
-            <TableCell colSpan={2} className={row.removed ? "text-muted-foreground line-through" : ""}>
-              {row.name}
-            </TableCell>
-            <TableCell className="text-muted-foreground">{row.removed ? "Removed" : ""}</TableCell>
-            <TableCell>
-              <div className="flex items-center gap-1">
-                {row.removed
-                  ? (
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      className="text-muted-foreground hover:text-foreground"
-                      disabled={pendingAction === restoreKey}
-                      onClick={() =>
-                        onAction(restoreKey, () => restoreGitRepositoryWorkflow(repository.projectName, row.name))}
-                    >
-                      <RotateCcw className={pendingAction === restoreKey ? "size-3.5 animate-spin" : "size-3.5"} />
-                      <span className="sr-only">Add back</span>
-                    </Button>
-                  )
-                  : (
-                    <>
+                <TableRow key={repository.projectName}>
+                  <TableCell className="font-medium">{repository.projectName}</TableCell>
+                  <TableCell className="text-muted-foreground">{repository.repoUrl}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {repository.authType === "pat" ? "Token" : "Public"}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {repository.lastFetchedAt ? formatRelativeTime(repository.lastFetchedAt) : "Never"}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
                       <Button
                         variant="ghost"
                         size="icon-sm"
                         className="text-muted-foreground hover:text-foreground"
-                        disabled={pendingAction === refetchKey}
-                        title="Refetch from git"
-                        onClick={() =>
-                          onAction(refetchKey, () => restoreGitRepositoryWorkflow(repository.projectName, row.name))}
+                        disabled={pendingAction === refreshKey}
+                        onClick={() => runAction(refreshKey, () => refreshGitRepository(repository.projectName))}
                       >
-                        <RefreshCw className={pendingAction === refetchKey ? "size-3.5 animate-spin" : "size-3.5"} />
-                        <span className="sr-only">Refetch</span>
+                        <RefreshCw className={pendingAction === refreshKey ? "size-3.5 animate-spin" : "size-3.5"} />
+                        <span className="sr-only">Refresh</span>
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon-sm"
                         className="text-muted-foreground hover:text-destructive"
                         disabled={pendingAction === removeKey}
-                        onClick={() =>
-                          onAction(removeKey, () => removeGitRepositoryWorkflow(repository.projectName, row.name))}
+                        title="Unregister — workflows previously synced from this repo keep their last-synced content"
+                        onClick={() => runAction(removeKey, () => removeGitRepository(repository.projectName))}
                       >
                         <Trash2 className="size-3.5" />
-                        <span className="sr-only">Remove</span>
+                        <span className="sr-only">Unregister</span>
                       </Button>
-                    </>
-                  )}
-              </div>
-            </TableCell>
-          </TableRow>
-        );
-      })}
-    </>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </Card>
+    </div>
   );
 }

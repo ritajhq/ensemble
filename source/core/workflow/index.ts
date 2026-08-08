@@ -1,6 +1,7 @@
 export type {
-  ContextEntry,
-  Contexts,
+  Context,
+  ContextSecret,
+  ContextVariable,
   GithubTrigger,
   Job,
   ManualContextInput,
@@ -11,7 +12,6 @@ export type {
   ManualStringInput,
   ManualTrigger,
   Matrix,
-  RemoteContextSource,
   RepositoryResource,
   Resources,
   Step,
@@ -35,7 +35,12 @@ export type {
   StepResult,
 } from "./context.ts";
 export { expandMatrix } from "./matrix.ts";
-export { resolveContext, WorkflowContextError } from "./resolve-context.ts";
+export {
+  type ContextLoader,
+  type ContextSource,
+  ContextResolutionError,
+  resolveContext,
+} from "./context-loaders/resolve.ts";
 export { type StepEvent } from "./run-job.ts";
 export { type StepLogCapture, StepRunError } from "./run-step.ts";
 export {
@@ -43,6 +48,5 @@ export {
   type RunWorkflowOptions,
   type RunWorkflowResult,
   type WorkflowEvent,
-  WorkflowSecretsError,
 } from "./run-workflow.ts";
 export { emitWorkflowEvent, isEventLine, parseEventLine } from "./event-log.ts";

@@ -1,5 +1,6 @@
 import type { JsonValue } from "./expressions.ts";
 import { evaluateCondition, interpolate } from "./expressions.ts";
+import type { ResolvedVariable } from "./context-loaders/resolve.ts";
 
 /**
  * "cancelled" applies only at job-instance granularity — a not-yet-started
@@ -45,13 +46,6 @@ export interface MatrixNeedsResult {
 
 export type NeedsResult = SimpleNeedsResult | MatrixNeedsResult;
 
-/** The deploy context this run was invoked with (e.g. `--context production`). Absent when no context was given. */
-export interface RunContext {
-  name: string;
-  /** Absolute path to this context's own folder (e.g. "<repoRoot>/contexts/production"), so steps can read files from it regardless of their own cwd. */
-  path: string;
-}
-
 /** Where a resources.repositories entry was checked out. */
 export interface RepositoryContext {
   path: string;
@@ -65,10 +59,24 @@ export interface RootContext {
   matrix?: Record<string, unknown>;
   /** Data from whatever triggered this run (see schema.ts's Trigger). Absent for a direct/untriggered invocation. */
   trigger?: Record<string, unknown>;
-  /** The deploy context this run was invoked with. Absent when no --context was given. */
-  context?: RunContext;
   /** Where each resources.repositories entry was checked out. Absent when the workflow declares none. */
   repositories?: Record<string, RepositoryContext>;
+  /**
+   * `context.variables` (not secrets), addressable as
+   * `context.variables.<key>.{name,value,path}` — an alternative to their
+   * `NAME`/`NAME_FILE` env vars. `files`/`secretFiles` back the
+   * `contextFile("<filename>")`/`contextSecretFile("<filename>")` expression
+   * functions (see expressions.ts) — every filename statically referenced
+   * anywhere in the workflow, pre-resolved to a real path before any job
+   * runs (see context-loaders/resolve.ts). Absent entirely when the
+   * workflow declares no `context.variables` and references no
+   * `contextFile`/`contextSecretFile` calls.
+   */
+  context?: {
+    variables: Record<string, ResolvedVariable>;
+    files: Record<string, string>;
+    secretFiles: Record<string, string>;
+  };
 }
 
 /** Per-job context, accumulating `steps.*` as each step in that job completes. */
@@ -88,23 +96,35 @@ export interface StepContext {
   needs: Record<string, NeedsResult>;
   matrix?: Record<string, unknown>;
   trigger?: Record<string, unknown>;
-  context?: RunContext;
   repositories?: Record<string, RepositoryContext>;
+  context?: { variables: Record<string, ResolvedVariable>; files: Record<string, string>; secretFiles: Record<string, string> };
+}
+
+export interface BuildRootContextOptions {
+  matrix?: Record<string, unknown>;
+  trigger?: Record<string, unknown>;
+  repositories?: Record<string, RepositoryContext>;
+  contextVariables?: Record<string, ResolvedVariable>;
+  contextFiles?: Record<string, string>;
+  contextSecretFiles?: Record<string, string>;
 }
 
 export function buildRootContext(
   variables: Record<string, string>,
   completedJobs: Record<string, NeedsResult>,
-  matrix?: Record<string, unknown>,
-  trigger?: Record<string, unknown>,
-  context?: RunContext,
-  repositories?: Record<string, RepositoryContext>,
+  options: BuildRootContextOptions = {},
 ): RootContext {
   const root: RootContext = { variables, needs: { ...completedJobs } };
-  if (matrix !== undefined) root.matrix = matrix;
-  if (trigger !== undefined) root.trigger = trigger;
-  if (context !== undefined) root.context = context;
-  if (repositories !== undefined) root.repositories = repositories;
+  if (options.matrix !== undefined) root.matrix = options.matrix;
+  if (options.trigger !== undefined) root.trigger = options.trigger;
+  if (options.repositories !== undefined) root.repositories = options.repositories;
+  if (options.contextVariables !== undefined || options.contextFiles !== undefined || options.contextSecretFiles !== undefined) {
+    root.context = {
+      variables: options.contextVariables ?? {},
+      files: options.contextFiles ?? {},
+      secretFiles: options.contextSecretFiles ?? {},
+    };
+  }
   return root;
 }
 
@@ -133,7 +153,7 @@ export function toStepContext(ctx: JobContext): StepContext {
   const stepContext: StepContext = { variables: ctx.variables, needs: ctx.needs };
   if (ctx.matrix !== undefined) stepContext.matrix = ctx.matrix;
   if (ctx.trigger !== undefined) stepContext.trigger = ctx.trigger;
-  if (ctx.context !== undefined) stepContext.context = ctx.context;
   if (ctx.repositories !== undefined) stepContext.repositories = ctx.repositories;
+  if (ctx.context !== undefined) stepContext.context = ctx.context;
   return stepContext;
 }

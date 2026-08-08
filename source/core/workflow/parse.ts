@@ -1,14 +1,14 @@
 import { parse as parseYaml } from "@std/yaml";
-import { findStaticStepReferences } from "./expressions.ts";
+import { type ContextFileReference, findStaticContextFileReferences, findStaticStepReferences } from "./expressions.ts";
 import type {
-  ContextEntry,
-  Contexts,
+  Context,
+  ContextSecret,
+  ContextVariable,
   GithubTrigger,
   Job,
   ManualInput,
   ManualTrigger,
   Matrix,
-  RemoteContextSource,
   RepositoryResource,
   Resources,
   Step,
@@ -261,12 +261,82 @@ function validateVariables(file: string, raw: unknown): Record<string, string> |
   return result;
 }
 
-function validateSecrets(file: string, raw: unknown): string[] | undefined {
-  if (raw === undefined) return undefined;
-  if (!Array.isArray(raw) || raw.length === 0 || raw.some((s) => typeof s !== "string" || s.length === 0)) {
-    fail(file, `"secrets" must be a non-empty list of non-empty strings.`);
+function validateContextVariable(file: string, index: number, raw: unknown): ContextVariable {
+  const where = `context.variables[${index}]`;
+  if (!isRecord(raw)) {
+    fail(file, `${where} must be a mapping.`);
   }
-  return raw as string[];
+  if (typeof raw.name !== "string" || raw.name.length === 0) {
+    fail(file, `${where} must have a non-empty string "name".`);
+  }
+  if (raw.value !== undefined && typeof raw.value !== "string") {
+    fail(file, `${where} has a non-string "value".`);
+  }
+  if (raw.default !== undefined && typeof raw.default !== "string") {
+    fail(file, `${where} has a non-string "default".`);
+  }
+  return {
+    name: raw.name,
+    value: raw.value !== undefined ? resolveEnvRefs(file, `context.variables.${raw.name}`, raw.value as string) : undefined,
+    default: raw.default as string | undefined,
+  };
+}
+
+function validateContextVariables(file: string, raw: unknown): ContextVariable[] | undefined {
+  if (raw === undefined) return undefined;
+  if (!Array.isArray(raw) || raw.length === 0) {
+    fail(file, `"context.variables" must be a non-empty list.`);
+  }
+  const variables = raw.map((v, i) => validateContextVariable(file, i, v));
+  const seenNames = new Set<string>();
+  for (const variable of variables) {
+    if (seenNames.has(variable.name)) {
+      fail(file, `"context.variables" has a duplicate name "${variable.name}".`);
+    }
+    seenNames.add(variable.name);
+  }
+  return variables;
+}
+
+function validateContextSecret(file: string, index: number, raw: unknown): ContextSecret {
+  const where = `context.secrets[${index}]`;
+  if (!isRecord(raw)) {
+    fail(file, `${where} must be a mapping.`);
+  }
+  if (typeof raw.name !== "string" || raw.name.length === 0) {
+    fail(file, `${where} must have a non-empty string "name".`);
+  }
+  if (raw.default !== undefined && typeof raw.default !== "string") {
+    fail(file, `${where} has a non-string "default".`);
+  }
+  return { name: raw.name, default: raw.default as string | undefined };
+}
+
+function validateContextSecrets(file: string, raw: unknown): ContextSecret[] | undefined {
+  if (raw === undefined) return undefined;
+  if (!Array.isArray(raw) || raw.length === 0) {
+    fail(file, `"context.secrets" must be a non-empty list.`);
+  }
+  const secrets = raw.map((s, i) => validateContextSecret(file, i, s));
+  const seenNames = new Set<string>();
+  for (const secret of secrets) {
+    if (seenNames.has(secret.name)) {
+      fail(file, `"context.secrets" has a duplicate name "${secret.name}".`);
+    }
+    seenNames.add(secret.name);
+  }
+  return secrets;
+}
+
+function validateContext(file: string, raw: unknown): Context | undefined {
+  if (raw === undefined) return undefined;
+  if (!isRecord(raw)) {
+    fail(file, `"context" must be a mapping.`);
+  }
+  return {
+    variables: validateContextVariables(file, raw.variables),
+    secrets: validateContextSecrets(file, raw.secrets),
+  };
 }
 
 function validateRepository(file: string, name: string, raw: unknown): RepositoryResource {
@@ -301,67 +371,6 @@ function validateResources(file: string, raw: unknown): Resources | undefined {
   return { repositories };
 }
 
-function validateRemoteContextSource(file: string, name: string, raw: unknown): RemoteContextSource {
-  const where = `contexts.entries.${name}.remote`;
-  if (!isRecord(raw)) {
-    fail(file, `${where} must be a mapping.`);
-  }
-  if (typeof raw.url !== "string" || raw.url.length === 0) {
-    fail(file, `${where} must have a non-empty string "url".`);
-  }
-  if (raw.ref !== undefined && typeof raw.ref !== "string") {
-    fail(file, `${where} has a non-string "ref".`);
-  }
-  if (raw.path !== undefined && typeof raw.path !== "string") {
-    fail(file, `${where} has a non-string "path".`);
-  }
-  return {
-    url: resolveEnvRefs(file, `${where}.url`, raw.url),
-    ref: raw.ref !== undefined ? resolveEnvRefs(file, `${where}.ref`, raw.ref as string) : undefined,
-    path: raw.path as string | undefined,
-  };
-}
-
-function validateContextEntry(file: string, name: string, raw: unknown): ContextEntry {
-  const where = `contexts.entries.${name}`;
-  if (!isRecord(raw)) {
-    fail(file, `${where} must be a mapping.`);
-  }
-  if (raw.local !== undefined && typeof raw.local !== "string") {
-    fail(file, `${where} has a non-string "local".`);
-  }
-  if (raw.local === undefined && raw.remote === undefined) {
-    fail(file, `${where} must have at least one of "local" or "remote".`);
-  }
-  return {
-    local: raw.local as string | undefined,
-    remote: raw.remote !== undefined ? validateRemoteContextSource(file, name, raw.remote) : undefined,
-  };
-}
-
-function validateContexts(file: string, raw: unknown): Contexts | undefined {
-  if (raw === undefined) return undefined;
-  if (!isRecord(raw)) {
-    fail(file, `"contexts" must be a mapping.`);
-  }
-  if (!isRecord(raw.entries) || Object.keys(raw.entries).length === 0) {
-    fail(file, `"contexts.entries" must be a non-empty mapping.`);
-  }
-  const entries: Record<string, ContextEntry> = {};
-  for (const [name, entry] of Object.entries(raw.entries)) {
-    entries[name] = validateContextEntry(file, name, entry);
-  }
-  if (raw.default !== undefined) {
-    if (typeof raw.default !== "string") {
-      fail(file, `"contexts.default" must be a string.`);
-    }
-    if (!Object.hasOwn(entries, raw.default)) {
-      fail(file, `"contexts.default" references unknown context "${raw.default}".`);
-    }
-  }
-  return { default: raw.default as string | undefined, entries };
-}
-
 /**
  * Statically checks every `steps.<id>` reference in a job's own `if:` and
  * its steps' `run:`/`name:`/`if:` against step ids actually declared earlier
@@ -394,6 +403,33 @@ function validateStepReferences(file: string, jobId: string, job: Job): void {
     checkText(`${where}'s "run"`, step.run, visibleIds);
     if (step.id !== undefined) visibleIds.add(step.id);
   }
+}
+
+/**
+ * Statically finds every `contextFile("<filename>")`/
+ * `contextSecretFile("<filename>")` call across the whole workflow (job
+ * `if:`, every step's `if:`/`name:`/`run:`) — the same text fields
+ * validateStepReferences walks for `steps.*`. Used by
+ * context-loaders/resolve.ts to pre-resolve every referenced file, before
+ * any job runs, alongside the existing context.variables/secrets
+ * resolution.
+ */
+export function findContextFileReferences(workflow: Pick<Workflow, "jobs">): ContextFileReference[] {
+  const refs: ContextFileReference[] = [];
+  const scan = (text: string | undefined) => {
+    if (text === undefined) return;
+    refs.push(...findStaticContextFileReferences(text));
+  };
+
+  for (const job of Object.values(workflow.jobs)) {
+    scan(job.if);
+    for (const step of job.steps) {
+      scan(step.if);
+      scan(step.name);
+      scan(step.run);
+    }
+  }
+  return refs;
 }
 
 function validateJob(file: string, jobId: string, raw: unknown): Job {
@@ -470,9 +506,8 @@ export async function parseWorkflowFile(file: string): Promise<Workflow> {
 
   const on = validateOn(file, jobIds, raw.on);
   const variables = validateVariables(file, raw.variables);
-  const secrets = validateSecrets(file, raw.secrets);
   const resources = validateResources(file, raw.resources);
-  const contexts = validateContexts(file, raw.contexts);
+  const context = validateContext(file, raw.context);
 
-  return { on, variables, secrets, resources, contexts, jobs };
+  return { on, variables, resources, context, jobs };
 }
