@@ -997,7 +997,7 @@ Deno.test("parseWorkflowFile: valid context.variables with an inline value parse
     `
 context:
   variables:
-    REGION:
+    - name: REGION
       value: us-east-1
 jobs:
   build:
@@ -1006,7 +1006,7 @@ jobs:
 `,
     async (path) => {
       const workflow = await parseWorkflowFile(path);
-      assertEquals(workflow.context?.variables, { REGION: { value: "us-east-1", default: undefined } });
+      assertEquals(workflow.context?.variables, [{ name: "REGION", value: "us-east-1", default: undefined }]);
     },
   );
 });
@@ -1017,7 +1017,7 @@ Deno.test("parseWorkflowFile: context.variables entry with only a default parses
     `
 context:
   variables:
-    IMAGE_TAG:
+    - name: IMAGE_TAG
       default: latest
 jobs:
   build:
@@ -1026,7 +1026,7 @@ jobs:
 `,
     async (path) => {
       const workflow = await parseWorkflowFile(path);
-      assertEquals(workflow.context?.variables, { IMAGE_TAG: { value: undefined, default: "latest" } });
+      assertEquals(workflow.context?.variables, [{ name: "IMAGE_TAG", value: undefined, default: "latest" }]);
     },
   );
 });
@@ -1037,7 +1037,7 @@ Deno.test("parseWorkflowFile: context.variables entry with neither value nor def
     `
 context:
   variables:
-    DB_HOST: {}
+    - name: DB_HOST
 jobs:
   build:
     steps:
@@ -1045,7 +1045,7 @@ jobs:
 `,
     async (path) => {
       const workflow = await parseWorkflowFile(path);
-      assertEquals(workflow.context?.variables, { DB_HOST: { value: undefined, default: undefined } });
+      assertEquals(workflow.context?.variables, [{ name: "DB_HOST", value: undefined, default: undefined }]);
     },
   );
 });
@@ -1056,7 +1056,7 @@ Deno.test("parseWorkflowFile: context.variables entry with a non-string value fa
     `
 context:
   variables:
-    COUNT:
+    - name: COUNT
       value: 5
 jobs:
   build:
@@ -1067,7 +1067,7 @@ jobs:
       await assertRejects(
         () => parseWorkflowFile(path),
         WorkflowParseError,
-        `context.variables.COUNT has a non-string "value"`,
+        `context.variables[0] has a non-string "value"`,
       );
     },
   );
@@ -1081,7 +1081,7 @@ Deno.test("parseWorkflowFile: context.variables value with $(NAME) resolves from
       `
 context:
   variables:
-    FROM_ENV:
+    - name: FROM_ENV
       value: "$(ENSEMBLE_TEST_CTX_VAR_REF)"
 jobs:
   build:
@@ -1090,12 +1090,37 @@ jobs:
 `,
       async (path) => {
         const workflow = await parseWorkflowFile(path);
-        assertEquals(workflow.context?.variables?.FROM_ENV.value, "resolved-value");
+        assertEquals(workflow.context?.variables?.[0].value, "resolved-value");
       },
     );
   } finally {
     Deno.env.delete("ENSEMBLE_TEST_CTX_VAR_REF");
   }
+});
+
+Deno.test("parseWorkflowFile: context.variables with a duplicate name fails", async () => {
+  await withFixture(
+    "invalid-context-variables-duplicate.yml",
+    `
+context:
+  variables:
+    - name: REGION
+      value: us-east-1
+    - name: REGION
+      value: eu-west-1
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      await assertRejects(
+        () => parseWorkflowFile(path),
+        WorkflowParseError,
+        `"context.variables" has a duplicate name "REGION"`,
+      );
+    },
+  );
 });
 
 Deno.test("parseWorkflowFile: valid context.secrets list parses", async () => {

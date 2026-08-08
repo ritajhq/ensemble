@@ -137,7 +137,8 @@ export async function resolveContext(
   const loaders = selectLoaders(workflowDir, repoRoot, source);
   const missing: string[] = [];
 
-  for (const [key, variable] of Object.entries(context.variables ?? {})) {
+  for (const variable of context.variables ?? []) {
+    const key = variable.name;
     await resolveOne({
       key,
       value: variable.value,

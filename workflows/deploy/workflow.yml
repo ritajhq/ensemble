@@ -11,7 +11,7 @@ resources:
 
 context:
   variables:
-    TF_VARS: {}
+    - name: TF_VARS
   secrets:
     - name: GITHUB_WEBHOOK_SECRET
 

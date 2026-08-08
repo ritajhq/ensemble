@@ -121,6 +121,7 @@ export interface Resources {
 
 /** One named value a workflow needs at deploy time. */
 export interface ContextVariable {
+  name: string;
   /** Hard-coded value, or an expression string. When set, this variable is never sourced from a loader. */
   value?: string;
   /** Used only when no loader supplies this variable and no `value` is set. */
@@ -154,7 +155,7 @@ export interface ContextSecret {
  */
 export interface Context {
   /** Named values this workflow needs. A loader-sourced entry (no `value`) fails the run before any job starts if unsatisfied and no `default` exists. */
-  variables?: Record<string, ContextVariable>;
+  variables?: ContextVariable[];
   /** Named secrets this workflow needs. Fails the run before any job starts if a loader can't supply one and it has no `default`. */
   secrets?: ContextSecret[];
 }

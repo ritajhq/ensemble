@@ -322,7 +322,7 @@ Deno.test("integration: variables precedence is Deno.env < workflow.variables < 
 Deno.test("integration: a context.variables entry with an inline value never touches a loader", async () => {
   const workflowDir = join(import.meta.dirname!, "tests", "fixtures");
   const workflow = {
-    context: { variables: { REGION: { value: "us-east-1" } } },
+    context: { variables: [{ name: "REGION", value: "us-east-1" }] },
     jobs: {
       build: {
         steps: [{ run: 'test "$REGION" = us-east-1 && test -f "$REGION_FILE" && test "$(cat "$REGION_FILE")" = us-east-1' }],
@@ -341,7 +341,7 @@ Deno.test("integration: a workflow resolves a variable from the local loader's c
     await Deno.writeTextFile(join(workflowDir, "contexts", "production", "variables", "IMAGE_TAG.env"), "IMAGE_TAG=v1.2.3\n");
 
     const workflow = {
-      context: { variables: { IMAGE_TAG: {} } },
+      context: { variables: [{ name: "IMAGE_TAG" }] },
       jobs: {
         build: { steps: [{ run: 'test "$IMAGE_TAG" = v1.2.3' }] },
       },
@@ -357,7 +357,7 @@ Deno.test("integration: a workflow resolves a variable from the local loader's c
 Deno.test("integration: a loader-required variable with no matching loader value and no default fails before any job runs", async () => {
   const workflowDir = join(import.meta.dirname!, "tests", "fixtures");
   const workflow = {
-    context: { variables: { DB_HOST: {} } },
+    context: { variables: [{ name: "DB_HOST" }] },
     jobs: {
       build: { steps: [{ run: "exit 0" }] },
     },
@@ -372,7 +372,7 @@ Deno.test("integration: a loader-required variable with no matching loader value
 Deno.test("integration: a loader-required variable falls back to its default when no context is selected", async () => {
   const workflowDir = join(import.meta.dirname!, "tests", "fixtures");
   const workflow = {
-    context: { variables: { IMAGE_TAG: { default: "latest" } } },
+    context: { variables: [{ name: "IMAGE_TAG", default: "latest" }] },
     jobs: {
       build: { steps: [{ run: 'test "$IMAGE_TAG" = latest' }] },
     },
@@ -388,7 +388,7 @@ Deno.test("integration: --context-source local restricts resolution to the local
     await Deno.writeTextFile(join(workflowDir, "contexts", "production", "variables", "IMAGE_TAG.env"), "IMAGE_TAG=v1.2.3\n");
 
     const workflow = {
-      context: { variables: { IMAGE_TAG: {} } },
+      context: { variables: [{ name: "IMAGE_TAG" }] },
       jobs: {
         build: { steps: [{ run: 'test "$IMAGE_TAG" = v1.2.3' }] },
       },
@@ -407,7 +407,7 @@ Deno.test("integration: --context-source vault does not fall through to a local 
     await Deno.writeTextFile(join(workflowDir, "contexts", "production", "variables", "IMAGE_TAG.env"), "IMAGE_TAG=v1.2.3\n");
 
     const workflow = {
-      context: { variables: { IMAGE_TAG: {} } },
+      context: { variables: [{ name: "IMAGE_TAG" }] },
       jobs: {
         build: { steps: [{ run: "exit 0" }] },
       },

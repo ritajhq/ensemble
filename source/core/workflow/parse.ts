@@ -261,10 +261,13 @@ function validateVariables(file: string, raw: unknown): Record<string, string> |
   return result;
 }
 
-function validateContextVariable(file: string, name: string, raw: unknown): ContextVariable {
-  const where = `context.variables.${name}`;
+function validateContextVariable(file: string, index: number, raw: unknown): ContextVariable {
+  const where = `context.variables[${index}]`;
   if (!isRecord(raw)) {
     fail(file, `${where} must be a mapping.`);
+  }
+  if (typeof raw.name !== "string" || raw.name.length === 0) {
+    fail(file, `${where} must have a non-empty string "name".`);
   }
   if (raw.value !== undefined && typeof raw.value !== "string") {
     fail(file, `${where} has a non-string "value".`);
@@ -273,19 +276,24 @@ function validateContextVariable(file: string, name: string, raw: unknown): Cont
     fail(file, `${where} has a non-string "default".`);
   }
   return {
-    value: raw.value !== undefined ? resolveEnvRefs(file, where, raw.value as string) : undefined,
+    name: raw.name,
+    value: raw.value !== undefined ? resolveEnvRefs(file, `context.variables.${raw.name}`, raw.value as string) : undefined,
     default: raw.default as string | undefined,
   };
 }
 
-function validateContextVariables(file: string, raw: unknown): Record<string, ContextVariable> | undefined {
+function validateContextVariables(file: string, raw: unknown): ContextVariable[] | undefined {
   if (raw === undefined) return undefined;
-  if (!isRecord(raw)) {
-    fail(file, `"context.variables" must be a mapping.`);
+  if (!Array.isArray(raw) || raw.length === 0) {
+    fail(file, `"context.variables" must be a non-empty list.`);
   }
-  const variables: Record<string, ContextVariable> = {};
-  for (const [name, entry] of Object.entries(raw)) {
-    variables[name] = validateContextVariable(file, name, entry);
+  const variables = raw.map((v, i) => validateContextVariable(file, i, v));
+  const seenNames = new Set<string>();
+  for (const variable of variables) {
+    if (seenNames.has(variable.name)) {
+      fail(file, `"context.variables" has a duplicate name "${variable.name}".`);
+    }
+    seenNames.add(variable.name);
   }
   return variables;
 }

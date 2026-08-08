@@ -23,7 +23,7 @@ Deno.test("resolveContext: undefined context returns empty env", async () => {
 
 Deno.test("resolveContext: an inline value skips loaders entirely and materializes a _FILE companion", async () => {
   await withDirs(async (workflowDir, runDir) => {
-    const context: Context = { variables: { REGION: { value: "us-east-1" } } };
+    const context: Context = { variables: [{ name: "REGION", value: "us-east-1" }] };
     const result = await resolveContext(context, undefined, workflowDir, runDir, undefined);
     assertEquals(result.env.REGION, "us-east-1");
     assertEquals(await Deno.readTextFile(result.env.REGION_FILE), "us-east-1");
@@ -32,7 +32,7 @@ Deno.test("resolveContext: an inline value skips loaders entirely and materializ
 
 Deno.test("resolveContext: also returns each context.variables entry structured, for context.variables.<key>.{name,value,path} interpolation", async () => {
   await withDirs(async (workflowDir, runDir) => {
-    const context: Context = { variables: { REGION: { value: "us-east-1" } } };
+    const context: Context = { variables: [{ name: "REGION", value: "us-east-1" }] };
     const result = await resolveContext(context, undefined, workflowDir, runDir, undefined);
     assertEquals(result.variables.REGION.name, "REGION");
     assertEquals(result.variables.REGION.value, "us-east-1");
@@ -54,7 +54,7 @@ Deno.test("resolveContext: a loader-sourced variable resolves from the local loa
     await Deno.mkdir(join(workflowDir, "contexts", "production", "variables"), { recursive: true });
     await Deno.writeTextFile(join(workflowDir, "contexts", "production", "variables", "IMAGE_TAG.env"), "IMAGE_TAG=v1\n");
 
-    const context: Context = { variables: { IMAGE_TAG: {} } };
+    const context: Context = { variables: [{ name: "IMAGE_TAG" }] };
     const result = await resolveContext(context, "production", workflowDir, runDir, undefined);
     assertEquals(result.env.IMAGE_TAG, "v1");
     assertEquals(await Deno.readTextFile(result.env.IMAGE_TAG_FILE), "v1");
@@ -63,7 +63,7 @@ Deno.test("resolveContext: a loader-sourced variable resolves from the local loa
 
 Deno.test("resolveContext: falls back to default when no loader supplies the variable", async () => {
   await withDirs(async (workflowDir, runDir) => {
-    const context: Context = { variables: { IMAGE_TAG: { default: "latest" } } };
+    const context: Context = { variables: [{ name: "IMAGE_TAG", default: "latest" }] };
     const result = await resolveContext(context, undefined, workflowDir, runDir, undefined);
     assertEquals(result.env.IMAGE_TAG, "latest");
   });
@@ -72,7 +72,7 @@ Deno.test("resolveContext: falls back to default when no loader supplies the var
 Deno.test("resolveContext: missing variable with no value/default/loader-hit throws, aggregating every missing name", async () => {
   await withDirs(async (workflowDir, runDir) => {
     const context: Context = {
-      variables: { DB_HOST: {}, DB_PORT: {} },
+      variables: [{ name: "DB_HOST" }, { name: "DB_PORT" }],
     };
     const error = await assertRejects(
       () => resolveContext(context, undefined, workflowDir, runDir, undefined),
@@ -110,7 +110,7 @@ Deno.test("resolveContext: --context-source local restricts to the local loader 
     await Deno.mkdir(join(workflowDir, "contexts", "production", "variables"), { recursive: true });
     await Deno.writeTextFile(join(workflowDir, "contexts", "production", "variables", "IMAGE_TAG.env"), "IMAGE_TAG=v1\n");
 
-    const context: Context = { variables: { IMAGE_TAG: {} } };
+    const context: Context = { variables: [{ name: "IMAGE_TAG" }] };
     const result = await resolveContext(context, "production", workflowDir, runDir, "local");
     assertEquals(result.env.IMAGE_TAG, "v1");
   });
@@ -121,7 +121,7 @@ Deno.test("resolveContext: --context-source vault does not fall through to a loc
     await Deno.mkdir(join(workflowDir, "contexts", "production", "variables"), { recursive: true });
     await Deno.writeTextFile(join(workflowDir, "contexts", "production", "variables", "IMAGE_TAG.env"), "IMAGE_TAG=v1\n");
 
-    const context: Context = { variables: { IMAGE_TAG: {} } };
+    const context: Context = { variables: [{ name: "IMAGE_TAG" }] };
     await assertRejects(
       () => resolveContext(context, "production", workflowDir, runDir, "vault"),
       ContextResolutionError,
