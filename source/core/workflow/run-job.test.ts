@@ -116,3 +116,18 @@ Deno.test("runJob: step name: interpolates ${{ variables.* }}", async () => {
   }
   assertEquals(lines.includes("--- step:test/Deploy to staging started ---"), true);
 });
+
+Deno.test("runJob: step name: interpolates ensembleArtifacts() relative to the step's own resolved cwd", async () => {
+  const job: Job = {
+    steps: [{ name: "Artifacts at ${{ ensembleArtifacts('web') }}", run: "echo hi" }],
+  };
+  const lines: string[] = [];
+  const originalLog = console.log;
+  console.log = (msg: string) => lines.push(msg);
+  try {
+    await runJob(job, root, workflowDir, cwd, silentLogger("test"));
+  } finally {
+    console.log = originalLog;
+  }
+  assertEquals(lines.includes(`--- step:test/Artifacts at ${join(cwd, "source", "artifacts", "web")} started ---`), true);
+});

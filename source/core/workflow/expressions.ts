@@ -1,3 +1,4 @@
+import { join } from "@std/path";
 import { data, Evaluator, ExpressionError, ExpressionEvaluationError, Lexer, Parser } from "@actions/expressions";
 import { Binary, ContextAccess, FunctionCall, Grouping, IndexAccess, Literal, Logical, Unary } from "@actions/expressions/ast";
 import type { FunctionDefinition, FunctionInfo } from "@actions/expressions/funcs/info";
@@ -100,6 +101,20 @@ const CONTEXT_FILE_FUNCTIONS: FunctionInfo[] = [
   { name: "contextSecretFile", minArgs: 1, maxArgs: 1 },
 ];
 
+/**
+ * `ensembleArtifacts("<name>")`: resolves to `<cwd>/source/artifacts/<name>`
+ * — the build-output folder an `ens build` produces for one app/ship inside
+ * any project that itself uses the `ensemble` CLI/framework (this repo's own
+ * workflows/deploy is one such project, not the only one — the function
+ * isn't specific to it). `cwd` is the calling step's own resolved working
+ * directory (its `in:` repository checkout, or the run's scratch directory
+ * absent that — see run-step.ts's resolveStepCwd), so the same expression
+ * resolves correctly regardless of which project's workflow calls it. A
+ * plain, synchronous path join — no loader/context lookup involved, unlike
+ * contextFile()/contextSecretFile() above.
+ */
+const ENSEMBLE_ARTIFACTS_FUNCTION: FunctionInfo = { name: "ensembleArtifacts", minArgs: 1, maxArgs: 1 };
+
 function contextFileLookup(context: Record<string, JsonValue>, kind: "files" | "secretFiles", filename: string): data.ExpressionData {
   const contextData = context.context;
   const files = contextData !== null && typeof contextData === "object" && !Array.isArray(contextData) ? contextData[kind] : undefined;
@@ -111,7 +126,14 @@ function contextFileLookup(context: Record<string, JsonValue>, kind: "files" | "
   return new data.StringData(path);
 }
 
-function buildContextFileFunctions(context: Record<string, JsonValue>): Map<string, FunctionDefinition> {
+function ensembleArtifactsLookup(cwd: string | undefined, name: string): data.ExpressionData {
+  if (cwd === undefined) {
+    throw new WorkflowExpressionError(`ensembleArtifacts("${name}") has no working directory to resolve against here.`);
+  }
+  return new data.StringData(join(cwd, "source", "artifacts", name));
+}
+
+function buildWorkflowFunctions(context: Record<string, JsonValue>, cwd: string | undefined): Map<string, FunctionDefinition> {
   return new Map<string, FunctionDefinition>([
     ["contextfile", {
       name: "contextFile",
@@ -125,27 +147,35 @@ function buildContextFileFunctions(context: Record<string, JsonValue>): Map<stri
       maxArgs: 1,
       call: (arg: data.ExpressionData) => contextFileLookup(context, "secretFiles", fromExpressionData(arg) as string),
     }],
+    ["ensembleartifacts", {
+      name: "ensembleArtifacts",
+      minArgs: 1,
+      maxArgs: 1,
+      call: (arg: data.ExpressionData) => ensembleArtifactsLookup(cwd, fromExpressionData(arg) as string),
+    }],
   ]);
 }
 
-function parseAndEvaluate(expr: string, context: Record<string, JsonValue>): data.ExpressionData {
+const WORKFLOW_FUNCTION_INFOS: FunctionInfo[] = [...CONTEXT_FILE_FUNCTIONS, ENSEMBLE_ARTIFACTS_FUNCTION];
+
+function parseAndEvaluate(expr: string, context: Record<string, JsonValue>, cwd?: string): data.ExpressionData {
   const contextNames = Object.keys(context);
   try {
     const lexer = new Lexer(unwrap(expr));
     const { tokens } = lexer.lex();
-    const parser = new Parser(tokens, contextNames, CONTEXT_FILE_FUNCTIONS);
+    const parser = new Parser(tokens, contextNames, WORKFLOW_FUNCTION_INFOS);
     const ast = parser.parse();
     const contextDict = toExpressionData(context) as data.Dictionary;
-    const evaluator = new Evaluator(ast, contextDict, buildContextFileFunctions(context));
+    const evaluator = new Evaluator(ast, contextDict, buildWorkflowFunctions(context, cwd));
     return evaluator.evaluate();
   } catch (error) {
     reraise(expr, error);
   }
 }
 
-/** Evaluates an expression against a context object, returning a plain JS value. */
-export function evaluate(expr: string, context: Record<string, JsonValue>): JsonValue {
-  return fromExpressionData(parseAndEvaluate(expr, context));
+/** Evaluates an expression against a context object, returning a plain JS value. `cwd` (when given) backs `ensembleArtifacts()`. */
+export function evaluate(expr: string, context: Record<string, JsonValue>, cwd?: string): JsonValue {
+  return fromExpressionData(parseAndEvaluate(expr, context, cwd));
 }
 
 /** Evaluates an `if:`-style expression, applying GitHub Actions truthiness rules. */
@@ -200,7 +230,7 @@ export function findStaticStepReferences(text: string): string[] {
     try {
       const lexer = new Lexer(unwrap(match[0]));
       const { tokens } = lexer.lex();
-      const parser = new Parser(tokens, ALL_CONTEXT_NAMES, CONTEXT_FILE_FUNCTIONS);
+      const parser = new Parser(tokens, ALL_CONTEXT_NAMES, WORKFLOW_FUNCTION_INFOS);
       const ast = parser.parse();
       walkForStepReferences(ast, ids);
     } catch {
@@ -232,7 +262,7 @@ export function findStaticContextFileReferences(text: string): ContextFileRefere
     try {
       const lexer = new Lexer(unwrap(match[0]));
       const { tokens } = lexer.lex();
-      const parser = new Parser(tokens, ALL_CONTEXT_NAMES, CONTEXT_FILE_FUNCTIONS);
+      const parser = new Parser(tokens, ALL_CONTEXT_NAMES, WORKFLOW_FUNCTION_INFOS);
       const ast = parser.parse();
       walkForContextFileReferences(ast, refs);
     } catch {
@@ -315,10 +345,10 @@ function walkForStepReferences(node: unknown, out: string[]): void {
   }
 }
 
-/** Replaces every `${{ ... }}` occurrence in `text` with its evaluated value (stringified if not already a string). Text with no occurrences passes through unchanged. */
-export function interpolate(text: string, context: Record<string, JsonValue>): string {
+/** Replaces every `${{ ... }}` occurrence in `text` with its evaluated value (stringified if not already a string). Text with no occurrences passes through unchanged. `cwd` (when given) backs `ensembleArtifacts()`. */
+export function interpolate(text: string, context: Record<string, JsonValue>, cwd?: string): string {
   return text.replace(EXPR_REF, (match) => {
-    const result = evaluate(match, context);
+    const result = evaluate(match, context, cwd);
     return typeof result === "string" ? result : JSON.stringify(result);
   });
 }

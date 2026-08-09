@@ -145,6 +145,14 @@ Deno.test("evaluate: contextFile() for an unresolved filename throws", () => {
   assertThrows(() => evaluate("contextFile('MISSING.json')", ctx), WorkflowExpressionError);
 });
 
+Deno.test("evaluate: ensembleArtifacts('<name>') joins the given cwd with source/artifacts/<name>", () => {
+  assertEquals(evaluate("ensembleArtifacts('web')", {}, "/repo/checkout"), "/repo/checkout/source/artifacts/web");
+});
+
+Deno.test("evaluate: ensembleArtifacts() with no cwd given throws", () => {
+  assertThrows(() => evaluate("ensembleArtifacts('web')", {}), WorkflowExpressionError);
+});
+
 Deno.test("findStaticContextFileReferences: finds a contextFile() call with a literal filename", () => {
   assertEquals(
     findStaticContextFileReferences("${{ contextFile('TF_VARS.json') }}"),

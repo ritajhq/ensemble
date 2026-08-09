@@ -229,6 +229,7 @@ export async function runWorkflow(
             const root = buildRootContext(variables, outcomes, {
               trigger: options.trigger,
               repositories,
+              contextName: options.context,
               contextVariables: resolved.variables,
               contextFiles: resolved.files,
               contextSecretFiles: resolved.secretFiles,
@@ -240,6 +241,7 @@ export async function runWorkflow(
             const root = buildRootContext(variables, outcomes, {
               trigger: options.trigger,
               repositories,
+              contextName: options.context,
               contextVariables: resolved.variables,
               contextFiles: resolved.files,
               contextSecretFiles: resolved.secretFiles,

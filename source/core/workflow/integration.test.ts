@@ -334,6 +334,41 @@ Deno.test("integration: a context.variables entry with an inline value never tou
   assertEquals(outcomes.build.result, "success");
 });
 
+Deno.test("integration: context.name reflects --context and gates a job's if:", async () => {
+  const workflowDir = join(import.meta.dirname!, "tests", "fixtures");
+  const workflow = {
+    jobs: {
+      watch: {
+        if: "${{ context.name == 'development' }}",
+        steps: [{ run: 'test "${{ context.name }}" = development' }],
+      },
+    },
+  };
+  const dev = await runWorkflow(workflow, { workflowDir, context: "development" });
+  assertEquals(dev.success, true);
+  assertEquals(dev.outcomes.watch.result, "success");
+
+  const prod = await runWorkflow(workflow, { workflowDir, context: "production" });
+  assertEquals(prod.success, true);
+  assertEquals(prod.outcomes.watch.result, "skipped");
+});
+
+Deno.test("integration: context.name is null when a context: block is declared but no --context is passed", async () => {
+  const workflowDir = join(import.meta.dirname!, "tests", "fixtures");
+  const workflow = {
+    context: { variables: [{ name: "REGION", value: "us-east-1" }] },
+    jobs: {
+      build: {
+        if: "${{ context.name == null }}",
+        steps: [{ run: "exit 0" }],
+      },
+    },
+  };
+  const { outcomes, success } = await runWorkflow(workflow, { workflowDir });
+  assertEquals(success, true);
+  assertEquals(outcomes.build.result, "success");
+});
+
 Deno.test("integration: a workflow resolves a variable from the local loader's contexts/<name>/variables/<key>", async () => {
   const workflowDir = await Deno.makeTempDir({ prefix: "integration-context-local-" });
   try {

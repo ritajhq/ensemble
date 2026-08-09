@@ -143,6 +143,29 @@ Deno.test("runStep: in.repository runs the step inside that repository's checkou
   assertEquals(result.log.stdout.trim(), workflowDir);
 });
 
+Deno.test("runStep: ensembleArtifacts() resolves relative to the step's own in.repository checkout", async () => {
+  const ctx: JobContext = {
+    variables: {},
+    needs: {},
+    steps: {},
+    repositories: { demo: { path: workflowDir } },
+  };
+  const result = await runStep(
+    { run: "echo \"${{ ensembleArtifacts('web') }}\"", in: { repository: "demo" } },
+    "/some/unrelated/workflow-dir",
+    "/some/unrelated/scratch-dir",
+    ctx,
+  );
+  assertEquals(result.result, "success");
+  assertEquals(result.log.stdout.trim(), join(workflowDir, "source", "artifacts", "web"));
+});
+
+Deno.test("runStep: ensembleArtifacts() with no in: resolves relative to the default cwd", async () => {
+  const result = await runStep({ run: "echo \"${{ ensembleArtifacts('web') }}\"" }, workflowDir, cwd, emptyCtx());
+  assertEquals(result.result, "success");
+  assertEquals(result.log.stdout.trim(), join(cwd, "source", "artifacts", "web"));
+});
+
 Deno.test("runStep: in.repository referencing an undeclared repository fails", async () => {
   await assertRejects(
     () => runStep({ run: "exit 0", in: { repository: "missing" } }, workflowDir, cwd, emptyCtx()),

@@ -152,6 +152,11 @@ export interface ContextSecret {
  * to a shared `.ensemble/global/` tier before failing — see
  * context-loaders/resolve.ts's selectLoaders. Still declared here like any
  * other entry; only *where the value lives* is more convenient.
+ *
+ * The `--context <name>` itself (independent of any declared variable/secret)
+ * is exposed as `${{ context.name }}`, usable in a job's or step's `if:` to
+ * branch behavior per context — e.g. `if: context.name == 'development'` to
+ * enable a dev-only step/job. See context.ts's RootContext.context.name.
  */
 export interface Context {
   /** Named values this workflow needs. A loader-sourced entry (no `value`) fails the run before any job starts if unsatisfied and no `default` exists. */

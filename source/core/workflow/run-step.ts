@@ -252,7 +252,7 @@ async function runScript(
  * directory. `name` must be a key in `ctx.repositories` — i.e. actually
  * declared under the workflow's `resources.repositories`.
  */
-function resolveStepCwd(step: Step, jobIn: StepIn | undefined, defaultCwd: string, ctx: JobContext): string {
+export function resolveStepCwd(step: Step, jobIn: StepIn | undefined, defaultCwd: string, ctx: JobContext): string {
   const stepIn = step.in ?? jobIn;
   if (stepIn === undefined) return defaultCwd;
   const repo = ctx.repositories?.[stepIn.repository];
@@ -288,7 +288,7 @@ export async function runStep(
   try {
     let outputs: Record<string, string> = {};
     if (step.run !== undefined) {
-      const command = interpolateStep(step.run, ctx);
+      const command = interpolateStep(step.run, ctx, effectiveCwd);
       const shellResult = await runShell(command, effectiveCwd, ctx.variables, signal);
       capturedLog = shellResult.log;
       if (shellResult.code !== 0) {

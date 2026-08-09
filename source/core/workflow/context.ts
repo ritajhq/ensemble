@@ -73,6 +73,8 @@ export interface RootContext {
    * `contextFile`/`contextSecretFile` calls.
    */
   context?: {
+    /** The `--context <name>` this run was invoked with. Absent for a run with no context source (see run-workflow.ts). */
+    name?: string;
     variables: Record<string, ResolvedVariable>;
     files: Record<string, string>;
     secretFiles: Record<string, string>;
@@ -97,13 +99,14 @@ export interface StepContext {
   matrix?: Record<string, unknown>;
   trigger?: Record<string, unknown>;
   repositories?: Record<string, RepositoryContext>;
-  context?: { variables: Record<string, ResolvedVariable>; files: Record<string, string>; secretFiles: Record<string, string> };
+  context?: { name?: string; variables: Record<string, ResolvedVariable>; files: Record<string, string>; secretFiles: Record<string, string> };
 }
 
 export interface BuildRootContextOptions {
   matrix?: Record<string, unknown>;
   trigger?: Record<string, unknown>;
   repositories?: Record<string, RepositoryContext>;
+  contextName?: string;
   contextVariables?: Record<string, ResolvedVariable>;
   contextFiles?: Record<string, string>;
   contextSecretFiles?: Record<string, string>;
@@ -118,12 +121,18 @@ export function buildRootContext(
   if (options.matrix !== undefined) root.matrix = options.matrix;
   if (options.trigger !== undefined) root.trigger = options.trigger;
   if (options.repositories !== undefined) root.repositories = options.repositories;
-  if (options.contextVariables !== undefined || options.contextFiles !== undefined || options.contextSecretFiles !== undefined) {
+  if (
+    options.contextName !== undefined ||
+    options.contextVariables !== undefined ||
+    options.contextFiles !== undefined ||
+    options.contextSecretFiles !== undefined
+  ) {
     root.context = {
       variables: options.contextVariables ?? {},
       files: options.contextFiles ?? {},
       secretFiles: options.contextSecretFiles ?? {},
     };
+    if (options.contextName !== undefined) root.context.name = options.contextName;
   }
   return root;
 }
@@ -144,9 +153,14 @@ export function evaluateStepIf(expr: string, ctx: JobContext): boolean {
   return evaluateCondition(expr, toRecord(ctx));
 }
 
-/** Replaces `${{ ... }}` occurrences in `text` (e.g. a step's `run:` or `name:`) using this job's context. */
-export function interpolateStep(text: string, ctx: JobContext): string {
-  return interpolate(text, toRecord(ctx));
+/**
+ * Replaces `${{ ... }}` occurrences in `text` (e.g. a step's `run:` or
+ * `name:`) using this job's context. `cwd`, when given, is the calling
+ * step's own resolved working directory (see run-step.ts's
+ * resolveStepCwd) — the anchor `ensembleArtifacts()` resolves against.
+ */
+export function interpolateStep(text: string, ctx: JobContext, cwd?: string): string {
+  return interpolate(text, toRecord(ctx), cwd);
 }
 
 export function toStepContext(ctx: JobContext): StepContext {
