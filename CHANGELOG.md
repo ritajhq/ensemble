@@ -1,3 +1,23 @@
+## [0.0.31-test] - 2026-08-08
+
+### 🚀 Features
+
+- *(workflow)* Replace contexts:/secrets: with a unified context: block and pluggable loaders
+- *(workflow,platform)* Decouple git registration from workflow creation
+- *(workflow)* Expose context.variables via dot-access interpolation
+- *(workflow)* Change context.variables from a map to a list, matching context.secrets
+- *(workflow)* Add contextFile()/contextSecretFile() interpolation for raw context files
+- *(deploy)* Add dev-only Caddy gateway via docker-compose profiles
+
+### 🐛 Bug Fixes
+
+- *(workflow)* Collect context.variables/secrets into one shared .env file per context
+- *(deploy)* Use abspath() for the Caddyfile bind mount
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.0.30-test
+- *(deploy)* Bump dockercompose provider lockfile to v0.2.1
 ## [0.0.30-test] - 2026-08-07
 
 ### 🚀 Features
