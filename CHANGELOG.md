@@ -1,3 +1,18 @@
+## [0.0.32-test] - 2026-08-09
+
+### 🚀 Features
+
+- *(workflow)* Add context.name and ensembleArtifacts() expression functions
+- *(deploy)* Resolve terraform artifacts/caddy paths via contextFile()/ensembleArtifacts()
+
+### 🐛 Bug Fixes
+
+- *(kit)* Force-touch react.spa's css output so watch always syncs it
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.0.31-test
+- Log build success in deno.bundle kit, ignore deploy's workspace dir, backlog note
 ## [0.0.31-test] - 2026-08-08
 
 ### 🚀 Features
