@@ -1,2 +1,3 @@
 - [ ] In the react.spa kit I don't like the {{ensemble:base}} interpolation maybe we should jut have __BASE__ and also get rid of the injected env, it's up to the user to deside how and where the injected vars will be used.
 - [ ] Currently docker-compose in workflows have to refer to the content in source folder (e.g. artifacts) using relative paths. 
+- [ ] Create an ensemble vscode plugin to enable shell syntax highlighting in workflows

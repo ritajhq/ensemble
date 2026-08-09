@@ -15,4 +15,6 @@ const denoExe = await resolveDenoExecutable();
 const result = await $`${denoExe} bundle -q ${entry} -o ${outFile} ${modeArgs} ${watchArgs}`
   .noThrow();
 
+if (result.code === 0) console.log(`built ${ctx.name}`);
+
 Deno.exit(result.code);
