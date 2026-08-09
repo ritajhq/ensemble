@@ -104,6 +104,47 @@ async function watchIndexHtml(ctx: KitContext): Promise<void> {
   }
 }
 
+// How long to wait, after detecting an index.css source edit, before
+// force-touching cssOut — long enough for Tailwind's own --watch=always
+// rebuild (typically <200ms) to have finished writing (or skipping) its
+// output first.
+const CSS_TOUCH_DELAY_MS = 500;
+
+/**
+ * Tailwind's own CLI skips writing cssOut when the computed utility CSS
+ * comes out byte-identical to what's already on disk (e.g. editing a
+ * comment, or a source change that doesn't affect any generated utility) —
+ * no write means no mtime change, which means no filesystem event for
+ * anything watching cssOut downstream (notably Docker Compose Watch's
+ * `sync`, which only syncs on a detected change event — see
+ * workflows/deploy/terraform/main.tf's develop_watch block). Force-touching
+ * cssOut guarantees a real event fires every time, regardless of whether
+ * Tailwind itself decided the content was unchanged. Harmless when Tailwind
+ * did write: the touch just follows it.
+ */
+async function touchCssOut(cssOut: string): Promise<void> {
+  if (!await exists(cssOut, { isFile: true })) return;
+  const now = new Date();
+  await Deno.utime(cssOut, now, now);
+}
+
+/**
+ * Watches cssEntry for edits, touching cssOut shortly after each one — the
+ * ongoing half of the fix; touchCssOut's own first call (below, right after
+ * Tailwind's initial run) covers the startup case this watcher can't: `ens
+ * build web --watch` starting up against a cssOut that a PRIOR build (e.g.
+ * deploy's own initial sync) already wrote with matching content — no source
+ * edit ever happens in that case, so a watcher alone would never fire.
+ */
+async function touchCssOutOnChange(cssEntry: string, cssOut: string): Promise<void> {
+  const watcher = Deno.watchFs(cssEntry);
+  for await (const event of watcher) {
+    if (event.kind !== "modify" && event.kind !== "create") continue;
+    await new Promise((resolve) => setTimeout(resolve, CSS_TOUCH_DELAY_MS));
+    await touchCssOut(cssOut);
+  }
+}
+
 const ctx = getKitContext();
 const kitDir = dirname(fromFileUrl(import.meta.url));
 
@@ -120,6 +161,17 @@ const cssEntry = join(ctx.source, "index.css");
 const jsOut = join(ctx.out, "main.js");
 const cssOut = join(ctx.out, "index.css");
 
+if (ctx.watch) {
+  touchCssOutOnChange(cssEntry, cssOut);
+  // Covers the startup case touchCssOutOnChange's watcher can't (see its own
+  // doc comment): give Tailwind's initial build below a moment to run, then
+  // touch regardless of whether it actually wrote anything.
+  (async () => {
+    await new Promise((resolve) => setTimeout(resolve, CSS_TOUCH_DELAY_MS));
+    await touchCssOut(cssOut);
+  })();
+}
+
 const minifyArgs = ctx.mode === "production" ? ["--minify"] : [];
 const watchArgs = ctx.watch ? ["--watch"] : [];
 // Tailwind's own `--watch` stops as soon as stdin closes, which is always
@@ -132,5 +184,7 @@ const [bundleResult, cssResult] = await Promise.all([
   $`${tailwindBin} --cwd ${ctx.source} -i ${cssEntry} -o ${cssOut} ${minifyArgs} ${cssWatchArgs}`
     .noThrow(),
 ]);
+
+if (bundleResult.code === 0 && cssResult.code === 0) console.log(`built ${ctx.name}`);
 
 Deno.exit(bundleResult.code !== 0 ? bundleResult.code : cssResult.code);
