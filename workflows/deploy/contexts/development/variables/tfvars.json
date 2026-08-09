@@ -1,0 +1,14 @@
+{
+  "enable_watch": true,
+  "image_registry": "",
+  "image_tag": "latest",
+  "server": {
+    "runner_image": "runner:latest"
+  },
+  "server_workspace_path": "../contexts/development/workspace",
+  "server_host_workflows_path": "../contexts/development/workspace/workflows",
+  "web": {
+    "live_reload": "true",
+    "api_endpoint": "http://localhost:8080/api"
+  }
+}

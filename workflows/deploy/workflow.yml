@@ -38,15 +38,18 @@ jobs:
           cd workflows/deploy/terraform
           "${{ steps.install_terraform.outputs.tf_bin }}" init
 
-      - name: terraform_apply
+      - name: "terraform_apply (context: ${{ context.name }})"
         run: |
           set -euo pipefail
 
-          ARTIFACTS_DIR=$(realpath source/artifacts)
+          ARTIFACTS_WEB="${{ ensembleArtifacts('web') }}"
+          ARTIFACTS_SERVER="${{ ensembleArtifacts('server') }}"
 
           cd workflows/deploy/terraform
           "${{ steps.install_terraform.outputs.tf_bin }}" apply -auto-approve \
-            -var-file="${{ contextFile('TF_VARS.json') }}" \
-            -var="artifacts_dir=$ARTIFACTS_DIR" \
+            -var-file="${{ contextFile('tfvars.json') }}" \
+            -var="artifacts_web=$ARTIFACTS_WEB" \
+            -var="artifacts_server=$ARTIFACTS_SERVER" \
+            -var="caddy_config=${{ contextFile('Caddyfile') }}" \
             -var="server_github_webhook_secret=$GITHUB_WEBHOOK_SECRET" \
             -var="server_docker_gid=$(getent group docker | cut -d: -f3)"

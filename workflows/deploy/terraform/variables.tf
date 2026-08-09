@@ -13,9 +13,22 @@ variable "image_tag" {
   description = "Tag applied to server/web's own images (registry.ritaj.app/ensemble/{server,web}:<tag>). hot-server is always :latest — it's a shared, unversioned runtime shell (see server's README) rather than an ensemble-specific build."
 }
 
-variable "artifacts_dir" {
+variable "artifacts_web" {
   type        = string
-  description = "Absolute path to the build-artifacts directory watched for live sync. Only used when enable_watch is true."
+  description = "Absolute path to web's build-artifacts directory (source/artifacts/web), watched for live sync. Only used when enable_watch is true."
+  nullable = true
+}
+
+variable "artifacts_server" {
+  type        = string
+  description = "Absolute path to server's build-artifacts directory (source/artifacts/server), watched for live sync. Only used when enable_watch is true."
+  nullable = true
+}
+
+variable "caddy_config" {
+  type        = string
+  description = "Absolute path to the Caddyfile. bind-mounted into the caddy service. Only used when enable_watch is true."
+  nullable = true
 }
 
 variable "server" {
@@ -68,14 +81,20 @@ variable "server_docker_gid" {
 # subdirectory — what a spawned runner container mounts (see
 # source/ship/server/README.md for why it must be a real host path, not a
 # path inside the server container).
+#
+# Both may be given relative to this module's own directory (portable
+# across developers, e.g. "../contexts/development/workspace" — main.tf
+# resolves them via abspath()) or as an already-absolute host path (what
+# production's tfvars.json uses, since it's a fixed deploy target rather
+# than "wherever this developer happens to have checked out the repo").
 variable "server_workspace_path" {
   type        = string
-  description = "Absolute host path bind-mounted into server's own /workspace — must contain .ensemble/ and workflows/. Persistent across redeploys."
+  description = "Host path bind-mounted into server's own /workspace — must contain .ensemble/ and workflows/. Persistent across redeploys. Relative (resolved against this module's directory) or absolute."
 }
 
 variable "server_host_workflows_path" {
   type        = string
-  description = "Absolute host path (typically server_workspace_path's own /workflows subdirectory) a spawned runner container mounts."
+  description = "Host path (typically server_workspace_path's own /workflows subdirectory) a spawned runner container mounts. Relative (resolved against this module's directory) or absolute — see server_workspace_path."
 }
 
 variable "web" {
