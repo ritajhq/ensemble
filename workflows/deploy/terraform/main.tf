@@ -30,11 +30,18 @@ resource "dockercompose_stack" "ensemble" {
     ]
 
     dynamic "develop_watch" {
-      for_each = var.enable_watch ? [{
-        action = "sync+restart"
-        path   = var.artifacts_server
-        target = "/app/server"
-      }] : []
+      for_each = var.enable_watch ? [
+        {
+          action = "sync+restart"
+          path   = var.artifacts_server
+          target = "/app/server"
+        },
+        {
+          action = "sync+restart"
+          path   = var.cli_path
+          target = "/usr/local/bin/ens"
+        },
+      ] : []
       content {
         action = develop_watch.value.action
         path   = develop_watch.value.path

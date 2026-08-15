@@ -31,6 +31,12 @@ variable "caddy_config" {
   nullable = true
 }
 
+variable "cli_path" {
+  type        = string
+  description = "Absolute path to the compiled ens CLI binary (source/artifacts/packages/ensemble-linux-x64), Compose-Watch-synced into server at /usr/local/bin/ens so it always runs whatever `ens pack cli deno.compile --watch` last produced. Only used when enable_watch is true."
+  nullable    = true
+}
+
 variable "server" {
   type = object({
     runner_image = string
