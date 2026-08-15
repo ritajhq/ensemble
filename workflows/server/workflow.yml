@@ -1,15 +1,20 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ritajhq/ensemble/main/.ensemble/schemas/workflow.schema.json
+# yaml-embedded-languages: shell
+
 on:
   - manual:
       inputs:
         - name: job
           type: job
-          default: server
+          default: [server]
           display: "Job to run"
 
 context:
   secrets:
     - name: REGISTRY_USERNAME
+      default: ''
     - name: REGISTRY_PASSWORD
+      default: ''
 
 resources:
   repositories:
