@@ -52,7 +52,7 @@ resource "dockercompose_stack" "ensemble" {
 
   service {
     name           = "web"
-    image          = "${var.image_registry}hot-server:latest"
+    image          = "${var.image_registry}ensemble/web:latest"
     container_name = "ensemble-web"
     networks       = ["edge"]
 
