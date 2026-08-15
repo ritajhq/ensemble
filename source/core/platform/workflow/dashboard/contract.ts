@@ -25,6 +25,8 @@ export interface WorkflowSummary {
   lastRunAt?: string;
   /** This workflow's declared `on:` triggers, if any — empty when it only runs via direct invocation. */
   triggers: WorkflowTriggerSummary[];
+  /** Context names available to this workflow — one per subdirectory of its own contexts/, for a UI to offer as a --context picker. Empty when it has no contexts/ directory. */
+  contexts: string[];
 }
 
 export interface ListWorkflowsResponse {

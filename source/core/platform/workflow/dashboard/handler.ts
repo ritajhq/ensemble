@@ -5,6 +5,7 @@ import {
   encodeWorkflowId,
   getWorkflowByName,
   type GitRepositoryStore,
+  listWorkflowContexts,
   listWorkflowFiles,
   listWorkflows,
   readWorkflowFile,
@@ -59,18 +60,20 @@ function resolveWorkflowNameParam(
   }
 }
 
-async function summarizeWorkflow(runs: RunStore, name: string, workflow: Workflow) {
+async function summarizeWorkflow(runs: RunStore, name: string, workflow: Workflow, workflowDir: string) {
   const latest = await runs.getLatestRun(name);
   const jobIds = Object.keys(workflow.jobs);
   const triggers = (workflow.on ?? [])
     .map((trigger) => summarizeTrigger(trigger, jobIds))
     .filter((t): t is WorkflowTriggerSummary => t !== undefined);
+  const contexts = await listWorkflowContexts(workflowDir);
   return {
     id: encodeWorkflowId(name),
     name,
     lastStatus: latest?.status,
     lastRunAt: latest?.startedAt,
     triggers,
+    contexts,
   };
 }
 
@@ -80,7 +83,9 @@ export async function handleListWorkflows(runs: RunStore, request: Request): Pro
   }
 
   const resolved = await listWorkflows();
-  const workflows = await Promise.all(resolved.map(({ name, workflow }) => summarizeWorkflow(runs, name, workflow)));
+  const workflows = await Promise.all(
+    resolved.map(({ name, workflow, workflowDir }) => summarizeWorkflow(runs, name, workflow, workflowDir)),
+  );
 
   return Response.json({ workflows } satisfies ListWorkflowsResponse);
 }
@@ -115,8 +120,8 @@ export async function handleCreateWorkflow(
   }
 
   try {
-    const { name, workflow } = await createWorkflow(repositories, links, body.name, body.source);
-    const summary = await summarizeWorkflow(runs, name, workflow);
+    const { name, workflow, workflowDir } = await createWorkflow(repositories, links, body.name, body.source);
+    const summary = await summarizeWorkflow(runs, name, workflow, workflowDir);
     return Response.json({ workflow: summary } satisfies CreateWorkflowResponse);
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 });

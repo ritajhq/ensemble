@@ -1,0 +1,5 @@
+# Secrets (GH_TOKEN, REGISTRY_USERNAME, REGISTRY_PASSWORD) are provisioned
+# by hand per context, never committed. See contexts/<name>/secrets.env in
+# source/core/workflow/context-loaders/local.ts's createLocalLoader.
+contexts/*/secrets.env
+contexts/*/secrets/

@@ -1,6 +1,6 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { join } from "@std/path";
-import { createWorkflow, deleteWorkflow } from "./workflow.ts";
+import { createWorkflow, deleteWorkflow, listWorkflowContexts } from "./workflow.ts";
 import { registerGitRepository, syncWorkflowFromGit } from "./git-integration.ts";
 import { GitRepositoryStore, WorkflowGitLinkStore } from "./git-repositories.ts";
 
@@ -132,5 +132,32 @@ Deno.test("deleteWorkflow: removes the directory and any git link", async () => 
 Deno.test("deleteWorkflow: is a no-op (not an error) when the workflow doesn't exist", async () => {
   await withContext(async (ctx) => {
     await deleteWorkflow(ctx.links, "nonexistent");
+  });
+});
+
+Deno.test("listWorkflowContexts: returns one name per contexts/ subdirectory, sorted", async () => {
+  await withContext(async (ctx) => {
+    const resolved = await createWorkflow(ctx.repositories, ctx.links, "my-workflow");
+    await Deno.mkdir(join(resolved.workflowDir, "contexts", "production"), { recursive: true });
+    await Deno.mkdir(join(resolved.workflowDir, "contexts", "development"), { recursive: true });
+
+    assertEquals(await listWorkflowContexts(resolved.workflowDir), ["development", "production"]);
+  });
+});
+
+Deno.test("listWorkflowContexts: ignores files directly under contexts/", async () => {
+  await withContext(async (ctx) => {
+    const resolved = await createWorkflow(ctx.repositories, ctx.links, "my-workflow");
+    await Deno.mkdir(join(resolved.workflowDir, "contexts", "production"), { recursive: true });
+    await Deno.writeTextFile(join(resolved.workflowDir, "contexts", "README.md"), "not a context");
+
+    assertEquals(await listWorkflowContexts(resolved.workflowDir), ["production"]);
+  });
+});
+
+Deno.test("listWorkflowContexts: empty (not an error) when there's no contexts/ directory", async () => {
+  await withContext(async (ctx) => {
+    const resolved = await createWorkflow(ctx.repositories, ctx.links, "my-workflow");
+    assertEquals(await listWorkflowContexts(resolved.workflowDir), []);
   });
 });

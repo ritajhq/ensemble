@@ -171,6 +171,25 @@ export async function listWorkflowFiles(name: string): Promise<WorkflowFileNode[
   return buildFileTree(paths);
 }
 
+/**
+ * Lists the context names available to a workflow — one per subdirectory of
+ * its own `contexts/`, the same folder-per-name convention the local context
+ * loader resolves `--context <name>` against (see
+ * context-loaders/local.ts's createLocalLoader). Empty (not an error) when
+ * the workflow has no `contexts/` directory at all — plenty of workflows
+ * never declare `context.variables`/`context.secrets` and so never need one.
+ */
+export async function listWorkflowContexts(workflowDir: string): Promise<string[]> {
+  const contextsDir = join(workflowDir, "contexts");
+  if (!await exists(contextsDir, { isDirectory: true })) return [];
+
+  const names: string[] = [];
+  for await (const entry of Deno.readDir(contextsDir)) {
+    if (entry.isDirectory) names.push(entry.name);
+  }
+  return names.sort();
+}
+
 /** Reads one file's content from a workflow's directory. `relativePath` must stay within workflowDir. */
 export async function readWorkflowFile(name: string, relativePath: string): Promise<string> {
   assertWithinDir(relativePath);

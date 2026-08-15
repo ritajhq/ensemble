@@ -32,6 +32,8 @@ export interface WorkflowSummary {
   lastRunAt?: string;
   /** This workflow's declared `on:` triggers, if any — empty when it only runs via direct invocation. */
   triggers: WorkflowTriggerSummary[];
+  /** Context names available to this workflow (one per contexts/<name> subdirectory) — offer as a --context picker when non-empty. */
+  contexts: string[];
 }
 
 export interface StepRecord {

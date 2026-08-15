@@ -62,6 +62,7 @@ export {
   deleteWorkflow,
   encodeWorkflowId,
   getWorkflowByName,
+  listWorkflowContexts,
   listWorkflowFiles,
   listWorkflows,
   readWorkflowFile,

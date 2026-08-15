@@ -47,9 +47,10 @@ const ACTIVE_RUN_FIELDS: {
 ];
 
 function ActiveRunCard(
-  { workflowId, triggers, run, onRun }: {
+  { workflowId, triggers, contexts, run, onRun }: {
     workflowId: string;
     triggers: WorkflowTriggerSummary[];
+    contexts: string[];
     run: RunRecord | null;
     onRun: () => void;
   },
@@ -64,6 +65,7 @@ function ActiveRunCard(
               key={index}
               workflowId={workflowId}
               trigger={trigger}
+              contexts={contexts}
               onTriggered={onRun}
             />
           ))}
@@ -185,6 +187,7 @@ export function RunsView() {
   const { workflowId = "" } = useParams();
   const [runs, setRuns] = useState<RunRecord[] | null>(null);
   const [triggers, setTriggers] = useState<WorkflowTriggerSummary[]>([]);
+  const [contexts, setContexts] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   function refetchRuns() {
@@ -199,6 +202,7 @@ export function RunsView() {
       .then((workflows) => {
         const workflow = workflows.find((w) => w.id === workflowId);
         setTriggers(workflow?.triggers ?? []);
+        setContexts(workflow?.contexts ?? []);
       })
       .catch(() => {});
   }, [workflowId]);
@@ -212,6 +216,7 @@ export function RunsView() {
           <ActiveRunCard
             workflowId={workflowId}
             triggers={triggers}
+            contexts={contexts}
             run={runs[0] ?? null}
             onRun={refetchRuns}
           />

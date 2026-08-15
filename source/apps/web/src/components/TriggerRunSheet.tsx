@@ -17,6 +17,11 @@ import {
   ComboboxItem,
   ComboboxList,
   Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Sheet,
   SheetContent,
   SheetDescription,
@@ -169,8 +174,45 @@ function ManualInputField(
   );
 }
 
-/** Free-text entry for an optional deploy context name — resolved server-side against this workflow's declared context.variables/context.secrets, unrelated to trigger/inputs. There's no closed list of valid names to offer here: which contexts exist is up to whichever loader ends up resolving them. */
-function ContextField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+/** No-context sentinel for the Select below — Select's own value can't be an empty string. */
+const NO_CONTEXT = "__none__";
+
+/**
+ * Picks an optional deploy context name — resolved server-side against this
+ * workflow's declared context.variables/context.secrets, unrelated to
+ * trigger/inputs. When the workflow declares known contexts (one per
+ * contexts/<name> subdirectory — see WorkflowSummary.contexts), offers them
+ * as a closed choice list instead of free text, since guessing a name here
+ * either resolves to nothing (silently falls back to defaults) or a context
+ * that doesn't exist for this workflow at all. Falls back to free text for a
+ * workflow with no contexts/ directory, or one whose valid names come from
+ * elsewhere (e.g. a remote loader).
+ */
+function ContextField(
+  { value, onChange, knownContexts }: { value: string; onChange: (value: string) => void; knownContexts: string[] },
+) {
+  if (knownContexts.length > 0) {
+    return (
+      <div className="flex flex-col gap-1">
+        <label className="text-xs text-muted-foreground" htmlFor="manual-trigger-context">
+          Context <span className="text-muted-foreground">(optional)</span>
+        </label>
+        <Select
+          value={value || NO_CONTEXT}
+          onValueChange={(next) => onChange(!next || next === NO_CONTEXT ? "" : next)}
+        >
+          <SelectTrigger id="manual-trigger-context" className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NO_CONTEXT}>None</SelectItem>
+            {knownContexts.map((name) => <SelectItem key={name} value={name}>{name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-1">
       <label className="text-xs text-muted-foreground" htmlFor="manual-trigger-context">
@@ -187,10 +229,11 @@ function ContextField({ value, onChange }: { value: string; onChange: (value: st
 }
 
 function ManualTriggerForm(
-  { workflowId, inputs, jobs, onTriggered }: {
+  { workflowId, inputs, jobs, contexts, onTriggered }: {
     workflowId: string;
     inputs: ManualInput[];
     jobs: string[];
+    contexts: string[];
     onTriggered: () => void;
   },
 ) {
@@ -221,7 +264,7 @@ function ManualTriggerForm(
       {inputs.length === 0 && (
         <p className="text-sm text-muted-foreground">This trigger takes no inputs.</p>
       )}
-      <ContextField value={context} onChange={setContext} />
+      <ContextField value={context} onChange={setContext} knownContexts={contexts} />
       {inputs.map((input) => (
         <ManualInputField
           key={input.name}
@@ -303,9 +346,10 @@ function GithubTriggerForm(
 
 /** A trigger's run button — opens a sheet on the right to collect that trigger's inputs, then runs it. */
 export function TriggerRunSheet(
-  { workflowId, trigger, onTriggered }: {
+  { workflowId, trigger, contexts, onTriggered }: {
     workflowId: string;
     trigger: WorkflowTriggerSummary;
+    contexts: string[];
     onTriggered: () => void;
   },
 ) {
@@ -335,6 +379,7 @@ export function TriggerRunSheet(
               workflowId={workflowId}
               inputs={trigger.inputs}
               jobs={trigger.jobs}
+              contexts={contexts}
               onTriggered={() => {
                 setOpen(false);
                 onTriggered();
