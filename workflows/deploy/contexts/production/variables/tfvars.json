@@ -1,0 +1,14 @@
+{
+  "enable_watch": false,
+  "image_registry": "registry.ritaj.app/",
+  "image_tag": "latest",
+  "server": {
+    "runner_image": "registry.ritaj.app/ensemble/runner:latest"
+  },
+  "server_workspace_path": "/srv/ensemble/server-workspace",
+  "server_host_workflows_path": "/srv/ensemble/server-workspace/workflows",
+  "web": {
+    "live_reload": "false",
+    "api_endpoint": "https://ensemble.ritaj.app/api"
+  }
+}

@@ -1,0 +1,7 @@
+# Unused in production — caddy only runs under the "dev" Compose profile
+# (see main.tf), which is never active here (enable_watch is false in this
+# context's tfvars.json, so active_profiles is []). This file exists only
+# because terraform_apply's contextFile('Caddyfile') is resolved eagerly for
+# every context regardless of whether the value ends up used. Production
+# traffic is fronted by an existing gateway configured separately, outside
+# this deploy.
