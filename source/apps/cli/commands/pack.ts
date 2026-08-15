@@ -14,13 +14,15 @@ export const packCommand = new Command()
     "-o, --output-name <name:string>",
     "Name to give the packed output (e.g. an image tag or archive name). Defaults to the ship name.",
   )
+  .option("-w, --watch", "Repack on source changes. Only supported by kits that declare watch support (e.g. deno.compile).")
   .option("-v, --var <var:string>", "Override a pack var (KEY=VALUE). Repeatable.", {
     collect: true,
   })
-  .action(async ({ mode, outputName, var: vars }, ship, kit) => {
+  .action(async ({ mode, outputName, watch, var: vars }, ship, kit) => {
     const code = await runPack(ship, kit, {
       mode,
       outputName,
+      watch: Boolean(watch),
       varOverrides: CliUtil.parseVarOverrides(vars ?? []),
     });
     if (code !== 0) Deno.exit(code);

@@ -224,8 +224,14 @@ for (const path of config.include ?? []) args.push("--include", resolvePath(path
 for (const path of config.exclude ?? []) args.push("--exclude", resolvePath(path));
 args.push(...permissionArgs(config.permissions));
 
+// --watch itself keeps `deno compile` running (restarting the compile on every
+// source change within the entry point's own module graph), rather than
+// exiting after one run — this process only ever returns when watch mode
+// isn't requested, or the watched process itself is killed.
+const watchArgs = ctx.watch ? ["--watch"] : [];
+
 const denoExe = await resolveDenoExecutable();
-const result = await $`${denoExe} compile -q ${args} ${entrypoint}`
+const result = await $`${denoExe} compile -q ${args} ${watchArgs} ${entrypoint}`
   .env(ctx.vars)
   .noThrow();
 

@@ -21,6 +21,8 @@ export interface PackKitContext {
   mode: string;
   /** Resolved pack vars (envs/pack/<name>.env, name being the ship name). */
   vars: Record<string, string>;
+  /** True when --watch was passed. Kits that don't support watch mode can ignore this. */
+  watch: boolean;
 }
 
 function parseVars(raw: string): Record<string, string> {
@@ -40,7 +42,8 @@ function parseVars(raw: string): Record<string, string> {
 export function getPackKitContext(args: string[] = Deno.args): PackKitContext {
   const flags = parseArgs(args, {
     string: ["name", "output-name", "artifacts", "packages", "mode", "vars"],
-    default: { vars: "{}" },
+    boolean: ["watch"],
+    default: { vars: "{}", watch: false },
   });
 
   const ship = String(flags._[0] ?? "");
@@ -61,6 +64,7 @@ export function getPackKitContext(args: string[] = Deno.args): PackKitContext {
     packages: requireFlag(flags, "packages"),
     mode: requireFlag(flags, "mode"),
     vars: parseVars(flags.vars),
+    watch: flags.watch,
   };
 }
 

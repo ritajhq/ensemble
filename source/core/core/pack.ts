@@ -12,6 +12,8 @@ export interface RunPackOptions {
   mode?: string;
   /** Name to give the packed output. Defaults to the ship name. */
   outputName?: string;
+  /** Repack on source changes. Only meaningful for kits that declare watch support (e.g. deno.compile) — an unsupporting kit just ignores the flag. */
+  watch?: boolean;
   varOverrides?: Record<string, string>;
 }
 
@@ -59,6 +61,7 @@ export async function runPack(
   const denoExe = await resolveDenoExecutable();
 
   const outputNameArgs = options.outputName ? ["--output-name", options.outputName] : [];
+  const watchArgs = options.watch ? ["--watch"] : [];
 
   const envFile = join(workspace, "envs", "pack", `${shipName}.env`);
   const fileVars = await loadEnv({ envPath: envFile, export: false });
@@ -73,6 +76,7 @@ export async function runPack(
     --mode ${mode}
     --vars ${JSON.stringify(packVars)}
     ${outputNameArgs}
+    ${watchArgs}
     ${shipDir}`
     .cwd(kitDir)
     .env(packVars)
