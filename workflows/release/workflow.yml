@@ -5,12 +5,21 @@ on:
       push:
         tags:
           - '*.*.*'
+  - manual:
+      inputs:
+        - name: version
+          type: string
+          default: latest
+          display: "Version tag (production only — local always uses latest)"
 
 context:
   secrets:
     - name: GH_TOKEN
+      default: ''
     - name: REGISTRY_USERNAME
+      default: ''
     - name: REGISTRY_PASSWORD
+      default: ''
 
 resources:
   repositories:
@@ -22,7 +31,18 @@ jobs:
     in:
       repository: ensemble
     steps:
+      - id: resolve_version
+        name: resolve_version
+        run: |
+          set -euo pipefail
+          if [ "${{ trigger.type }}" = "github" ]; then
+            echo "version=${{ trigger.tag }}" >> "$WORKFLOW_OUTPUT"
+          else
+            echo "version=${{ trigger.version }}" >> "$WORKFLOW_OUTPUT"
+          fi
+
       - name: docker_login
+        if: "${{ context.name == 'production' }}"
         run: |
           set -euo pipefail
           docker login registry.ritaj.app -u "$REGISTRY_USERNAME" -p "$REGISTRY_PASSWORD"
@@ -46,11 +66,17 @@ jobs:
           ens build -m production web
           ens pack web docker
 
+      - name: build_runner_image
+        run: |
+          set -euo pipefail
+          ens pack -o ensemble/runner runner docker
+
       - name: publish_server_image
+        if: "${{ context.name == 'production' }}"
         run: |
           set -euo pipefail
 
-          VERSION="${{ trigger.tag }}"
+          VERSION="${{ steps.resolve_version.outputs.version }}"
 
           docker image tag server:latest registry.ritaj.app/ensemble/server:latest
           docker image tag server:latest registry.ritaj.app/ensemble/server:"$VERSION"
@@ -59,10 +85,11 @@ jobs:
           docker push registry.ritaj.app/ensemble/server:"$VERSION"
 
       - name: publish_web_image
+        if: "${{ context.name == 'production' }}"
         run: |
           set -euo pipefail
 
-          VERSION="${{ trigger.tag }}"
+          VERSION="${{ steps.resolve_version.outputs.version }}"
 
           docker image tag web:latest registry.ritaj.app/ensemble/web:latest
           docker image tag web:latest registry.ritaj.app/ensemble/web:"$VERSION"
@@ -70,10 +97,36 @@ jobs:
           docker push registry.ritaj.app/ensemble/web:latest
           docker push registry.ritaj.app/ensemble/web:"$VERSION"
 
-      - name: update_changelog
+      - name: publish_runner_image
+        if: "${{ context.name == 'production' }}"
         run: |
           set -euo pipefail
-          tag="${{ trigger.tag }}"
+
+          VERSION="${{ steps.resolve_version.outputs.version }}"
+
+          docker image tag ensemble/runner:latest registry.ritaj.app/ensemble/runner:latest
+          docker image tag ensemble/runner:latest registry.ritaj.app/ensemble/runner:"$VERSION"
+
+          docker push registry.ritaj.app/ensemble/runner:latest
+          docker push registry.ritaj.app/ensemble/runner:"$VERSION"
+
+      - name: update_local_images
+        if: "${{ context.name != 'production' }}"
+        run: |
+          set -euo pipefail
+          # No registry involved locally — just make the freshly built images
+          # available under the plain names the local deploy stack (and
+          # server's spawned runner) actually reference: ensemble/server,
+          # ensemble/web, and runner:latest (see workflows/deploy).
+          docker image tag server:latest ensemble/server:latest
+          docker image tag web:latest ensemble/web:latest
+          docker image tag ensemble/runner:latest runner:latest
+
+      - name: update_changelog
+        if: "${{ context.name == 'production' }}"
+        run: |
+          set -euo pipefail
+          tag="${{ steps.resolve_version.outputs.version }}"
 
           cliff_version="2.13.1"
           git_cliff="/tmp/git-cliff-${cliff_version}/git-cliff"
@@ -109,9 +162,10 @@ jobs:
           fi
 
       - name: create_github_release
+        if: "${{ context.name == 'production' }}"
         run: |
           set -euo pipefail
-          tag="${{ trigger.tag }}"
+          tag="${{ steps.resolve_version.outputs.version }}"
           gh release create "$tag" \
             source/artifacts/packages/ensemble-linux-x64 \
             --title "$tag" \
