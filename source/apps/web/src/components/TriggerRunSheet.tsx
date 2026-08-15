@@ -9,6 +9,11 @@ import { TriggerIcon, triggerTypeLabel } from "../lib/triggers.tsx";
 import {
   Button,
   Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Sheet,
   SheetContent,
   SheetDescription,
@@ -107,16 +112,15 @@ function ManualInputField(
           {label}
           {input.default === undefined && <span className="text-destructive"> *</span>}
         </label>
-        <select
-          id={id}
-          multiple
-          value={selected}
-          onChange={(event) => onChange(Array.from(event.target.selectedOptions, (o) => o.value))}
-          className="rounded-md border border-input bg-transparent px-3 py-1 text-sm"
-        >
-          {jobs.map((jobId) => <option key={jobId} value={jobId}>{jobId}</option>)}
-        </select>
-        <p className="text-xs text-muted-foreground">Cmd/Ctrl-click to select multiple jobs.</p>
+        <Select multiple value={selected} onValueChange={(value) => onChange(value)}>
+          <SelectTrigger id={id} className="w-full">
+            <SelectValue placeholder="Select jobs…" />
+          </SelectTrigger>
+          <SelectContent>
+            {jobs.map((jobId) => <SelectItem key={jobId} value={jobId}>{jobId}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">Select multiple jobs.</p>
       </div>
     );
   }
@@ -128,15 +132,14 @@ function ManualInputField(
           {label}
           {input.default === undefined && <span className="text-destructive"> *</span>}
         </label>
-        <select
-          id={id}
-          value={String(value)}
-          onChange={(event) => onChange(event.target.value)}
-          className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
-        >
-          <option value="" disabled>Select a job…</option>
-          {jobs.map((jobId) => <option key={jobId} value={jobId}>{jobId}</option>)}
-        </select>
+        <Select value={String(value)} onValueChange={(value) => onChange(value ?? "")}>
+          <SelectTrigger id={id} className="w-full">
+            <SelectValue placeholder="Select a job…" />
+          </SelectTrigger>
+          <SelectContent>
+            {jobs.map((jobId) => <SelectItem key={jobId} value={jobId}>{jobId}</SelectItem>)}
+          </SelectContent>
+        </Select>
       </div>
     );
   }
