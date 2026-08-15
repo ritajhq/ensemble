@@ -182,8 +182,8 @@ ens workflow deploy -i job=build -i job=runner   # repeated NAME -> a list value
 - `-i, --input <NAME=VALUE>` — set a manual trigger input (JSON-parsed when
   possible), repeatable. Repeating the same NAME collects its values into a
   list instead of the last one winning (e.g. `-i job=build -i job=runner`
-  sets `job` to `["build", "runner"]` — handy for a `type: job, multiple:
-  true` input without writing JSON).
+  sets `job` to `["build", "runner"]` — handy for a `type: job` input
+  without writing JSON).
 - `-r, --remote <profile>` — trigger on a remote server instead of running
   locally (workflow must already be deployed there with a manual trigger).
   Blocks until the remote run finishes; logs aren't streamed back.

@@ -10,9 +10,7 @@ function matchesType(input: ManualInput, value: unknown): boolean {
     case "git-tags":
       return typeof value === "string";
     case "job":
-      return input.multiple
-        ? Array.isArray(value) && value.length > 0 && value.every((v) => typeof v === "string")
-        : typeof value === "string";
+      return Array.isArray(value) && value.length > 0 && value.every((v) => typeof v === "string");
     case "number":
       return typeof value === "number";
     case "boolean":
@@ -48,11 +46,11 @@ export function extractManualInputs(
       continue;
     }
     if (!matchesType(input, value)) {
-      const expected = input.type === "job" && input.multiple ? "non-empty list of job ids" : input.type;
+      const expected = input.type === "job" ? "non-empty list of job ids" : input.type;
       throw new ManualInputError(`Input "${input.name}" must be a ${expected}.`);
     }
     if (input.type === "job") {
-      const submittedJobs = Array.isArray(value) ? value as string[] : [value as string];
+      const submittedJobs = value as string[];
       const unknown = submittedJobs.find((j) => !jobIds.includes(j));
       if (unknown !== undefined) {
         throw new ManualInputError(`Input "${input.name}" must be a declared job ("${unknown}").`);
@@ -67,13 +65,12 @@ export function extractManualInputs(
  * The value of the trigger's first `type: "job"` input, if it declared one —
  * this is what "a job input implicitly means what job to run" resolves to:
  * a caller uses this as the run's job filter (RunWorkflowOptions.job)
- * instead of requiring a separate, redundant job selector. Resolves to a
- * single job id, or a list when that input declared `multiple: true`.
+ * instead of requiring a separate, redundant job selector.
  */
 export function resolveJobInput(
   declared: ManualInput[],
   trigger: Record<string, unknown>,
-): string | string[] | undefined {
+): string[] | undefined {
   const jobInput = declared.find((input): input is Extract<ManualInput, { type: "job" }> => input.type === "job");
-  return jobInput ? trigger[jobInput.name] as string | string[] : undefined;
+  return jobInput ? trigger[jobInput.name] as string[] : undefined;
 }

@@ -7,8 +7,6 @@ export interface ManualInput {
   default?: unknown;
   /** Only set (and only meaningful) for type: "git-tags". */
   repository?: string;
-  /** Only set (and only meaningful) for type: "job" — accept/require a list of job ids instead of one. */
-  multiple?: boolean;
 }
 
 export interface WorkflowManualTriggerSummary {

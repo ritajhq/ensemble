@@ -18,6 +18,7 @@
     "./components/skeleton": "./components/skeleton.tsx",
     "./components/tabs": "./components/tabs.tsx",
     "./components/tooltip": "./components/tooltip.tsx",
+    "./components/ui/combobox": "./components/ui/combobox.tsx",
     "./components/ui/dropdown-menu": "./components/ui/dropdown-menu.tsx",
     "./components/ui/select": "./components/ui/select.tsx",
     "./components/ui/table": "./components/ui/table.tsx",

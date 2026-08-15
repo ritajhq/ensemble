@@ -8,21 +8,25 @@ import {
 import { TriggerIcon, triggerTypeLabel } from "../lib/triggers.tsx";
 import {
   Button,
+  Combobox,
+  ComboboxChip,
+  ComboboxChips,
+  ComboboxChipsInput,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxItem,
+  ComboboxList,
   Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
+  useComboboxAnchor,
 } from "@ritaj/ui";
 
-/** Current value for one declared manual input, keyed by its name — string/number inputs stay as their raw text until submit so an in-progress edit (e.g. "-", "1.") isn't clobbered. A `job` input with `multiple: true` holds a string array instead. */
+/** Current value for one declared manual input, keyed by its name — string/number inputs stay as their raw text until submit so an in-progress edit (e.g. "-", "1.") isn't clobbered. A `job` input holds a string array instead. */
 type ManualInputValues = Record<string, string | boolean | string[]>;
 
 function defaultManualValues(inputs: ManualInput[]): ManualInputValues {
@@ -30,7 +34,7 @@ function defaultManualValues(inputs: ManualInput[]): ManualInputValues {
   for (const input of inputs) {
     if (input.type === "boolean") {
       values[input.name] = typeof input.default === "boolean" ? input.default : false;
-    } else if (input.type === "job" && input.multiple) {
+    } else if (input.type === "job") {
       values[input.name] = Array.isArray(input.default) ? input.default : [];
     } else {
       values[input.name] = input.default !== undefined ? String(input.default) : "";
@@ -42,7 +46,7 @@ function defaultManualValues(inputs: ManualInput[]): ManualInputValues {
 /** Parses a manual input's raw form value back into what the trigger expects, throwing a user-facing message on a bad value (e.g. malformed JSON). */
 function parseManualValue(input: ManualInput, raw: string | boolean | string[]): unknown {
   if (input.type === "boolean") return raw;
-  if (input.type === "job" && input.multiple) {
+  if (input.type === "job") {
     const jobs = raw as string[];
     if (jobs.length === 0) {
       if (input.default !== undefined) return input.default;
@@ -70,9 +74,35 @@ function parseManualValue(input: ManualInput, raw: string | boolean | string[]):
     case "string":
     case "git-tags":
     case "context":
-    case "job":
       return text;
   }
+}
+
+/** Multi-select combobox for a `job`-typed manual input — job ids the user has picked render as removable chips, with the dropdown filtered by what's typed. */
+function JobCombobox(
+  { id, jobs, selected, onChange }: {
+    id: string;
+    jobs: string[];
+    selected: string[];
+    onChange: (value: string[]) => void;
+  },
+) {
+  const anchor = useComboboxAnchor();
+
+  return (
+    <Combobox items={jobs} multiple value={selected} onValueChange={onChange}>
+      <ComboboxChips ref={anchor} className="w-full">
+        <ComboboxChipsInput id={id} placeholder={selected.length === 0 ? "Select jobs…" : undefined} />
+        {selected.map((jobId) => <ComboboxChip key={jobId} aria-label={jobId}>{jobId}</ComboboxChip>)}
+      </ComboboxChips>
+      <ComboboxContent anchor={anchor}>
+        <ComboboxEmpty>No jobs found.</ComboboxEmpty>
+        <ComboboxList>
+          {(jobId: string) => <ComboboxItem key={jobId} value={jobId}>{jobId}</ComboboxItem>}
+        </ComboboxList>
+      </ComboboxContent>
+    </Combobox>
+  );
 }
 
 function ManualInputField(
@@ -104,7 +134,7 @@ function ManualInputField(
     );
   }
 
-  if (input.type === "job" && input.multiple) {
+  if (input.type === "job") {
     const selected = value as string[];
     return (
       <div className="flex flex-col gap-1">
@@ -112,34 +142,7 @@ function ManualInputField(
           {label}
           {input.default === undefined && <span className="text-destructive"> *</span>}
         </label>
-        <Select multiple value={selected} onValueChange={(value) => onChange(value)}>
-          <SelectTrigger id={id} className="w-full">
-            <SelectValue placeholder="Select jobs…" />
-          </SelectTrigger>
-          <SelectContent>
-            {jobs.map((jobId) => <SelectItem key={jobId} value={jobId}>{jobId}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <p className="text-xs text-muted-foreground">Select multiple jobs.</p>
-      </div>
-    );
-  }
-
-  if (input.type === "job") {
-    return (
-      <div className="flex flex-col gap-1">
-        <label className="text-xs text-muted-foreground" htmlFor={id}>
-          {label}
-          {input.default === undefined && <span className="text-destructive"> *</span>}
-        </label>
-        <Select value={String(value)} onValueChange={(value) => onChange(value ?? "")}>
-          <SelectTrigger id={id} className="w-full">
-            <SelectValue placeholder="Select a job…" />
-          </SelectTrigger>
-          <SelectContent>
-            {jobs.map((jobId) => <SelectItem key={jobId} value={jobId}>{jobId}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <JobCombobox id={id} jobs={jobs} selected={selected} onChange={onChange} />
       </div>
     );
   }

@@ -399,25 +399,22 @@ jobs:
     input. Purely descriptive — never read by validation.
   - A submitted value is checked against `type` with a **strict** match
     (e.g. `type: number` rejects the string `"3"`) — no silent coercion.
-    `git-tags`, `context`, and `job` validate as plain strings; `git-tags`
+    `git-tags` and `context` validate as plain strings; `git-tags`
     additionally requires a **`repository`** property (a git URL) so a UI
     can list that repo's tags to offer as a select, `context` is a
     context name (see `--context`/`context.*` above) with no extra
     property, since which contexts exist isn't an enumerated registry
-    today, and `job` is one of this workflow's own job ids (checked at
-    parse time for `default`, and at trigger time for a submitted value).
-  - A **`job`** input implicitly selects which job (and its transitive
+    today, and `job` is a non-empty list of this workflow's own job ids
+    (checked at parse time for `default`, and at trigger time for a
+    submitted value).
+  - A **`job`** input implicitly selects which job(s) (and their transitive
     `needs:`) the run executes — the same restriction `--job`/`-j` or a
     trigger request's own `job` field applies — so a workflow can expose
-    "which job to run" as a picker in its own trigger form instead of
-    requiring a separate out-of-band selector. An explicit `job`
-    passed alongside it (CLI `-j`, or the trigger request's `job` field)
-    still wins.
-  - **`multiple`** (only for `type: job`): accepts/requires a list of job
-    ids instead of one — `default` must then be a non-empty list, and a
-    submitted value must be a non-empty list of this workflow's own job
-    ids. The run executes the union of every selected job's transitive
-    `needs:`. Defaults to `false` (single job id).
+    "which jobs to run" as a picker in its own trigger form instead of
+    requiring a separate out-of-band selector. The run executes the union
+    of every selected job's transitive `needs:`. An explicit `job` passed
+    alongside it (CLI `-j`, or the trigger request's `job` field) still
+    wins.
   - Locally, `ens workflow <name> -i NAME=VALUE` (repeatable) sets input
     values the same way — `VALUE` is JSON-parsed when possible (so
     `-i replicas=3` yields the number `3`, `-i enabled=true` the boolean
@@ -425,7 +422,7 @@ jobs:
     works unquoted). Repeating the same `NAME` collects its values into a
     list instead of the last one winning — e.g. `-i job=build -i job=runner`
     sets `job` to `["build", "runner"]`, the easiest way to fill a
-    `type: job, multiple: true` input without hand-writing JSON.
+    `type: job` input without hand-writing JSON.
 - **`github`**: matches a GitHub `push` webhook whose pushed ref is a tag
   matching one of the given glob patterns (`tags: ["1.*"]`). `trigger.ref`,
   `trigger.tag`, and `trigger.sha` are populated automatically from the

@@ -151,20 +151,11 @@ function validateManualInput(file: string, index: number, inputIndex: number, jo
       }
       break;
     case "job": {
-      if (raw.multiple !== undefined && typeof raw.multiple !== "boolean") {
-        fail(file, `${where} has a non-boolean "multiple".`);
-      }
-      const multiple = raw.multiple === true;
       if (raw.default !== undefined) {
-        if (multiple) {
-          if (!Array.isArray(raw.default) || raw.default.length === 0 || raw.default.some((d) => typeof d !== "string")) {
-            fail(file, `${where} has a "default" that isn't a non-empty list of strings.`);
-          }
-        } else if (typeof raw.default !== "string") {
-          fail(file, `${where} has a "default" that isn't a string.`);
+        if (!Array.isArray(raw.default) || raw.default.length === 0 || raw.default.some((d) => typeof d !== "string")) {
+          fail(file, `${where} has a "default" that isn't a non-empty list of strings.`);
         }
-        const defaults = Array.isArray(raw.default) ? raw.default as string[] : [raw.default as string];
-        for (const jobId of defaults) {
+        for (const jobId of raw.default as string[]) {
           if (!jobIds.includes(jobId)) {
             fail(file, `${where} has a "default" that isn't a declared job ("${jobId}").`);
           }
