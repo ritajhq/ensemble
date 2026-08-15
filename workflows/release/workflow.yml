@@ -71,6 +71,11 @@ jobs:
           set -euo pipefail
           ens pack -o ensemble/runner runner docker
 
+      - name: build_hot_server_image
+        run: |
+          set -euo pipefail
+          ens pack hot-server docker
+
       - name: publish_server_image
         if: "${{ context.name == 'production' }}"
         run: |
@@ -110,6 +115,15 @@ jobs:
           docker push registry.ritaj.app/ensemble/runner:latest
           docker push registry.ritaj.app/ensemble/runner:"$VERSION"
 
+      - name: publish_hot_server_image
+        if: "${{ context.name == 'production' }}"
+        run: |
+          set -euo pipefail
+          # hot-server is a shared, unversioned runtime shell (not an
+          # ensemble-specific build) — :latest only, no version tag.
+          docker image tag hot-server:latest registry.ritaj.app/hot-server:latest
+          docker push registry.ritaj.app/hot-server:latest
+
       - name: update_local_images
         if: "${{ context.name != 'production' }}"
         run: |
@@ -117,7 +131,8 @@ jobs:
           # No registry involved locally — just make the freshly built images
           # available under the plain names the local deploy stack (and
           # server's spawned runner) actually reference: ensemble/server,
-          # ensemble/web, and runner:latest (see workflows/deploy).
+          # ensemble/web, runner:latest, and hot-server:latest (already the
+          # right name — no retag needed) — see workflows/deploy.
           docker image tag server:latest ensemble/server:latest
           docker image tag web:latest ensemble/web:latest
           docker image tag ensemble/runner:latest runner:latest

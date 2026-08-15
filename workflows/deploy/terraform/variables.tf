@@ -5,7 +5,7 @@ variable "enable_watch" {
 
 variable "image_registry" {
   type        = string
-  description = "Prefix prepended to every image reference below (e.g. \"registry.ritaj.app/\"). Empty string uses locally built images as-is (see workflows/server's build/pack steps)."
+  description = "Prefix prepended to every image reference below (e.g. \"registry.ritaj.app/\"). Empty string uses locally built images as-is (see workflows/release's build/pack steps)."
 }
 
 variable "image_tag" {
