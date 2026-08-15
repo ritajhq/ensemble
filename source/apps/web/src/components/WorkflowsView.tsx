@@ -11,7 +11,7 @@ import {
   type WorkflowSummary,
 } from "../lib/api.ts";
 import { isPinned, togglePin, usePinnedWorkflows } from "../lib/pins.ts";
-import { formatRelativeTime, statusVariant } from "../lib/status.ts";
+import { statusVariant, useRelativeTime } from "../lib/status.ts";
 import { TriggerIcon, triggerTypeLabel } from "../lib/triggers.tsx";
 import {
   Badge,
@@ -274,6 +274,7 @@ export function WorkflowsView() {
 
 function WorkflowCard({ workflow }: { workflow: WorkflowSummary }) {
   const navigate = useNavigate();
+  const lastRunRelative = useRelativeTime(workflow.lastRunAt ?? "");
 
   return (
     <Card
@@ -313,7 +314,9 @@ function WorkflowCard({ workflow }: { workflow: WorkflowSummary }) {
             <div className="flex items-center gap-2 text-sm">
               <Badge variant={statusVariant(workflow.lastStatus)}>{workflow.lastStatus}</Badge>
               {workflow.lastRunAt && (
-                <span className="text-muted-foreground">{formatRelativeTime(workflow.lastRunAt)}</span>
+                <span className="text-muted-foreground" title={new Date(workflow.lastRunAt).toLocaleString()}>
+                  {lastRunRelative}
+                </span>
               )}
             </div>
           )

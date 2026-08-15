@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 const relativeTimeFormatter = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
 
 const RELATIVE_TIME_UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
@@ -24,6 +26,18 @@ export function formatRelativeTime(isoDate: string): string {
   }
 
   return date.toLocaleString();
+}
+
+/** `formatRelativeTime`, re-rendering every 30s so "3 minutes ago" keeps advancing while the view stays open. */
+export function useRelativeTime(isoDate: string): string {
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => setTick((tick) => tick + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  return formatRelativeTime(isoDate);
 }
 
 export function formatDuration(startedAt: string, finishedAt?: string): string {

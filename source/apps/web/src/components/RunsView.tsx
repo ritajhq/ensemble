@@ -7,7 +7,7 @@ import {
   type RunRecord,
   type WorkflowTriggerSummary,
 } from "../lib/api.ts";
-import { formatDuration, formatRelativeTime, statusVariant } from "../lib/status.ts";
+import { formatDuration, statusVariant, useRelativeTime } from "../lib/status.ts";
 import { TriggerRunSheet } from "./TriggerRunSheet.tsx";
 import {
   AlertDialog,
@@ -31,12 +31,17 @@ function triggerLabel(run: RunRecord): string {
   return typeof type === "string" ? type : "—";
 }
 
+function StartedAt({ startedAt }: { startedAt: string }) {
+  const relative = useRelativeTime(startedAt);
+  return <span title={new Date(startedAt).toLocaleString()}>{relative}</span>;
+}
+
 const ACTIVE_RUN_FIELDS: {
   label: string;
   render: (run: RunRecord) => ReactNode;
 }[] = [
   { label: "Run ID", render: (run) => <span className="font-mono">{run.runId.slice(0, 8)}</span> },
-  { label: "Started", render: (run) => formatRelativeTime(run.startedAt) },
+  { label: "Started", render: (run) => <StartedAt startedAt={run.startedAt} /> },
   { label: "Duration", render: (run) => formatDuration(run.startedAt, run.finishedAt) },
   { label: "Trigger", render: (run) => triggerLabel(run) },
 ];
@@ -140,6 +145,7 @@ function RunHistoryRow(
   { workflowId, run, onDeleted }: { workflowId: string; run: RunRecord; onDeleted: () => void },
 ) {
   const navigate = useNavigate();
+  const startedRelative = useRelativeTime(run.startedAt);
 
   return (
     <div
@@ -150,7 +156,7 @@ function RunHistoryRow(
       <Badge variant={statusVariant(run.status)}>{run.status}</Badge>
       <span className="flex-1 text-muted-foreground">{triggerLabel(run)}</span>
       <span className="shrink-0 text-muted-foreground" title={new Date(run.startedAt).toLocaleString()}>
-        {formatRelativeTime(run.startedAt)}
+        {startedRelative}
       </span>
       <DeleteRunDialog workflowId={workflowId} runId={run.runId} onDeleted={onDeleted} />
     </div>
