@@ -59,6 +59,36 @@ jobs:
           setsid ens build web --watch </dev/null >/tmp/ens-build-watch-web.log 2>&1 &
           echo $! > "$PIDFILE"
 
+  watch_runner:
+    if: "${{ context.name == 'development' }}"
+    in:
+      repository: ensemble
+    steps:
+      - name: watch_pack_runner
+        run: |
+          set -euo pipefail
+          PIDFILE=/tmp/ens-pack-watch-runner.pid
+          if pid=$(cat "$PIDFILE" 2>/dev/null) && kill -0 "$pid" 2>/dev/null; then
+            kill "$pid"
+          fi
+
+          CLI_BIN="${{ ensembleArtifacts('packages') }}/ensemble-linux-x64"
+
+          setsid sh -c '
+            set -euo pipefail
+            last=""
+            while true; do
+              current=$(stat -c %Y "'"$CLI_BIN"'" 2>/dev/null || true)
+              if [ -n "$current" ] && [ "$current" != "$last" ]; then
+                echo "Packing runner..."
+                ens pack -o ensemble/runner runner docker && docker tag ensemble/runner:latest runner:latest
+                last="$current"
+              fi
+              sleep 1
+            done
+          ' </dev/null >/tmp/ens-pack-watch-runner.log 2>&1 &
+          echo $! > "$PIDFILE"
+
   deploy:
     in:
       repository: ensemble
