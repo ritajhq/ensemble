@@ -1,7 +1,9 @@
-# Secrets live here, hand-provisioned once on the actual deploy host —
-# never committed. See terraform/variables.tf's server_github_webhook_secret.
+# Secrets live encrypted in contexts/<name>/secrets.enc (and, for whole
+# files, contexts/<name>/secrets/*.enc) — both ARE committed. See "ens
+# workflow secrets edit" and terraform/variables.tf's
+# server_github_webhook_secret. Only an accidental plaintext .env needs
+# ignoring.
 contexts/*/secrets.env
-contexts/*/secrets/
 
 # terraform's own local state/cache — this deploy uses local state (no
 # backend configured), so plan/apply output and provider binaries land here.

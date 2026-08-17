@@ -7,6 +7,10 @@ on:
           display: Message
           type: string
 
+context:
+  secrets:
+    - name: DEMO_SECRET
+
 jobs:
   demo:
     steps:
@@ -14,6 +18,15 @@ jobs:
         run: |
           echo "${{ trigger.message }}"
           sleep 5
+
+      - name: print_secret
+        run: |
+          echo "DEMO_SECRET (decrypted from contexts/${{ context.name }}/secrets.enc): $DEMO_SECRET"
+
+      - name: print_secret_file
+        run: |
+          echo "demo.conf (decrypted from contexts/${{ context.name }}/secrets/demo.conf.enc):"
+          cat "${{ contextSecretFile('demo.conf') }}"
 
       - name: confirm_success
         run: echo "Demo workflow completed successfully."

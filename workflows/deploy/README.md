@@ -30,35 +30,42 @@ https://registry.terraform.io/providers/ritajhq/dockercompose).
 
 ## Contexts
 
-`development` and `production` — see each context's
-`variables/TF_VARS.json` for what's genuinely stable-per-environment
-config (resolved via `${{ contextFile('TF_VARS.json') }}` — see
-`@ensemble/workflow`'s README for how `context:` loaders work), and
-`terraform/variables.tf` for the handful of things that are NOT (host
-facts like the docker GID, computed at run time by `workflow.yml` itself
-instead).
+`development` and `production` — see each context's own `tfvars.json` for
+what's genuinely stable-per-environment config (resolved via `${{
+contextFile('tfvars.json') }}` — see `@ensemble/workflow`'s README for how
+`context:` loaders/`contextFile()` work), and `terraform/variables.tf` for
+the handful of things that are NOT (host facts like the docker GID,
+computed at run time by `workflow.yml` itself instead). `development`
+additionally has its own `Caddyfile` — `production` doesn't need one at
+all, since `terraform_apply` only passes `caddy_config` when `context.name
+== 'development'` (see `@ensemble/workflow`'s README on how a
+`contextFile()` inside an `if:`-gated step for a different context is
+skipped rather than required).
 
-**Secrets**: `server_github_webhook_secret` is never in a committed file
-— it's declared under `workflow.yml`'s `context.secrets` and loaded from
-a gitignored `contexts/<name>/secrets.env`, hand-provisioned once on the
-actual deploy host:
+**Secrets**: `server_github_webhook_secret` is declared under
+`workflow.yml`'s `context.secrets` and stored encrypted, values-only, in
+`contexts/<name>/secrets.enc` (keys stay cleartext for readable diffs —
+see `@ensemble/workflow`'s README). Set or change it with:
 
-```
-GITHUB_WEBHOOK_SECRET=<a real secret>
+```sh
+ens workflow secrets edit deploy <context>
 ```
 
 `terraform_apply` fails with a clear message if that value can't be
-resolved, rather than silently deploying with no secret. See
-`variables.tf`'s `server_github_webhook_secret` doc comment for why this
-is a stopgap — a real separately-versioned secrets loader (`--context-source
-vault`, see `@ensemble/workflow`'s README) is the natural next step once
-one exists.
+resolved, rather than silently deploying with no secret.
+
+Rotating the repo's keypair itself (rather than just a secret's value) is
+`ens workflow secrets init --force`, followed by re-running `secrets edit`
+for every existing secret — the old ciphertext becomes permanently
+undecryptable once the keypair changes. Any server with this repo
+registered as a git integration also needs the new private key handed to
+it again (`POST /v1/integrations/git/repositories/<projectName>/secrets-key`).
 
 ## Running it
 
 ```sh
-ens workflow deploy --context development
-ens workflow deploy --context production
+ens workflow run deploy --context development
+ens workflow run deploy --context production
 ```
 
 Locally, once up, the `caddy` service listens on `localhost:8999` —

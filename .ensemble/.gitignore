@@ -3,3 +3,4 @@ kits/**/.bin/
 tokens.json
 platform/
 config.local.yaml
+secrets.key

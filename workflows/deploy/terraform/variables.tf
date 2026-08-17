@@ -46,18 +46,16 @@ variable "server" {
 
 # Kept separate from the `server` object above, and NOT loaded from each
 # context's committed terraform.tfvars.json — a real GitHub webhook secret
-# has no business sitting in a git-tracked file next to source. Instead,
-# workflow.yml's terraform_apply step loads a SECOND, gitignored -var-file
-# (contexts/<name>/terraform.secrets.tfvars.json — see
-# contexts/production/.gitignore) that only ever exists on the actual
-# deploy host, hand-provisioned once, never committed. See "Contexts" in
-# @ensemble/workflow's README for the more general local:/remote: mechanism
-# this could graduate to (a real separately-versioned secrets repo) once
-# one exists — this local gitignored-file approach is the interim answer.
+# has no business sitting in a git-tracked file in cleartext next to source.
+# Instead, it's declared under workflow.yml's context.secrets and stored
+# encrypted (values-only) in contexts/<name>/secrets.enc — see "ens workflow
+# secrets edit" and @ensemble/workflow's README. workflow.yml's
+# terraform_apply step passes it straight through as -var, already decrypted
+# in memory by the time this runs.
 variable "server_github_webhook_secret" {
   type        = string
   sensitive   = true
-  description = "Verifies inbound GitHub webhooks (see @ensemble/platform's README). Loaded from a gitignored terraform.secrets.tfvars.json, never the committed terraform.tfvars.json."
+  description = "Verifies inbound GitHub webhooks (see @ensemble/platform's README). Declared under workflow.yml's context.secrets, encrypted at rest in contexts/<name>/secrets.enc."
 }
 
 # The docker group GID is a HOST FACT, not deploy config — it differs per

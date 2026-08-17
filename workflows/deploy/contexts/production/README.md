@@ -1,6 +1,6 @@
 # Deploying to production
 
-One-time setup on the target Ubuntu server, then `ens workflow deploy
+One-time setup on the target Ubuntu server, then `ens workflow run deploy
 --context production` for every deploy after that.
 
 ## Prerequisites
@@ -14,11 +14,12 @@ One-time setup on the target Ubuntu server, then `ens workflow deploy
   share it).
 - `registry.ritaj.app/ensemble/{server,web,runner}:latest` and
   `registry.ritaj.app/hot-server:latest` are already published (via
-  `ens workflow release --context production`, run wherever that happens
-  for you — not part of this guide).
+  `ens workflow run release --context production`, run wherever that
+  happens for you — not part of this guide).
 - An existing gateway/reverse proxy in front of this host — this deploy's
-  own `caddy` container never runs in production (see
-  `contexts/production/variables/Caddyfile`'s comment); routing
+  own `caddy` container never runs in production (`workflow.yml`'s
+  `terraform_apply` step only passes `caddy_config` — and this context has
+  no `Caddyfile` at all — when `context.name == 'development'`); routing
   `server:8787` (the `/v1/*` API) and `web:8000` (everything else) to the
   outside world is handled separately, outside this repo.
 
@@ -35,7 +36,7 @@ cd ensemble
 `.ensemble/` + `workflows/` directory on the host — this is **separate**
 from the `ensemble` repo checkout above, and persists across redeploys
 (it's where registered workflows, run history, and auth tokens live).
-`contexts/production/variables/tfvars.json` points `server_workspace_path`
+`contexts/production/tfvars.json` points `server_workspace_path`
 at `/srv/ensemble/server-workspace` — adjust both if you want a different
 location.
 
@@ -62,28 +63,35 @@ openssl rand -hex 32
 }
 ```
 
-## 4. Provide the GitHub webhook secret
+## 4. Provide the secrets private key
 
-Only needed if you'll use the `github`-trigger feature (verifying inbound
-GitHub webhook signatures — unrelated to the tokens above). Generate one:
+`git clone` already brought every secret this repo needs — encrypted, in
+the committed `contexts/production/secrets.enc` files. The only thing it
+couldn't bring is the private key that decrypts them (by design — the
+key never lives in git). Copy it onto this host out of band (e.g. `scp`
+from wherever it was generated with `ens init`), placing it at
+`.ensemble/secrets.key` in this checkout — never commit it. That's it;
+step 5 can decrypt everything from here.
+
+If `server` (once running) will also trigger `deploy`/`release` itself —
+the dashboard, a manual API trigger, or a GitHub push — register this
+repo with it and hand over the same key, so its spawned `runner`
+containers can decrypt too:
 
 ```sh
-openssl rand -hex 32
+curl -X POST https://<your-domain>/v1/integrations/git/register \
+  -H "Authorization: Bearer <a token with 'upload', from step 3>" \
+  -H "Content-Type: application/json" \
+  -d "{\"repoUrl\":\"https://github.com/ritajhq/ensemble.git\",\"projectName\":\"ensemble\",\"secretsKey\":\"$(cat .ensemble/secrets.key)\"}"
 ```
 
-Then create `contexts/production/secrets.env` **inside this checkout**
-(gitignored — never committed, hand-provisioned per host, same as this
-file always works):
-
-```sh
-echo "GITHUB_WEBHOOK_SECRET=<paste the generated secret here>" \
-  > workflows/deploy/contexts/production/secrets.env
-```
+(Rotating the key later, or adding/changing an individual secret's
+value, is covered in `workflows/deploy/README.md`.)
 
 ## 5. Deploy
 
 ```sh
-ens workflow deploy --context production
+ens workflow run deploy --context production
 ```
 
 This installs Terraform into `/tmp` if it isn't already there, then applies
