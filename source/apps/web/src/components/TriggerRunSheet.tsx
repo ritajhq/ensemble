@@ -202,7 +202,9 @@ function ContextField(
           onValueChange={(next) => onChange(!next || next === NO_CONTEXT ? "" : next)}
         >
           <SelectTrigger id="manual-trigger-context" className="w-full">
-            <SelectValue />
+            <SelectValue>
+              {(current: string | null) => current === NO_CONTEXT || !current ? "None" : current}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={NO_CONTEXT}>None</SelectItem>

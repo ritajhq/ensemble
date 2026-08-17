@@ -1,4 +1,4 @@
-import { KeyRound, Plus, Trash2 } from "lucide-react";
+import { KeyRound, Plus, ShieldAlert, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router";
 import {
@@ -276,7 +276,7 @@ export function SecretsView() {
             </p>
           </div>
         </div>
-        {trimmedContext && (
+        {trimmedContext && !loadError && (
           <Sheet open={addOpen} onOpenChange={setAddOpen}>
             <SheetTrigger render={<Button />}>
               <Plus className="size-4" /> Add secret
@@ -317,7 +317,13 @@ export function SecretsView() {
       )}
 
       {trimmedContext && loadError && (
-        <p className="text-sm text-destructive">{loadError}</p>
+        <Card className="flex flex-row items-start gap-3 p-4">
+          <ShieldAlert className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
+          <div className="flex flex-col gap-1">
+            <p className="text-sm font-medium">Secrets editor unavailable</p>
+            <p className="text-sm text-muted-foreground">{loadError}</p>
+          </div>
+        </Card>
       )}
 
       {trimmedContext && !loadError && !keys && (

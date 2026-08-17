@@ -15,11 +15,12 @@ export {
   handleGetSecretsContext,
   handleSetSecret,
 } from "./handler.ts";
-export type {
-  SecretKeySummary,
-  SecretsContextSummaryResponse,
-  SetSecretRequest,
-  SetSecretResponse,
+export {
+  noWriteAccessMessage,
+  type SecretKeySummary,
+  type SecretsContextSummaryResponse,
+  type SetSecretRequest,
+  type SetSecretResponse,
 } from "./contract.ts";
 
 /**

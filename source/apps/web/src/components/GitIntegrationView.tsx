@@ -233,13 +233,26 @@ function AddRepositoryForm({ onAdded }: { onAdded: () => void }) {
           onValueChange={(value) => setAuthType(value as "none" | "pat")}
         >
           <SelectTrigger id="git-auth-type" className="w-full">
-            <SelectValue />
+            <SelectValue>
+              {() =>
+                authType === "pat"
+                  ? "Personal access token"
+                  : "Public — no credentials"}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="none">Public — no credentials</SelectItem>
             <SelectItem value="pat">Personal access token</SelectItem>
           </SelectContent>
         </Select>
+        {authType === "none" && (
+          <p className="text-xs text-muted-foreground">
+            Read-only — this repo's workflows can sync content, but can't use
+            encrypted secrets or the dashboard secrets editor (both need write
+            access to commit on your behalf). Switch to a personal access token
+            with write scope to enable those.
+          </p>
+        )}
       </div>
       {authType === "pat" && (
         <div className="flex flex-col gap-1">

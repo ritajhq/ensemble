@@ -9,6 +9,7 @@ import { parse as parseYaml, stringify as stringifyYaml } from "@std/yaml";
 import { isAuthorizedFor } from "../../auth/tokens.ts";
 import {
   isSetSecretRequest,
+  noWriteAccessMessage,
   type SecretsContextSummaryResponse,
   type SetSecretResponse,
 } from "./contract.ts";
@@ -115,14 +116,26 @@ export async function handleGetSecretsContext(
   );
   if ("errorResponse" in target) return target.errorResponse;
 
-  const secrets = await readSecretsMap(
-    git,
-    target.repoUrl,
-    target.auth,
-    target.secretsPath,
-  );
-  const keys = Object.keys(secrets).sort().map((key) => ({ key }));
-  return Response.json({ keys } satisfies SecretsContextSummaryResponse);
+  if (target.auth.type !== "pat") {
+    return Response.json({
+      error: noWriteAccessMessage(resolved.workflowName),
+    }, { status: 400 });
+  }
+
+  try {
+    const secrets = await readSecretsMap(
+      git,
+      target.repoUrl,
+      target.auth,
+      target.secretsPath,
+    );
+    const keys = Object.keys(secrets).sort().map((key) => ({ key }));
+    return Response.json({ keys } satisfies SecretsContextSummaryResponse);
+  } catch (error) {
+    return Response.json({
+      error: error instanceof Error ? error.message : String(error),
+    }, { status: 400 });
+  }
 }
 
 /**
@@ -173,6 +186,12 @@ export async function handleSetSecret(
     resolved.context,
   );
   if ("errorResponse" in target) return target.errorResponse;
+
+  if (target.auth.type !== "pat") {
+    return Response.json({
+      error: noWriteAccessMessage(resolved.workflowName),
+    }, { status: 400 });
+  }
 
   try {
     const publicKeyBytes = await git.getFile(
@@ -239,6 +258,12 @@ export async function handleDeleteSecret(
     resolved.context,
   );
   if ("errorResponse" in target) return target.errorResponse;
+
+  if (target.auth.type !== "pat") {
+    return Response.json({
+      error: noWriteAccessMessage(resolved.workflowName),
+    }, { status: 400 });
+  }
 
   try {
     const secrets = await readSecretsMap(

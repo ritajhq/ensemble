@@ -75,7 +75,9 @@ function GitSourcePicker({
         </label>
         <Select value={projectName || undefined} onValueChange={(value) => onProjectNameChange(value ?? "")}>
           <SelectTrigger id="new-workflow-repo" className="w-full">
-            <SelectValue placeholder={repositories ? "Select a repository…" : "Loading…"} />
+            <SelectValue placeholder={repositories ? "Select a repository…" : "Loading…"}>
+              {(value: string | null) => value ?? ""}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {(repositories ?? []).map((repository) => (
@@ -93,7 +95,13 @@ function GitSourcePicker({
           </label>
           <Select value={pathInRepo || undefined} onValueChange={(value) => onPathInRepoChange(value ?? "")}>
             <SelectTrigger id="new-workflow-path" className="w-full">
-              <SelectValue placeholder={candidates ? "Select a workflow…" : "Loading…"} />
+              <SelectValue placeholder={candidates ? "Select a workflow…" : "Loading…"}>
+                {(value: string | null) => {
+                  const candidate = candidates?.find((c) => c.pathInRepo === value);
+                  if (!candidate) return value ?? "";
+                  return `${candidate.pathInRepo}${candidate.hasTrigger ? "" : " (no trigger)"}`;
+                }}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {(candidates ?? []).map((candidate) => (
@@ -162,7 +170,12 @@ function NewWorkflowForm({ onCreated }: { onCreated: (workflow: WorkflowSummary)
         </label>
         <Select value={source} onValueChange={(value) => setSource(value as "empty" | "git")}>
           <SelectTrigger id="new-workflow-source" className="w-full">
-            <SelectValue />
+            <SelectValue>
+              {() =>
+                source === "git"
+                  ? "From a registered repository"
+                  : "Empty — start from a minimal stub"}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="empty">Empty — start from a minimal stub</SelectItem>
