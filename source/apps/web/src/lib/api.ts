@@ -302,6 +302,19 @@ export async function setRepositorySecretsKey(
   );
 }
 
+/** Updates an already-registered repository's access credentials (public or a PAT), re-validating clone access before persisting. repoUrl/projectName aren't changeable here — remove and re-register to point at a different URL. */
+export async function setRepositoryAuth(
+  projectName: string,
+  auth: GitAuthStrategy,
+): Promise<{ projectName: string; authType: "none" | "pat" }> {
+  return await postJson<{ projectName: string; authType: "none" | "pat" }>(
+    `/v1/integrations/git/repositories/${
+      encodeURIComponent(projectName)
+    }/auth`,
+    { auth },
+  );
+}
+
 /** Re-fetches a registered repository's cached checkout. Does not touch any workflow. */
 export async function refreshGitRepository(projectName: string): Promise<void> {
   await postJson(

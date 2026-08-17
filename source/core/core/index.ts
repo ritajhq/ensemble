@@ -30,6 +30,7 @@ export {
   type RegisterGitRepositoryOptions,
   removeGitRepository,
   type RepoWorkflowCandidate,
+  setRepositoryAuth,
   setRepositorySecretsKey,
   syncWorkflowFromGit,
   unlinkWorkflowFromGit,

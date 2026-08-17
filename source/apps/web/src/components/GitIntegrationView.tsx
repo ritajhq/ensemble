@@ -1,20 +1,12 @@
-import {
-  GitBranch,
-  KeyRound,
-  Plus,
-  RefreshCw,
-  Search,
-  Trash2,
-} from "lucide-react";
+import { GitBranch, Plus, RefreshCw, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router";
 import {
   fetchGitRepositories,
   type GitAuthStrategy,
   type GitRepositorySummary,
   refreshGitRepository,
   registerGitRepository,
-  removeGitRepository,
-  setRepositorySecretsKey,
 } from "../lib/api.ts";
 import { deriveProjectName } from "../lib/git.ts";
 import { formatRelativeTime } from "../lib/status.ts";
@@ -309,75 +301,15 @@ function AddRepositoryForm({ onAdded }: { onAdded: () => void }) {
   );
 }
 
-function RotateSecretsKeyForm(
-  { onRotated }: { onRotated: (secretsKey: string) => Promise<void> },
-) {
-  const [secretsKey, setSecretsKey] = useState("");
-  const [status, setStatus] = useState<
-    { state: "idle" } | { state: "loading" } | {
-      state: "error";
-      message: string;
-    }
-  >({ state: "idle" });
-
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    setStatus({ state: "loading" });
-    try {
-      await onRotated(secretsKey.trim());
-      setSecretsKey("");
-      setStatus({ state: "idle" });
-    } catch (error) {
-      setStatus({
-        state: "error",
-        message: error instanceof Error ? error.message : String(error),
-      });
-    }
-  }
-
-  return (
-    <form className="flex flex-col gap-3 p-4 pt-0" onSubmit={handleSubmit}>
-      <div className="flex flex-col gap-1">
-        <label
-          className="text-xs text-muted-foreground"
-          htmlFor="rotate-secrets-key"
-        >
-          Secrets private key
-        </label>
-        <Input
-          id="rotate-secrets-key"
-          type="password"
-          placeholder="Contents of this repo's .ensemble/secrets.key"
-          value={secretsKey}
-          onChange={(event) => setSecretsKey(event.target.value)}
-          required
-        />
-      </div>
-      <div>
-        <Button
-          type="submit"
-          disabled={status.state === "loading" ||
-            secretsKey.trim().length === 0}
-        >
-          {status.state === "loading" ? "Saving…" : "Save"}
-        </Button>
-      </div>
-      {status.state === "error" && (
-        <p className="text-sm text-destructive">{status.message}</p>
-      )}
-    </form>
-  );
-}
-
 function RepositoriesTable(
   { repositories, onChange }: {
     repositories: GitRepositorySummary[];
     onChange: () => void;
   },
 ) {
+  const navigate = useNavigate();
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [rotatingKeyFor, setRotatingKeyFor] = useState<string | null>(null);
 
   async function runAction(key: string, action: () => Promise<void>) {
     setPendingAction(key);
@@ -420,9 +352,17 @@ function RepositoriesTable(
             )}
             {repositories.map((repository) => {
               const refreshKey = `refresh:${repository.projectName}`;
-              const removeKey = `remove:${repository.projectName}`;
               return (
-                <TableRow key={repository.projectName}>
+                <TableRow
+                  key={repository.projectName}
+                  className="cursor-pointer"
+                  onClick={() =>
+                    navigate(
+                      `/integrations/git/${
+                        encodeURIComponent(repository.projectName)
+                      }`,
+                    )}
+                >
                   <TableCell className="font-medium">
                     {repository.projectName}
                   </TableCell>
@@ -441,91 +381,26 @@ function RepositoriesTable(
                       : "Never"}
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Sheet
-                        open={rotatingKeyFor === repository.projectName}
-                        onOpenChange={(open) =>
-                          setRotatingKeyFor(
-                            open ? repository.projectName : null,
-                          )}
-                      >
-                        <SheetTrigger
-                          render={
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              className="text-muted-foreground hover:text-foreground"
-                              title={repository.hasSecretsKey
-                                ? "Rotate secrets key"
-                                : "Set secrets key"}
-                            />
-                          }
-                        >
-                          <KeyRound className="size-3.5" />
-                          <span className="sr-only">
-                            {repository.hasSecretsKey
-                              ? "Rotate secrets key"
-                              : "Set secrets key"}
-                          </span>
-                        </SheetTrigger>
-                        <SheetContent>
-                          <SheetHeader>
-                            <SheetTitle>
-                              {repository.hasSecretsKey ? "Rotate" : "Set"}{" "}
-                              secrets key
-                            </SheetTitle>
-                            <SheetDescription>
-                              Workflows linked to "{repository.projectName}"
-                              will use this key to decrypt their context.secrets
-                              when triggered here.
-                            </SheetDescription>
-                          </SheetHeader>
-                          <RotateSecretsKeyForm
-                            onRotated={async (secretsKey) => {
-                              await setRepositorySecretsKey(
-                                repository.projectName,
-                                secretsKey,
-                              );
-                              setRotatingKeyFor(null);
-                              onChange();
-                            }}
-                          />
-                        </SheetContent>
-                      </Sheet>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        className="text-muted-foreground hover:text-foreground"
-                        disabled={pendingAction === refreshKey}
-                        onClick={() =>
-                          runAction(
-                            refreshKey,
-                            () => refreshGitRepository(repository.projectName),
-                          )}
-                      >
-                        <RefreshCw
-                          className={pendingAction === refreshKey
-                            ? "size-3.5 animate-spin"
-                            : "size-3.5"}
-                        />
-                        <span className="sr-only">Refresh</span>
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        className="text-muted-foreground hover:text-destructive"
-                        disabled={pendingAction === removeKey}
-                        title="Unregister — workflows previously synced from this repo keep their last-synced content"
-                        onClick={() =>
-                          runAction(
-                            removeKey,
-                            () => removeGitRepository(repository.projectName),
-                          )}
-                      >
-                        <Trash2 className="size-3.5" />
-                        <span className="sr-only">Unregister</span>
-                      </Button>
-                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="text-muted-foreground hover:text-foreground"
+                      disabled={pendingAction === refreshKey}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        runAction(
+                          refreshKey,
+                          () => refreshGitRepository(repository.projectName),
+                        );
+                      }}
+                    >
+                      <RefreshCw
+                        className={pendingAction === refreshKey
+                          ? "size-3.5 animate-spin"
+                          : "size-3.5"}
+                      />
+                      <span className="sr-only">Refresh</span>
+                    </Button>
                   </TableCell>
                 </TableRow>
               );

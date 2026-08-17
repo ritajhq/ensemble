@@ -63,7 +63,7 @@ function DeleteRunButton({ workflowId, runId, onDeleted }: { workflowId: string;
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel />
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction
             variant="destructive"
             disabled={deleting}

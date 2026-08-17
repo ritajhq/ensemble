@@ -5,6 +5,7 @@ import {
   handleRefreshGitRepository,
   handleRegisterGitRepository,
   handleRemoveGitRepository,
+  handleSetRepositoryAuth,
   handleSetRepositorySecretsKey,
 } from "./handler.ts";
 import type { Feature } from "../../../features.ts";
@@ -15,6 +16,7 @@ export {
   handleRefreshGitRepository,
   handleRegisterGitRepository,
   handleRemoveGitRepository,
+  handleSetRepositoryAuth,
   handleSetRepositorySecretsKey,
 } from "./handler.ts";
 export type {
@@ -25,6 +27,8 @@ export type {
   RegisterGitRepositoryRequest,
   RegisterGitRepositoryResponse,
   RepoWorkflowCandidateSummary,
+  SetRepositoryAuthRequest,
+  SetRepositoryAuthResponse,
   SetRepositorySecretsKeyRequest,
 } from "./contract.ts";
 
@@ -73,6 +77,15 @@ export function createGitIntegrationFeatures(
       }),
       handle: (request, params) =>
         handleSetRepositorySecretsKey(repositories, request, params),
+    },
+    {
+      name: "git-integration-repository-auth-set",
+      method: "POST",
+      pattern: new URLPattern({
+        pathname: "/v1/integrations/git/repositories/:projectName/auth",
+      }),
+      handle: (request, params) =>
+        handleSetRepositoryAuth(repositories, request, params),
     },
     {
       name: "git-integration-repository-candidates-list",

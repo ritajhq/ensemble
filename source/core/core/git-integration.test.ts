@@ -4,6 +4,7 @@ import {
   listRepoWorkflowCandidates,
   registerGitRepository,
   removeGitRepository,
+  setRepositoryAuth,
   setRepositorySecretsKey,
   syncWorkflowFromGit,
 } from "./git-integration.ts";
@@ -179,6 +180,61 @@ Deno.test("setRepositorySecretsKey: throws for an unregistered project", async (
       "not registered",
     );
   });
+});
+
+Deno.test("setRepositoryAuth: updates auth on an already-registered repository without touching its other fields", async () => {
+  await withContext(
+    { "workflows/deploy/workflow.yml": SIMPLE_WORKFLOW_YML },
+    async (ctx) => {
+      const original = await registerGitRepository(ctx.repositories, {
+        repoUrl: ctx.fixtureDir,
+        projectName: "acme",
+        secretsKey: "existing-key",
+      });
+      const updated = await setRepositoryAuth(
+        ctx.repositories,
+        "acme",
+        { type: "pat", token: "ghp_rotated" },
+      );
+      assertEquals(updated.auth, { type: "pat", token: "ghp_rotated" });
+      assertEquals(updated.repoUrl, original.repoUrl);
+      assertEquals(updated.registeredAt, original.registeredAt);
+      assertEquals(updated.secretsKey, "existing-key");
+    },
+  );
+});
+
+Deno.test("setRepositoryAuth: throws for an unregistered project", async () => {
+  await withContext({ "README.md": "unused" }, async (ctx) => {
+    await assertRejects(
+      () => setRepositoryAuth(ctx.repositories, "nonexistent", { type: "none" }),
+      Error,
+      "not registered",
+    );
+  });
+});
+
+Deno.test("setRepositoryAuth: re-validates access, throwing (and not persisting) if the repo can no longer be cloned", async () => {
+  await withContext(
+    { "workflows/deploy/workflow.yml": SIMPLE_WORKFLOW_YML },
+    async (ctx) => {
+      const original = await registerGitRepository(ctx.repositories, {
+        repoUrl: ctx.fixtureDir,
+        projectName: "acme",
+      });
+      // Simulates the repo becoming unreachable after registration (e.g.
+      // deleted, or a PAT that no longer has access) — setRepositoryAuth
+      // re-clones the stored repoUrl before persisting, same as
+      // registration itself does.
+      await Deno.remove(ctx.fixtureDir, { recursive: true });
+      await assertRejects(
+        () => setRepositoryAuth(ctx.repositories, "acme", { type: "none" }),
+        Error,
+      );
+      const stillOriginal = await ctx.repositories.get("acme");
+      assertEquals(stillOriginal?.auth, original.auth);
+    },
+  );
 });
 
 Deno.test("registerGitRepository: throws when the repo has no workflows/ folder", async () => {

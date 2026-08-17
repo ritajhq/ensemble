@@ -3,7 +3,7 @@ export type GitAuthStrategyRequest =
   | { type: "none" }
   | { type: "pat"; token: string };
 
-function isGitAuthStrategyRequest(
+export function isGitAuthStrategyRequest(
   value: unknown,
 ): value is GitAuthStrategyRequest {
   if (typeof value !== "object" || value === null) return false;
@@ -59,6 +59,23 @@ export function isSetRepositorySecretsKeyRequest(
   if (typeof value !== "object" || value === null) return false;
   const record = value as Record<string, unknown>;
   return typeof record.secretsKey === "string" && record.secretsKey.length > 0;
+}
+
+export interface SetRepositoryAuthRequest {
+  auth: GitAuthStrategyRequest;
+}
+
+export function isSetRepositoryAuthRequest(
+  value: unknown,
+): value is SetRepositoryAuthRequest {
+  if (typeof value !== "object" || value === null) return false;
+  const record = value as Record<string, unknown>;
+  return isGitAuthStrategyRequest(record.auth);
+}
+
+export interface SetRepositoryAuthResponse {
+  projectName: string;
+  authType: "none" | "pat";
 }
 
 export interface GitRepositorySummary {

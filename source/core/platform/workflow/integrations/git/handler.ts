@@ -5,17 +5,20 @@ import {
   refreshGitRepository,
   registerGitRepository,
   removeGitRepository,
+  setRepositoryAuth,
   setRepositorySecretsKey,
 } from "@ensemble/core";
 import { isAuthorizedFor } from "../../../auth/tokens.ts";
 import {
   type GitRepositorySummary,
   isRegisterGitRepositoryRequest,
+  isSetRepositoryAuthRequest,
   isSetRepositorySecretsKeyRequest,
   type ListGitRepositoriesResponse,
   type ListRepoWorkflowCandidatesResponse,
   type RefreshGitRepositoryResponse,
   type RegisterGitRepositoryResponse,
+  type SetRepositoryAuthResponse,
 } from "./contract.ts";
 
 /** Reads the ":projectName" route param, or responds 400 if missing. */
@@ -150,6 +153,56 @@ export async function handleSetRepositorySecretsKey(
       body.secretsKey,
     );
     return Response.json({});
+  } catch (error) {
+    return Response.json({
+      error: error instanceof Error ? error.message : String(error),
+    }, { status: 400 });
+  }
+}
+
+/** POST /v1/integrations/git/repositories/:projectName/auth — updates a registered repository's access credentials (auth strategy — public or a PAT), re-validating clone access before persisting. repoUrl/projectName aren't changeable here; remove and re-register to point at a different URL. */
+export async function handleSetRepositoryAuth(
+  repositories: GitRepositoryStore,
+  request: Request,
+  params: Record<string, string | undefined>,
+): Promise<Response> {
+  if (!await isAuthorizedFor(request, "upload")) {
+    return Response.json({ error: "Missing or invalid bearer token." }, {
+      status: 401,
+    });
+  }
+
+  const resolved = resolveProjectNameParam(params);
+  if ("errorResponse" in resolved) return resolved.errorResponse;
+
+  const text = await request.text();
+  let body: unknown;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    return Response.json({ error: "Request body must be valid JSON." }, {
+      status: 400,
+    });
+  }
+  if (!isSetRepositoryAuthRequest(body)) {
+    return Response.json({
+      error:
+        'Expected { auth: { type: "none" } | { type: "pat", token: string } }.',
+    }, { status: 400 });
+  }
+
+  const auth: GitAuthStrategy = body.auth;
+
+  try {
+    const updated = await setRepositoryAuth(
+      repositories,
+      resolved.projectName,
+      auth,
+    );
+    return Response.json({
+      projectName: updated.projectName,
+      authType: updated.auth.type,
+    } satisfies SetRepositoryAuthResponse);
   } catch (error) {
     return Response.json({
       error: error instanceof Error ? error.message : String(error),

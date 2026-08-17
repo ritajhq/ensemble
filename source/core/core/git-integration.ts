@@ -195,6 +195,36 @@ export async function setRepositorySecretsKey(
   return updated;
 }
 
+/**
+ * Updates an already-registered repository's access credentials (auth
+ * strategy — public or a PAT), without re-registering: re-registering the
+ * same projectName would silently drop its secretsKey (registerGitRepository
+ * always writes a whole new record). repoUrl/projectName themselves aren't
+ * changeable here — those are fixed for a registered repo's lifetime; remove
+ * and re-register to point at a different URL. Re-validates clone access
+ * with the new auth the same way registration does, so a bad/wrongly-scoped
+ * PAT fails loudly here rather than silently at the next refresh/sync.
+ */
+export async function setRepositoryAuth(
+  repositories: GitRepositoryStore,
+  projectName: string,
+  auth: GitAuthStrategy,
+): Promise<GitRepositoryRecord> {
+  const record = await repositories.get(projectName);
+  if (!record) {
+    throw new Error(`Repository "${projectName}" is not registered.`);
+  }
+  await refreshRepoCache({ projectName, repoUrl: record.repoUrl, auth });
+
+  const updated: GitRepositoryRecord = {
+    ...record,
+    auth,
+    lastFetchedAt: new Date().toISOString(),
+  };
+  await repositories.put(updated);
+  return updated;
+}
+
 /** Re-fetches an already-registered repository's cached checkout. Does not touch any workflow directory. */
 export async function refreshGitRepository(
   repositories: GitRepositoryStore,
