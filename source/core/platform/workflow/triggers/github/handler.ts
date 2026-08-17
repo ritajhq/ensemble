@@ -90,6 +90,8 @@ export async function handleGithubTrigger(
   for (const { name } of matches) {
     trackedRunWorkflowByName(runs, name, {
       trigger: { type: "github", ref: payload.ref, tag, sha: payload.after },
+      repositories,
+      links,
     }).catch((error) => {
       console.error(
         `workflow "${name}" triggered by github push failed:`,

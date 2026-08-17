@@ -4,7 +4,6 @@ import { TarStream, type TarStreamInput } from "@std/tar";
 import type { Delegate } from "@ritaj/event";
 import { findRepoRoot } from "./repo.ts";
 import {
-  type ContextSource,
   parseWorkflowFile,
   runWorkflow,
   type RunWorkflowResult,
@@ -14,8 +13,14 @@ import {
 import { RunStore } from "./runs.ts";
 import { runWorkflowInContainer } from "./run-workflow-in-container.ts";
 import { getLocalRepositoryOverrides, loadLocalConfig } from "./config.ts";
-import { syncWorkflowFromGit, unlinkWorkflowFromGit } from "./git-integration.ts";
-import { GitRepositoryStore, WorkflowGitLinkStore } from "./git-repositories.ts";
+import {
+  syncWorkflowFromGit,
+  unlinkWorkflowFromGit,
+} from "./git-integration.ts";
+import {
+  GitRepositoryStore,
+  WorkflowGitLinkStore,
+} from "./git-repositories.ts";
 
 export interface RunWorkflowByNameOptions {
   /** Run only this job (or these jobs) and their transitive dependencies. */
@@ -29,12 +34,23 @@ export interface RunWorkflowByNameOptions {
    * `context.variables`/`context.secrets` against.
    */
   context?: string;
-  /** Restricts context resolution to just one loader ("local" or "vault") instead of trying local then vault. */
-  contextSource?: ContextSource;
   /** Data from whatever triggered this run, made available as `trigger.*` in every job/step. */
   trigger?: Record<string, unknown>;
   /** Run inside a spawned runner container instead of in-process. Only set by server-side trigger call sites — local CLI runs stay in-process. */
   containerized?: boolean;
+  /**
+   * Stores used to resolve this workflow's linked git repository (via its
+   * WorkflowGitLink) and that repository's secrets private key, so a
+   * containerized run can decrypt its own context.secrets — see
+   * run-workflow-in-container.ts's `secretsKey` option. Only consulted when
+   * `containerized` is true; a plain local run never needs these (it
+   * resolves its key straight off disk instead, see
+   * @ensemble/workflow's context-loaders/secrets-crypto.ts's
+   * resolvePrivateKey). Every server-side caller already has both in scope
+   * as part of its own PlatformStores.
+   */
+  repositories?: GitRepositoryStore;
+  links?: WorkflowGitLinkStore;
   /** Notified as jobs/steps start/finish. Only meaningful to a caller that wants to track progress itself (e.g. trackedRunWorkflowByName) — a plain local run has no need for it. */
   events?: Delegate<[WorkflowEvent]>;
 }
@@ -52,7 +68,10 @@ export interface ResolvedWorkflow {
  * workflow works in terms of this id instead of the name directly.
  */
 export function encodeWorkflowId(name: string): string {
-  return btoa(name).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+  return btoa(name).replaceAll("+", "-").replaceAll("/", "_").replace(
+    /=+$/,
+    "",
+  );
 }
 
 /** Inverse of encodeWorkflowId. Throws if `id` isn't validly-encoded base64url. */
@@ -67,7 +86,9 @@ export function decodeWorkflowId(id: string): string {
 }
 
 /** Resolves a workflow by name (workflows/<name>/workflow.yml), parsing but not running it. */
-export async function getWorkflowByName(name: string): Promise<ResolvedWorkflow> {
+export async function getWorkflowByName(
+  name: string,
+): Promise<ResolvedWorkflow> {
   const repoRoot = await findRepoRoot();
 
   const workflowDir = join(repoRoot, "workflows", name);
@@ -92,8 +113,15 @@ export async function listWorkflows(): Promise<ResolvedWorkflow[]> {
   const workflowsDir = join(repoRoot, "workflows");
 
   const names: string[] = [];
-  for await (const entry of walk(workflowsDir, { match: [/workflow\.yml$/], includeDirs: false })) {
-    names.push(relative(workflowsDir, dirname(entry.path)).replaceAll("\\", "/"));
+  for await (
+    const entry of walk(workflowsDir, {
+      match: [/workflow\.yml$/],
+      includeDirs: false,
+    })
+  ) {
+    names.push(
+      relative(workflowsDir, dirname(entry.path)).replaceAll("\\", "/"),
+    );
   }
 
   return await Promise.all(names.map((name) => getWorkflowByName(name)));
@@ -110,7 +138,9 @@ export interface WorkflowFileNode {
 function assertWithinDir(relativePath: string): void {
   const normalized = normalize(relativePath);
   if (normalized === ".." || normalized.startsWith("../")) {
-    throw new Error(`Invalid path "${relativePath}" — must stay within the workflow's directory.`);
+    throw new Error(
+      `Invalid path "${relativePath}" — must stay within the workflow's directory.`,
+    );
   }
 }
 
@@ -160,7 +190,9 @@ function buildFileTree(paths: string[]): WorkflowFileNode[] {
 }
 
 /** Lists a workflow's own directory tree (e.g. workflow.yml, steps/*.ts) as a nested tree, sorted directories-first. */
-export async function listWorkflowFiles(name: string): Promise<WorkflowFileNode[]> {
+export async function listWorkflowFiles(
+  name: string,
+): Promise<WorkflowFileNode[]> {
   const { workflowDir } = await getWorkflowByName(name);
 
   const paths: string[] = [];
@@ -179,7 +211,9 @@ export async function listWorkflowFiles(name: string): Promise<WorkflowFileNode[
  * the workflow has no `contexts/` directory at all — plenty of workflows
  * never declare `context.variables`/`context.secrets` and so never need one.
  */
-export async function listWorkflowContexts(workflowDir: string): Promise<string[]> {
+export async function listWorkflowContexts(
+  workflowDir: string,
+): Promise<string[]> {
   const contextsDir = join(workflowDir, "contexts");
   if (!await exists(contextsDir, { isDirectory: true })) return [];
 
@@ -191,7 +225,10 @@ export async function listWorkflowContexts(workflowDir: string): Promise<string[
 }
 
 /** Reads one file's content from a workflow's directory. `relativePath` must stay within workflowDir. */
-export async function readWorkflowFile(name: string, relativePath: string): Promise<string> {
+export async function readWorkflowFile(
+  name: string,
+  relativePath: string,
+): Promise<string> {
   assertWithinDir(relativePath);
   const { workflowDir } = await getWorkflowByName(name);
   const filePath = join(workflowDir, relativePath);
@@ -206,7 +243,9 @@ export async function readWorkflowFile(name: string, relativePath: string): Prom
  * rooted at the workflow's own directory (e.g. "workflow.yml", "steps/build.ts"
  * — no name/ prefix) — the shape the platform's upload endpoint expects.
  */
-export async function createWorkflowArchive(workflowDir: string): Promise<ReadableStream<Uint8Array>> {
+export async function createWorkflowArchive(
+  workflowDir: string,
+): Promise<ReadableStream<Uint8Array>> {
   const entries: TarStreamInput[] = [];
   for await (const entry of walk(workflowDir, { includeDirs: false })) {
     const stat = await Deno.stat(entry.path);
@@ -263,7 +302,13 @@ export async function createWorkflow(
   }
 
   if (source) {
-    await syncWorkflowFromGit(repositories, links, trimmed, source.projectName, source.pathInRepo);
+    await syncWorkflowFromGit(
+      repositories,
+      links,
+      trimmed,
+      source.projectName,
+      source.pathInRepo,
+    );
     return await getWorkflowByName(trimmed);
   }
 
@@ -277,7 +322,10 @@ export async function createWorkflow(
 }
 
 /** Deletes workflows/<name>/ entirely and drops any WorkflowGitLink for it. */
-export async function deleteWorkflow(links: WorkflowGitLinkStore, name: string): Promise<void> {
+export async function deleteWorkflow(
+  links: WorkflowGitLinkStore,
+  name: string,
+): Promise<void> {
   const repoRoot = await findRepoRoot();
   const workflowDir = join(repoRoot, "workflows", name);
   await Deno.remove(workflowDir, { recursive: true }).catch((error) => {
@@ -307,7 +355,13 @@ export async function syncWorkflowFromGitLinkIfPresent(
 ): Promise<void> {
   const link = await links.get(name);
   if (!link) return;
-  await syncWorkflowFromGit(repositories, links, link.workflowName, link.projectName, link.pathInRepo);
+  await syncWorkflowFromGit(
+    repositories,
+    links,
+    link.workflowName,
+    link.projectName,
+    link.pathInRepo,
+  );
 }
 
 /**
@@ -317,11 +371,45 @@ export async function syncWorkflowFromGitLinkIfPresent(
  * listWorkflows() first — so it can't target syncWorkflowFromGitLinkIfPresent
  * at just one workflow the way the other trigger paths can.
  */
-export async function syncAllWorkflowGitLinks(repositories: GitRepositoryStore, links: WorkflowGitLinkStore): Promise<void> {
+export async function syncAllWorkflowGitLinks(
+  repositories: GitRepositoryStore,
+  links: WorkflowGitLinkStore,
+): Promise<void> {
   const allLinks = await links.listAll();
   await Promise.all(
-    allLinks.map((link) => syncWorkflowFromGit(repositories, links, link.workflowName, link.projectName, link.pathInRepo)),
+    allLinks.map((link) =>
+      syncWorkflowFromGit(
+        repositories,
+        links,
+        link.workflowName,
+        link.projectName,
+        link.pathInRepo,
+      )
+    ),
   );
+}
+
+/**
+ * Resolves `name`'s WorkflowGitLink -> GitRepositoryRecord.secretsKey chain,
+ * for a containerized run to decrypt its own context.secrets — see
+ * run-workflow-in-container.ts's `secretsKey` option. Returns undefined
+ * (not an error) at every step this can come up empty: no stores supplied,
+ * no git link (a local-only workflow synced from nowhere), no registered
+ * repository, or a registered repository with no key configured. A run that
+ * actually needs a key and doesn't get one only fails later, at the point
+ * of an actual encrypted-secret lookup — same graceful-degradation shape
+ * the rest of the secrets machinery already has.
+ */
+export async function resolveContainerizedSecretsKey(
+  name: string,
+  repositories: GitRepositoryStore | undefined,
+  links: WorkflowGitLinkStore | undefined,
+): Promise<string | undefined> {
+  if (!repositories || !links) return undefined;
+  const link = await links.get(name);
+  if (!link) return undefined;
+  const record = await repositories.get(link.projectName);
+  return record?.secretsKey;
 }
 
 /**
@@ -340,12 +428,17 @@ export async function runWorkflowByName(
   options: RunWorkflowByNameOptions,
 ): Promise<RunWorkflowResult> {
   if (options.containerized) {
+    const secretsKey = await resolveContainerizedSecretsKey(
+      name,
+      options.repositories,
+      options.links,
+    );
     return await runWorkflowInContainer(name, {
       job: options.job,
       concurrency: options.concurrency,
       context: options.context,
-      contextSource: options.contextSource,
       trigger: options.trigger,
+      secretsKey,
       events: options.events,
     });
   }
@@ -360,7 +453,6 @@ export async function runWorkflowByName(
     variables: options.variables,
     trigger: options.trigger,
     context: options.context,
-    contextSource: options.contextSource,
     repoRoot,
     localRepositoryOverrides: getLocalRepositoryOverrides(localConfig),
     events: options.events,
@@ -380,6 +472,10 @@ export async function trackedRunWorkflowByName(
   name: string,
   options: Omit<RunWorkflowByNameOptions, "containerized" | "events">,
 ): Promise<boolean> {
-  return await runs.trackedRunWorkflow(name, options.trigger, (events) =>
-    runWorkflowByName(name, { ...options, containerized: true, events }));
+  return await runs.trackedRunWorkflow(
+    name,
+    options.trigger,
+    (events) =>
+      runWorkflowByName(name, { ...options, containerized: true, events }),
+  );
 }

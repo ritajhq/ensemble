@@ -1,5 +1,11 @@
 import { parse as parseYaml } from "@std/yaml";
-import { type ContextFileReference, findStaticContextFileReferences, findStaticStepReferences } from "./expressions.ts";
+import {
+  type ContextFileReference,
+  evaluateCondition,
+  findStaticContextFileReferences,
+  findStaticStepReferences,
+  WorkflowExpressionError,
+} from "./expressions.ts";
 import type {
   Context,
   ContextSecret,
@@ -17,7 +23,15 @@ import type {
   Workflow,
 } from "./schema.ts";
 
-const MANUAL_INPUT_TYPES = ["string", "number", "boolean", "object", "git-tags", "context", "job"] as const;
+const MANUAL_INPUT_TYPES = [
+  "string",
+  "number",
+  "boolean",
+  "object",
+  "git-tags",
+  "context",
+  "job",
+] as const;
 
 export class WorkflowParseError extends Error {}
 
@@ -39,7 +53,12 @@ function validateIn(file: string, where: string, raw: unknown): StepIn {
   return { repository: raw.repository };
 }
 
-function validateStep(file: string, jobId: string, index: number, raw: unknown): Step {
+function validateStep(
+  file: string,
+  jobId: string,
+  index: number,
+  raw: unknown,
+): Step {
   if (!isRecord(raw)) {
     fail(file, `job "${jobId}" step #${index + 1} must be a mapping.`);
   }
@@ -48,7 +67,9 @@ function validateStep(file: string, jobId: string, index: number, raw: unknown):
   if (hasRun === hasScript) {
     fail(
       file,
-      `job "${jobId}" step #${index + 1} must have exactly one of "run" or "script".`,
+      `job "${jobId}" step #${
+        index + 1
+      } must have exactly one of "run" or "script".`,
     );
   }
   if (raw.id !== undefined && typeof raw.id !== "string") {
@@ -62,7 +83,12 @@ function validateStep(file: string, jobId: string, index: number, raw: unknown):
   }
   const continueOnError = raw["continue-on-error"];
   if (continueOnError !== undefined && typeof continueOnError !== "boolean") {
-    fail(file, `job "${jobId}" step #${index + 1} has a non-boolean "continue-on-error".`);
+    fail(
+      file,
+      `job "${jobId}" step #${
+        index + 1
+      } has a non-boolean "continue-on-error".`,
+    );
   }
   const stepIn = raw.in !== undefined
     ? validateIn(file, `job "${jobId}" step #${index + 1}'s "in"`, raw.in)
@@ -83,11 +109,17 @@ function validateMatrix(file: string, jobId: string, raw: unknown): Matrix {
     fail(file, `job "${jobId}" has a "matrix" that isn't a mapping.`);
   }
   if (!isRecord(raw.axes) || Object.keys(raw.axes).length === 0) {
-    fail(file, `job "${jobId}" matrix must declare a non-empty "axes" mapping.`);
+    fail(
+      file,
+      `job "${jobId}" matrix must declare a non-empty "axes" mapping.`,
+    );
   }
   for (const [key, value] of Object.entries(raw.axes)) {
     if (!Array.isArray(value) || value.length === 0) {
-      fail(file, `job "${jobId}" matrix axis "${key}" must be a non-empty list.`);
+      fail(
+        file,
+        `job "${jobId}" matrix axis "${key}" must be a non-empty list.`,
+      );
     }
   }
   const failFast = raw["fail-fast"];
@@ -95,8 +127,14 @@ function validateMatrix(file: string, jobId: string, raw: unknown): Matrix {
     fail(file, `job "${jobId}" matrix has a non-boolean "fail-fast".`);
   }
   const maxParallel = raw["max-parallel"];
-  if (maxParallel !== undefined && (!Number.isInteger(maxParallel) || (maxParallel as number) <= 0)) {
-    fail(file, `job "${jobId}" matrix has a "max-parallel" that isn't a positive integer.`);
+  if (
+    maxParallel !== undefined &&
+    (!Number.isInteger(maxParallel) || (maxParallel as number) <= 0)
+  ) {
+    fail(
+      file,
+      `job "${jobId}" matrix has a "max-parallel" that isn't a positive integer.`,
+    );
   }
   return {
     axes: raw.axes as Record<string, unknown[]>,
@@ -105,7 +143,13 @@ function validateMatrix(file: string, jobId: string, raw: unknown): Matrix {
   };
 }
 
-function validateManualInput(file: string, index: number, inputIndex: number, jobIds: string[], raw: unknown): ManualInput {
+function validateManualInput(
+  file: string,
+  index: number,
+  inputIndex: number,
+  jobIds: string[],
+  raw: unknown,
+): ManualInput {
   const where = `on[${index}].manual.inputs[${inputIndex}]`;
   if (!isRecord(raw)) {
     fail(file, `${where} must be a mapping.`);
@@ -113,8 +157,16 @@ function validateManualInput(file: string, index: number, inputIndex: number, jo
   if (typeof raw.name !== "string" || raw.name.length === 0) {
     fail(file, `${where} must have a non-empty string "name".`);
   }
-  if (typeof raw.type !== "string" || !(MANUAL_INPUT_TYPES as readonly string[]).includes(raw.type)) {
-    fail(file, `${where} has a "type" that must be one of ${MANUAL_INPUT_TYPES.join(", ")}.`);
+  if (
+    typeof raw.type !== "string" ||
+    !(MANUAL_INPUT_TYPES as readonly string[]).includes(raw.type)
+  ) {
+    fail(
+      file,
+      `${where} has a "type" that must be one of ${
+        MANUAL_INPUT_TYPES.join(", ")
+      }.`,
+    );
   }
   if (raw.display !== undefined && typeof raw.display !== "string") {
     fail(file, `${where} has a non-string "display".`);
@@ -152,12 +204,21 @@ function validateManualInput(file: string, index: number, inputIndex: number, jo
       break;
     case "job": {
       if (raw.default !== undefined) {
-        if (!Array.isArray(raw.default) || raw.default.length === 0 || raw.default.some((d) => typeof d !== "string")) {
-          fail(file, `${where} has a "default" that isn't a non-empty list of strings.`);
+        if (
+          !Array.isArray(raw.default) || raw.default.length === 0 ||
+          raw.default.some((d) => typeof d !== "string")
+        ) {
+          fail(
+            file,
+            `${where} has a "default" that isn't a non-empty list of strings.`,
+          );
         }
         for (const jobId of raw.default as string[]) {
           if (!jobIds.includes(jobId)) {
-            fail(file, `${where} has a "default" that isn't a declared job ("${jobId}").`);
+            fail(
+              file,
+              `${where} has a "default" that isn't a declared job ("${jobId}").`,
+            );
           }
         }
       }
@@ -168,17 +229,27 @@ function validateManualInput(file: string, index: number, inputIndex: number, jo
   return raw as unknown as ManualInput;
 }
 
-function validateManualTrigger(file: string, index: number, jobIds: string[], raw: Record<string, unknown>): ManualTrigger {
+function validateManualTrigger(
+  file: string,
+  index: number,
+  jobIds: string[],
+  raw: Record<string, unknown>,
+): ManualTrigger {
   if (raw.inputs === undefined) return {};
   if (!Array.isArray(raw.inputs)) {
     fail(file, `on[${index}].manual has an "inputs" that isn't a list.`);
   }
-  const inputs = raw.inputs.map((input, i) => validateManualInput(file, index, i, jobIds, input));
+  const inputs = raw.inputs.map((input, i) =>
+    validateManualInput(file, index, i, jobIds, input)
+  );
 
   const seenNames = new Set<string>();
   for (const input of inputs) {
     if (seenNames.has(input.name)) {
-      fail(file, `on[${index}].manual has a duplicate input name "${input.name}".`);
+      fail(
+        file,
+        `on[${index}].manual has a duplicate input name "${input.name}".`,
+      );
     }
     seenNames.add(input.name);
   }
@@ -186,19 +257,31 @@ function validateManualTrigger(file: string, index: number, jobIds: string[], ra
   return { inputs };
 }
 
-function validateGithubTrigger(file: string, index: number, raw: Record<string, unknown>): GithubTrigger {
+function validateGithubTrigger(
+  file: string,
+  index: number,
+  raw: Record<string, unknown>,
+): GithubTrigger {
   const push = raw.push;
   const tags = isRecord(push) ? push.tags : undefined;
   if (
     !isRecord(push) || !Array.isArray(tags) || tags.length === 0 ||
     tags.some((t) => typeof t !== "string")
   ) {
-    fail(file, `on[${index}].github must declare a non-empty "push.tags" list of strings.`);
+    fail(
+      file,
+      `on[${index}].github must declare a non-empty "push.tags" list of strings.`,
+    );
   }
   return { push: { tags: tags as string[] } };
 }
 
-function validateTrigger(file: string, index: number, jobIds: string[], raw: unknown): Trigger {
+function validateTrigger(
+  file: string,
+  index: number,
+  jobIds: string[],
+  raw: unknown,
+): Trigger {
   if (!isRecord(raw)) {
     fail(file, `on[${index}] must be a mapping.`);
   }
@@ -214,12 +297,29 @@ function validateTrigger(file: string, index: number, jobIds: string[], raw: unk
     fail(file, `on[${index}].github must be a mapping.`);
   }
   return {
-    manual: hasManual ? validateManualTrigger(file, index, jobIds, raw.manual as Record<string, unknown>) : undefined,
-    github: hasGithub ? validateGithubTrigger(file, index, raw.github as Record<string, unknown>) : undefined,
+    manual: hasManual
+      ? validateManualTrigger(
+        file,
+        index,
+        jobIds,
+        raw.manual as Record<string, unknown>,
+      )
+      : undefined,
+    github: hasGithub
+      ? validateGithubTrigger(
+        file,
+        index,
+        raw.github as Record<string, unknown>,
+      )
+      : undefined,
   };
 }
 
-function validateOn(file: string, jobIds: string[], raw: unknown): Trigger[] | undefined {
+function validateOn(
+  file: string,
+  jobIds: string[],
+  raw: unknown,
+): Trigger[] | undefined {
   if (raw === undefined) return undefined;
   if (!Array.isArray(raw) || raw.length === 0) {
     fail(file, `"on" must be a non-empty list.`);
@@ -234,13 +334,19 @@ function resolveEnvRefs(file: string, varName: string, value: string): string {
   return value.replace(ENV_REF, (_match, name) => {
     const resolved = Deno.env.get(name);
     if (resolved === undefined) {
-      fail(file, `variable "${varName}" references unset env var "${name}" via $(${name}).`);
+      fail(
+        file,
+        `variable "${varName}" references unset env var "${name}" via $(${name}).`,
+      );
     }
     return resolved;
   });
 }
 
-function validateVariables(file: string, raw: unknown): Record<string, string> | undefined {
+function validateVariables(
+  file: string,
+  raw: unknown,
+): Record<string, string> | undefined {
   if (raw === undefined) return undefined;
   if (!isRecord(raw) || Object.values(raw).some((v) => typeof v !== "string")) {
     fail(file, `"variables" must be a mapping of strings.`);
@@ -252,7 +358,11 @@ function validateVariables(file: string, raw: unknown): Record<string, string> |
   return result;
 }
 
-function validateContextVariable(file: string, index: number, raw: unknown): ContextVariable {
+function validateContextVariable(
+  file: string,
+  index: number,
+  raw: unknown,
+): ContextVariable {
   const where = `context.variables[${index}]`;
   if (!isRecord(raw)) {
     fail(file, `${where} must be a mapping.`);
@@ -268,12 +378,21 @@ function validateContextVariable(file: string, index: number, raw: unknown): Con
   }
   return {
     name: raw.name,
-    value: raw.value !== undefined ? resolveEnvRefs(file, `context.variables.${raw.name}`, raw.value as string) : undefined,
+    value: raw.value !== undefined
+      ? resolveEnvRefs(
+        file,
+        `context.variables.${raw.name}`,
+        raw.value as string,
+      )
+      : undefined,
     default: raw.default as string | undefined,
   };
 }
 
-function validateContextVariables(file: string, raw: unknown): ContextVariable[] | undefined {
+function validateContextVariables(
+  file: string,
+  raw: unknown,
+): ContextVariable[] | undefined {
   if (raw === undefined) return undefined;
   if (!Array.isArray(raw) || raw.length === 0) {
     fail(file, `"context.variables" must be a non-empty list.`);
@@ -282,14 +401,21 @@ function validateContextVariables(file: string, raw: unknown): ContextVariable[]
   const seenNames = new Set<string>();
   for (const variable of variables) {
     if (seenNames.has(variable.name)) {
-      fail(file, `"context.variables" has a duplicate name "${variable.name}".`);
+      fail(
+        file,
+        `"context.variables" has a duplicate name "${variable.name}".`,
+      );
     }
     seenNames.add(variable.name);
   }
   return variables;
 }
 
-function validateContextSecret(file: string, index: number, raw: unknown): ContextSecret {
+function validateContextSecret(
+  file: string,
+  index: number,
+  raw: unknown,
+): ContextSecret {
   const where = `context.secrets[${index}]`;
   if (!isRecord(raw)) {
     fail(file, `${where} must be a mapping.`);
@@ -303,7 +429,10 @@ function validateContextSecret(file: string, index: number, raw: unknown): Conte
   return { name: raw.name, default: raw.default as string | undefined };
 }
 
-function validateContextSecrets(file: string, raw: unknown): ContextSecret[] | undefined {
+function validateContextSecrets(
+  file: string,
+  raw: unknown,
+): ContextSecret[] | undefined {
   if (raw === undefined) return undefined;
   if (!Array.isArray(raw) || raw.length === 0) {
     fail(file, `"context.secrets" must be a non-empty list.`);
@@ -330,19 +459,32 @@ function validateContext(file: string, raw: unknown): Context | undefined {
   };
 }
 
-function validateRepository(file: string, name: string, raw: unknown): RepositoryResource {
+function validateRepository(
+  file: string,
+  name: string,
+  raw: unknown,
+): RepositoryResource {
   if (!isRecord(raw)) {
     fail(file, `resources.repositories.${name} must be a mapping.`);
   }
   if (typeof raw.url !== "string" || raw.url.length === 0) {
-    fail(file, `resources.repositories.${name} must have a non-empty string "url".`);
+    fail(
+      file,
+      `resources.repositories.${name} must have a non-empty string "url".`,
+    );
   }
   if (raw.ref !== undefined && typeof raw.ref !== "string") {
     fail(file, `resources.repositories.${name} has a non-string "ref".`);
   }
   return {
     url: resolveEnvRefs(file, `resources.repositories.${name}.url`, raw.url),
-    ref: raw.ref !== undefined ? resolveEnvRefs(file, `resources.repositories.${name}.ref`, raw.ref as string) : undefined,
+    ref: raw.ref !== undefined
+      ? resolveEnvRefs(
+        file,
+        `resources.repositories.${name}.ref`,
+        raw.ref as string,
+      )
+      : undefined,
   };
 }
 
@@ -352,7 +494,9 @@ function validateResources(file: string, raw: unknown): Resources | undefined {
     fail(file, `"resources" must be a mapping.`);
   }
   if (raw.repositories === undefined) return {};
-  if (!isRecord(raw.repositories) || Object.keys(raw.repositories).length === 0) {
+  if (
+    !isRecord(raw.repositories) || Object.keys(raw.repositories).length === 0
+  ) {
     fail(file, `"resources.repositories" must be a non-empty mapping.`);
   }
   const repositories: Record<string, RepositoryResource> = {};
@@ -375,11 +519,18 @@ function validateResources(file: string, raw: unknown): Resources | undefined {
  * a dynamic index like `steps[someExpr]` is never flagged).
  */
 function validateStepReferences(file: string, jobId: string, job: Job): void {
-  const checkText = (where: string, text: string | undefined, visibleIds: Set<string>) => {
+  const checkText = (
+    where: string,
+    text: string | undefined,
+    visibleIds: Set<string>,
+  ) => {
     if (text === undefined) return;
     for (const id of findStaticStepReferences(text)) {
       if (!visibleIds.has(id)) {
-        fail(file, `${where} references "steps.${id}", which isn't a step id declared earlier in job "${jobId}".`);
+        fail(
+          file,
+          `${where} references "steps.${id}", which isn't a step id declared earlier in job "${jobId}".`,
+        );
       }
     }
   };
@@ -397,15 +548,50 @@ function validateStepReferences(file: string, jobId: string, job: Job): void {
 }
 
 /**
+ * Whether `ifExpr` can be proven, from `contextName` alone, to always
+ * evaluate falsy — i.e. this job/step provably never runs for this
+ * `--context`. Evaluated for real (not pattern-matched) against a context
+ * object containing only `context.name`, so any shape of comparison works
+ * (`==`, `!=`, negation, `contains(...)`, ...), not just a literal `==`.
+ * Conservative: an `if:` referencing anything else (`needs.*`, `matrix.*`,
+ * `trigger.*`, ...) isn't a recognized context name in the object supplied
+ * here, so evaluateCondition throws and this returns false — "can't prove
+ * it's skipped" always falls back to today's eager resolution, never the
+ * reverse. `contextName` itself being undefined (no `--context` given) also
+ * can't prove anything, for the same reason (no `context` entry supplied).
+ */
+function isDefinitelyFalseForContext(
+  ifExpr: string,
+  contextName: string | undefined,
+): boolean {
+  if (contextName === undefined) return false;
+  try {
+    return !evaluateCondition(ifExpr, { context: { name: contextName } });
+  } catch (error) {
+    if (error instanceof WorkflowExpressionError) return false;
+    throw error;
+  }
+}
+
+/**
  * Statically finds every `contextFile("<filename>")`/
  * `contextSecretFile("<filename>")` call across the whole workflow (job
  * `if:`, every step's `if:`/`name:`/`run:`) — the same text fields
  * validateStepReferences walks for `steps.*`. Used by
  * context-loaders/resolve.ts to pre-resolve every referenced file, before
  * any job runs, alongside the existing context.variables/secrets
- * resolution.
+ * resolution. `contextName` is this run's `--context` (if any): a job or
+ * step whose own `if:` is provably false for it (see
+ * isDefinitelyFalseForContext) is skipped entirely, so e.g. a
+ * `contextFile('Caddyfile')` only ever read by a
+ * `if: context.name == 'development'` step doesn't need to exist for any
+ * other context — matching how that step itself would never actually run
+ * there either.
  */
-export function findContextFileReferences(workflow: Pick<Workflow, "jobs">): ContextFileReference[] {
+export function findContextFileReferences(
+  workflow: Pick<Workflow, "jobs">,
+  contextName?: string,
+): ContextFileReference[] {
   const refs: ContextFileReference[] = [];
   const scan = (text: string | undefined) => {
     if (text === undefined) return;
@@ -413,8 +599,19 @@ export function findContextFileReferences(workflow: Pick<Workflow, "jobs">): Con
   };
 
   for (const job of Object.values(workflow.jobs)) {
+    if (
+      job.if !== undefined && isDefinitelyFalseForContext(job.if, contextName)
+    ) {
+      continue;
+    }
     scan(job.if);
     for (const step of job.steps) {
+      if (
+        step.if !== undefined &&
+        isDefinitelyFalseForContext(step.if, contextName)
+      ) {
+        continue;
+      }
       scan(step.if);
       scan(step.name);
       scan(step.run);
@@ -428,15 +625,21 @@ function validateJob(file: string, jobId: string, raw: unknown): Job {
     fail(file, `job "${jobId}" must be a mapping.`);
   }
   if (raw.needs !== undefined) {
-    if (!Array.isArray(raw.needs) || raw.needs.some((n) => typeof n !== "string")) {
+    if (
+      !Array.isArray(raw.needs) || raw.needs.some((n) => typeof n !== "string")
+    ) {
       fail(file, `job "${jobId}" has a "needs" that isn't a list of strings.`);
     }
   }
   if (raw.if !== undefined && typeof raw.if !== "string") {
     fail(file, `job "${jobId}" has a non-string "if".`);
   }
-  const matrix = raw.matrix !== undefined ? validateMatrix(file, jobId, raw.matrix) : undefined;
-  const jobIn = raw.in !== undefined ? validateIn(file, `job "${jobId}"'s "in"`, raw.in) : undefined;
+  const matrix = raw.matrix !== undefined
+    ? validateMatrix(file, jobId, raw.matrix)
+    : undefined;
+  const jobIn = raw.in !== undefined
+    ? validateIn(file, `job "${jobId}"'s "in"`, raw.in)
+    : undefined;
   if (!Array.isArray(raw.steps) || raw.steps.length === 0) {
     fail(file, `job "${jobId}" must have a non-empty "steps" list.`);
   }
@@ -470,7 +673,10 @@ export async function parseWorkflowFile(file: string): Promise<Workflow> {
   try {
     raw = parseYaml(text);
   } catch (error) {
-    fail(file, `invalid YAML (${error instanceof Error ? error.message : error}).`);
+    fail(
+      file,
+      `invalid YAML (${error instanceof Error ? error.message : error}).`,
+    );
   }
 
   if (!isRecord(raw) || !isRecord(raw.jobs)) {

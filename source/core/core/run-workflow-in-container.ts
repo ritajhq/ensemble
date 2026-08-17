@@ -1,14 +1,29 @@
 import type { Delegate } from "@ritaj/event";
-import { type ContextSource, isEventLine, parseEventLine, type RunWorkflowResult, type WorkflowEvent } from "@ensemble/workflow";
+import {
+  isEventLine,
+  parseEventLine,
+  type RunWorkflowResult,
+  type WorkflowEvent,
+} from "@ensemble/workflow";
 
 export interface RunWorkflowInContainerOptions {
   /** Run only this job (or these jobs) and their transitive dependencies. */
   job?: string | string[];
   concurrency?: number;
   context?: string;
-  contextSource?: ContextSource;
   /** Data from whatever triggered this run, forwarded into the container as --trigger-json. */
   trigger?: Record<string, unknown>;
+  /**
+   * The X25519 private key belonging to the git repository this workflow is
+   * linked to (see core/workflow.ts's runWorkflowByName, which resolves
+   * this via WorkflowGitLink -> GitRepositoryRecord.secretsKey before
+   * calling here) — forwarded into the container as ENSEMBLE_SECRETS_KEY so
+   * the run can decrypt its own context.secrets. Undefined when the
+   * workflow has no git link, or that repo has no key configured — the run
+   * proceeds without one, same graceful-degradation shape as always (only
+   * an actual encrypted-secret lookup fails, and only then).
+   */
+  secretsKey?: string;
   /** Notified as jobs/steps start/finish inside the container, reconstructed from its stdout. */
   events?: Delegate<[WorkflowEvent]>;
 }
@@ -17,7 +32,9 @@ export interface RunWorkflowInContainerOptions {
 function hostWorkflowsPath(): string {
   const path = Deno.env.get("ENSEMBLE_HOST_WORKFLOWS_PATH");
   if (!path) {
-    throw new Error("ENSEMBLE_HOST_WORKFLOWS_PATH is not set — required to spawn a containerized workflow run.");
+    throw new Error(
+      "ENSEMBLE_HOST_WORKFLOWS_PATH is not set — required to spawn a containerized workflow run.",
+    );
   }
   return path;
 }
@@ -38,26 +55,49 @@ const DOCKER_SOCKET_PATH = "/var/run/docker.sock";
 async function dockerGid(): Promise<string> {
   const info = await Deno.stat(DOCKER_SOCKET_PATH);
   if (info.gid === null) {
-    throw new Error(`Could not determine the owning GID of ${DOCKER_SOCKET_PATH}`);
+    throw new Error(
+      `Could not determine the owning GID of ${DOCKER_SOCKET_PATH}`,
+    );
   }
   return String(info.gid);
 }
 
-/** Env vars that configure spawning the runner container itself, not meaningful to forward into it. */
-const UNFORWARDED_ENV_VARS = new Set(["ENSEMBLE_RUNNER_IMAGE", "ENSEMBLE_HOST_WORKFLOWS_PATH"]);
+/**
+ * Env vars that configure spawning the runner container itself, not
+ * meaningful to forward into it. ENSEMBLE_SECRETS_KEY is deliberately
+ * excluded from blind forwarding even if the server process happens to have
+ * one set (e.g. a stray leftover from before per-repository key custody) —
+ * the only key that should reach a run is the specific repo's own,
+ * explicitly passed via `options.secretsKey` below, never whatever the
+ * server's own process env happens to contain.
+ */
+const UNFORWARDED_ENV_VARS = new Set([
+  "ENSEMBLE_RUNNER_IMAGE",
+  "ENSEMBLE_HOST_WORKFLOWS_PATH",
+  "ENSEMBLE_SECRETS_KEY",
+]);
 
 /**
  * Writes every other env var on this process to a temp --env-file, so steps
  * see the same env they'd get running in-process. An env file (not repeated
  * -e NAME=value args) so secrets like REGISTRY_PASSWORD never appear in the
  * spawned `docker run` process's own argv — visible host-side via `ps`
- * while it runs, unlike a file only docker itself reads.
+ * while it runs, unlike a file only docker itself reads. Also injects
+ * ENSEMBLE_SECRETS_KEY from `secretsKey` (the resolved per-repository key,
+ * not anything from the server's own env — see UNFORWARDED_ENV_VARS above)
+ * when one was resolved, letting the run decrypt its own context.secrets
+ * entirely inside the container — no callback to the server needed.
  */
-async function writeForwardedEnvFile(): Promise<string> {
+async function writeForwardedEnvFile(
+  secretsKey: string | undefined,
+): Promise<string> {
   const lines: string[] = [];
   for (const [name, value] of Object.entries(Deno.env.toObject())) {
     if (UNFORWARDED_ENV_VARS.has(name)) continue;
     lines.push(`${name}=${value}`);
+  }
+  if (secretsKey !== undefined) {
+    lines.push(`ENSEMBLE_SECRETS_KEY=${secretsKey}`);
   }
   const path = await Deno.makeTempFile({ prefix: "ensemble-runner-env-" });
   await Deno.writeTextFile(path, lines.join("\n") + "\n");
@@ -113,9 +153,15 @@ async function pumpEvents(
  * @ensemble/workflow's README — there's no separate secrets/allowlist
  * mechanism) see the same values a step would've seen running in-process.
  * This mirrors Deno.Command's default env inheritance, which `docker run`
- * does not do on its own.
+ * does not do on its own. `options.secretsKey` — the specific git
+ * repository's own X25519 private key this workflow is linked to, resolved
+ * by the caller (see core/workflow.ts's runWorkflowByName) — is injected as
+ * ENSEMBLE_SECRETS_KEY, letting the run decrypt its own context.secrets (see
+ * @ensemble/workflow's context-loaders/secrets-crypto.ts) entirely inside
+ * the container. Never sourced from the server's own env (see
+ * UNFORWARDED_ENV_VARS) — each repo's key is scoped to that repo alone.
  *
- * The inner `ens workflow --emit-events` invocation emits structured
+ * The inner `ens workflow run --emit-events` invocation emits structured
  * WorkflowEvents on its own stdout (see event-log.ts); this reconstructs them
  * into `events`, so a caller tracking the run (trackedRunWorkflowByName, see
  * workflow.ts) sees the exact same event stream it would from an in-process
@@ -125,8 +171,10 @@ export async function runWorkflowInContainer(
   name: string,
   options: RunWorkflowInContainerOptions,
 ): Promise<RunWorkflowResult> {
-  const emptyEnsembleDir = await Deno.makeTempDir({ prefix: "ensemble-runner-marker-" });
-  const envFile = await writeForwardedEnvFile();
+  const emptyEnsembleDir = await Deno.makeTempDir({
+    prefix: "ensemble-runner-marker-",
+  });
+  const envFile = await writeForwardedEnvFile(options.secretsKey);
   try {
     const args = [
       "run",
@@ -143,18 +191,32 @@ export async function runWorkflowInContainer(
       envFile,
       runnerImage(),
       "workflow",
+      "run",
       name,
       "--emit-events",
     ];
-    for (const job of options.job === undefined ? [] : Array.isArray(options.job) ? options.job : [options.job]) {
+    for (
+      const job of options.job === undefined
+        ? []
+        : Array.isArray(options.job)
+        ? options.job
+        : [options.job]
+    ) {
       args.push("--job", job);
     }
-    if (options.concurrency !== undefined) args.push("--concurrency", String(options.concurrency));
+    if (options.concurrency !== undefined) {
+      args.push("--concurrency", String(options.concurrency));
+    }
     if (options.context !== undefined) args.push("--context", options.context);
-    if (options.contextSource !== undefined) args.push("--context-source", options.contextSource);
-    if (options.trigger !== undefined) args.push("--trigger-json", JSON.stringify(options.trigger));
+    if (options.trigger !== undefined) {
+      args.push("--trigger-json", JSON.stringify(options.trigger));
+    }
 
-    const command = new Deno.Command("docker", { args, stdout: "piped", stderr: "piped" });
+    const command = new Deno.Command("docker", {
+      args,
+      stdout: "piped",
+      stderr: "piped",
+    });
     const child = command.spawn();
 
     await Promise.all([

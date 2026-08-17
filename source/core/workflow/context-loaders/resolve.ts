@@ -3,14 +3,12 @@ import { ensureDir } from "@std/fs/ensure-dir";
 import type { Context } from "../schema.ts";
 import type { ContextFileReference } from "../expressions.ts";
 import { createLocalGlobalLoader, createLocalLoader } from "./local.ts";
-import { createVaultLoader } from "./vault.ts";
+import { resolvePrivateKey } from "./secrets-crypto.ts";
 import type { ContextLoader, LoadedValue } from "./types.ts";
 
 export type { ContextLoader, LoadedValue } from "./types.ts";
 
 export class ContextResolutionError extends Error {}
-
-export type ContextSource = "local" | "vault";
 
 /** One resolved `context.variables` entry, addressable via `${{ context.variables.<key> }}` as an alternative to its `NAME`/`NAME_FILE` env vars. */
 export interface ResolvedVariable {
@@ -30,31 +28,49 @@ export interface ResolvedContext {
   secretFiles: Record<string, string>;
 }
 
+/** Wraps resolvePrivateKey so it's read/resolved at most once per resolveContext call, and only if an actual encrypted lookup needs it. */
+function makeLazyPrivateKeyResolver(
+  repoRoot: string | undefined,
+): () => Promise<string> {
+  let cached: Promise<string> | undefined;
+  return () => {
+    if (repoRoot === undefined) {
+      return Promise.reject(
+        new Error("Can't resolve a secrets private key without a repo root."),
+      );
+    }
+    cached ??= resolvePrivateKey(repoRoot);
+    return cached;
+  };
+}
+
 /**
  * Builds the ordered list of loaders to try for a declared variable/secret
- * without an inline `value`: this workflow's own per-`--context` loader(s)
- * first, then the host-level global tier (`.ensemble/global/`, shared by
- * every workflow — see createLocalGlobalLoader) as a fallback, so a
- * frequently-needed value (e.g. registry credentials) can be provisioned
- * once instead of per-workflow. An explicit `source` restricts the
- * per-context loader to just that one — no falling through to the other —
- * since an explicit choice (a server forcing "vault", say) is a hard
- * constraint, not a preference: silently falling back to a local `contexts/`
- * folder that happens to exist on disk would defeat the point of forcing a
- * single source of truth. The global tier is always local-only for now
- * (no vault-backed global tier yet) and is always tried regardless of
- * `source`, since it's a separate concern from which per-context loader won.
+ * without an inline `value`: this workflow's own per-`--context` local
+ * loader first, then the host-level global tier (`.ensemble/global/`,
+ * shared by every workflow — see createLocalGlobalLoader) as a fallback, so
+ * a frequently-needed value (e.g. registry credentials) can be provisioned
+ * once instead of per-workflow.
  */
-function selectLoaders(workflowDir: string, repoRoot: string | undefined, source: ContextSource | undefined): ContextLoader[] {
-  const local = createLocalLoader(workflowDir);
-  const vault = createVaultLoader();
-  const perContext = source === "local" ? [local] : source === "vault" ? [vault] : [local, vault];
-  const global = repoRoot !== undefined ? [createLocalGlobalLoader(repoRoot)] : [];
+function selectLoaders(
+  workflowDir: string,
+  runDir: string,
+  repoRoot: string | undefined,
+): ContextLoader[] {
+  const resolveKey = makeLazyPrivateKeyResolver(repoRoot);
+  const perContext = [createLocalLoader(workflowDir, resolveKey, runDir)];
+  const global = repoRoot !== undefined
+    ? [createLocalGlobalLoader(repoRoot, resolveKey, runDir)]
+    : [];
   return [...perContext, ...global];
 }
 
 /** Writes `scalar` out to its own file under `runDir`, for a value a loader supplied only as a scalar. */
-async function materializeScalarToFile(runDir: string, key: string, scalar: string): Promise<string> {
+async function materializeScalarToFile(
+  runDir: string,
+  key: string,
+  scalar: string,
+): Promise<string> {
   const dir = join(runDir, "context-files");
   await ensureDir(dir);
   const filePath = join(dir, key);
@@ -69,7 +85,11 @@ interface ResolveOneOptions {
   /** The --context name (if any) to resolve per-context loaders against; passed through as "" when absent so the global loader (which ignores it) still gets a try. */
   contextName: string | undefined;
   loaders: ContextLoader[];
-  load: (loader: ContextLoader, contextName: string, key: string) => Promise<LoadedValue | undefined>;
+  load: (
+    loader: ContextLoader,
+    contextName: string,
+    key: string,
+  ) => Promise<LoadedValue | undefined>;
   runDir: string;
   missing: string[];
   env: Record<string, string>;
@@ -78,7 +98,17 @@ interface ResolveOneOptions {
 }
 
 async function resolveOne(options: ResolveOneOptions): Promise<void> {
-  const { key, value, contextName, loaders, load, runDir, missing, env, callerVars } = options;
+  const {
+    key,
+    value,
+    contextName,
+    loaders,
+    load,
+    runDir,
+    missing,
+    env,
+    callerVars,
+  } = options;
 
   if (value !== undefined) {
     env[key] = value;
@@ -88,7 +118,11 @@ async function resolveOne(options: ResolveOneOptions): Promise<void> {
 
   if (callerVars[key] !== undefined) {
     env[key] = callerVars[key];
-    env[`${key}_FILE`] = await materializeScalarToFile(runDir, key, callerVars[key]);
+    env[`${key}_FILE`] = await materializeScalarToFile(
+      runDir,
+      key,
+      callerVars[key],
+    );
     return;
   }
 
@@ -106,15 +140,25 @@ async function resolveOne(options: ResolveOneOptions): Promise<void> {
   if (found === undefined) {
     if (options.default !== undefined) {
       env[key] = options.default;
-      env[`${key}_FILE`] = await materializeScalarToFile(runDir, key, options.default);
+      env[`${key}_FILE`] = await materializeScalarToFile(
+        runDir,
+        key,
+        options.default,
+      );
       return;
     }
     missing.push(key);
     return;
   }
 
-  const scalar = found.scalar ?? (found.filePath !== undefined ? await Deno.readTextFile(found.filePath) : undefined);
-  const filePath = found.filePath ?? (found.scalar !== undefined ? await materializeScalarToFile(runDir, key, found.scalar) : undefined);
+  const scalar = found.scalar ??
+    (found.filePath !== undefined
+      ? await Deno.readTextFile(found.filePath)
+      : undefined);
+  const filePath = found.filePath ??
+    (found.scalar !== undefined
+      ? await materializeScalarToFile(runDir, key, found.scalar)
+      : undefined);
   if (scalar !== undefined) env[key] = scalar;
   if (filePath !== undefined) env[`${key}_FILE`] = filePath;
 }
@@ -123,7 +167,11 @@ async function resolveFile(
   filename: string,
   contextName: string | undefined,
   loaders: ContextLoader[],
-  load: (loader: ContextLoader, contextName: string, filename: string) => Promise<string | undefined>,
+  load: (
+    loader: ContextLoader,
+    contextName: string,
+    filename: string,
+  ) => Promise<string | undefined>,
   missing: string[],
   out: Record<string, string>,
 ): Promise<void> {
@@ -154,7 +202,6 @@ export async function resolveContext(
   contextName: string | undefined,
   workflowDir: string,
   runDir: string,
-  source: ContextSource | undefined,
   callerVars: Record<string, string> = {},
   repoRoot: string | undefined = undefined,
 ): Promise<ResolvedContext> {
@@ -162,9 +209,11 @@ export async function resolveContext(
   const variables: Record<string, ResolvedVariable> = {};
   const files: Record<string, string> = {};
   const secretFiles: Record<string, string> = {};
-  if (context === undefined && fileRefs.length === 0) return { env, variables, files, secretFiles };
+  if (context === undefined && fileRefs.length === 0) {
+    return { env, variables, files, secretFiles };
+  }
 
-  const loaders = selectLoaders(workflowDir, repoRoot, source);
+  const loaders = selectLoaders(workflowDir, runDir, repoRoot);
   const missing: string[] = [];
 
   for (const variable of context?.variables ?? []) {
@@ -204,15 +253,31 @@ export async function resolveContext(
   const missingFiles: string[] = [];
   for (const ref of fileRefs) {
     if (ref.kind === "file") {
-      await resolveFile(ref.filename, contextName, loaders, (loader, name, f) => loader.loadVariableFile(name, f), missingFiles, files);
+      await resolveFile(
+        ref.filename,
+        contextName,
+        loaders,
+        (loader, name, f) => loader.loadVariableFile(name, f),
+        missingFiles,
+        files,
+      );
     } else {
-      await resolveFile(ref.filename, contextName, loaders, (loader, name, f) => loader.loadSecretFile(name, f), missingFiles, secretFiles);
+      await resolveFile(
+        ref.filename,
+        contextName,
+        loaders,
+        (loader, name, f) => loader.loadSecretFile(name, f),
+        missingFiles,
+        secretFiles,
+      );
     }
   }
 
   if (missing.length > 0) {
     throw new ContextResolutionError(
-      `"context" declares ${missing.length === 1 ? "a variable/secret" : "variables/secrets"} with no value: ${
+      `"context" declares ${
+        missing.length === 1 ? "a variable/secret" : "variables/secrets"
+      } with no value: ${
         missing.join(", ")
       }. Provide a "--context <name>" whose loader supplies ${
         missing.length === 1 ? "it" : "them"
@@ -222,9 +287,13 @@ export async function resolveContext(
 
   if (missingFiles.length > 0) {
     throw new ContextResolutionError(
-      `workflow references ${missingFiles.length === 1 ? "a context file" : "context files"} no loader could find: ${
+      `workflow references ${
+        missingFiles.length === 1 ? "a context file" : "context files"
+      } no loader could find: ${
         missingFiles.join(", ")
-      }. Provide a "--context <name>" whose loader supplies ${missingFiles.length === 1 ? "it" : "them"}.`,
+      }. Provide a "--context <name>" whose loader supplies ${
+        missingFiles.length === 1 ? "it" : "them"
+      }.`,
     );
   }
 

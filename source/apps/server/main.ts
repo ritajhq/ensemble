@@ -11,20 +11,30 @@ import { createAllFeatures, isFeatureEnabled } from "@ensemble/platform";
 
 const repoRoot = await findRepoRoot();
 const stores = {
-  repositories: new GitRepositoryStore(await Deno.openKv(`${repoRoot}/${GIT_REPOSITORY_STORE_KV_PATH}`)),
-  links: new WorkflowGitLinkStore(await Deno.openKv(`${repoRoot}/${WORKFLOW_GIT_LINK_STORE_KV_PATH}`)),
+  repositories: new GitRepositoryStore(
+    await Deno.openKv(`${repoRoot}/${GIT_REPOSITORY_STORE_KV_PATH}`),
+  ),
+  links: new WorkflowGitLinkStore(
+    await Deno.openKv(`${repoRoot}/${WORKFLOW_GIT_LINK_STORE_KV_PATH}`),
+  ),
   runs: new RunStore(await Deno.openKv(`${repoRoot}/${RUN_STORE_KV_PATH}`)),
 };
 
 const allFeatures = createAllFeatures(stores);
 const enabled = allFeatures.filter((feature) => isFeatureEnabled(feature.name));
-const disabled = allFeatures.filter((feature) => !isFeatureEnabled(feature.name));
+const disabled = allFeatures.filter((feature) =>
+  !isFeatureEnabled(feature.name)
+);
 
 for (const feature of enabled) {
-  console.log(`mounted  ${feature.method} ${feature.pattern.pathname}  (${feature.name})`);
+  console.log(
+    `mounted  ${feature.method} ${feature.pattern.pathname}  (${feature.name})`,
+  );
 }
 for (const feature of disabled) {
-  console.log(`disabled ${feature.method} ${feature.pattern.pathname}  (${feature.name})`);
+  console.log(
+    `disabled ${feature.method} ${feature.pattern.pathname}  (${feature.name})`,
+  );
 }
 
 const port = Number(Deno.env.get("PORT") ?? "8787");

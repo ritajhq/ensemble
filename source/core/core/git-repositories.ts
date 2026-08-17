@@ -15,6 +15,18 @@ export interface GitRepositoryRecord {
   registeredAt: string;
   /** Set once the validation/refresh clone into .ensemble/platform/git-repos/<projectName> has actually run. */
   lastFetchedAt?: string;
+  /**
+   * This repo's X25519 private key (base64 pkcs8 — see
+   * @ensemble/workflow's context-loaders/secrets-crypto.ts), used to decrypt
+   * contexts/<name>/secrets.enc for any workflow linked to this repo when
+   * its run is containerized (see run-workflow-in-container.ts). Optional:
+   * a repo registered before this field existed, or whose workflows never
+   * declare context.secrets, has none — decryption then simply isn't
+   * available for that repo's runs, same graceful-degradation shape as a
+   * missing ENSEMBLE_SECRETS_KEY always had. Same trust tier as `auth`'s
+   * PAT — never returned by any list/summary endpoint.
+   */
+  secretsKey?: string;
 }
 
 /** Links one workflow's on-disk content to where it was last synced from in a registered repo, so a later "sync now" knows what to re-fetch. */
@@ -39,14 +51,21 @@ export class GitRepositoryStore {
   /** All registered git repositories, in no particular order. */
   async list(): Promise<GitRepositoryRecord[]> {
     const out: GitRepositoryRecord[] = [];
-    for await (const entry of this.kv.list<GitRepositoryRecord>({ prefix: ["git-repositories"] })) {
+    for await (
+      const entry of this.kv.list<GitRepositoryRecord>({
+        prefix: ["git-repositories"],
+      })
+    ) {
       out.push(entry.value);
     }
     return out;
   }
 
   async get(projectName: string): Promise<GitRepositoryRecord | undefined> {
-    const entry = await this.kv.get<GitRepositoryRecord>(["git-repositories", projectName]);
+    const entry = await this.kv.get<GitRepositoryRecord>([
+      "git-repositories",
+      projectName,
+    ]);
     return entry.value ?? undefined;
   }
 
@@ -69,7 +88,10 @@ export class WorkflowGitLinkStore {
   constructor(private readonly kv: Deno.Kv) {}
 
   async get(workflowName: string): Promise<WorkflowGitLink | undefined> {
-    const entry = await this.kv.get<WorkflowGitLink>(["workflow-git-links", workflowName]);
+    const entry = await this.kv.get<WorkflowGitLink>([
+      "workflow-git-links",
+      workflowName,
+    ]);
     return entry.value ?? undefined;
   }
 
@@ -85,7 +107,11 @@ export class WorkflowGitLinkStore {
   /** All workflows currently linked to `projectName`, in no particular order. */
   async listForProject(projectName: string): Promise<WorkflowGitLink[]> {
     const out: WorkflowGitLink[] = [];
-    for await (const entry of this.kv.list<WorkflowGitLink>({ prefix: ["workflow-git-links"] })) {
+    for await (
+      const entry of this.kv.list<WorkflowGitLink>({
+        prefix: ["workflow-git-links"],
+      })
+    ) {
       if (entry.value.projectName === projectName) out.push(entry.value);
     }
     return out;
@@ -94,7 +120,11 @@ export class WorkflowGitLinkStore {
   /** Every workflow's git link, in no particular order — used to refresh all of them (e.g. from a GitHub webhook that doesn't know in advance which project a pushed tag targets). */
   async listAll(): Promise<WorkflowGitLink[]> {
     const out: WorkflowGitLink[] = [];
-    for await (const entry of this.kv.list<WorkflowGitLink>({ prefix: ["workflow-git-links"] })) {
+    for await (
+      const entry of this.kv.list<WorkflowGitLink>({
+        prefix: ["workflow-git-links"],
+      })
+    ) {
       out.push(entry.value);
     }
     return out;
@@ -102,5 +132,7 @@ export class WorkflowGitLinkStore {
 }
 
 /** Where each store's `Deno.Kv` file lives, relative to the repo root — for entrypoints to open. */
-export const GIT_REPOSITORY_STORE_KV_PATH = ".ensemble/platform/git-repositories.kv";
-export const WORKFLOW_GIT_LINK_STORE_KV_PATH = ".ensemble/platform/workflow-git-links.kv";
+export const GIT_REPOSITORY_STORE_KV_PATH =
+  ".ensemble/platform/git-repositories.kv";
+export const WORKFLOW_GIT_LINK_STORE_KV_PATH =
+  ".ensemble/platform/workflow-git-links.kv";

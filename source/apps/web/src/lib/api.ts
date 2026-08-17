@@ -1,4 +1,11 @@
-export type ManualInputType = "string" | "number" | "boolean" | "object" | "git-tags" | "context" | "job";
+export type ManualInputType =
+  | "string"
+  | "number"
+  | "boolean"
+  | "object"
+  | "git-tags"
+  | "context"
+  | "job";
 
 export interface ManualInput {
   name: string;
@@ -22,7 +29,9 @@ export interface WorkflowGithubTriggerSummary {
   tagPatterns: string[];
 }
 
-export type WorkflowTriggerSummary = WorkflowManualTriggerSummary | WorkflowGithubTriggerSummary;
+export type WorkflowTriggerSummary =
+  | WorkflowManualTriggerSummary
+  | WorkflowGithubTriggerSummary;
 
 export interface WorkflowSummary {
   /** URL-safe id — use this (not `name`) when navigating to or fetching this workflow. */
@@ -114,7 +123,9 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
   });
   if (!response.ok) {
     const responseBody = await response.json().catch(() => ({}));
-    throw new Error(responseBody.error ?? `Request failed (${response.status})`);
+    throw new Error(
+      responseBody.error ?? `Request failed (${response.status})`,
+    );
   }
   return await response.json();
 }
@@ -133,12 +144,16 @@ async function deleteJson<T>(path: string): Promise<T> {
 }
 
 export async function fetchWorkflows(): Promise<WorkflowSummary[]> {
-  const { workflows } = await getJson<{ workflows: WorkflowSummary[] }>("/v1/workflows");
+  const { workflows } = await getJson<{ workflows: WorkflowSummary[] }>(
+    "/v1/workflows",
+  );
   return workflows;
 }
 
 export async function fetchRuns(workflowId: string): Promise<RunRecord[]> {
-  const { runs } = await getJson<{ runs: RunRecord[] }>(`/v1/workflows/${workflowId}/runs`);
+  const { runs } = await getJson<{ runs: RunRecord[] }>(
+    `/v1/workflows/${workflowId}/runs`,
+  );
   return runs;
 }
 
@@ -157,7 +172,11 @@ export async function triggerManualWorkflow(
 }
 
 /** Runs a workflow's declared github trigger, simulating a tag push with hand-entered data. */
-export async function triggerGithubWorkflow(workflowId: string, tag: string, sha?: string): Promise<void> {
+export async function triggerGithubWorkflow(
+  workflowId: string,
+  tag: string,
+  sha?: string,
+): Promise<void> {
   await postJson(`/v1/workflows/${workflowId}/trigger/github`, { tag, sha });
 }
 
@@ -167,18 +186,33 @@ export interface RunSteps {
   jobs: RunJobNode[];
 }
 
-export async function fetchRunSteps(workflowId: string, runId: string): Promise<RunSteps> {
-  return await getJson<RunSteps>(`/v1/workflows/${workflowId}/runs/${runId}/steps`);
+export async function fetchRunSteps(
+  workflowId: string,
+  runId: string,
+): Promise<RunSteps> {
+  return await getJson<RunSteps>(
+    `/v1/workflows/${workflowId}/runs/${runId}/steps`,
+  );
 }
 
 /** Permanently deletes a run's record and its step logs. Allowed regardless of the run's status. */
-export async function deleteRun(workflowId: string, runId: string): Promise<void> {
+export async function deleteRun(
+  workflowId: string,
+  runId: string,
+): Promise<void> {
   await deleteJson(`/v1/workflows/${workflowId}/runs/${runId}`);
 }
 
-export async function fetchStepLog(workflowId: string, runId: string, jobId: string, index: number): Promise<StepLog> {
+export async function fetchStepLog(
+  workflowId: string,
+  runId: string,
+  jobId: string,
+  index: number,
+): Promise<StepLog> {
   return await getJson<StepLog>(
-    `/v1/workflows/${workflowId}/runs/${runId}/steps/${encodeURIComponent(jobId)}/${index}/log`,
+    `/v1/workflows/${workflowId}/runs/${runId}/steps/${
+      encodeURIComponent(jobId)
+    }/${index}/log`,
   );
 }
 
@@ -200,9 +234,12 @@ export function openRunEvents(
 
   postJson("/v1/auth/sse-token", {}).then(() => {
     if (cancelled) return;
-    source = new EventSource(`${apiBase()}/v1/workflows/${workflowId}/runs/${runId}/events`, {
-      withCredentials: true,
-    });
+    source = new EventSource(
+      `${apiBase()}/v1/workflows/${workflowId}/runs/${runId}/events`,
+      {
+        withCredentials: true,
+      },
+    );
     source.onmessage = (event) => {
       onUpdate(JSON.parse(event.data));
     };
@@ -221,9 +258,17 @@ export type GitAuthStrategy =
   | { type: "none" }
   | { type: "pat"; token: string };
 
-/** Registers a git repository: validates access by cloning it into a server-side cache — never creates or touches any workflow directory. */
-export async function registerGitRepository(repoUrl: string, projectName?: string, auth?: GitAuthStrategy): Promise<{ projectName: string }> {
-  return await postJson<{ projectName: string }>("/v1/integrations/git/register", { repoUrl, projectName, auth });
+/** Registers a git repository: validates access by cloning it into a server-side cache — never creates or touches any workflow directory. `secretsKey` (this repo's X25519 private key, the content of its .ensemble/secrets.key) is optional — lets workflows linked to this repo decrypt their context.secrets when triggered here. */
+export async function registerGitRepository(
+  repoUrl: string,
+  projectName?: string,
+  auth?: GitAuthStrategy,
+  secretsKey?: string,
+): Promise<{ projectName: string }> {
+  return await postJson<{ projectName: string }>(
+    "/v1/integrations/git/register",
+    { repoUrl, projectName, auth, secretsKey },
+  );
 }
 
 export interface GitRepositorySummary {
@@ -233,21 +278,48 @@ export interface GitRepositorySummary {
   authType: "none" | "pat";
   registeredAt: string;
   lastFetchedAt?: string;
+  /** Whether a secrets private key is currently set — never the key itself. */
+  hasSecretsKey: boolean;
 }
 
 export async function fetchGitRepositories(): Promise<GitRepositorySummary[]> {
-  const { repositories } = await getJson<{ repositories: GitRepositorySummary[] }>("/v1/integrations/git/repositories");
+  const { repositories } = await getJson<
+    { repositories: GitRepositorySummary[] }
+  >("/v1/integrations/git/repositories");
   return repositories;
+}
+
+/** Sets or rotates an already-registered repository's secrets private key, without re-registering. */
+export async function setRepositorySecretsKey(
+  projectName: string,
+  secretsKey: string,
+): Promise<void> {
+  await postJson(
+    `/v1/integrations/git/repositories/${
+      encodeURIComponent(projectName)
+    }/secrets-key`,
+    { secretsKey },
+  );
 }
 
 /** Re-fetches a registered repository's cached checkout. Does not touch any workflow. */
 export async function refreshGitRepository(projectName: string): Promise<void> {
-  await postJson(`/v1/integrations/git/repositories/${encodeURIComponent(projectName)}/refresh`, {});
+  await postJson(
+    `/v1/integrations/git/repositories/${
+      encodeURIComponent(projectName)
+    }/refresh`,
+    {},
+  );
 }
 
 /** Unregisters a repository. Workflows previously synced from it keep their last-synced content. */
 export async function removeGitRepository(projectName: string): Promise<void> {
-  await postJson(`/v1/integrations/git/repositories/${encodeURIComponent(projectName)}/remove`, {});
+  await postJson(
+    `/v1/integrations/git/repositories/${
+      encodeURIComponent(projectName)
+    }/remove`,
+    {},
+  );
 }
 
 export interface RepoWorkflowCandidate {
@@ -256,9 +328,13 @@ export interface RepoWorkflowCandidate {
 }
 
 /** Every workflow.yml found in a registered repo's own workflows/ folder, for a "sync from git" picker. */
-export async function fetchRepoWorkflowCandidates(projectName: string): Promise<RepoWorkflowCandidate[]> {
+export async function fetchRepoWorkflowCandidates(
+  projectName: string,
+): Promise<RepoWorkflowCandidate[]> {
   const { candidates } = await getJson<{ candidates: RepoWorkflowCandidate[] }>(
-    `/v1/integrations/git/repositories/${encodeURIComponent(projectName)}/candidates`,
+    `/v1/integrations/git/repositories/${
+      encodeURIComponent(projectName)
+    }/candidates`,
   );
   return candidates;
 }
@@ -275,8 +351,14 @@ export interface CreateWorkflowGitSource {
  * workflows/<pathInRepo> instead — it keeps auto-resyncing from there on
  * future triggers.
  */
-export async function createWorkflow(name: string, source?: CreateWorkflowGitSource): Promise<WorkflowSummary> {
-  const { workflow } = await postJson<{ workflow: WorkflowSummary }>("/v1/workflows", { name, source });
+export async function createWorkflow(
+  name: string,
+  source?: CreateWorkflowGitSource,
+): Promise<WorkflowSummary> {
+  const { workflow } = await postJson<{ workflow: WorkflowSummary }>(
+    "/v1/workflows",
+    { name, source },
+  );
   return workflow;
 }
 
@@ -285,15 +367,73 @@ export async function deleteWorkflow(workflowId: string): Promise<void> {
   await deleteJson(`/v1/workflows/${workflowId}`);
 }
 
-export async function fetchWorkflowFiles(workflowId: string): Promise<WorkflowFileNode[]> {
-  const { files } = await getJson<{ files: WorkflowFileNode[] }>(`/v1/workflows/${workflowId}/files`);
+export async function fetchWorkflowFiles(
+  workflowId: string,
+): Promise<WorkflowFileNode[]> {
+  const { files } = await getJson<{ files: WorkflowFileNode[] }>(
+    `/v1/workflows/${workflowId}/files`,
+  );
   return files;
 }
 
-export async function fetchWorkflowFileContent(workflowId: string, path: string): Promise<string> {
+export async function fetchWorkflowFileContent(
+  workflowId: string,
+  path: string,
+): Promise<string> {
   const encodedPath = path.split("/").map(encodeURIComponent).join("/");
   const { content } = await getJson<{ content: string }>(
     `/v1/workflows/${workflowId}/files/${encodedPath}`,
   );
   return content;
+}
+
+export interface SecretKeySummary {
+  key: string;
+}
+
+/**
+ * Key names only for one (workflow, context) — never a value, matching the
+ * git integration's own "never round-trip a stored secret" principle. 404s
+ * (surfaced as a thrown error whose message names the reason) when the
+ * workflow has no linked git repository — the secrets editor only works for
+ * git-linked workflows; a local-only workflow is edited via
+ * `ens workflow secrets edit` instead.
+ */
+export async function fetchSecretsContext(
+  workflowId: string,
+  context: string,
+): Promise<SecretKeySummary[]> {
+  const { keys } = await getJson<{ keys: SecretKeySummary[] }>(
+    `/v1/secrets/${workflowId}/${encodeURIComponent(context)}`,
+  );
+  return keys;
+}
+
+/** Encrypts `value` with the linked repo's own committed public key and commits contexts/<context>/secrets.enc. Returns the new commit's sha. */
+export async function setSecret(
+  workflowId: string,
+  context: string,
+  key: string,
+  value: string,
+): Promise<string> {
+  const { commitSha } = await postJson<{ commitSha: string }>(
+    `/v1/secrets/${workflowId}/${encodeURIComponent(context)}/${
+      encodeURIComponent(key)
+    }/set`,
+    { value },
+  );
+  return commitSha;
+}
+
+export async function deleteSecret(
+  workflowId: string,
+  context: string,
+  key: string,
+): Promise<void> {
+  await postJson(
+    `/v1/secrets/${workflowId}/${encodeURIComponent(context)}/${
+      encodeURIComponent(key)
+    }/delete`,
+    {},
+  );
 }

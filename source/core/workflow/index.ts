@@ -37,10 +37,21 @@ export type {
 export { expandMatrix } from "./matrix.ts";
 export {
   type ContextLoader,
-  type ContextSource,
   ContextResolutionError,
   resolveContext,
 } from "./context-loaders/resolve.ts";
+export {
+  decryptFile,
+  decryptValue,
+  encryptFile,
+  encryptValue,
+  generateKeypair,
+  isEncryptedMarker,
+  resolvePrivateKey,
+  SECRETS_PRIVATE_KEY_PATH,
+  SECRETS_PUBLIC_KEY_PATH,
+  type SecretsKeypair,
+} from "./context-loaders/secrets-crypto.ts";
 export { type StepEvent } from "./run-job.ts";
 export { type StepLogCapture, StepRunError } from "./run-step.ts";
 export {

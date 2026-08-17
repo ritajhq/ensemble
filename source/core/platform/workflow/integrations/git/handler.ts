@@ -5,11 +5,13 @@ import {
   refreshGitRepository,
   registerGitRepository,
   removeGitRepository,
+  setRepositorySecretsKey,
 } from "@ensemble/core";
 import { isAuthorizedFor } from "../../../auth/tokens.ts";
 import {
   type GitRepositorySummary,
   isRegisterGitRepositoryRequest,
+  isSetRepositorySecretsKeyRequest,
   type ListGitRepositoriesResponse,
   type ListRepoWorkflowCandidatesResponse,
   type RefreshGitRepositoryResponse,
@@ -22,7 +24,11 @@ function resolveProjectNameParam(
 ): { projectName: string } | { errorResponse: Response } {
   const projectName = params.projectName;
   if (!projectName) {
-    return { errorResponse: Response.json({ error: "Missing project name in URL." }, { status: 400 }) };
+    return {
+      errorResponse: Response.json({ error: "Missing project name in URL." }, {
+        status: 400,
+      }),
+    };
   }
   return { projectName };
 }
@@ -36,9 +42,14 @@ function resolveProjectNameParam(
  * or through the ongoing WorkflowGitLink that keeps it resynced on triggers
  * (see core/workflow.ts's syncWorkflowFromGitLinkIfPresent).
  */
-export async function handleRegisterGitRepository(repositories: GitRepositoryStore, request: Request): Promise<Response> {
+export async function handleRegisterGitRepository(
+  repositories: GitRepositoryStore,
+  request: Request,
+): Promise<Response> {
   if (!await isAuthorizedFor(request, "upload")) {
-    return Response.json({ error: "Missing or invalid bearer token." }, { status: 401 });
+    return Response.json({ error: "Missing or invalid bearer token." }, {
+      status: 401,
+    });
   }
 
   const text = await request.text();
@@ -46,11 +57,14 @@ export async function handleRegisterGitRepository(repositories: GitRepositorySto
   try {
     body = JSON.parse(text);
   } catch {
-    return Response.json({ error: "Request body must be valid JSON." }, { status: 400 });
+    return Response.json({ error: "Request body must be valid JSON." }, {
+      status: 400,
+    });
   }
   if (!isRegisterGitRepositoryRequest(body)) {
     return Response.json({
-      error: 'Expected { repoUrl: string, projectName?: string, auth?: { type: "none" } | { type: "pat", token: string } }.',
+      error:
+        'Expected { repoUrl: string, projectName?: string, auth?: { type: "none" } | { type: "pat", token: string }, secretsKey?: string }.',
     }, { status: 400 });
   }
 
@@ -61,17 +75,27 @@ export async function handleRegisterGitRepository(repositories: GitRepositorySto
       repoUrl: body.repoUrl,
       projectName: body.projectName,
       auth,
+      secretsKey: body.secretsKey,
     });
-    return Response.json({ projectName } satisfies RegisterGitRepositoryResponse);
+    return Response.json(
+      { projectName } satisfies RegisterGitRepositoryResponse,
+    );
   } catch (error) {
-    return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 });
+    return Response.json({
+      error: error instanceof Error ? error.message : String(error),
+    }, { status: 400 });
   }
 }
 
 /** GET /v1/integrations/git/repositories — every registered repository. */
-export async function handleListGitRepositories(repositories: GitRepositoryStore, request: Request): Promise<Response> {
+export async function handleListGitRepositories(
+  repositories: GitRepositoryStore,
+  request: Request,
+): Promise<Response> {
   if (!await isAuthorizedFor(request, "read")) {
-    return Response.json({ error: "Missing or invalid bearer token." }, { status: 401 });
+    return Response.json({ error: "Missing or invalid bearer token." }, {
+      status: 401,
+    });
   }
 
   const records = await repositories.list();
@@ -81,9 +105,56 @@ export async function handleListGitRepositories(repositories: GitRepositoryStore
     authType: record.auth.type,
     registeredAt: record.registeredAt,
     lastFetchedAt: record.lastFetchedAt,
+    hasSecretsKey: record.secretsKey !== undefined,
   }));
 
-  return Response.json({ repositories: summaries } satisfies ListGitRepositoriesResponse);
+  return Response.json(
+    { repositories: summaries } satisfies ListGitRepositoriesResponse,
+  );
+}
+
+/** POST /v1/integrations/git/repositories/:projectName/secrets-key — sets or rotates a registered repository's secrets private key, without re-registering. */
+export async function handleSetRepositorySecretsKey(
+  repositories: GitRepositoryStore,
+  request: Request,
+  params: Record<string, string | undefined>,
+): Promise<Response> {
+  if (!await isAuthorizedFor(request, "upload")) {
+    return Response.json({ error: "Missing or invalid bearer token." }, {
+      status: 401,
+    });
+  }
+
+  const resolved = resolveProjectNameParam(params);
+  if ("errorResponse" in resolved) return resolved.errorResponse;
+
+  const text = await request.text();
+  let body: unknown;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    return Response.json({ error: "Request body must be valid JSON." }, {
+      status: 400,
+    });
+  }
+  if (!isSetRepositorySecretsKeyRequest(body)) {
+    return Response.json({ error: "Expected { secretsKey: string }." }, {
+      status: 400,
+    });
+  }
+
+  try {
+    await setRepositorySecretsKey(
+      repositories,
+      resolved.projectName,
+      body.secretsKey,
+    );
+    return Response.json({});
+  } catch (error) {
+    return Response.json({
+      error: error instanceof Error ? error.message : String(error),
+    }, { status: 400 });
+  }
 }
 
 /** POST /v1/integrations/git/repositories/:projectName/refresh — re-fetches a registered repository's cached checkout. Does not touch any workflow. */
@@ -93,17 +164,26 @@ export async function handleRefreshGitRepository(
   params: Record<string, string | undefined>,
 ): Promise<Response> {
   if (!await isAuthorizedFor(request, "upload")) {
-    return Response.json({ error: "Missing or invalid bearer token." }, { status: 401 });
+    return Response.json({ error: "Missing or invalid bearer token." }, {
+      status: 401,
+    });
   }
 
   const resolved = resolveProjectNameParam(params);
   if ("errorResponse" in resolved) return resolved.errorResponse;
 
   try {
-    const { projectName, lastFetchedAt } = await refreshGitRepository(repositories, resolved.projectName);
-    return Response.json({ projectName, lastFetchedAt } satisfies RefreshGitRepositoryResponse);
+    const { projectName, lastFetchedAt } = await refreshGitRepository(
+      repositories,
+      resolved.projectName,
+    );
+    return Response.json(
+      { projectName, lastFetchedAt } satisfies RefreshGitRepositoryResponse,
+    );
   } catch (error) {
-    return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 });
+    return Response.json({
+      error: error instanceof Error ? error.message : String(error),
+    }, { status: 400 });
   }
 }
 
@@ -114,7 +194,9 @@ export async function handleRemoveGitRepository(
   params: Record<string, string | undefined>,
 ): Promise<Response> {
   if (!await isAuthorizedFor(request, "upload")) {
-    return Response.json({ error: "Missing or invalid bearer token." }, { status: 401 });
+    return Response.json({ error: "Missing or invalid bearer token." }, {
+      status: 401,
+    });
   }
 
   const resolved = resolveProjectNameParam(params);
@@ -124,7 +206,9 @@ export async function handleRemoveGitRepository(
     await removeGitRepository(repositories, resolved.projectName);
     return Response.json({});
   } catch (error) {
-    return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 });
+    return Response.json({
+      error: error instanceof Error ? error.message : String(error),
+    }, { status: 400 });
   }
 }
 
@@ -135,16 +219,25 @@ export async function handleListRepoWorkflowCandidates(
   params: Record<string, string | undefined>,
 ): Promise<Response> {
   if (!await isAuthorizedFor(request, "read")) {
-    return Response.json({ error: "Missing or invalid bearer token." }, { status: 401 });
+    return Response.json({ error: "Missing or invalid bearer token." }, {
+      status: 401,
+    });
   }
 
   const resolved = resolveProjectNameParam(params);
   if ("errorResponse" in resolved) return resolved.errorResponse;
 
   try {
-    const candidates = await listRepoWorkflowCandidates(repositories, resolved.projectName);
-    return Response.json({ candidates } satisfies ListRepoWorkflowCandidatesResponse);
+    const candidates = await listRepoWorkflowCandidates(
+      repositories,
+      resolved.projectName,
+    );
+    return Response.json(
+      { candidates } satisfies ListRepoWorkflowCandidatesResponse,
+    );
   } catch (error) {
-    return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 });
+    return Response.json({
+      error: error instanceof Error ? error.message : String(error),
+    }, { status: 400 });
   }
 }

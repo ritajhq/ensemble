@@ -61,17 +61,27 @@ function buildGitAuthArgs(auth: GitAuthStrategy): string[] {
  * responsible for moving what it needs out of the returned dir and then
  * removing the staging dir.
  */
-async function sparseCloneWorkflows(record: Pick<GitRepositoryRecord, "repoUrl" | "auth">, stagingParentDir: string, label: string): Promise<string> {
-  const stagingDir = join(stagingParentDir, `.git-integration-${label}-${crypto.randomUUID()}`);
+async function sparseCloneWorkflows(
+  record: Pick<GitRepositoryRecord, "repoUrl" | "auth">,
+  stagingParentDir: string,
+  label: string,
+): Promise<string> {
+  const stagingDir = join(
+    stagingParentDir,
+    `.git-integration-${label}-${crypto.randomUUID()}`,
+  );
   const authArgs = buildGitAuthArgs(record.auth);
 
-  const cloneResult = await $`git clone ${authArgs} --filter=blob:none --no-checkout --depth 1 ${record.repoUrl} ${stagingDir}`
-    .stdout("null")
-    .stderr("piped")
-    .noThrow();
+  const cloneResult =
+    await $`git clone ${authArgs} --filter=blob:none --no-checkout --depth 1 ${record.repoUrl} ${stagingDir}`
+      .stdout("null")
+      .stderr("piped")
+      .noThrow();
   if (cloneResult.code !== 0) {
     await removeIfExists(stagingDir);
-    throw new Error(`Failed to clone "${record.repoUrl}": ${cloneResult.stderr.trim()}`);
+    throw new Error(
+      `Failed to clone "${record.repoUrl}": ${cloneResult.stderr.trim()}`,
+    );
   }
 
   const sparseResult = await $`git sparse-checkout set --no-cone workflows`
@@ -80,11 +90,14 @@ async function sparseCloneWorkflows(record: Pick<GitRepositoryRecord, "repoUrl" 
     .stderr("piped")
     .noThrow();
   const checkoutResult = sparseResult.code === 0
-    ? await $`git checkout`.cwd(stagingDir).stdout("null").stderr("piped").noThrow()
+    ? await $`git checkout`.cwd(stagingDir).stdout("null").stderr("piped")
+      .noThrow()
     : sparseResult;
   if (checkoutResult.code !== 0) {
     await removeIfExists(stagingDir);
-    throw new Error(`Failed to sparse-checkout "workflows/" from "${record.repoUrl}": ${checkoutResult.stderr.trim()}`);
+    throw new Error(
+      `Failed to sparse-checkout "workflows/" from "${record.repoUrl}": ${checkoutResult.stderr.trim()}`,
+    );
   }
 
   const clonedWorkflowsDir = join(stagingDir, "workflows");
@@ -105,11 +118,17 @@ async function sparseCloneWorkflows(record: Pick<GitRepositoryRecord, "repoUrl" 
  * `syncWorkflowFromGit` copies out of this cache into a live workflow
  * directory, and only after validating the specific path it's copying.
  */
-async function refreshRepoCache(record: Pick<GitRepositoryRecord, "projectName" | "repoUrl" | "auth">): Promise<string> {
+async function refreshRepoCache(
+  record: Pick<GitRepositoryRecord, "projectName" | "repoUrl" | "auth">,
+): Promise<string> {
   const cacheRoot = await gitCacheRoot();
   const targetDir = join(cacheRoot, record.projectName);
 
-  const stagingDir = await sparseCloneWorkflows(record, cacheRoot, record.projectName);
+  const stagingDir = await sparseCloneWorkflows(
+    record,
+    cacheRoot,
+    record.projectName,
+  );
   const clonedWorkflowsDir = join(stagingDir, "workflows");
 
   await removeIfExists(targetDir);
@@ -126,6 +145,8 @@ export interface RegisterGitRepositoryOptions {
   projectName?: string;
   /** Defaults to { type: "none" } (public repo, no credentials). */
   auth?: GitAuthStrategy;
+  /** This repo's X25519 private key, so workflows linked to it can decrypt context.secrets when triggered here. Optional — a repo with no encrypted secrets doesn't need one. */
+  secretsKey?: string;
 }
 
 /**
@@ -139,7 +160,8 @@ export async function registerGitRepository(
   repositories: GitRepositoryStore,
   options: RegisterGitRepositoryOptions,
 ): Promise<GitRepositoryRecord> {
-  const projectName = options.projectName?.trim() || deriveProjectName(options.repoUrl);
+  const projectName = options.projectName?.trim() ||
+    deriveProjectName(options.repoUrl);
   assertValidProjectName(projectName);
   const auth = options.auth ?? { type: "none" };
 
@@ -152,13 +174,32 @@ export async function registerGitRepository(
     auth,
     registeredAt: now,
     lastFetchedAt: now,
+    secretsKey: options.secretsKey,
   };
   await repositories.put(record);
   return record;
 }
 
+/** Sets or rotates an already-registered repository's secrets private key, without re-registering (which would otherwise require re-validating clone access and re-supplying the PAT). */
+export async function setRepositorySecretsKey(
+  repositories: GitRepositoryStore,
+  projectName: string,
+  secretsKey: string,
+): Promise<GitRepositoryRecord> {
+  const record = await repositories.get(projectName);
+  if (!record) {
+    throw new Error(`Repository "${projectName}" is not registered.`);
+  }
+  const updated: GitRepositoryRecord = { ...record, secretsKey };
+  await repositories.put(updated);
+  return updated;
+}
+
 /** Re-fetches an already-registered repository's cached checkout. Does not touch any workflow directory. */
-export async function refreshGitRepository(repositories: GitRepositoryStore, projectName: string): Promise<GitRepositoryRecord> {
+export async function refreshGitRepository(
+  repositories: GitRepositoryStore,
+  projectName: string,
+): Promise<GitRepositoryRecord> {
   const record = await repositories.get(projectName);
   if (!record) {
     throw new Error(`Repository "${projectName}" is not registered.`);
@@ -166,7 +207,10 @@ export async function refreshGitRepository(repositories: GitRepositoryStore, pro
 
   await refreshRepoCache(record);
 
-  const updated: GitRepositoryRecord = { ...record, lastFetchedAt: new Date().toISOString() };
+  const updated: GitRepositoryRecord = {
+    ...record,
+    lastFetchedAt: new Date().toISOString(),
+  };
   await repositories.put(updated);
   return updated;
 }
@@ -178,7 +222,10 @@ export async function refreshGitRepository(repositories: GitRepositoryStore, pro
  * only the ability to re-sync it from this repo is lost (its link now points
  * at a project that no longer resolves).
  */
-export async function removeGitRepository(repositories: GitRepositoryStore, projectName: string): Promise<void> {
+export async function removeGitRepository(
+  repositories: GitRepositoryStore,
+  projectName: string,
+): Promise<void> {
   const cacheRoot = await gitCacheRoot();
   await removeIfExists(join(cacheRoot, projectName));
   await repositories.delete(projectName);
@@ -207,14 +254,25 @@ export async function listRepoWorkflowCandidates(
   }
 
   const cacheDir = await refreshRepoCache(record);
-  await repositories.put({ ...record, lastFetchedAt: new Date().toISOString() });
+  await repositories.put({
+    ...record,
+    lastFetchedAt: new Date().toISOString(),
+  });
 
   const candidates: RepoWorkflowCandidate[] = [];
-  for await (const entry of walk(cacheDir, { match: [/workflow\.yml$/], includeDirs: false })) {
+  for await (
+    const entry of walk(cacheDir, {
+      match: [/workflow\.yml$/],
+      includeDirs: false,
+    })
+  ) {
     const workflowDir = dirname(entry.path);
     const pathInRepo = workflowDir.slice(cacheDir.length + 1) || ".";
     const workflow = await parseWorkflowFile(entry.path).catch(() => undefined);
-    candidates.push({ pathInRepo, hasTrigger: Boolean(workflow?.on && workflow.on.length > 0) });
+    candidates.push({
+      pathInRepo,
+      hasTrigger: Boolean(workflow?.on && workflow.on.length > 0),
+    });
   }
   return candidates;
 }
@@ -240,12 +298,17 @@ export async function syncWorkflowFromGit(
   }
 
   const cacheDir = await refreshRepoCache(record);
-  await repositories.put({ ...record, lastFetchedAt: new Date().toISOString() });
+  await repositories.put({
+    ...record,
+    lastFetchedAt: new Date().toISOString(),
+  });
 
   const candidateDir = join(cacheDir, pathInRepo);
   const candidateWorkflowFile = join(candidateDir, "workflow.yml");
   if (!await exists(candidateWorkflowFile, { isFile: true })) {
-    throw new Error(`"${pathInRepo}" in "${record.repoUrl}" has no workflow.yml.`);
+    throw new Error(
+      `"${pathInRepo}" in "${record.repoUrl}" has no workflow.yml.`,
+    );
   }
   await parseWorkflowFile(candidateWorkflowFile);
 
@@ -277,6 +340,9 @@ async function copyDir(src: string, dest: string): Promise<void> {
 }
 
 /** Drops `workflowName`'s git link, e.g. when the workflow itself is deleted. Leaves its content on disk untouched. */
-export async function unlinkWorkflowFromGit(links: WorkflowGitLinkStore, workflowName: string): Promise<void> {
+export async function unlinkWorkflowFromGit(
+  links: WorkflowGitLinkStore,
+  workflowName: string,
+): Promise<void> {
   await links.delete(workflowName);
 }

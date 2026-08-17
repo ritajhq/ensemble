@@ -5,6 +5,7 @@ import {
   handleRefreshGitRepository,
   handleRegisterGitRepository,
   handleRemoveGitRepository,
+  handleSetRepositorySecretsKey,
 } from "./handler.ts";
 import type { Feature } from "../../../features.ts";
 
@@ -14,6 +15,7 @@ export {
   handleRefreshGitRepository,
   handleRegisterGitRepository,
   handleRemoveGitRepository,
+  handleSetRepositorySecretsKey,
 } from "./handler.ts";
 export type {
   GitRepositorySummary,
@@ -23,10 +25,13 @@ export type {
   RegisterGitRepositoryRequest,
   RegisterGitRepositoryResponse,
   RepoWorkflowCandidateSummary,
+  SetRepositorySecretsKeyRequest,
 } from "./contract.ts";
 
 /** Builds this module's routes, bound to `repositories` — call once at startup with the process's own GitRepositoryStore instance. */
-export function createGitIntegrationFeatures(repositories: GitRepositoryStore): Feature[] {
+export function createGitIntegrationFeatures(
+  repositories: GitRepositoryStore,
+): Feature[] {
   return [
     {
       name: "git-integration-register",
@@ -37,26 +42,46 @@ export function createGitIntegrationFeatures(repositories: GitRepositoryStore): 
     {
       name: "git-integration-repositories-list",
       method: "GET",
-      pattern: new URLPattern({ pathname: "/v1/integrations/git/repositories" }),
+      pattern: new URLPattern({
+        pathname: "/v1/integrations/git/repositories",
+      }),
       handle: (request) => handleListGitRepositories(repositories, request),
     },
     {
       name: "git-integration-repository-refresh",
       method: "POST",
-      pattern: new URLPattern({ pathname: "/v1/integrations/git/repositories/:projectName/refresh" }),
-      handle: (request, params) => handleRefreshGitRepository(repositories, request, params),
+      pattern: new URLPattern({
+        pathname: "/v1/integrations/git/repositories/:projectName/refresh",
+      }),
+      handle: (request, params) =>
+        handleRefreshGitRepository(repositories, request, params),
     },
     {
       name: "git-integration-repository-remove",
       method: "POST",
-      pattern: new URLPattern({ pathname: "/v1/integrations/git/repositories/:projectName/remove" }),
-      handle: (request, params) => handleRemoveGitRepository(repositories, request, params),
+      pattern: new URLPattern({
+        pathname: "/v1/integrations/git/repositories/:projectName/remove",
+      }),
+      handle: (request, params) =>
+        handleRemoveGitRepository(repositories, request, params),
+    },
+    {
+      name: "git-integration-repository-secrets-key-set",
+      method: "POST",
+      pattern: new URLPattern({
+        pathname: "/v1/integrations/git/repositories/:projectName/secrets-key",
+      }),
+      handle: (request, params) =>
+        handleSetRepositorySecretsKey(repositories, request, params),
     },
     {
       name: "git-integration-repository-candidates-list",
       method: "GET",
-      pattern: new URLPattern({ pathname: "/v1/integrations/git/repositories/:projectName/candidates" }),
-      handle: (request, params) => handleListRepoWorkflowCandidates(repositories, request, params),
+      pattern: new URLPattern({
+        pathname: "/v1/integrations/git/repositories/:projectName/candidates",
+      }),
+      handle: (request, params) =>
+        handleListRepoWorkflowCandidates(repositories, request, params),
     },
   ];
 }

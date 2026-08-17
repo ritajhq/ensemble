@@ -14,7 +14,7 @@ import { runJob, type StepEvent } from "./run-job.ts";
 import { expandMatrix } from "./matrix.ts";
 import { JobLogger, printSummary, type SummaryRow } from "./logging.ts";
 import { checkoutRepositories } from "./checkout.ts";
-import { type ContextSource, resolveContext } from "./context-loaders/resolve.ts";
+import { resolveContext } from "./context-loaders/resolve.ts";
 import { findContextFileReferences } from "./parse.ts";
 
 /**
@@ -27,7 +27,12 @@ import { findContextFileReferences } from "./parse.ts";
  */
 export type WorkflowEvent =
   | { type: "job-started"; jobId: string }
-  | { type: "job-finished"; jobId: string; result: JobResult; durationMs: number }
+  | {
+    type: "job-finished";
+    jobId: string;
+    result: JobResult;
+    durationMs: number;
+  }
   | ({ jobId: string } & Extract<StepEvent, { type: "step-started" }>)
   | ({ jobId: string } & Extract<StepEvent, { type: "step-finished" }>);
 
@@ -48,13 +53,6 @@ export interface RunWorkflowOptions {
    * every declared entry has an inline `value`/`default`.
    */
   context?: string;
-  /**
-   * Restricts context resolution to just this loader (`local` or `vault`),
-   * skipping the other entirely rather than falling through to it — see
-   * context-loaders/resolve.ts's selectLoaders. Defaults to
-   * `ENSEMBLE_CONTEXT_SOURCE`'s value, or unset (try local then vault).
-   */
-  contextSource?: ContextSource;
   /**
    * Repo root to expose to steps as `ENSEMBLE_WORKSPACE`, so an `ens` subcommand
    * invoked from a `run:` step can find it even though steps' `cwd` is a scratch
@@ -77,7 +75,10 @@ export interface RunWorkflowResult {
   success: boolean;
 }
 
-function matrixInstanceLabel(jobId: string, combo: Record<string, unknown>): string {
+function matrixInstanceLabel(
+  jobId: string,
+  combo: Record<string, unknown>,
+): string {
   const parts = Object.entries(combo).map(([k, v]) => `${k}=${v}`);
   return `${jobId}[${parts.join(", ")}]`;
 }
@@ -101,7 +102,9 @@ async function runMatrixJob(
   const matrix = job.matrix!;
   const combos = expandMatrix(matrix.axes);
   const failFast = matrix["fail-fast"] ?? true;
-  const instanceConcurrency = Math.min(concurrency, matrix["max-parallel"] ?? Infinity, combos.length) || 1;
+  const instanceConcurrency =
+    Math.min(concurrency, matrix["max-parallel"] ?? Infinity, combos.length) ||
+    1;
   const startedAt = performance.now();
 
   const controller = new AbortController();
@@ -113,7 +116,14 @@ async function runMatrixJob(
     async ({ combo, index }) => {
       const logger = new JobLogger(matrixInstanceLabel(jobId, combo));
       const instanceRoot = { ...root, matrix: combo };
-      const outcome = await runJob(job, instanceRoot, workflowDir, cwd, logger, controller.signal);
+      const outcome = await runJob(
+        job,
+        instanceRoot,
+        workflowDir,
+        cwd,
+        logger,
+        controller.signal,
+      );
       logger.flush(outcome.result);
       if (outcome.result === "failure" && failFast) {
         controller.abort();
@@ -136,7 +146,9 @@ async function runMatrixJob(
   }
 
   const needsResult: MatrixNeedsResult = {
-    result: instanceOutcomes.every((o) => o.result === "success") ? "success" : "failure",
+    result: instanceOutcomes.every((o) => o.result === "success")
+      ? "success"
+      : "failure",
     matrix: combos,
     results: instanceOutcomes.map((o) => o.result),
     outputs,
@@ -157,7 +169,6 @@ export async function runWorkflow(
   options: RunWorkflowOptions,
 ): Promise<RunWorkflowResult> {
   const callerVars = { ...workflow.variables, ...options.variables };
-  const contextSource = options.contextSource ?? (Deno.env.get("ENSEMBLE_CONTEXT_SOURCE") as ContextSource | undefined);
   const concurrency = options.concurrency ?? Infinity;
 
   let batches = buildBatches(workflow);
@@ -185,11 +196,10 @@ export async function runWorkflow(
 
     const resolved = await resolveContext(
       workflow.context,
-      findContextFileReferences(workflow),
+      findContextFileReferences(workflow, options.context),
       options.context,
       options.workflowDir,
       runDir,
-      contextSource,
       callerVars,
       options.repoRoot,
     );
@@ -215,7 +225,9 @@ export async function runWorkflow(
         async (jobId) => {
           const job = workflow.jobs[jobId];
           const deps = job.needs ?? [];
-          const depsOk = deps.every((dep) => outcomes[dep]?.result !== "failure");
+          const depsOk = deps.every((dep) =>
+            outcomes[dep]?.result !== "failure"
+          );
 
           const logger = new JobLogger(jobId);
           options.events?.Invoke({ type: "job-started", jobId });
@@ -234,7 +246,14 @@ export async function runWorkflow(
               contextFiles: resolved.files,
               contextSecretFiles: resolved.secretFiles,
             });
-            const matrixRun = await runMatrixJob(jobId, job, root, options.workflowDir, runDir, concurrency);
+            const matrixRun = await runMatrixJob(
+              jobId,
+              job,
+              root,
+              options.workflowDir,
+              runDir,
+              concurrency,
+            );
             needsResult = matrixRun.needsResult;
             durationMs = matrixRun.durationMs;
           } else {
@@ -258,7 +277,12 @@ export async function runWorkflow(
             needsResult = { result: outcome.result, outputs: outcome.outputs };
             durationMs = logger.flush(outcome.result);
           }
-          options.events?.Invoke({ type: "job-finished", jobId, result: needsResult.result, durationMs });
+          options.events?.Invoke({
+            type: "job-finished",
+            jobId,
+            result: needsResult.result,
+            durationMs,
+          });
           return { jobId, needsResult, durationMs };
         },
       );

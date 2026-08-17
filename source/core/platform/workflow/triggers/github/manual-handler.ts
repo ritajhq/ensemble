@@ -9,7 +9,10 @@ import {
 } from "@ensemble/core";
 import { isAuthorizedFor } from "../../../auth/tokens.ts";
 import { matchesAnyTagPattern } from "./match.ts";
-import { isManualGithubTriggerRequest, type ManualGithubTriggerResponse } from "./manual-contract.ts";
+import {
+  isManualGithubTriggerRequest,
+  type ManualGithubTriggerResponse,
+} from "./manual-contract.ts";
 
 /**
  * Lets the dashboard simulate a GitHub push for a workflow's `on: - github:`
@@ -25,18 +28,24 @@ export async function handleManualGithubTrigger(
   params: Record<string, string | undefined>,
 ): Promise<Response> {
   if (!await isAuthorizedFor(request, "trigger")) {
-    return Response.json({ error: "Missing or invalid bearer token." }, { status: 401 });
+    return Response.json({ error: "Missing or invalid bearer token." }, {
+      status: 401,
+    });
   }
 
   const id = params.id;
   if (!id) {
-    return Response.json({ error: "Missing workflow id in URL." }, { status: 400 });
+    return Response.json({ error: "Missing workflow id in URL." }, {
+      status: 400,
+    });
   }
   let name: string;
   try {
     name = decodeWorkflowId(id);
   } catch (error) {
-    return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 });
+    return Response.json({
+      error: error instanceof Error ? error.message : String(error),
+    }, { status: 400 });
   }
 
   const text = await request.text();
@@ -45,11 +54,15 @@ export async function handleManualGithubTrigger(
     try {
       body = JSON.parse(text);
     } catch {
-      return Response.json({ error: "Request body must be valid JSON." }, { status: 400 });
+      return Response.json({ error: "Request body must be valid JSON." }, {
+        status: 400,
+      });
     }
   }
   if (!isManualGithubTriggerRequest(body)) {
-    return Response.json({ error: "Expected { tag: string, sha?: string }." }, { status: 400 });
+    return Response.json({ error: "Expected { tag: string, sha?: string }." }, {
+      status: 400,
+    });
   }
 
   let workflow;
@@ -57,30 +70,49 @@ export async function handleManualGithubTrigger(
     await syncWorkflowFromGitLinkIfPresent(repositories, links, name);
     ({ workflow } = await getWorkflowByName(name));
   } catch (error) {
-    return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 404 });
+    return Response.json({
+      error: error instanceof Error ? error.message : String(error),
+    }, { status: 404 });
   }
 
   const githubTrigger = workflow.on?.find((t) => t.github)?.github;
   if (!githubTrigger) {
     return Response.json(
-      { error: `Workflow "${name}" has no "github" trigger declared under "on:".` },
+      {
+        error:
+          `Workflow "${name}" has no "github" trigger declared under "on:".`,
+      },
       { status: 403 },
     );
   }
 
   if (!matchesAnyTagPattern(body.tag, githubTrigger.push.tags)) {
     return Response.json(
-      { error: `Tag "${body.tag}" doesn't match this trigger's push.tags patterns (${githubTrigger.push.tags.join(", ")}).` },
+      {
+        error:
+          `Tag "${body.tag}" doesn't match this trigger's push.tags patterns (${
+            githubTrigger.push.tags.join(", ")
+          }).`,
+      },
       { status: 400 },
     );
   }
 
   try {
     const success = await trackedRunWorkflowByName(runs, name, {
-      trigger: { type: "github", ref: `refs/tags/${body.tag}`, tag: body.tag, sha: body.sha },
+      trigger: {
+        type: "github",
+        ref: `refs/tags/${body.tag}`,
+        tag: body.tag,
+        sha: body.sha,
+      },
+      repositories,
+      links,
     });
     return Response.json({ success } satisfies ManualGithubTriggerResponse);
   } catch (error) {
-    return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 });
+    return Response.json({
+      error: error instanceof Error ? error.message : String(error),
+    }, { status: 400 });
   }
 }

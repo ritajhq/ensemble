@@ -1,12 +1,20 @@
-import { GitBranch, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
+import {
+  GitBranch,
+  KeyRound,
+  Plus,
+  RefreshCw,
+  Search,
+  Trash2,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
+  fetchGitRepositories,
   type GitAuthStrategy,
   type GitRepositorySummary,
-  fetchGitRepositories,
   refreshGitRepository,
   registerGitRepository,
   removeGitRepository,
+  setRepositorySecretsKey,
 } from "../lib/api.ts";
 import { deriveProjectName } from "../lib/git.ts";
 import { formatRelativeTime } from "../lib/status.ts";
@@ -29,16 +37,27 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@ritaj/ui";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@ritaj/ui/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@ritaj/ui/components/ui/table";
 
 export function GitIntegrationView() {
   const [addOpen, setAddOpen] = useState(false);
-  const [repositories, setRepositories] = useState<GitRepositorySummary[] | null>(null);
+  const [repositories, setRepositories] = useState<
+    GitRepositorySummary[] | null
+  >(null);
   const [listError, setListError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
   function refetchRepositories() {
-    fetchGitRepositories().then(setRepositories).catch((error) => setListError(error.message));
+    fetchGitRepositories().then(setRepositories).catch((error) =>
+      setListError(error.message)
+    );
   }
 
   useEffect(() => {
@@ -64,7 +83,8 @@ export function GitIntegrationView() {
             <div>
               <h1 className="text-xl font-semibold">Git</h1>
               <p className="text-sm text-muted-foreground">
-                Register repositories so their content can be synced into workflows you create.
+                Register repositories so their content can be synced into
+                workflows you create.
               </p>
             </div>
           </div>
@@ -76,9 +96,9 @@ export function GitIntegrationView() {
               <SheetHeader>
                 <SheetTitle>Register a repository</SheetTitle>
                 <SheetDescription>
-                  Validates access to the repository — this doesn't create or change any workflow.
-                  Once registered, sync a repository's content into a workflow from that workflow's
-                  own page.
+                  Validates access to the repository — this doesn't create or
+                  change any workflow. Once registered, sync a repository's
+                  content into a workflow from that workflow's own page.
                 </SheetDescription>
               </SheetHeader>
               <AddRepositoryForm
@@ -103,9 +123,14 @@ export function GitIntegrationView() {
         </InputGroup>
 
         {listError && <p className="text-sm text-destructive">{listError}</p>}
-        {!listError && !filtered && <p className="text-sm text-muted-foreground">Loading…</p>}
+        {!listError && !filtered && (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        )}
         {!listError && filtered && (
-          <RepositoriesTable repositories={filtered} onChange={refetchRepositories} />
+          <RepositoriesTable
+            repositories={filtered}
+            onChange={refetchRepositories}
+          />
         )}
       </div>
     </div>
@@ -118,8 +143,12 @@ function AddRepositoryForm({ onAdded }: { onAdded: () => void }) {
   const [projectNameEdited, setProjectNameEdited] = useState(false);
   const [authType, setAuthType] = useState<"none" | "pat">("none");
   const [token, setToken] = useState("");
+  const [secretsKey, setSecretsKey] = useState("");
   const [status, setStatus] = useState<
-    { state: "idle" } | { state: "loading" } | { state: "error"; message: string }
+    { state: "idle" } | { state: "loading" } | {
+      state: "error";
+      message: string;
+    }
   >({ state: "idle" });
 
   function handleRepoUrlChange(value: string) {
@@ -133,17 +162,28 @@ function AddRepositoryForm({ onAdded }: { onAdded: () => void }) {
     event.preventDefault();
     setStatus({ state: "loading" });
     try {
-      const auth: GitAuthStrategy = authType === "pat" ? { type: "pat", token: token.trim() } : { type: "none" };
-      await registerGitRepository(repoUrl.trim(), projectName.trim() || undefined, auth);
+      const auth: GitAuthStrategy = authType === "pat"
+        ? { type: "pat", token: token.trim() }
+        : { type: "none" };
+      await registerGitRepository(
+        repoUrl.trim(),
+        projectName.trim() || undefined,
+        auth,
+        secretsKey.trim() || undefined,
+      );
       setRepoUrl("");
       setProjectName("");
       setProjectNameEdited(false);
       setAuthType("none");
       setToken("");
+      setSecretsKey("");
       setStatus({ state: "idle" });
       onAdded();
     } catch (error) {
-      setStatus({ state: "error", message: error instanceof Error ? error.message : String(error) });
+      setStatus({
+        state: "error",
+        message: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -162,8 +202,14 @@ function AddRepositoryForm({ onAdded }: { onAdded: () => void }) {
         />
       </div>
       <div className="flex flex-col gap-1">
-        <label className="text-xs text-muted-foreground" htmlFor="git-project-name">
-          Project name <span className="text-muted-foreground">(optional — defaults to the repo name)</span>
+        <label
+          className="text-xs text-muted-foreground"
+          htmlFor="git-project-name"
+        >
+          Project name{" "}
+          <span className="text-muted-foreground">
+            (optional — defaults to the repo name)
+          </span>
         </label>
         <Input
           id="git-project-name"
@@ -176,10 +222,16 @@ function AddRepositoryForm({ onAdded }: { onAdded: () => void }) {
         />
       </div>
       <div className="flex flex-col gap-1">
-        <label className="text-xs text-muted-foreground" htmlFor="git-auth-type">
+        <label
+          className="text-xs text-muted-foreground"
+          htmlFor="git-auth-type"
+        >
           Access
         </label>
-        <Select value={authType} onValueChange={(value) => setAuthType(value as "none" | "pat")}>
+        <Select
+          value={authType}
+          onValueChange={(value) => setAuthType(value as "none" | "pat")}
+        >
           <SelectTrigger id="git-auth-type" className="w-full">
             <SelectValue />
           </SelectTrigger>
@@ -191,7 +243,10 @@ function AddRepositoryForm({ onAdded }: { onAdded: () => void }) {
       </div>
       {authType === "pat" && (
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-muted-foreground" htmlFor="git-pat-token">
+          <label
+            className="text-xs text-muted-foreground"
+            htmlFor="git-pat-token"
+          >
             Personal access token
           </label>
           <Input
@@ -204,6 +259,27 @@ function AddRepositoryForm({ onAdded }: { onAdded: () => void }) {
           />
         </div>
       )}
+      <div className="flex flex-col gap-1">
+        <label
+          className="text-xs text-muted-foreground"
+          htmlFor="git-secrets-key"
+        >
+          Secrets private key{" "}
+          <span className="text-muted-foreground">(optional)</span>
+        </label>
+        <Input
+          id="git-secrets-key"
+          type="password"
+          placeholder="Contents of this repo's .ensemble/secrets.key"
+          value={secretsKey}
+          onChange={(event) => setSecretsKey(event.target.value)}
+        />
+        <p className="text-xs text-muted-foreground">
+          Lets workflows from this repo decrypt their context.secrets when
+          triggered here. Leave blank if this repo has no encrypted secrets —
+          you can set this later too.
+        </p>
+      </div>
       <div>
         <Button
           type="submit"
@@ -213,16 +289,82 @@ function AddRepositoryForm({ onAdded }: { onAdded: () => void }) {
           {status.state === "loading" ? "Registering…" : "Register"}
         </Button>
       </div>
-      {status.state === "error" && <p className="text-sm text-destructive">{status.message}</p>}
+      {status.state === "error" && (
+        <p className="text-sm text-destructive">{status.message}</p>
+      )}
+    </form>
+  );
+}
+
+function RotateSecretsKeyForm(
+  { onRotated }: { onRotated: (secretsKey: string) => Promise<void> },
+) {
+  const [secretsKey, setSecretsKey] = useState("");
+  const [status, setStatus] = useState<
+    { state: "idle" } | { state: "loading" } | {
+      state: "error";
+      message: string;
+    }
+  >({ state: "idle" });
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    setStatus({ state: "loading" });
+    try {
+      await onRotated(secretsKey.trim());
+      setSecretsKey("");
+      setStatus({ state: "idle" });
+    } catch (error) {
+      setStatus({
+        state: "error",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  return (
+    <form className="flex flex-col gap-3 p-4 pt-0" onSubmit={handleSubmit}>
+      <div className="flex flex-col gap-1">
+        <label
+          className="text-xs text-muted-foreground"
+          htmlFor="rotate-secrets-key"
+        >
+          Secrets private key
+        </label>
+        <Input
+          id="rotate-secrets-key"
+          type="password"
+          placeholder="Contents of this repo's .ensemble/secrets.key"
+          value={secretsKey}
+          onChange={(event) => setSecretsKey(event.target.value)}
+          required
+        />
+      </div>
+      <div>
+        <Button
+          type="submit"
+          disabled={status.state === "loading" ||
+            secretsKey.trim().length === 0}
+        >
+          {status.state === "loading" ? "Saving…" : "Save"}
+        </Button>
+      </div>
+      {status.state === "error" && (
+        <p className="text-sm text-destructive">{status.message}</p>
+      )}
     </form>
   );
 }
 
 function RepositoriesTable(
-  { repositories, onChange }: { repositories: GitRepositorySummary[]; onChange: () => void },
+  { repositories, onChange }: {
+    repositories: GitRepositorySummary[];
+    onChange: () => void;
+  },
 ) {
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [rotatingKeyFor, setRotatingKeyFor] = useState<string | null>(null);
 
   async function runAction(key: string, action: () => Promise<void>) {
     setPendingAction(key);
@@ -247,14 +389,18 @@ function RepositoriesTable(
               <TableHead>Project</TableHead>
               <TableHead>Repository</TableHead>
               <TableHead>Access</TableHead>
+              <TableHead>Secrets key</TableHead>
               <TableHead>Last fetched</TableHead>
-              <TableHead className="w-20" />
+              <TableHead className="w-24" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {repositories.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground">
+                <TableCell
+                  colSpan={6}
+                  className="text-center text-muted-foreground"
+                >
                   No repositories registered.
                 </TableCell>
               </TableRow>
@@ -264,24 +410,91 @@ function RepositoriesTable(
               const removeKey = `remove:${repository.projectName}`;
               return (
                 <TableRow key={repository.projectName}>
-                  <TableCell className="font-medium">{repository.projectName}</TableCell>
-                  <TableCell className="text-muted-foreground">{repository.repoUrl}</TableCell>
+                  <TableCell className="font-medium">
+                    {repository.projectName}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {repository.repoUrl}
+                  </TableCell>
                   <TableCell className="text-muted-foreground">
                     {repository.authType === "pat" ? "Token" : "Public"}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {repository.lastFetchedAt ? formatRelativeTime(repository.lastFetchedAt) : "Never"}
+                    {repository.hasSecretsKey ? "Set" : "Not set"}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {repository.lastFetchedAt
+                      ? formatRelativeTime(repository.lastFetchedAt)
+                      : "Never"}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
+                      <Sheet
+                        open={rotatingKeyFor === repository.projectName}
+                        onOpenChange={(open) =>
+                          setRotatingKeyFor(
+                            open ? repository.projectName : null,
+                          )}
+                      >
+                        <SheetTrigger
+                          render={
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              className="text-muted-foreground hover:text-foreground"
+                              title={repository.hasSecretsKey
+                                ? "Rotate secrets key"
+                                : "Set secrets key"}
+                            />
+                          }
+                        >
+                          <KeyRound className="size-3.5" />
+                          <span className="sr-only">
+                            {repository.hasSecretsKey
+                              ? "Rotate secrets key"
+                              : "Set secrets key"}
+                          </span>
+                        </SheetTrigger>
+                        <SheetContent>
+                          <SheetHeader>
+                            <SheetTitle>
+                              {repository.hasSecretsKey ? "Rotate" : "Set"}{" "}
+                              secrets key
+                            </SheetTitle>
+                            <SheetDescription>
+                              Workflows linked to "{repository.projectName}"
+                              will use this key to decrypt their context.secrets
+                              when triggered here.
+                            </SheetDescription>
+                          </SheetHeader>
+                          <RotateSecretsKeyForm
+                            onRotated={async (secretsKey) => {
+                              await setRepositorySecretsKey(
+                                repository.projectName,
+                                secretsKey,
+                              );
+                              setRotatingKeyFor(null);
+                              onChange();
+                            }}
+                          />
+                        </SheetContent>
+                      </Sheet>
                       <Button
                         variant="ghost"
                         size="icon-sm"
                         className="text-muted-foreground hover:text-foreground"
                         disabled={pendingAction === refreshKey}
-                        onClick={() => runAction(refreshKey, () => refreshGitRepository(repository.projectName))}
+                        onClick={() =>
+                          runAction(
+                            refreshKey,
+                            () => refreshGitRepository(repository.projectName),
+                          )}
                       >
-                        <RefreshCw className={pendingAction === refreshKey ? "size-3.5 animate-spin" : "size-3.5"} />
+                        <RefreshCw
+                          className={pendingAction === refreshKey
+                            ? "size-3.5 animate-spin"
+                            : "size-3.5"}
+                        />
                         <span className="sr-only">Refresh</span>
                       </Button>
                       <Button
@@ -290,7 +503,11 @@ function RepositoriesTable(
                         className="text-muted-foreground hover:text-destructive"
                         disabled={pendingAction === removeKey}
                         title="Unregister — workflows previously synced from this repo keep their last-synced content"
-                        onClick={() => runAction(removeKey, () => removeGitRepository(repository.projectName))}
+                        onClick={() =>
+                          runAction(
+                            removeKey,
+                            () => removeGitRepository(repository.projectName),
+                          )}
                       >
                         <Trash2 className="size-3.5" />
                         <span className="sr-only">Unregister</span>

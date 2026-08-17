@@ -6,18 +6,22 @@ export {
   getLocalRepositoryOverrides,
   getLocalVars,
   loadConfig,
-  type LocalEnsembleConfig,
   loadLocalConfig,
+  type LocalEnsembleConfig,
   type LocalWorkflowsConfig,
   setAppBuildKit,
   setLocalVar,
   type VarKind,
 } from "./config.ts";
 export { resolveDenoExecutable } from "./deno-exe.ts";
-export { type RunBuildOptions, runBuild } from "./build.ts";
-export { type RunInitOptions, runInit } from "./init.ts";
-export { type RunPackOptions, runPack } from "./pack.ts";
-export { getRemoteProfile, type RemoteProfile, setRemoteProfile } from "./remote.ts";
+export { runBuild, type RunBuildOptions } from "./build.ts";
+export { runInit, type RunInitOptions } from "./init.ts";
+export { runPack, type RunPackOptions } from "./pack.ts";
+export {
+  getRemoteProfile,
+  type RemoteProfile,
+  setRemoteProfile,
+} from "./remote.ts";
 export {
   deriveProjectName,
   listRepoWorkflowCandidates,
@@ -26,6 +30,7 @@ export {
   type RegisterGitRepositoryOptions,
   removeGitRepository,
   type RepoWorkflowCandidate,
+  setRepositorySecretsKey,
   syncWorkflowFromGit,
   unlinkWorkflowFromGit,
 } from "./git-integration.ts";
@@ -34,8 +39,8 @@ export {
   type GitAuthStrategy,
   type GitRepositoryRecord,
   GitRepositoryStore,
-  type WorkflowGitLink,
   WORKFLOW_GIT_LINK_STORE_KV_PATH,
+  type WorkflowGitLink,
   WorkflowGitLinkStore,
 } from "./git-repositories.ts";
 export {
@@ -46,8 +51,8 @@ export {
   pushCommits,
   pushTag,
   type ReleaseFlags,
-  type ReleasePreview,
   releaseNext,
+  type ReleasePreview,
   releaseSet,
   releaseUndo,
   type SemVer,
@@ -56,8 +61,8 @@ export {
 } from "./release.ts";
 export {
   createWorkflow,
-  type CreateWorkflowGitSource,
   createWorkflowArchive,
+  type CreateWorkflowGitSource,
   decodeWorkflowId,
   deleteWorkflow,
   encodeWorkflowId,
@@ -66,9 +71,10 @@ export {
   listWorkflowFiles,
   listWorkflows,
   readWorkflowFile,
+  resolveContainerizedSecretsKey,
   type ResolvedWorkflow,
-  type RunWorkflowByNameOptions,
   runWorkflowByName,
+  type RunWorkflowByNameOptions,
   syncAllWorkflowGitLinks,
   syncWorkflowFromGitLinkIfPresent,
   trackedRunWorkflowByName,
@@ -76,20 +82,24 @@ export {
 } from "./workflow.ts";
 export {
   type JobStatus,
-  type RunRecord,
   RUN_STORE_KV_PATH,
-  RunStore,
+  type RunRecord,
   type RunStatus,
+  RunStore,
   type StepLog,
   type StepRecord,
   type StepStatus,
 } from "./runs.ts";
 export { publishRunUpdate, subscribeToRun } from "./runs-broadcast.ts";
 export {
+  createGithubContentsProvider,
+  type GitWriteProvider,
+} from "./git-write.ts";
+export {
   type BumpKind as VersionBumpKind,
   getInstalledVersion,
-  type InstallResult,
   installNext,
+  type InstallResult,
   installSet,
   type SemVer as EnsembleVersion,
 } from "./version.ts";

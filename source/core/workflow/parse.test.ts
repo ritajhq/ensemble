@@ -1,10 +1,18 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { join } from "@std/path";
-import { parseWorkflowFile, WorkflowParseError } from "./parse.ts";
+import {
+  findContextFileReferences,
+  parseWorkflowFile,
+  WorkflowParseError,
+} from "./parse.ts";
 
 const fixturesDir = join(import.meta.dirname!, "tests", "fixtures");
 
-async function withFixture(name: string, contents: string, fn: (path: string) => Promise<void>) {
+async function withFixture(
+  name: string,
+  contents: string,
+  fn: (path: string) => Promise<void>,
+) {
   const path = join(fixturesDir, name);
   await Deno.writeTextFile(path, contents);
   try {
@@ -75,7 +83,11 @@ notjobs:
   build: {}
 `,
     async (path) => {
-      await assertRejects(() => parseWorkflowFile(path), WorkflowParseError, "jobs");
+      await assertRejects(
+        () => parseWorkflowFile(path),
+        WorkflowParseError,
+        "jobs",
+      );
     },
   );
 });
@@ -153,7 +165,10 @@ jobs:
 `,
     async (path) => {
       const workflow = await parseWorkflowFile(path);
-      assertEquals(workflow.jobs.build.matrix?.axes, { os: ["linux", "mac"], node: [18, 20] });
+      assertEquals(workflow.jobs.build.matrix?.axes, {
+        os: ["linux", "mac"],
+        node: [18, 20],
+      });
     },
   );
 });
@@ -323,7 +338,10 @@ jobs:
 `,
     async (path) => {
       const workflow = await parseWorkflowFile(path);
-      assertEquals(workflow.on, [{ manual: undefined, github: { push: { tags: ["v*"] } } }]);
+      assertEquals(workflow.on, [{
+        manual: undefined,
+        github: { push: { tags: ["v*"] } },
+      }]);
     },
   );
 });
@@ -637,7 +655,11 @@ jobs:
       - run: echo hi
 `,
     async (path) => {
-      await assertRejects(() => parseWorkflowFile(path), WorkflowParseError, '"on" must be a non-empty list');
+      await assertRejects(
+        () => parseWorkflowFile(path),
+        WorkflowParseError,
+        '"on" must be a non-empty list',
+      );
     },
   );
 });
@@ -656,7 +678,10 @@ jobs:
 `,
     async (path) => {
       const workflow = await parseWorkflowFile(path);
-      assertEquals(workflow.variables, { GREETING: "hello", API_URL: "https://example.com" });
+      assertEquals(workflow.variables, {
+        GREETING: "hello",
+        API_URL: "https://example.com",
+      });
     },
   );
 });
@@ -745,7 +770,10 @@ jobs:
       const workflow = await parseWorkflowFile(path);
       assertEquals(workflow.resources, {
         repositories: {
-          ensemble: { url: "https://github.com/ritajhq/ensemble.git", ref: "main" },
+          ensemble: {
+            url: "https://github.com/ritajhq/ensemble.git",
+            ref: "main",
+          },
         },
       });
     },
@@ -820,7 +848,10 @@ jobs:
 });
 
 Deno.test("parseWorkflowFile: resources.repositories url with $(NAME) resolves from env", async () => {
-  Deno.env.set("ENSEMBLE_TEST_REPO_URL", "https://github.com/ritajhq/private.git");
+  Deno.env.set(
+    "ENSEMBLE_TEST_REPO_URL",
+    "https://github.com/ritajhq/private.git",
+  );
   try {
     await withFixture(
       "repositories-env-ref.yml",
@@ -836,7 +867,10 @@ jobs:
 `,
       async (path) => {
         const workflow = await parseWorkflowFile(path);
-        assertEquals(workflow.resources?.repositories?.private.url, "https://github.com/ritajhq/private.git");
+        assertEquals(
+          workflow.resources?.repositories?.private.url,
+          "https://github.com/ritajhq/private.git",
+        );
       },
     );
   } finally {
@@ -948,7 +982,11 @@ jobs:
 `,
     async (path) => {
       const workflow = await parseWorkflowFile(path);
-      assertEquals(workflow.context?.variables, [{ name: "REGION", value: "us-east-1", default: undefined }]);
+      assertEquals(workflow.context?.variables, [{
+        name: "REGION",
+        value: "us-east-1",
+        default: undefined,
+      }]);
     },
   );
 });
@@ -968,7 +1006,11 @@ jobs:
 `,
     async (path) => {
       const workflow = await parseWorkflowFile(path);
-      assertEquals(workflow.context?.variables, [{ name: "IMAGE_TAG", value: undefined, default: "latest" }]);
+      assertEquals(workflow.context?.variables, [{
+        name: "IMAGE_TAG",
+        value: undefined,
+        default: "latest",
+      }]);
     },
   );
 });
@@ -987,7 +1029,11 @@ jobs:
 `,
     async (path) => {
       const workflow = await parseWorkflowFile(path);
-      assertEquals(workflow.context?.variables, [{ name: "DB_HOST", value: undefined, default: undefined }]);
+      assertEquals(workflow.context?.variables, [{
+        name: "DB_HOST",
+        value: undefined,
+        default: undefined,
+      }]);
     },
   );
 });
@@ -1287,4 +1333,109 @@ jobs:
       await assertRejects(() => parseWorkflowFile(path), WorkflowParseError);
     },
   );
+});
+
+Deno.test("findContextFileReferences: a step gated by context.name != this context is skipped", () => {
+  const workflow = {
+    jobs: {
+      build: {
+        steps: [
+          {
+            if: "${{ context.name == 'development' }}",
+            run: "cat ${{ contextFile('Caddyfile') }}",
+          },
+        ],
+      },
+    },
+  };
+  assertEquals(findContextFileReferences(workflow, "production"), []);
+});
+
+Deno.test("findContextFileReferences: a step gated by context.name == this context is kept", () => {
+  const workflow = {
+    jobs: {
+      build: {
+        steps: [
+          {
+            if: "${{ context.name == 'development' }}",
+            run: "cat ${{ contextFile('Caddyfile') }}",
+          },
+        ],
+      },
+    },
+  };
+  assertEquals(findContextFileReferences(workflow, "development"), [
+    { kind: "file", filename: "Caddyfile" },
+  ]);
+});
+
+Deno.test("findContextFileReferences: a whole job gated by context.name is skipped entirely, including its other steps", () => {
+  const workflow = {
+    jobs: {
+      watch: {
+        if: "${{ context.name == 'development' }}",
+        steps: [
+          { run: "cat ${{ contextFile('a.json') }}" },
+          { run: "cat ${{ contextFile('b.json') }}" },
+        ],
+      },
+    },
+  };
+  assertEquals(findContextFileReferences(workflow, "production"), []);
+});
+
+Deno.test("findContextFileReferences: no --context at all can't prove anything skipped, keeps every reference", () => {
+  const workflow = {
+    jobs: {
+      build: {
+        steps: [
+          {
+            if: "${{ context.name == 'development' }}",
+            run: "cat ${{ contextFile('Caddyfile') }}",
+          },
+        ],
+      },
+    },
+  };
+  assertEquals(findContextFileReferences(workflow, undefined), [
+    { kind: "file", filename: "Caddyfile" },
+  ]);
+});
+
+Deno.test("findContextFileReferences: an if: referencing anything beyond context.name can't be proven, keeps the reference", () => {
+  const workflow = {
+    jobs: {
+      build: {
+        steps: [
+          {
+            if:
+              "${{ context.name == 'development' && needs.build.result == 'success' }}",
+            run: "cat ${{ contextFile('Caddyfile') }}",
+          },
+        ],
+      },
+    },
+  };
+  assertEquals(findContextFileReferences(workflow, "production"), [
+    { kind: "file", filename: "Caddyfile" },
+  ]);
+});
+
+Deno.test("findContextFileReferences: an if: using != is evaluated correctly, not just ==", () => {
+  const workflow = {
+    jobs: {
+      build: {
+        steps: [
+          {
+            if: "${{ context.name != 'production' }}",
+            run: "cat ${{ contextFile('Caddyfile') }}",
+          },
+        ],
+      },
+    },
+  };
+  assertEquals(findContextFileReferences(workflow, "production"), []);
+  assertEquals(findContextFileReferences(workflow, "development"), [
+    { kind: "file", filename: "Caddyfile" },
+  ]);
 });

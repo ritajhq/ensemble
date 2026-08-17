@@ -35,9 +35,20 @@ import type {
 import { isCreateWorkflowRequest } from "./contract.ts";
 import type { Trigger, Workflow } from "@ensemble/workflow";
 
-function summarizeTrigger(trigger: Trigger, jobIds: string[]): WorkflowTriggerSummary | undefined {
-  if (trigger.manual) return { type: "manual", inputs: trigger.manual.inputs ?? [], jobs: jobIds };
-  if (trigger.github) return { type: "github", tagPatterns: trigger.github.push.tags };
+function summarizeTrigger(
+  trigger: Trigger,
+  jobIds: string[],
+): WorkflowTriggerSummary | undefined {
+  if (trigger.manual) {
+    return {
+      type: "manual",
+      inputs: trigger.manual.inputs ?? [],
+      jobs: jobIds,
+    };
+  }
+  if (trigger.github) {
+    return { type: "github", tagPatterns: trigger.github.push.tags };
+  }
   return undefined;
 }
 
@@ -47,7 +58,11 @@ function resolveWorkflowNameParam(
 ): { name: string } | { errorResponse: Response } {
   const id = params.id;
   if (!id) {
-    return { errorResponse: Response.json({ error: "Missing workflow id in URL." }, { status: 400 }) };
+    return {
+      errorResponse: Response.json({ error: "Missing workflow id in URL." }, {
+        status: 400,
+      }),
+    };
   }
   try {
     return { name: decodeWorkflowId(id) };
@@ -60,7 +75,12 @@ function resolveWorkflowNameParam(
   }
 }
 
-async function summarizeWorkflow(runs: RunStore, name: string, workflow: Workflow, workflowDir: string) {
+async function summarizeWorkflow(
+  runs: RunStore,
+  name: string,
+  workflow: Workflow,
+  workflowDir: string,
+) {
   const latest = await runs.getLatestRun(name);
   const jobIds = Object.keys(workflow.jobs);
   const triggers = (workflow.on ?? [])
@@ -77,14 +97,21 @@ async function summarizeWorkflow(runs: RunStore, name: string, workflow: Workflo
   };
 }
 
-export async function handleListWorkflows(runs: RunStore, request: Request): Promise<Response> {
+export async function handleListWorkflows(
+  runs: RunStore,
+  request: Request,
+): Promise<Response> {
   if (!await isAuthorizedFor(request, "read")) {
-    return Response.json({ error: "Missing or invalid bearer token." }, { status: 401 });
+    return Response.json({ error: "Missing or invalid bearer token." }, {
+      status: 401,
+    });
   }
 
   const resolved = await listWorkflows();
   const workflows = await Promise.all(
-    resolved.map(({ name, workflow, workflowDir }) => summarizeWorkflow(runs, name, workflow, workflowDir)),
+    resolved.map(({ name, workflow, workflowDir }) =>
+      summarizeWorkflow(runs, name, workflow, workflowDir)
+    ),
   );
 
   return Response.json({ workflows } satisfies ListWorkflowsResponse);
@@ -103,7 +130,9 @@ export async function handleCreateWorkflow(
   request: Request,
 ): Promise<Response> {
   if (!await isAuthorizedFor(request, "upload")) {
-    return Response.json({ error: "Missing or invalid bearer token." }, { status: 401 });
+    return Response.json({ error: "Missing or invalid bearer token." }, {
+      status: 401,
+    });
   }
 
   const text = await request.text();
@@ -111,20 +140,32 @@ export async function handleCreateWorkflow(
   try {
     body = JSON.parse(text);
   } catch {
-    return Response.json({ error: "Request body must be valid JSON." }, { status: 400 });
+    return Response.json({ error: "Request body must be valid JSON." }, {
+      status: 400,
+    });
   }
   if (!isCreateWorkflowRequest(body)) {
     return Response.json({
-      error: "Expected { name: string, source?: { projectName: string, pathInRepo: string } }.",
+      error:
+        "Expected { name: string, source?: { projectName: string, pathInRepo: string } }.",
     }, { status: 400 });
   }
 
   try {
-    const { name, workflow, workflowDir } = await createWorkflow(repositories, links, body.name, body.source);
+    const { name, workflow, workflowDir } = await createWorkflow(
+      repositories,
+      links,
+      body.name,
+      body.source,
+    );
     const summary = await summarizeWorkflow(runs, name, workflow, workflowDir);
-    return Response.json({ workflow: summary } satisfies CreateWorkflowResponse);
+    return Response.json(
+      { workflow: summary } satisfies CreateWorkflowResponse,
+    );
   } catch (error) {
-    return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 });
+    return Response.json({
+      error: error instanceof Error ? error.message : String(error),
+    }, { status: 400 });
   }
 }
 
@@ -135,7 +176,9 @@ export async function handleDeleteWorkflow(
   params: Record<string, string | undefined>,
 ): Promise<Response> {
   if (!await isAuthorizedFor(request, "upload")) {
-    return Response.json({ error: "Missing or invalid bearer token." }, { status: 401 });
+    return Response.json({ error: "Missing or invalid bearer token." }, {
+      status: 401,
+    });
   }
 
   const resolved = resolveWorkflowNameParam(params);
@@ -145,7 +188,9 @@ export async function handleDeleteWorkflow(
     await deleteWorkflow(links, resolved.name);
     return Response.json({ success: true } satisfies DeleteWorkflowResponse);
   } catch (error) {
-    return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 });
+    return Response.json({
+      error: error instanceof Error ? error.message : String(error),
+    }, { status: 400 });
   }
 }
 
@@ -155,7 +200,9 @@ export async function handleListRuns(
   params: Record<string, string | undefined>,
 ): Promise<Response> {
   if (!await isAuthorizedFor(request, "read")) {
-    return Response.json({ error: "Missing or invalid bearer token." }, { status: 401 });
+    return Response.json({ error: "Missing or invalid bearer token." }, {
+      status: 401,
+    });
   }
 
   const resolved = resolveWorkflowNameParam(params);
@@ -171,7 +218,9 @@ export async function handleListRunSteps(
   params: Record<string, string | undefined>,
 ): Promise<Response> {
   if (!await isAuthorizedFor(request, "read")) {
-    return Response.json({ error: "Missing or invalid bearer token." }, { status: 401 });
+    return Response.json({ error: "Missing or invalid bearer token." }, {
+      status: 401,
+    });
   }
 
   const resolved = resolveWorkflowNameParam(params);
@@ -184,7 +233,9 @@ export async function handleListRunSteps(
 
   const steps = await runs.getRunSteps(runId, resolved.name);
   if (steps === undefined) {
-    return Response.json({ error: `Run "${runId}" not found.` }, { status: 404 });
+    return Response.json({ error: `Run "${runId}" not found.` }, {
+      status: 404,
+    });
   }
 
   const { workflow } = await getWorkflowByName(resolved.name);
@@ -202,7 +253,9 @@ export async function handleGetStepLog(
   params: Record<string, string | undefined>,
 ): Promise<Response> {
   if (!await isAuthorizedFor(request, "read")) {
-    return Response.json({ error: "Missing or invalid bearer token." }, { status: 401 });
+    return Response.json({ error: "Missing or invalid bearer token." }, {
+      status: 401,
+    });
   }
 
   const resolved = resolveWorkflowNameParam(params);
@@ -212,12 +265,16 @@ export async function handleGetStepLog(
   const jobId = params.jobId;
   const index = params.index !== undefined ? Number(params.index) : NaN;
   if (!runId || !jobId || Number.isNaN(index)) {
-    return Response.json({ error: "Missing or invalid run id, job id, or step index in URL." }, { status: 400 });
+    return Response.json({
+      error: "Missing or invalid run id, job id, or step index in URL.",
+    }, { status: 400 });
   }
 
   const log = await runs.getStepLog(runId, jobId, index, resolved.name);
   if (log === undefined) {
-    return Response.json({ error: `No log found for run "${runId}", job "${jobId}", step ${index}.` }, {
+    return Response.json({
+      error: `No log found for run "${runId}", job "${jobId}", step ${index}.`,
+    }, {
       status: 404,
     });
   }
@@ -229,7 +286,9 @@ export async function handleListWorkflowFiles(
   params: Record<string, string | undefined>,
 ): Promise<Response> {
   if (!await isAuthorizedFor(request, "read")) {
-    return Response.json({ error: "Missing or invalid bearer token." }, { status: 401 });
+    return Response.json({ error: "Missing or invalid bearer token." }, {
+      status: 401,
+    });
   }
 
   const resolved = resolveWorkflowNameParam(params);
@@ -239,7 +298,9 @@ export async function handleListWorkflowFiles(
     const files = await listWorkflowFiles(resolved.name);
     return Response.json({ files } satisfies ListWorkflowFilesResponse);
   } catch (error) {
-    return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 404 });
+    return Response.json({
+      error: error instanceof Error ? error.message : String(error),
+    }, { status: 404 });
   }
 }
 
@@ -251,7 +312,9 @@ export async function handleRunWorkflow(
   params: Record<string, string | undefined>,
 ): Promise<Response> {
   if (!await isAuthorizedFor(request, "trigger")) {
-    return Response.json({ error: "Missing or invalid bearer token." }, { status: 401 });
+    return Response.json({ error: "Missing or invalid bearer token." }, {
+      status: 401,
+    });
   }
 
   const resolved = resolveWorkflowNameParam(params);
@@ -259,10 +322,16 @@ export async function handleRunWorkflow(
 
   try {
     await syncWorkflowFromGitLinkIfPresent(repositories, links, resolved.name);
-    const success = await trackedRunWorkflowByName(runs, resolved.name, { trigger: { type: "manual" } });
+    const success = await trackedRunWorkflowByName(runs, resolved.name, {
+      trigger: { type: "manual" },
+      repositories,
+      links,
+    });
     return Response.json({ success } satisfies RunWorkflowResponse);
   } catch (error) {
-    return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 });
+    return Response.json({
+      error: error instanceof Error ? error.message : String(error),
+    }, { status: 400 });
   }
 }
 
@@ -280,7 +349,9 @@ export async function handleDeleteRun(
   params: Record<string, string | undefined>,
 ): Promise<Response> {
   if (!await isAuthorizedFor(request, "trigger")) {
-    return Response.json({ error: "Missing or invalid bearer token." }, { status: 401 });
+    return Response.json({ error: "Missing or invalid bearer token." }, {
+      status: 401,
+    });
   }
 
   const resolved = resolveWorkflowNameParam(params);
@@ -293,7 +364,9 @@ export async function handleDeleteRun(
 
   const deleted = await runs.deleteRun(runId, resolved.name);
   if (!deleted) {
-    return Response.json({ error: `Run "${runId}" not found.` }, { status: 404 });
+    return Response.json({ error: `Run "${runId}" not found.` }, {
+      status: 404,
+    });
   }
   return Response.json({ success: true } satisfies DeleteRunResponse);
 }
@@ -303,7 +376,9 @@ export async function handleReadWorkflowFile(
   params: Record<string, string | undefined>,
 ): Promise<Response> {
   if (!await isAuthorizedFor(request, "read")) {
-    return Response.json({ error: "Missing or invalid bearer token." }, { status: 401 });
+    return Response.json({ error: "Missing or invalid bearer token." }, {
+      status: 401,
+    });
   }
 
   const resolved = resolveWorkflowNameParam(params);
@@ -311,14 +386,18 @@ export async function handleReadWorkflowFile(
 
   const path = params["0"];
   if (!path) {
-    return Response.json({ error: "Missing file path in URL." }, { status: 400 });
+    return Response.json({ error: "Missing file path in URL." }, {
+      status: 400,
+    });
   }
 
   try {
     const content = await readWorkflowFile(resolved.name, path);
     return Response.json({ content } satisfies ReadWorkflowFileResponse);
   } catch (error) {
-    return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 404 });
+    return Response.json({
+      error: error instanceof Error ? error.message : String(error),
+    }, { status: 404 });
   }
 }
 
@@ -336,11 +415,15 @@ export async function handleMintSseToken(request: Request): Promise<Response> {
   // a cookie re-minting itself.
   const header = request.headers.get("authorization");
   if (!header?.startsWith("Bearer ")) {
-    return Response.json({ error: "Missing or invalid bearer token." }, { status: 401 });
+    return Response.json({ error: "Missing or invalid bearer token." }, {
+      status: 401,
+    });
   }
   const token = header.slice("Bearer ".length);
   if (!await isAuthorizedFor(request, "read")) {
-    return Response.json({ error: "Missing or invalid bearer token." }, { status: 401 });
+    return Response.json({ error: "Missing or invalid bearer token." }, {
+      status: 401,
+    });
   }
 
   const response = Response.json({ ok: true } satisfies MintSseTokenResponse);
@@ -377,7 +460,9 @@ export async function handleRunEvents(
   params: Record<string, string | undefined>,
 ): Promise<Response> {
   if (!await isAuthorizedFor(request, "read")) {
-    return Response.json({ error: "Missing or invalid bearer token." }, { status: 401 });
+    return Response.json({ error: "Missing or invalid bearer token." }, {
+      status: 401,
+    });
   }
 
   const resolved = resolveWorkflowNameParam(params);
@@ -390,7 +475,9 @@ export async function handleRunEvents(
 
   const initial = await runs.getRun(runId, resolved.name);
   if (initial === undefined) {
-    return Response.json({ error: `Run "${runId}" not found.` }, { status: 404 });
+    return Response.json({ error: `Run "${runId}" not found.` }, {
+      status: 404,
+    });
   }
 
   const stream = new ReadableStream<Uint8Array>({

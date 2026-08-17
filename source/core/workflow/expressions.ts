@@ -1,7 +1,26 @@
 import { join } from "@std/path";
-import { data, Evaluator, ExpressionError, ExpressionEvaluationError, Lexer, Parser } from "@actions/expressions";
-import { Binary, ContextAccess, FunctionCall, Grouping, IndexAccess, Literal, Logical, Unary } from "@actions/expressions/ast";
-import type { FunctionDefinition, FunctionInfo } from "@actions/expressions/funcs/info";
+import {
+  data,
+  Evaluator,
+  ExpressionError,
+  ExpressionEvaluationError,
+  Lexer,
+  Parser,
+} from "@actions/expressions";
+import {
+  Binary,
+  ContextAccess,
+  FunctionCall,
+  Grouping,
+  IndexAccess,
+  Literal,
+  Logical,
+  Unary,
+} from "@actions/expressions/ast";
+import type {
+  FunctionDefinition,
+  FunctionInfo,
+} from "@actions/expressions/funcs/info";
 
 /** Thrown when an expression fails to parse or evaluate (e.g. an unrecognized context path). */
 export class WorkflowExpressionError extends Error {}
@@ -80,8 +99,13 @@ function unwrap(expr: string): string {
 }
 
 function reraise(expr: string, error: unknown): never {
-  if (error instanceof ExpressionError || error instanceof ExpressionEvaluationError) {
-    throw new WorkflowExpressionError(`Invalid expression "${expr}": ${error.message}`);
+  if (
+    error instanceof ExpressionError ||
+    error instanceof ExpressionEvaluationError
+  ) {
+    throw new WorkflowExpressionError(
+      `Invalid expression "${expr}": ${error.message}`,
+    );
   }
   throw error;
 }
@@ -113,52 +137,90 @@ const CONTEXT_FILE_FUNCTIONS: FunctionInfo[] = [
  * plain, synchronous path join — no loader/context lookup involved, unlike
  * contextFile()/contextSecretFile() above.
  */
-const ENSEMBLE_ARTIFACTS_FUNCTION: FunctionInfo = { name: "ensembleArtifacts", minArgs: 1, maxArgs: 1 };
+const ENSEMBLE_ARTIFACTS_FUNCTION: FunctionInfo = {
+  name: "ensembleArtifacts",
+  minArgs: 1,
+  maxArgs: 1,
+};
 
-function contextFileLookup(context: Record<string, JsonValue>, kind: "files" | "secretFiles", filename: string): data.ExpressionData {
+function contextFileLookup(
+  context: Record<string, JsonValue>,
+  kind: "files" | "secretFiles",
+  filename: string,
+): data.ExpressionData {
   const contextData = context.context;
-  const files = contextData !== null && typeof contextData === "object" && !Array.isArray(contextData) ? contextData[kind] : undefined;
-  const path = files !== null && typeof files === "object" && !Array.isArray(files) ? files[filename] : undefined;
+  const files = contextData !== null && typeof contextData === "object" &&
+      !Array.isArray(contextData)
+    ? contextData[kind]
+    : undefined;
+  const path =
+    files !== null && typeof files === "object" && !Array.isArray(files)
+      ? files[filename]
+      : undefined;
   if (typeof path !== "string") {
     const fnName = kind === "files" ? "contextFile" : "contextSecretFile";
-    throw new WorkflowExpressionError(`${fnName}("${filename}") has no resolved path — this should have been caught before the run started.`);
+    throw new WorkflowExpressionError(
+      `${fnName}("${filename}") has no resolved path — this should have been caught before the run started.`,
+    );
   }
   return new data.StringData(path);
 }
 
-function ensembleArtifactsLookup(cwd: string | undefined, name: string): data.ExpressionData {
+function ensembleArtifactsLookup(
+  cwd: string | undefined,
+  name: string,
+): data.ExpressionData {
   if (cwd === undefined) {
-    throw new WorkflowExpressionError(`ensembleArtifacts("${name}") has no working directory to resolve against here.`);
+    throw new WorkflowExpressionError(
+      `ensembleArtifacts("${name}") has no working directory to resolve against here.`,
+    );
   }
   return new data.StringData(join(cwd, "source", "artifacts", name));
 }
 
-function buildWorkflowFunctions(context: Record<string, JsonValue>, cwd: string | undefined): Map<string, FunctionDefinition> {
+function buildWorkflowFunctions(
+  context: Record<string, JsonValue>,
+  cwd: string | undefined,
+): Map<string, FunctionDefinition> {
   return new Map<string, FunctionDefinition>([
     ["contextfile", {
       name: "contextFile",
       minArgs: 1,
       maxArgs: 1,
-      call: (arg: data.ExpressionData) => contextFileLookup(context, "files", fromExpressionData(arg) as string),
+      call: (arg: data.ExpressionData) =>
+        contextFileLookup(context, "files", fromExpressionData(arg) as string),
     }],
     ["contextsecretfile", {
       name: "contextSecretFile",
       minArgs: 1,
       maxArgs: 1,
-      call: (arg: data.ExpressionData) => contextFileLookup(context, "secretFiles", fromExpressionData(arg) as string),
+      call: (arg: data.ExpressionData) =>
+        contextFileLookup(
+          context,
+          "secretFiles",
+          fromExpressionData(arg) as string,
+        ),
     }],
     ["ensembleartifacts", {
       name: "ensembleArtifacts",
       minArgs: 1,
       maxArgs: 1,
-      call: (arg: data.ExpressionData) => ensembleArtifactsLookup(cwd, fromExpressionData(arg) as string),
+      call: (arg: data.ExpressionData) =>
+        ensembleArtifactsLookup(cwd, fromExpressionData(arg) as string),
     }],
   ]);
 }
 
-const WORKFLOW_FUNCTION_INFOS: FunctionInfo[] = [...CONTEXT_FILE_FUNCTIONS, ENSEMBLE_ARTIFACTS_FUNCTION];
+const WORKFLOW_FUNCTION_INFOS: FunctionInfo[] = [
+  ...CONTEXT_FILE_FUNCTIONS,
+  ENSEMBLE_ARTIFACTS_FUNCTION,
+];
 
-function parseAndEvaluate(expr: string, context: Record<string, JsonValue>, cwd?: string): data.ExpressionData {
+function parseAndEvaluate(
+  expr: string,
+  context: Record<string, JsonValue>,
+  cwd?: string,
+): data.ExpressionData {
   const contextNames = Object.keys(context);
   try {
     const lexer = new Lexer(unwrap(expr));
@@ -166,7 +228,11 @@ function parseAndEvaluate(expr: string, context: Record<string, JsonValue>, cwd?
     const parser = new Parser(tokens, contextNames, WORKFLOW_FUNCTION_INFOS);
     const ast = parser.parse();
     const contextDict = toExpressionData(context) as data.Dictionary;
-    const evaluator = new Evaluator(ast, contextDict, buildWorkflowFunctions(context, cwd));
+    const evaluator = new Evaluator(
+      ast,
+      contextDict,
+      buildWorkflowFunctions(context, cwd),
+    );
     return evaluator.evaluate();
   } catch (error) {
     reraise(expr, error);
@@ -174,12 +240,19 @@ function parseAndEvaluate(expr: string, context: Record<string, JsonValue>, cwd?
 }
 
 /** Evaluates an expression against a context object, returning a plain JS value. `cwd` (when given) backs `ensembleArtifacts()`. */
-export function evaluate(expr: string, context: Record<string, JsonValue>, cwd?: string): JsonValue {
+export function evaluate(
+  expr: string,
+  context: Record<string, JsonValue>,
+  cwd?: string,
+): JsonValue {
   return fromExpressionData(parseAndEvaluate(expr, context, cwd));
 }
 
 /** Evaluates an `if:`-style expression, applying GitHub Actions truthiness rules. */
-export function evaluateCondition(expr: string, context: Record<string, JsonValue>): boolean {
+export function evaluateCondition(
+  expr: string,
+  context: Record<string, JsonValue>,
+): boolean {
   return isTruthy(parseAndEvaluate(expr, context));
 }
 
@@ -197,7 +270,10 @@ function extractStaticPath(node: unknown): string[] | undefined {
   if (node instanceof IndexAccess) {
     const base = extractStaticPath(node.expr);
     if (base === undefined) return undefined;
-    if (node.index instanceof Literal && node.index.literal instanceof data.StringData) {
+    if (
+      node.index instanceof Literal &&
+      node.index.literal instanceof data.StringData
+    ) {
       return [...base, node.index.literal.value];
     }
     return undefined;
@@ -214,7 +290,15 @@ const EXPR_REF = /\$\{\{(.*?)\}\}/gs;
  * named-value"; findStaticStepReferences only cares about `steps.*` paths,
  * ignoring the rest.
  */
-const ALL_CONTEXT_NAMES = ["variables", "needs", "matrix", "trigger", "repositories", "steps", "context"];
+const ALL_CONTEXT_NAMES = [
+  "variables",
+  "needs",
+  "matrix",
+  "trigger",
+  "repositories",
+  "steps",
+  "context",
+];
 
 /**
  * Statically finds every `steps.<id>...` reference inside `text` (e.g. a
@@ -230,7 +314,11 @@ export function findStaticStepReferences(text: string): string[] {
     try {
       const lexer = new Lexer(unwrap(match[0]));
       const { tokens } = lexer.lex();
-      const parser = new Parser(tokens, ALL_CONTEXT_NAMES, WORKFLOW_FUNCTION_INFOS);
+      const parser = new Parser(
+        tokens,
+        ALL_CONTEXT_NAMES,
+        WORKFLOW_FUNCTION_INFOS,
+      );
       const ast = parser.parse();
       walkForStepReferences(ast, ids);
     } catch {
@@ -256,13 +344,19 @@ export interface ContextFileReference {
  * argument (e.g. `contextFile(matrix.env)`) is skipped here and fails
  * normally at run time via contextFileLookup's own error instead.
  */
-export function findStaticContextFileReferences(text: string): ContextFileReference[] {
+export function findStaticContextFileReferences(
+  text: string,
+): ContextFileReference[] {
   const refs: ContextFileReference[] = [];
   for (const match of text.matchAll(EXPR_REF)) {
     try {
       const lexer = new Lexer(unwrap(match[0]));
       const { tokens } = lexer.lex();
-      const parser = new Parser(tokens, ALL_CONTEXT_NAMES, WORKFLOW_FUNCTION_INFOS);
+      const parser = new Parser(
+        tokens,
+        ALL_CONTEXT_NAMES,
+        WORKFLOW_FUNCTION_INFOS,
+      );
       const ast = parser.parse();
       walkForContextFileReferences(ast, refs);
     } catch {
@@ -272,7 +366,10 @@ export function findStaticContextFileReferences(text: string): ContextFileRefere
   return refs;
 }
 
-function walkForContextFileReferences(node: unknown, out: ContextFileReference[]): void {
+function walkForContextFileReferences(
+  node: unknown,
+  out: ContextFileReference[],
+): void {
   if (node instanceof FunctionCall) {
     const fnName = node.functionName.lexeme.toLowerCase();
     if (
@@ -281,7 +378,10 @@ function walkForContextFileReferences(node: unknown, out: ContextFileReference[]
       node.args[0] instanceof Literal &&
       node.args[0].literal instanceof data.StringData
     ) {
-      out.push({ kind: fnName === "contextfile" ? "file" : "secretFile", filename: node.args[0].literal.value });
+      out.push({
+        kind: fnName === "contextfile" ? "file" : "secretFile",
+        filename: node.args[0].literal.value,
+      });
     }
     for (const arg of node.args) walkForContextFileReferences(arg, out);
     return;
@@ -346,7 +446,11 @@ function walkForStepReferences(node: unknown, out: string[]): void {
 }
 
 /** Replaces every `${{ ... }}` occurrence in `text` with its evaluated value (stringified if not already a string). Text with no occurrences passes through unchanged. `cwd` (when given) backs `ensembleArtifacts()`. */
-export function interpolate(text: string, context: Record<string, JsonValue>, cwd?: string): string {
+export function interpolate(
+  text: string,
+  context: Record<string, JsonValue>,
+  cwd?: string,
+): string {
   return text.replace(EXPR_REF, (match) => {
     const result = evaluate(match, context, cwd);
     return typeof result === "string" ? result : JSON.stringify(result);

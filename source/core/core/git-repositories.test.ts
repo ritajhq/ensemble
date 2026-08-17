@@ -1,7 +1,14 @@
 import { assertEquals } from "@std/assert";
-import { type GitRepositoryRecord, GitRepositoryStore, type WorkflowGitLink, WorkflowGitLinkStore } from "./git-repositories.ts";
+import {
+  type GitRepositoryRecord,
+  GitRepositoryStore,
+  type WorkflowGitLink,
+  WorkflowGitLinkStore,
+} from "./git-repositories.ts";
 
-async function withRepositoryStore(fn: (store: GitRepositoryStore) => Promise<void>): Promise<void> {
+async function withRepositoryStore(
+  fn: (store: GitRepositoryStore) => Promise<void>,
+): Promise<void> {
   const kv = await Deno.openKv(":memory:");
   try {
     await fn(new GitRepositoryStore(kv));
@@ -10,7 +17,9 @@ async function withRepositoryStore(fn: (store: GitRepositoryStore) => Promise<vo
   }
 }
 
-async function withLinkStore(fn: (store: WorkflowGitLinkStore) => Promise<void>): Promise<void> {
+async function withLinkStore(
+  fn: (store: WorkflowGitLinkStore) => Promise<void>,
+): Promise<void> {
   const kv = await Deno.openKv(":memory:");
   try {
     await fn(new WorkflowGitLinkStore(kv));
@@ -19,7 +28,9 @@ async function withLinkStore(fn: (store: WorkflowGitLinkStore) => Promise<void>)
   }
 }
 
-function makeRecord(overrides: Partial<GitRepositoryRecord> = {}): GitRepositoryRecord {
+function makeRecord(
+  overrides: Partial<GitRepositoryRecord> = {},
+): GitRepositoryRecord {
   return {
     projectName: "widgets",
     repoUrl: "https://example.com/acme/widgets.git",
@@ -57,6 +68,21 @@ Deno.test("GitRepositoryStore: delete removes a record", async () => {
     await store.put(makeRecord());
     await store.delete("widgets");
     assertEquals(await store.get("widgets"), undefined);
+  });
+});
+
+Deno.test("GitRepositoryStore: put then get round-trips a record with a secretsKey set", async () => {
+  await withRepositoryStore(async (store) => {
+    const record = makeRecord({ secretsKey: "the-private-key" });
+    await store.put(record);
+    assertEquals((await store.get("widgets"))?.secretsKey, "the-private-key");
+  });
+});
+
+Deno.test("GitRepositoryStore: secretsKey is absent by default (a repo registered without one)", async () => {
+  await withRepositoryStore(async (store) => {
+    await store.put(makeRecord());
+    assertEquals((await store.get("widgets"))?.secretsKey, undefined);
   });
 });
 
