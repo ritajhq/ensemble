@@ -14,12 +14,13 @@ on:
 
 context:
   secrets:
-    - name: GH_TOKEN
-      default: ''
-    - name: REGISTRY_USERNAME
-      default: ''
-    - name: REGISTRY_PASSWORD
-      default: ''
+    variables:
+      - name: GH_TOKEN
+        default: ''
+      - name: REGISTRY_USERNAME
+        default: ''
+      - name: REGISTRY_PASSWORD
+        default: ''
 
 resources:
   repositories:

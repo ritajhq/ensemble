@@ -9,7 +9,11 @@ on:
 
 context:
   secrets:
-    - name: DEMO_SECRET
+    variables:
+      - name: DEMO_SECRET
+    files:
+      - name: demo_conf
+        path: demo.conf
 
 jobs:
   demo:
@@ -26,7 +30,7 @@ jobs:
       - name: print_secret_file
         run: |
           echo "demo.conf (decrypted from contexts/${{ context.name }}/secrets/demo.conf.enc):"
-          cat "${{ contextSecretFile('demo.conf') }}"
+          cat "${{ context.secrets.files.demo_conf.path }}"
 
       - name: confirm_success
         run: echo "Demo workflow completed successfully."
