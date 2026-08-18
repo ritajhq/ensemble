@@ -23,7 +23,7 @@
       "$ref": "#/definitions/resources"
     },
     "context": {
-      "description": "Named variables/secrets this workflow needs from its deploy context. Each entry without an inline \"value\" is resolved by a loader (local .env folder, or a server-side vault) against the --context name; unsatisfied entries with no \"default\" fail the run before any job starts.",
+      "description": "Named variables/files/secrets this workflow needs from its deploy context. Each variable/secret entry without an inline \"value\" is resolved by a loader (a local contexts/<name>/ folder, or a shared .ensemble/global/ tier) against the --context name; unsatisfied entries with no \"default\" fail the run before any job starts.",
       "$ref": "#/definitions/context"
     },
     "jobs": {
@@ -80,16 +80,20 @@
       "type": "object",
       "properties": {
         "variables": {
-          "description": "Named values this workflow needs. An entry with no \"value\" is resolved by a loader; if none supplies it and it has no \"default\", the run fails before any job starts.",
-          "type": "object",
-          "minProperties": 1,
-          "additionalProperties": { "$ref": "#/definitions/contextVariable" }
-        },
-        "secrets": {
-          "description": "Named secrets this workflow needs, always loader-sourced (never hard-coded inline).",
+          "description": "Named values this workflow needs. An entry with no \"value\" is resolved by a loader; if none supplies it and it has no \"default\", the run fails before any job starts. Addressable as ${{ context.variables.<name>.{name,value,path} }} in addition to its NAME/NAME_FILE env vars.",
           "type": "array",
           "minItems": 1,
-          "items": { "$ref": "#/definitions/contextSecret" }
+          "items": { "$ref": "#/definitions/contextVariable" }
+        },
+        "files": {
+          "description": "Named plaintext files this workflow needs verbatim (e.g. a Caddyfile), read from contexts/<name>/<path>. Addressable as ${{ context.files.<name>.path }} — no env var.",
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/definitions/contextFile" }
+        },
+        "secrets": {
+          "description": "Secret values/files this workflow needs, always loader-sourced (never hard-coded inline).",
+          "$ref": "#/definitions/contextSecrets"
         }
       },
       "additionalProperties": false
@@ -97,6 +101,9 @@
     "contextVariable": {
       "type": "object",
       "properties": {
+        "name": {
+          "type": "string"
+        },
         "value": {
           "description": "Hard-coded value or an expression string. When set, this variable is never sourced from a loader.",
           "type": "string"
@@ -106,9 +113,42 @@
           "type": "string"
         }
       },
+      "required": ["name"],
       "additionalProperties": false
     },
-    "contextSecret": {
+    "contextFile": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "path": {
+          "description": "This file's location under contexts/<name>/ (or the global tier), relative, extension included.",
+          "type": "string"
+        }
+      },
+      "required": ["name", "path"],
+      "additionalProperties": false
+    },
+    "contextSecrets": {
+      "type": "object",
+      "properties": {
+        "variables": {
+          "description": "Named secret values this workflow needs, always loader-sourced. Addressable as ${{ context.secrets.variables.<name>.{name,value,path} }} in addition to its NAME/NAME_FILE env vars.",
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/definitions/contextSecretVariable" }
+        },
+        "files": {
+          "description": "Named encrypted whole-file secrets, read from contexts/<name>/secrets/<path>.enc. Addressable as ${{ context.secrets.files.<name>.path }} — no env var.",
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/definitions/contextFile" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "contextSecretVariable": {
       "type": "object",
       "properties": {
         "name": {

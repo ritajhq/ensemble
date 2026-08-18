@@ -1,6 +1,9 @@
 import type { JsonValue } from "./expressions.ts";
 import { evaluateCondition, interpolate } from "./expressions.ts";
-import type { ResolvedVariable } from "./context-loaders/resolve.ts";
+import type {
+  ResolvedFile,
+  ResolvedVariable,
+} from "./context-loaders/resolve.ts";
 
 /**
  * "cancelled" applies only at job-instance granularity — a not-yet-started
@@ -51,6 +54,27 @@ export interface RepositoryContext {
   path: string;
 }
 
+/**
+ * The `context.*` surface exposed to expressions: `variables`/`secrets.variables`
+ * addressable as `${{ context.variables.<key>.{name,value,path} }}`/
+ * `${{ context.secrets.variables.<key>.{name,value,path} }}` (an alternative
+ * to their `NAME`/`NAME_FILE` env vars); `files`/`secrets.files` addressable
+ * as `${{ context.files.<name>.path }}`/`${{ context.secrets.files.<name>.path }}`
+ * — every declared entry actually referenced anywhere in the workflow,
+ * pre-resolved to a real path before any job runs (see
+ * context-loaders/resolve.ts, parse.ts's findContextFileReferences).
+ */
+export interface ContextData {
+  /** The `--context <name>` this run was invoked with. Absent for a run with no context source (see run-workflow.ts). */
+  name?: string;
+  variables: Record<string, ResolvedVariable>;
+  files: Record<string, ResolvedFile>;
+  secrets: {
+    variables: Record<string, ResolvedVariable>;
+    files: Record<string, ResolvedFile>;
+  };
+}
+
 /** Root context shared across all jobs: variables and already-completed jobs' results/outputs. */
 export interface RootContext {
   variables: Record<string, string>;
@@ -61,24 +85,8 @@ export interface RootContext {
   trigger?: Record<string, unknown>;
   /** Where each resources.repositories entry was checked out. Absent when the workflow declares none. */
   repositories?: Record<string, RepositoryContext>;
-  /**
-   * `context.variables` (not secrets), addressable as
-   * `context.variables.<key>.{name,value,path}` — an alternative to their
-   * `NAME`/`NAME_FILE` env vars. `files`/`secretFiles` back the
-   * `contextFile("<filename>")`/`contextSecretFile("<filename>")` expression
-   * functions (see expressions.ts) — every filename statically referenced
-   * anywhere in the workflow, pre-resolved to a real path before any job
-   * runs (see context-loaders/resolve.ts). Absent entirely when the
-   * workflow declares no `context.variables` and references no
-   * `contextFile`/`contextSecretFile` calls.
-   */
-  context?: {
-    /** The `--context <name>` this run was invoked with. Absent for a run with no context source (see run-workflow.ts). */
-    name?: string;
-    variables: Record<string, ResolvedVariable>;
-    files: Record<string, string>;
-    secretFiles: Record<string, string>;
-  };
+  /** See ContextData. Absent entirely when the workflow declares no `context.variables`/`context.files` and references no declared `context.secrets.*` entry. */
+  context?: ContextData;
 }
 
 /** Per-job context, accumulating `steps.*` as each step in that job completes. */
@@ -99,7 +107,7 @@ export interface StepContext {
   matrix?: Record<string, unknown>;
   trigger?: Record<string, unknown>;
   repositories?: Record<string, RepositoryContext>;
-  context?: { name?: string; variables: Record<string, ResolvedVariable>; files: Record<string, string>; secretFiles: Record<string, string> };
+  context?: ContextData;
 }
 
 export interface BuildRootContextOptions {
@@ -108,8 +116,9 @@ export interface BuildRootContextOptions {
   repositories?: Record<string, RepositoryContext>;
   contextName?: string;
   contextVariables?: Record<string, ResolvedVariable>;
-  contextFiles?: Record<string, string>;
-  contextSecretFiles?: Record<string, string>;
+  contextFiles?: Record<string, ResolvedFile>;
+  contextSecretVariables?: Record<string, ResolvedVariable>;
+  contextSecretFiles?: Record<string, ResolvedFile>;
 }
 
 export function buildRootContext(
@@ -125,12 +134,16 @@ export function buildRootContext(
     options.contextName !== undefined ||
     options.contextVariables !== undefined ||
     options.contextFiles !== undefined ||
+    options.contextSecretVariables !== undefined ||
     options.contextSecretFiles !== undefined
   ) {
     root.context = {
       variables: options.contextVariables ?? {},
       files: options.contextFiles ?? {},
-      secretFiles: options.contextSecretFiles ?? {},
+      secrets: {
+        variables: options.contextSecretVariables ?? {},
+        files: options.contextSecretFiles ?? {},
+      },
     };
     if (options.contextName !== undefined) root.context.name = options.contextName;
   }

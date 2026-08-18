@@ -10,10 +10,16 @@ export type { ContextLoader, LoadedValue } from "./types.ts";
 
 export class ContextResolutionError extends Error {}
 
-/** One resolved `context.variables` entry, addressable via `${{ context.variables.<key> }}` as an alternative to its `NAME`/`NAME_FILE` env vars. */
+/** One resolved `context.variables`/`context.secrets.variables` entry, addressable via `${{ context.variables.<key> }}`/`${{ context.secrets.variables.<key> }}` as an alternative to its `NAME`/`NAME_FILE` env vars. */
 export interface ResolvedVariable {
   name: string;
   value: string;
+  path: string;
+}
+
+/** One resolved `context.files`/`context.secrets.files` entry, addressable via `${{ context.files.<name>.path }}`/`${{ context.secrets.files.<name>.path }}`. No env var — see schema.ts's Context doc comment for why. */
+export interface ResolvedFile {
+  name: string;
   path: string;
 }
 
@@ -22,10 +28,14 @@ export interface ResolvedContext {
   env: Record<string, string>;
   /** `context.variables` only (not secrets), keyed by name, for `${{ context.variables.<key>.{name,value,path} }}` interpolation. */
   variables: Record<string, ResolvedVariable>;
-  /** Every `contextFile("<filename>")` call statically found in the workflow, keyed by filename, resolved to a real path. */
-  files: Record<string, string>;
-  /** Every `contextSecretFile("<filename>")` call statically found in the workflow, keyed by filename, resolved to a real path. */
-  secretFiles: Record<string, string>;
+  /** Every declared `context.files` entry actually referenced (per findContextFileReferences), keyed by name, resolved to a real path. */
+  files: Record<string, ResolvedFile>;
+  secrets: {
+    /** `context.secrets.variables`, keyed by name, for `${{ context.secrets.variables.<key>.{name,value,path} }}` interpolation. */
+    variables: Record<string, ResolvedVariable>;
+    /** Every declared `context.secrets.files` entry actually referenced, keyed by name, resolved to a real (decrypted) path. */
+    files: Record<string, ResolvedFile>;
+  };
 }
 
 /** Wraps resolvePrivateKey so it's read/resolved at most once per resolveContext call, and only if an actual encrypted lookup needs it. */
@@ -164,37 +174,37 @@ async function resolveOne(options: ResolveOneOptions): Promise<void> {
 }
 
 async function resolveFile(
-  filename: string,
+  entry: { name: string; path: string },
   contextName: string | undefined,
   loaders: ContextLoader[],
   load: (
     loader: ContextLoader,
     contextName: string,
-    filename: string,
+    path: string,
   ) => Promise<string | undefined>,
   missing: string[],
-  out: Record<string, string>,
+  out: Record<string, ResolvedFile>,
 ): Promise<void> {
   for (const loader of loaders) {
-    const path = await load(loader, contextName ?? "", filename);
-    if (path !== undefined) {
-      out[filename] = path;
+    const resolvedPath = await load(loader, contextName ?? "", entry.path);
+    if (resolvedPath !== undefined) {
+      out[entry.name] = { name: entry.name, path: resolvedPath };
       return;
     }
   }
-  missing.push(filename);
+  missing.push(entry.name);
 }
 
 /**
- * Resolves every entry under `context.variables`/`context.secrets` into env
- * vars, trying loaders in sequence for anything without an inline `value` —
- * plus every `contextFile("<filename>")`/`contextSecretFile("<filename>")`
- * call statically found anywhere in `fileRefs` (see
- * parse.ts's findContextFileReferences), independent of whether the
- * workflow declares a `context:` block at all. Fails fast — before any job
- * runs — with every unresolved name/filename listed at once, matching how
- * `secrets:`/`contexts:` validation worked before this (see
- * run-workflow.ts's runWorkflow, which calls this once up front).
+ * Resolves every entry under `context.variables`/`context.secrets.variables`
+ * into env vars, trying loaders in sequence for anything without an inline
+ * `value` — plus every declared `context.files`/`context.secrets.files`
+ * entry actually referenced anywhere in `fileRefs` (see parse.ts's
+ * findContextFileReferences), independent of whether the workflow declares
+ * a `context:` block at all. Fails fast — before any job runs — with every
+ * unresolved name listed at once, matching how `secrets:`/`contexts:`
+ * validation worked before this (see run-workflow.ts's runWorkflow, which
+ * calls this once up front).
  */
 export async function resolveContext(
   context: Context | undefined,
@@ -207,11 +217,16 @@ export async function resolveContext(
 ): Promise<ResolvedContext> {
   const env: Record<string, string> = {};
   const variables: Record<string, ResolvedVariable> = {};
-  const files: Record<string, string> = {};
-  const secretFiles: Record<string, string> = {};
-  if (context === undefined && fileRefs.length === 0) {
-    return { env, variables, files, secretFiles };
-  }
+  const files: Record<string, ResolvedFile> = {};
+  const secretVariables: Record<string, ResolvedVariable> = {};
+  const secretFiles: Record<string, ResolvedFile> = {};
+  const empty = {
+    env,
+    variables,
+    files,
+    secrets: { variables: secretVariables, files: secretFiles },
+  };
+  if (context === undefined && fileRefs.length === 0) return empty;
 
   const loaders = selectLoaders(workflowDir, runDir, repoRoot);
   const missing: string[] = [];
@@ -235,9 +250,10 @@ export async function resolveContext(
     }
   }
 
-  for (const secret of context?.secrets ?? []) {
+  for (const secret of context?.secrets?.variables ?? []) {
+    const key = secret.name;
     await resolveOne({
-      key: secret.name,
+      key,
       value: undefined,
       default: secret.default,
       contextName,
@@ -248,25 +264,42 @@ export async function resolveContext(
       env,
       callerVars,
     });
+    if (env[key] !== undefined) {
+      secretVariables[key] = {
+        name: key,
+        value: env[key],
+        path: env[`${key}_FILE`],
+      };
+    }
   }
 
   const missingFiles: string[] = [];
   for (const ref of fileRefs) {
+    const declared = ref.kind === "file"
+      ? context?.files?.find((f) => f.name === ref.name)
+      : context?.secrets?.files?.find((f) => f.name === ref.name);
+    if (declared === undefined) {
+      // A ref with no matching declaration is already a parse-time error
+      // (see parse.ts's validateContextFiles) — unreachable in practice,
+      // but skip rather than crash if somehow reached.
+      missingFiles.push(ref.name);
+      continue;
+    }
     if (ref.kind === "file") {
       await resolveFile(
-        ref.filename,
+        declared,
         contextName,
         loaders,
-        (loader, name, f) => loader.loadVariableFile(name, f),
+        (loader, name, p) => loader.loadVariableFile(name, p),
         missingFiles,
         files,
       );
     } else {
       await resolveFile(
-        ref.filename,
+        declared,
         contextName,
         loaders,
-        (loader, name, f) => loader.loadSecretFile(name, f),
+        (loader, name, p) => loader.loadSecretFile(name, p),
         missingFiles,
         secretFiles,
       );
@@ -297,5 +330,10 @@ export async function resolveContext(
     );
   }
 
-  return { env, variables, files, secretFiles };
+  return {
+    env,
+    variables,
+    files,
+    secrets: { variables: secretVariables, files: secretFiles },
+  };
 }

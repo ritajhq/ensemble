@@ -95,9 +95,11 @@ Deno.test("resolveContext: also returns each context.variables entry structured,
   });
 });
 
-Deno.test("resolveContext: context.secrets are not included in the structured variables map", async () => {
+Deno.test("resolveContext: context.secrets.variables are not included in the plaintext structured variables map", async () => {
   await withDirs(async (workflowDir, runDir) => {
-    const context: Context = { secrets: [{ name: "TOKEN", default: "shh" }] };
+    const context: Context = {
+      secrets: { variables: [{ name: "TOKEN", default: "shh" }] },
+    };
     const result = await resolveContext(
       context,
       [],
@@ -107,6 +109,24 @@ Deno.test("resolveContext: context.secrets are not included in the structured va
     );
     assertEquals(result.env.TOKEN, "shh");
     assertEquals(result.variables.TOKEN, undefined);
+  });
+});
+
+Deno.test("resolveContext: also returns each context.secrets.variables entry structured, for context.secrets.variables.<key>.{name,value,path} interpolation", async () => {
+  await withDirs(async (workflowDir, runDir) => {
+    const context: Context = {
+      secrets: { variables: [{ name: "TOKEN", default: "shh" }] },
+    };
+    const result = await resolveContext(
+      context,
+      [],
+      undefined,
+      workflowDir,
+      runDir,
+    );
+    assertEquals(result.secrets.variables.TOKEN.name, "TOKEN");
+    assertEquals(result.secrets.variables.TOKEN.value, "shh");
+    assertEquals(result.secrets.variables.TOKEN.path, result.env.TOKEN_FILE);
   });
 });
 
@@ -165,7 +185,7 @@ Deno.test("resolveContext: missing variable with no value/default/loader-hit thr
 
 Deno.test("resolveContext: secrets are always loader-sourced (never inline) and fail without a matching loader value", async () => {
   await withDirs(async (workflowDir, runDir) => {
-    const context: Context = { secrets: [{ name: "TOKEN" }] };
+    const context: Context = { secrets: { variables: [{ name: "TOKEN" }] } };
     await assertRejects(
       () => resolveContext(context, [], undefined, workflowDir, runDir),
       ContextResolutionError,
@@ -184,7 +204,7 @@ Deno.test("resolveContext: a plaintext secrets.enc value resolves without needin
       "TOKEN: abc123\n",
     );
 
-    const context: Context = { secrets: [{ name: "TOKEN" }] };
+    const context: Context = { secrets: { variables: [{ name: "TOKEN" }] } };
     const result = await resolveContext(
       context,
       [],
@@ -207,7 +227,7 @@ Deno.test("resolveContext: an encrypted secrets.enc value decrypts using .ensemb
       `TOKEN: "${marker}"\n`,
     );
 
-    const context: Context = { secrets: [{ name: "TOKEN" }] };
+    const context: Context = { secrets: { variables: [{ name: "TOKEN" }] } };
     const result = await resolveContext(
       context,
       [],
@@ -233,7 +253,7 @@ Deno.test("resolveContext: an encrypted secret with no key available anywhere fa
       `TOKEN: "${marker}"\n`,
     );
 
-    const context: Context = { secrets: [{ name: "TOKEN" }] };
+    const context: Context = { secrets: { variables: [{ name: "TOKEN" }] } };
     // No repoRoot passed — no .ensemble/secrets.key to find, no ENSEMBLE_SECRETS_KEY set.
     await assertRejects(
       () => resolveContext(context, [], "production", workflowDir, runDir),
@@ -255,7 +275,9 @@ Deno.test("resolveContext: falls back to the .ensemble/global/ tier when no per-
         "REGISTRY_PASSWORD: hunter2\n",
       );
 
-      const context: Context = { secrets: [{ name: "REGISTRY_PASSWORD" }] };
+      const context: Context = {
+        secrets: { variables: [{ name: "REGISTRY_PASSWORD" }] },
+      };
       // No --context passed at all — the global tier doesn't need one.
       const result = await resolveContext(
         context,
@@ -292,7 +314,7 @@ Deno.test("resolveContext: a per-context loader's value wins over the global tie
         "TOKEN: global\n",
       );
 
-      const context: Context = { secrets: [{ name: "TOKEN" }] };
+      const context: Context = { secrets: { variables: [{ name: "TOKEN" }] } };
       const result = await resolveContext(
         context,
         [],
@@ -313,7 +335,9 @@ Deno.test("resolveContext: still fails when neither a per-context loader nor the
   await withDirs(async (workflowDir, runDir) => {
     const repoRoot = await Deno.makeTempDir({ prefix: "resolve-repo-" });
     try {
-      const context: Context = { secrets: [{ name: "MISSING" }] };
+      const context: Context = {
+        secrets: { variables: [{ name: "MISSING" }] },
+      };
       await assertRejects(
         () =>
           resolveContext(
@@ -334,7 +358,7 @@ Deno.test("resolveContext: still fails when neither a per-context loader nor the
   });
 });
 
-Deno.test("resolveContext: resolves a statically-found contextFile() reference to a real path, verbatim (no parsing)", async () => {
+Deno.test("resolveContext: resolves a statically-found context.files.<name> reference to a real path, verbatim (no parsing)", async () => {
   await withDirs(async (workflowDir, runDir) => {
     await Deno.mkdir(join(workflowDir, "contexts", "production"), {
       recursive: true,
@@ -344,21 +368,25 @@ Deno.test("resolveContext: resolves a statically-found contextFile() reference t
       '{"a":1}',
     );
 
+    const context: Context = {
+      files: [{ name: "tf_vars", path: "TF_VARS.json" }],
+    };
     const result = await resolveContext(
-      undefined,
-      [{ kind: "file", filename: "TF_VARS.json" }],
+      context,
+      [{ kind: "file", name: "tf_vars" }],
       "production",
       workflowDir,
       runDir,
     );
     assertEquals(
-      await Deno.readTextFile(result.files["TF_VARS.json"]),
+      await Deno.readTextFile(result.files.tf_vars.path),
       '{"a":1}',
     );
+    assertEquals(result.files.tf_vars.name, "tf_vars");
   });
 });
 
-Deno.test("resolveContext: resolves a statically-found contextSecretFile() reference, decrypting it from the secrets/ folder", async () => {
+Deno.test("resolveContext: resolves a statically-found context.secrets.files.<name> reference, decrypting it from the secrets/ folder", async () => {
   await withDirsAndKey(async (workflowDir, runDir, repoRoot, publicKey) => {
     await Deno.mkdir(join(workflowDir, "contexts", "production", "secrets"), {
       recursive: true,
@@ -370,9 +398,12 @@ Deno.test("resolveContext: resolves a statically-found contextSecretFile() refer
       encrypted,
     );
 
+    const context: Context = {
+      secrets: { files: [{ name: "creds", path: "creds.json" }] },
+    };
     const result = await resolveContext(
-      undefined,
-      [{ kind: "secretFile", filename: "creds.json" }],
+      context,
+      [{ kind: "secretFile", name: "creds" }],
       "production",
       workflowDir,
       runDir,
@@ -380,64 +411,70 @@ Deno.test("resolveContext: resolves a statically-found contextSecretFile() refer
       repoRoot,
     );
     assertEquals(
-      await Deno.readTextFile(result.secretFiles["creds.json"]),
+      await Deno.readTextFile(result.secrets.files.creds.path),
       '{"token":"abc"}',
     );
-    assertEquals(result.files["creds.json"], undefined);
+    assertEquals(result.files.creds, undefined);
   });
 });
 
-Deno.test("resolveContext: a contextFile() reference works even when the workflow declares no context: block at all", async () => {
+Deno.test("resolveContext: a context.files.<name> reference only needs to resolve for a --context some reachable job/step actually uses it in", async () => {
   await withDirs(async (workflowDir, runDir) => {
-    await Deno.mkdir(join(workflowDir, "contexts", "production"), {
-      recursive: true,
-    });
-    await Deno.writeTextFile(
-      join(workflowDir, "contexts", "production", "TF_VARS.json"),
-      "{}",
-    );
-
+    // Declared, but "development"'s folder has no such file on disk — and
+    // the fileRefs list (computed by parse.ts's findContextFileReferences
+    // from the workflow's actual jobs/steps) simply has no entry for it,
+    // exactly as if every reference were gated behind
+    // `if: context.name == 'production'`.
+    const context: Context = {
+      files: [{ name: "tf_vars", path: "TF_VARS.json" }],
+    };
     const result = await resolveContext(
-      undefined,
-      [{ kind: "file", filename: "TF_VARS.json" }],
-      "production",
+      context,
+      [],
+      "development",
       workflowDir,
       runDir,
     );
-    assertEquals(await Deno.readTextFile(result.files["TF_VARS.json"]), "{}");
+    assertEquals(result.files.tf_vars, undefined);
   });
 });
 
-Deno.test("resolveContext: an unresolvable contextFile() reference fails fast before any job runs", async () => {
+Deno.test("resolveContext: an unresolvable context.files.<name> reference fails fast before any job runs", async () => {
   await withDirs(async (workflowDir, runDir) => {
+    const context: Context = {
+      files: [{ name: "missing_file", path: "MISSING.json" }],
+    };
     await assertRejects(
       () =>
         resolveContext(
-          undefined,
-          [{ kind: "file", filename: "MISSING.json" }],
+          context,
+          [{ kind: "file", name: "missing_file" }],
           "production",
           workflowDir,
           runDir,
         ),
       ContextResolutionError,
-      "MISSING.json",
+      "missing_file",
     );
   });
 });
 
-Deno.test("resolveContext: an unresolvable contextSecretFile() reference fails fast before any job runs", async () => {
+Deno.test("resolveContext: an unresolvable context.secrets.files.<name> reference fails fast before any job runs", async () => {
   await withDirs(async (workflowDir, runDir) => {
+    const context: Context = {
+      secrets: { files: [{ name: "missing_secret", path: "MISSING.json" }] },
+    };
     await assertRejects(
       () =>
         resolveContext(
-          undefined,
-          [{ kind: "secretFile", filename: "MISSING.json" }],
+          context,
+          [{ kind: "secretFile", name: "missing_secret" }],
           "production",
           workflowDir,
           runDir,
         ),
       ContextResolutionError,
-      "MISSING.json",
+      "missing_secret",
     );
   });
 });

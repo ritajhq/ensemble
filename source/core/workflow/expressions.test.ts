@@ -123,26 +123,34 @@ Deno.test("findStaticStepReferences: text with no expression returns nothing", (
   assertEquals(findStaticStepReferences("no expression here"), []);
 });
 
-Deno.test("findStaticStepReferences: still finds steps.* references alongside a contextFile() call in the same text", () => {
+Deno.test("findStaticStepReferences: still finds steps.* references alongside a context.files.<name> access in the same text", () => {
   assertEquals(
-    findStaticStepReferences("${{ steps.a.outputs.x }} ${{ contextFile('TF_VARS.json') }}"),
+    findStaticStepReferences("${{ steps.a.outputs.x }} ${{ context.files.tf_vars.path }}"),
     ["a"],
   );
 });
 
-Deno.test("evaluate: contextFile('<filename>') reads a pre-resolved path from context.files", () => {
-  const ctx = { context: { files: { "TF_VARS.json": "/tmp/run/TF_VARS.json" }, secretFiles: {} } };
-  assertEquals(evaluate("contextFile('TF_VARS.json')", ctx), "/tmp/run/TF_VARS.json");
+Deno.test("evaluate: context.files.<name>.path reads a pre-resolved path via plain property access", () => {
+  const ctx = {
+    context: {
+      files: { tf_vars: { name: "tf_vars", path: "/tmp/run/TF_VARS.json" } },
+      secrets: { variables: {}, files: {} },
+    },
+  };
+  assertEquals(evaluate("context.files.tf_vars.path", ctx), "/tmp/run/TF_VARS.json");
 });
 
-Deno.test("evaluate: contextSecretFile('<filename>') reads a pre-resolved path from context.secretFiles", () => {
-  const ctx = { context: { files: {}, secretFiles: { "creds.json": "/tmp/run/creds.json" } } };
-  assertEquals(evaluate("contextSecretFile('creds.json')", ctx), "/tmp/run/creds.json");
-});
-
-Deno.test("evaluate: contextFile() for an unresolved filename throws", () => {
-  const ctx = { context: { files: {}, secretFiles: {} } };
-  assertThrows(() => evaluate("contextFile('MISSING.json')", ctx), WorkflowExpressionError);
+Deno.test("evaluate: context.secrets.files.<name>.path reads a pre-resolved path via plain property access", () => {
+  const ctx = {
+    context: {
+      files: {},
+      secrets: {
+        variables: {},
+        files: { creds: { name: "creds", path: "/tmp/run/creds.json" } },
+      },
+    },
+  };
+  assertEquals(evaluate("context.secrets.files.creds.path", ctx), "/tmp/run/creds.json");
 });
 
 Deno.test("evaluate: ensembleArtifacts('<name>') joins the given cwd with source/artifacts/<name>", () => {
@@ -153,28 +161,30 @@ Deno.test("evaluate: ensembleArtifacts() with no cwd given throws", () => {
   assertThrows(() => evaluate("ensembleArtifacts('web')", {}), WorkflowExpressionError);
 });
 
-Deno.test("findStaticContextFileReferences: finds a contextFile() call with a literal filename", () => {
+Deno.test("findStaticContextFileReferences: finds a context.files.<name> property access", () => {
   assertEquals(
-    findStaticContextFileReferences("${{ contextFile('TF_VARS.json') }}"),
-    [{ kind: "file", filename: "TF_VARS.json" }],
+    findStaticContextFileReferences("${{ context.files.tf_vars.path }}"),
+    [{ kind: "file", name: "tf_vars" }],
   );
 });
 
-Deno.test("findStaticContextFileReferences: finds a contextSecretFile() call with a literal filename", () => {
+Deno.test("findStaticContextFileReferences: finds a context.secrets.files.<name> property access", () => {
   assertEquals(
-    findStaticContextFileReferences("${{ contextSecretFile('creds.json') }}"),
-    [{ kind: "secretFile", filename: "creds.json" }],
+    findStaticContextFileReferences("${{ context.secrets.files.creds.path }}"),
+    [{ kind: "secretFile", name: "creds" }],
   );
 });
 
-Deno.test("findStaticContextFileReferences: finds multiple calls in one string", () => {
+Deno.test("findStaticContextFileReferences: finds multiple accesses in one string", () => {
   assertEquals(
-    findStaticContextFileReferences("${{ contextFile('a.json') }} ${{ contextSecretFile('b.json') }}"),
-    [{ kind: "file", filename: "a.json" }, { kind: "secretFile", filename: "b.json" }],
+    findStaticContextFileReferences(
+      "${{ context.files.a.path }} ${{ context.secrets.files.b.path }}",
+    ),
+    [{ kind: "file", name: "a" }, { kind: "secretFile", name: "b" }],
   );
 });
 
-Deno.test("findStaticContextFileReferences: text with no contextFile()/contextSecretFile() call returns nothing", () => {
+Deno.test("findStaticContextFileReferences: text with no context.files/context.secrets.files access returns nothing", () => {
   assertEquals(findStaticContextFileReferences("${{ variables.X }}"), []);
   assertEquals(findStaticContextFileReferences("no expression here"), []);
 });

@@ -1,6 +1,9 @@
 export type {
   Context,
-  ContextSecret,
+  ContextFile,
+  ContextSecretFile,
+  ContextSecrets,
+  ContextSecretVariable,
   ContextVariable,
   GithubTrigger,
   Job,
@@ -19,7 +22,11 @@ export type {
   Trigger,
   Workflow,
 } from "./schema.ts";
-export { parseWorkflowFile, WorkflowParseError } from "./parse.ts";
+export {
+  parseWorkflowFile,
+  parseWorkflowText,
+  WorkflowParseError,
+} from "./parse.ts";
 export { buildBatches, transitiveDeps, WorkflowCycleError } from "./graph.ts";
 export { WorkflowExpressionError } from "./expressions.ts";
 export type {

@@ -244,7 +244,8 @@ export async function runWorkflow(
               contextName: options.context,
               contextVariables: resolved.variables,
               contextFiles: resolved.files,
-              contextSecretFiles: resolved.secretFiles,
+              contextSecretVariables: resolved.secrets.variables,
+              contextSecretFiles: resolved.secrets.files,
             });
             const matrixRun = await runMatrixJob(
               jobId,
@@ -263,7 +264,8 @@ export async function runWorkflow(
               contextName: options.context,
               contextVariables: resolved.variables,
               contextFiles: resolved.files,
-              contextSecretFiles: resolved.secretFiles,
+              contextSecretVariables: resolved.secrets.variables,
+              contextSecretFiles: resolved.secrets.files,
             });
             const outcome = await runJob(
               job,

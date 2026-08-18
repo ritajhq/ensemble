@@ -126,23 +126,55 @@ export interface ContextVariable {
   default?: string;
 }
 
+/** One named plaintext file a workflow needs verbatim from its deploy context — e.g. a Caddyfile. Addressed via `${{ context.files.<name>.path }}`. `path` is the file's location under `contexts/<name>/` (or the global tier), relative, extension included. */
+export interface ContextFile {
+  name: string;
+  path: string;
+}
+
 /** One named secret a workflow needs at deploy time — always sourced from a loader, never hard-coded inline. */
-export interface ContextSecret {
+export interface ContextSecretVariable {
   name: string;
   /** Used only when no loader supplies this secret. */
   default?: string;
 }
 
+/** One named encrypted whole-file secret — e.g. a TLS key. Addressed via `${{ context.secrets.files.<name>.path }}`, decrypted to a temp path under runDir before any job starts. */
+export interface ContextSecretFile {
+  name: string;
+  path: string;
+}
+
+/** The secret half of a context declaration — same two-way split (scalars vs. whole files) as the plaintext side. */
+export interface ContextSecrets {
+  variables?: ContextSecretVariable[];
+  files?: ContextSecretFile[];
+}
+
 /**
  * What this workflow needs from its deploy context, declared by name rather
  * than by location — resolution (which loader supplies each value, from
- * where) is the engine's job, not the workflow's. Every declared variable and
- * secret is exposed to steps as two env vars: `NAME` (its value) and
- * `NAME_FILE` (an absolute path to that same value materialized as a file),
- * regardless of whether the loader that supplied it produced a scalar, a
- * file, or both. `context.variables` (not secrets) is additionally
- * addressable via `${{ context.variables.<key>.{name,value,path} }}`
- * interpolation — see context.ts's RootContext.context.
+ * where) is the engine's job, not the workflow's.
+ *
+ * `variables`/`secrets.variables` are scalar values: every declared entry is
+ * exposed to steps as two env vars, `NAME` (its value) and `NAME_FILE` (an
+ * absolute path to that same value materialized as a file), regardless of
+ * whether the loader that supplied it produced a scalar, a file, or both.
+ * Both are additionally addressable via expression interpolation —
+ * `${{ context.variables.<key>.{name,value,path} }}` and
+ * `${{ context.secrets.variables.<key>.{name,value,path} }}` — see
+ * context.ts's RootContext.context.
+ *
+ * `files`/`secrets.files` are whole files read/decrypted verbatim: each
+ * declared entry resolves to a real path, addressable only via
+ * `${{ context.files.<name>.path }}` / `${{ context.secrets.files.<name>.path }}`
+ * — no `NAME`/`NAME_FILE` env vars (a file's declared `name` isn't
+ * guaranteed to be a valid env var identifier). A declared file only needs
+ * to actually resolve for a given `--context` if some job/step whose own
+ * `if:` isn't provably false for that context references it — see parse.ts's
+ * findContextFileReferences — so e.g. a file that only exists under one
+ * context's folder can be declared once and referenced only from a step
+ * gated to that same context, without needing to exist everywhere.
  *
  * A value/secret needed by more than one workflow on this host (e.g.
  * registry credentials) doesn't need to be re-provisioned per workflow: once
@@ -159,8 +191,10 @@ export interface ContextSecret {
 export interface Context {
   /** Named values this workflow needs. A loader-sourced entry (no `value`) fails the run before any job starts if unsatisfied and no `default` exists. */
   variables?: ContextVariable[];
-  /** Named secrets this workflow needs. Fails the run before any job starts if a loader can't supply one and it has no `default`. */
-  secrets?: ContextSecret[];
+  /** Named plaintext files this workflow needs verbatim. */
+  files?: ContextFile[];
+  /** Named secrets (scalar values and/or whole files) this workflow needs. */
+  secrets?: ContextSecrets;
 }
 
 export interface Workflow {

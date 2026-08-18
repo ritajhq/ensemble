@@ -111,21 +111,6 @@ function reraise(expr: string, error: unknown): never {
 }
 
 /**
- * `contextFile("<filename>")`/`contextSecretFile("<filename>")`: read a
- * pre-resolved path out of `context.files`/`context.secretFiles` (populated
- * up front by context-loaders/resolve.ts from every static
- * findStaticContextFileReferences() hit — see parse.ts) — never a live
- * loader call, since the expression evaluator's functions are synchronous
- * and loaders are async. Declared here (not in @actions/expressions) because
- * they're workflow-specific: their only job is looking up this run's own
- * pre-resolved data, not general-purpose computation.
- */
-const CONTEXT_FILE_FUNCTIONS: FunctionInfo[] = [
-  { name: "contextFile", minArgs: 1, maxArgs: 1 },
-  { name: "contextSecretFile", minArgs: 1, maxArgs: 1 },
-];
-
-/**
  * `ensembleArtifacts("<name>")`: resolves to `<cwd>/source/artifacts/<name>`
  * — the build-output folder an `ens build` produces for one app/ship inside
  * any project that itself uses the `ensemble` CLI/framework (this repo's own
@@ -135,36 +120,14 @@ const CONTEXT_FILE_FUNCTIONS: FunctionInfo[] = [
  * absent that — see run-step.ts's resolveStepCwd), so the same expression
  * resolves correctly regardless of which project's workflow calls it. A
  * plain, synchronous path join — no loader/context lookup involved, unlike
- * contextFile()/contextSecretFile() above.
+ * a declared `context.files`/`context.secrets.files` entry's plain property
+ * access into pre-resolved data.
  */
 const ENSEMBLE_ARTIFACTS_FUNCTION: FunctionInfo = {
   name: "ensembleArtifacts",
   minArgs: 1,
   maxArgs: 1,
 };
-
-function contextFileLookup(
-  context: Record<string, JsonValue>,
-  kind: "files" | "secretFiles",
-  filename: string,
-): data.ExpressionData {
-  const contextData = context.context;
-  const files = contextData !== null && typeof contextData === "object" &&
-      !Array.isArray(contextData)
-    ? contextData[kind]
-    : undefined;
-  const path =
-    files !== null && typeof files === "object" && !Array.isArray(files)
-      ? files[filename]
-      : undefined;
-  if (typeof path !== "string") {
-    const fnName = kind === "files" ? "contextFile" : "contextSecretFile";
-    throw new WorkflowExpressionError(
-      `${fnName}("${filename}") has no resolved path — this should have been caught before the run started.`,
-    );
-  }
-  return new data.StringData(path);
-}
 
 function ensembleArtifactsLookup(
   cwd: string | undefined,
@@ -179,28 +142,9 @@ function ensembleArtifactsLookup(
 }
 
 function buildWorkflowFunctions(
-  context: Record<string, JsonValue>,
   cwd: string | undefined,
 ): Map<string, FunctionDefinition> {
   return new Map<string, FunctionDefinition>([
-    ["contextfile", {
-      name: "contextFile",
-      minArgs: 1,
-      maxArgs: 1,
-      call: (arg: data.ExpressionData) =>
-        contextFileLookup(context, "files", fromExpressionData(arg) as string),
-    }],
-    ["contextsecretfile", {
-      name: "contextSecretFile",
-      minArgs: 1,
-      maxArgs: 1,
-      call: (arg: data.ExpressionData) =>
-        contextFileLookup(
-          context,
-          "secretFiles",
-          fromExpressionData(arg) as string,
-        ),
-    }],
     ["ensembleartifacts", {
       name: "ensembleArtifacts",
       minArgs: 1,
@@ -211,10 +155,7 @@ function buildWorkflowFunctions(
   ]);
 }
 
-const WORKFLOW_FUNCTION_INFOS: FunctionInfo[] = [
-  ...CONTEXT_FILE_FUNCTIONS,
-  ENSEMBLE_ARTIFACTS_FUNCTION,
-];
+const WORKFLOW_FUNCTION_INFOS: FunctionInfo[] = [ENSEMBLE_ARTIFACTS_FUNCTION];
 
 function parseAndEvaluate(
   expr: string,
@@ -231,7 +172,7 @@ function parseAndEvaluate(
     const evaluator = new Evaluator(
       ast,
       contextDict,
-      buildWorkflowFunctions(context, cwd),
+      buildWorkflowFunctions(cwd),
     );
     return evaluator.evaluate();
   } catch (error) {
@@ -329,20 +270,21 @@ export function findStaticStepReferences(text: string): string[] {
   return ids;
 }
 
-/** One `contextFile("<filename>")`/`contextSecretFile("<filename>")` call statically found in a workflow's expression text. */
+/** One `context.files.<name>`/`context.secrets.files.<name>` property access statically found in a workflow's expression text. */
 export interface ContextFileReference {
   kind: "file" | "secretFile";
-  filename: string;
+  name: string;
 }
 
 /**
- * Statically finds every `contextFile("<filename>")`/
- * `contextSecretFile("<filename>")` call inside `text`, for the same
- * before-any-job-runs pre-resolution parse.ts already does for
- * `context.variables`/`context.secrets` (see context-loaders/resolve.ts).
- * Only a string-literal argument is resolvable statically; a dynamic
- * argument (e.g. `contextFile(matrix.env)`) is skipped here and fails
- * normally at run time via contextFileLookup's own error instead.
+ * Statically finds every `context.files.<name>`/`context.secrets.files.<name>`
+ * property access inside `text`, for the same before-any-job-runs
+ * pre-resolution parse.ts already does for
+ * `context.variables`/`context.secrets.variables` (see
+ * context-loaders/resolve.ts). Only a statically-resolvable dotted path is
+ * found this way; a dynamic access (e.g. `context.files[matrix.name]`) is
+ * skipped here and fails normally at run time instead (the resolved
+ * `context.files`/`context.secrets.files` maps simply won't have that key).
  */
 export function findStaticContextFileReferences(
   text: string,
@@ -370,23 +312,20 @@ function walkForContextFileReferences(
   node: unknown,
   out: ContextFileReference[],
 ): void {
-  if (node instanceof FunctionCall) {
-    const fnName = node.functionName.lexeme.toLowerCase();
-    if (
-      (fnName === "contextfile" || fnName === "contextsecretfile") &&
-      node.args.length === 1 &&
-      node.args[0] instanceof Literal &&
-      node.args[0].literal instanceof data.StringData
-    ) {
-      out.push({
-        kind: fnName === "contextfile" ? "file" : "secretFile",
-        filename: node.args[0].literal.value,
-      });
-    }
-    for (const arg of node.args) walkForContextFileReferences(arg, out);
-    return;
-  }
   if (node instanceof IndexAccess) {
+    const path = extractStaticPath(node);
+    if (path !== undefined && path[0] === "context") {
+      if (path.length >= 3 && path[1] === "files") {
+        out.push({ kind: "file", name: path[2] });
+        return;
+      }
+      if (
+        path.length >= 4 && path[1] === "secrets" && path[2] === "files"
+      ) {
+        out.push({ kind: "secretFile", name: path[3] });
+        return;
+      }
+    }
     walkForContextFileReferences(node.expr, out);
     walkForContextFileReferences(node.index, out);
     return;
@@ -406,6 +345,10 @@ function walkForContextFileReferences(
   }
   if (node instanceof Grouping) {
     walkForContextFileReferences(node.group, out);
+    return;
+  }
+  if (node instanceof FunctionCall) {
+    for (const arg of node.args) walkForContextFileReferences(arg, out);
     return;
   }
 }

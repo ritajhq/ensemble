@@ -8,7 +8,9 @@ import {
 } from "./expressions.ts";
 import type {
   Context,
-  ContextSecret,
+  ContextFile,
+  ContextSecrets,
+  ContextSecretVariable,
   ContextVariable,
   GithubTrigger,
   Job,
@@ -411,12 +413,51 @@ function validateContextVariables(
   return variables;
 }
 
-function validateContextSecret(
+function validateContextFile(
   file: string,
   index: number,
   raw: unknown,
-): ContextSecret {
-  const where = `context.secrets[${index}]`;
+  where: string,
+): ContextFile {
+  const entryWhere = `${where}[${index}]`;
+  if (!isRecord(raw)) {
+    fail(file, `${entryWhere} must be a mapping.`);
+  }
+  if (typeof raw.name !== "string" || raw.name.length === 0) {
+    fail(file, `${entryWhere} must have a non-empty string "name".`);
+  }
+  if (typeof raw.path !== "string" || raw.path.length === 0) {
+    fail(file, `${entryWhere} must have a non-empty string "path".`);
+  }
+  return { name: raw.name, path: raw.path };
+}
+
+function validateContextFiles(
+  file: string,
+  raw: unknown,
+  where: string,
+): ContextFile[] | undefined {
+  if (raw === undefined) return undefined;
+  if (!Array.isArray(raw) || raw.length === 0) {
+    fail(file, `"${where}" must be a non-empty list.`);
+  }
+  const files = raw.map((f, i) => validateContextFile(file, i, f, where));
+  const seenNames = new Set<string>();
+  for (const entry of files) {
+    if (seenNames.has(entry.name)) {
+      fail(file, `"${where}" has a duplicate name "${entry.name}".`);
+    }
+    seenNames.add(entry.name);
+  }
+  return files;
+}
+
+function validateContextSecretVariable(
+  file: string,
+  index: number,
+  raw: unknown,
+): ContextSecretVariable {
+  const where = `context.secrets.variables[${index}]`;
   if (!isRecord(raw)) {
     fail(file, `${where} must be a mapping.`);
   }
@@ -429,23 +470,40 @@ function validateContextSecret(
   return { name: raw.name, default: raw.default as string | undefined };
 }
 
-function validateContextSecrets(
+function validateContextSecretVariables(
   file: string,
   raw: unknown,
-): ContextSecret[] | undefined {
+): ContextSecretVariable[] | undefined {
   if (raw === undefined) return undefined;
   if (!Array.isArray(raw) || raw.length === 0) {
-    fail(file, `"context.secrets" must be a non-empty list.`);
+    fail(file, `"context.secrets.variables" must be a non-empty list.`);
   }
-  const secrets = raw.map((s, i) => validateContextSecret(file, i, s));
+  const secrets = raw.map((s, i) => validateContextSecretVariable(file, i, s));
   const seenNames = new Set<string>();
   for (const secret of secrets) {
     if (seenNames.has(secret.name)) {
-      fail(file, `"context.secrets" has a duplicate name "${secret.name}".`);
+      fail(
+        file,
+        `"context.secrets.variables" has a duplicate name "${secret.name}".`,
+      );
     }
     seenNames.add(secret.name);
   }
   return secrets;
+}
+
+function validateContextSecrets(
+  file: string,
+  raw: unknown,
+): ContextSecrets | undefined {
+  if (raw === undefined) return undefined;
+  if (!isRecord(raw)) {
+    fail(file, `"context.secrets" must be a mapping.`);
+  }
+  return {
+    variables: validateContextSecretVariables(file, raw.variables),
+    files: validateContextFiles(file, raw.files, "context.secrets.files"),
+  };
 }
 
 function validateContext(file: string, raw: unknown): Context | undefined {
@@ -455,6 +513,7 @@ function validateContext(file: string, raw: unknown): Context | undefined {
   }
   return {
     variables: validateContextVariables(file, raw.variables),
+    files: validateContextFiles(file, raw.files, "context.files"),
     secrets: validateContextSecrets(file, raw.secrets),
   };
 }
@@ -574,16 +633,15 @@ function isDefinitelyFalseForContext(
 }
 
 /**
- * Statically finds every `contextFile("<filename>")`/
- * `contextSecretFile("<filename>")` call across the whole workflow (job
- * `if:`, every step's `if:`/`name:`/`run:`) — the same text fields
- * validateStepReferences walks for `steps.*`. Used by
- * context-loaders/resolve.ts to pre-resolve every referenced file, before
- * any job runs, alongside the existing context.variables/secrets
- * resolution. `contextName` is this run's `--context` (if any): a job or
- * step whose own `if:` is provably false for it (see
- * isDefinitelyFalseForContext) is skipped entirely, so e.g. a
- * `contextFile('Caddyfile')` only ever read by a
+ * Statically finds every `context.files.<name>`/`context.secrets.files.<name>`
+ * property access across the whole workflow (job `if:`, every step's
+ * `if:`/`name:`/`run:`) — the same text fields validateStepReferences walks
+ * for `steps.*`. Used by context-loaders/resolve.ts to pre-resolve every
+ * referenced declared file, before any job runs, alongside the existing
+ * context.variables/context.secrets.variables resolution. `contextName` is
+ * this run's `--context` (if any): a job or step whose own `if:` is provably
+ * false for it (see isDefinitelyFalseForContext) is skipped entirely, so
+ * e.g. a `context.files.caddy_config.path` only ever read by a
  * `if: context.name == 'development'` step doesn't need to exist for any
  * other context — matching how that step itself would never actually run
  * there either.
@@ -669,6 +727,17 @@ function validateJob(file: string, jobId: string, raw: unknown): Job {
 /** Reads and validates a workflow YAML file, throwing WorkflowParseError with file context on failure. */
 export async function parseWorkflowFile(file: string): Promise<Workflow> {
   const text = await Deno.readTextFile(file);
+  return parseWorkflowText(file, text);
+}
+
+/**
+ * Validates already-read workflow YAML text, throwing WorkflowParseError
+ * with file context on failure. `file` is used only for error messages — it
+ * doesn't need to be a real path on disk, letting a caller with no local
+ * checkout (e.g. the dashboard's git-fetched workflow.yml content) reuse the
+ * exact same validation parseWorkflowFile applies to a local file.
+ */
+export function parseWorkflowText(file: string, text: string): Workflow {
   let raw: unknown;
   try {
     raw = parseYaml(text);

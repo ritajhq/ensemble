@@ -1111,15 +1111,16 @@ jobs:
   );
 });
 
-Deno.test("parseWorkflowFile: valid context.secrets list parses", async () => {
+Deno.test("parseWorkflowFile: valid context.secrets.variables list parses", async () => {
   await withFixture(
     "valid-context-secrets.yml",
     `
 context:
   secrets:
-    - name: GITHUB_WEBHOOK_SECRET
-    - name: TF_VARS
-      default: "{}"
+    variables:
+      - name: GITHUB_WEBHOOK_SECRET
+      - name: TF_VARS
+        default: "{}"
 jobs:
   build:
     steps:
@@ -1127,7 +1128,7 @@ jobs:
 `,
     async (path) => {
       const workflow = await parseWorkflowFile(path);
-      assertEquals(workflow.context?.secrets, [
+      assertEquals(workflow.context?.secrets?.variables, [
         { name: "GITHUB_WEBHOOK_SECRET", default: undefined },
         { name: "TF_VARS", default: "{}" },
       ]);
@@ -1135,12 +1136,13 @@ jobs:
   );
 });
 
-Deno.test("parseWorkflowFile: empty context.secrets list fails", async () => {
+Deno.test("parseWorkflowFile: empty context.secrets.variables list fails", async () => {
   await withFixture(
     "empty-context-secrets.yml",
     `
 context:
-  secrets: []
+  secrets:
+    variables: []
 jobs:
   build:
     steps:
@@ -1150,19 +1152,20 @@ jobs:
       await assertRejects(
         () => parseWorkflowFile(path),
         WorkflowParseError,
-        '"context.secrets" must be a non-empty list',
+        '"context.secrets.variables" must be a non-empty list',
       );
     },
   );
 });
 
-Deno.test("parseWorkflowFile: context.secrets entry missing name fails", async () => {
+Deno.test("parseWorkflowFile: context.secrets.variables entry missing name fails", async () => {
   await withFixture(
     "context-secret-missing-name.yml",
     `
 context:
   secrets:
-    - default: x
+    variables:
+      - default: x
 jobs:
   build:
     steps:
@@ -1172,20 +1175,21 @@ jobs:
       await assertRejects(
         () => parseWorkflowFile(path),
         WorkflowParseError,
-        `context.secrets[0] must have a non-empty string "name"`,
+        `context.secrets.variables[0] must have a non-empty string "name"`,
       );
     },
   );
 });
 
-Deno.test("parseWorkflowFile: context.secrets with a duplicate name fails", async () => {
+Deno.test("parseWorkflowFile: context.secrets.variables with a duplicate name fails", async () => {
   await withFixture(
     "context-secrets-duplicate.yml",
     `
 context:
   secrets:
-    - name: TOKEN
-    - name: TOKEN
+    variables:
+      - name: TOKEN
+      - name: TOKEN
 jobs:
   build:
     steps:
@@ -1196,6 +1200,120 @@ jobs:
         () => parseWorkflowFile(path),
         WorkflowParseError,
         'duplicate name "TOKEN"',
+      );
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: valid context.files list parses", async () => {
+  await withFixture(
+    "valid-context-files.yml",
+    `
+context:
+  files:
+    - name: caddy_config
+      path: Caddyfile
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      const workflow = await parseWorkflowFile(path);
+      assertEquals(workflow.context?.files, [
+        { name: "caddy_config", path: "Caddyfile" },
+      ]);
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: context.files entry missing path fails", async () => {
+  await withFixture(
+    "context-file-missing-path.yml",
+    `
+context:
+  files:
+    - name: caddy_config
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      await assertRejects(
+        () => parseWorkflowFile(path),
+        WorkflowParseError,
+        `context.files[0] must have a non-empty string "path"`,
+      );
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: context.files with a duplicate name fails", async () => {
+  await withFixture(
+    "context-files-duplicate.yml",
+    `
+context:
+  files:
+    - name: caddy_config
+      path: Caddyfile
+    - name: caddy_config
+      path: Caddyfile.other
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      await assertRejects(
+        () => parseWorkflowFile(path),
+        WorkflowParseError,
+        'duplicate name "caddy_config"',
+      );
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: valid context.secrets.files list parses", async () => {
+  await withFixture(
+    "valid-context-secrets-files.yml",
+    `
+context:
+  secrets:
+    files:
+      - name: demo_conf
+        path: demo.conf
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      const workflow = await parseWorkflowFile(path);
+      assertEquals(workflow.context?.secrets?.files, [
+        { name: "demo_conf", path: "demo.conf" },
+      ]);
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: context.secrets as a list (old flat shape) fails", async () => {
+  await withFixture(
+    "context-secrets-old-shape.yml",
+    `
+context:
+  secrets:
+    - name: TOKEN
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      await assertRejects(
+        () => parseWorkflowFile(path),
+        WorkflowParseError,
+        '"context.secrets" must be a mapping',
       );
     },
   );
@@ -1342,7 +1460,7 @@ Deno.test("findContextFileReferences: a step gated by context.name != this conte
         steps: [
           {
             if: "${{ context.name == 'development' }}",
-            run: "cat ${{ contextFile('Caddyfile') }}",
+            run: "cat ${{ context.files.caddy_config.path }}",
           },
         ],
       },
@@ -1358,14 +1476,14 @@ Deno.test("findContextFileReferences: a step gated by context.name == this conte
         steps: [
           {
             if: "${{ context.name == 'development' }}",
-            run: "cat ${{ contextFile('Caddyfile') }}",
+            run: "cat ${{ context.files.caddy_config.path }}",
           },
         ],
       },
     },
   };
   assertEquals(findContextFileReferences(workflow, "development"), [
-    { kind: "file", filename: "Caddyfile" },
+    { kind: "file", name: "caddy_config" },
   ]);
 });
 
@@ -1375,8 +1493,8 @@ Deno.test("findContextFileReferences: a whole job gated by context.name is skipp
       watch: {
         if: "${{ context.name == 'development' }}",
         steps: [
-          { run: "cat ${{ contextFile('a.json') }}" },
-          { run: "cat ${{ contextFile('b.json') }}" },
+          { run: "cat ${{ context.files.a.path }}" },
+          { run: "cat ${{ context.files.b.path }}" },
         ],
       },
     },
@@ -1391,14 +1509,14 @@ Deno.test("findContextFileReferences: no --context at all can't prove anything s
         steps: [
           {
             if: "${{ context.name == 'development' }}",
-            run: "cat ${{ contextFile('Caddyfile') }}",
+            run: "cat ${{ context.files.caddy_config.path }}",
           },
         ],
       },
     },
   };
   assertEquals(findContextFileReferences(workflow, undefined), [
-    { kind: "file", filename: "Caddyfile" },
+    { kind: "file", name: "caddy_config" },
   ]);
 });
 
@@ -1410,14 +1528,14 @@ Deno.test("findContextFileReferences: an if: referencing anything beyond context
           {
             if:
               "${{ context.name == 'development' && needs.build.result == 'success' }}",
-            run: "cat ${{ contextFile('Caddyfile') }}",
+            run: "cat ${{ context.files.caddy_config.path }}",
           },
         ],
       },
     },
   };
   assertEquals(findContextFileReferences(workflow, "production"), [
-    { kind: "file", filename: "Caddyfile" },
+    { kind: "file", name: "caddy_config" },
   ]);
 });
 
@@ -1428,7 +1546,7 @@ Deno.test("findContextFileReferences: an if: using != is evaluated correctly, no
         steps: [
           {
             if: "${{ context.name != 'production' }}",
-            run: "cat ${{ contextFile('Caddyfile') }}",
+            run: "cat ${{ context.files.caddy_config.path }}",
           },
         ],
       },
@@ -1436,6 +1554,21 @@ Deno.test("findContextFileReferences: an if: using != is evaluated correctly, no
   };
   assertEquals(findContextFileReferences(workflow, "production"), []);
   assertEquals(findContextFileReferences(workflow, "development"), [
-    { kind: "file", filename: "Caddyfile" },
+    { kind: "file", name: "caddy_config" },
+  ]);
+});
+
+Deno.test("findContextFileReferences: a context.secrets.files.<name> property access is found as kind secretFile", () => {
+  const workflow = {
+    jobs: {
+      build: {
+        steps: [
+          { run: "cat ${{ context.secrets.files.tls_cert.path }}" },
+        ],
+      },
+    },
+  };
+  assertEquals(findContextFileReferences(workflow, undefined), [
+    { kind: "secretFile", name: "tls_cert" },
   ]);
 });

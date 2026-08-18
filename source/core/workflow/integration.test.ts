@@ -488,7 +488,7 @@ Deno.test("integration: trigger is absent (not just empty) when no trigger is pa
   );
 });
 
-Deno.test("integration: context.secrets resolves from the local loader's contexts/<name>/secrets.enc in run: steps", async () => {
+Deno.test("integration: context.secrets.variables resolves from the local loader's contexts/<name>/secrets.enc in run: steps", async () => {
   const workflowDir = await Deno.makeTempDir({
     prefix: "integration-context-secret-",
   });
@@ -505,7 +505,7 @@ Deno.test("integration: context.secrets resolves from the local loader's context
     );
 
     const workflow = {
-      context: { secrets: [{ name: "GITHUB_WEBHOOK_SECRET" }] },
+      context: { secrets: { variables: [{ name: "GITHUB_WEBHOOK_SECRET" }] } },
       jobs: {
         build: {
           steps: [{
@@ -526,7 +526,7 @@ Deno.test("integration: context.secrets resolves from the local loader's context
   }
 });
 
-Deno.test("integration: context.secrets is available to script: steps via ctx.variables", async () => {
+Deno.test("integration: context.secrets.variables is available to script: steps via ctx.variables", async () => {
   const workflowDir = await Deno.makeTempDir({
     prefix: "integration-context-secret-script-",
   });
@@ -541,7 +541,9 @@ Deno.test("integration: context.secrets is available to script: steps via ctx.va
     Deno.env.delete("ENSEMBLE_TEST_FORBIDDEN_SECRET");
 
     const workflow = {
-      context: { secrets: [{ name: "ENSEMBLE_TEST_ALLOWED_SECRET" }] },
+      context: {
+        secrets: { variables: [{ name: "ENSEMBLE_TEST_ALLOWED_SECRET" }] },
+      },
       jobs: {
         build: {
           steps: [{
@@ -566,7 +568,7 @@ Deno.test("integration: context.secrets is available to script: steps via ctx.va
   }
 });
 
-Deno.test("integration: contextFile() resolves a raw file (no context.variables declaration needed) and is usable in a run: step", async () => {
+Deno.test("integration: a declared context.files entry resolves a raw file and is usable in a run: step", async () => {
   const workflowDir = await Deno.makeTempDir({
     prefix: "integration-context-file-",
   });
@@ -580,11 +582,12 @@ Deno.test("integration: contextFile() resolves a raw file (no context.variables 
     );
 
     const workflow = {
+      context: { files: [{ name: "tf_vars", path: "TF_VARS.json" }] },
       jobs: {
         build: {
           steps: [{
             run:
-              "test -f \"${{ contextFile('TF_VARS.json') }}\" && grep -q '\"a\":1' \"${{ contextFile('TF_VARS.json') }}\"",
+              "test -f \"${{ context.files.tf_vars.path }}\" && grep -q '\"a\":1' \"${{ context.files.tf_vars.path }}\"",
           }],
         },
       },
@@ -600,7 +603,7 @@ Deno.test("integration: contextFile() resolves a raw file (no context.variables 
   }
 });
 
-Deno.test("integration: contextSecretFile() decrypts <filename>.enc from the secrets/ folder", async () => {
+Deno.test("integration: a declared context.secrets.files entry decrypts <path>.enc from the secrets/ folder", async () => {
   const workflowDir = await Deno.makeTempDir({
     prefix: "integration-context-secret-file-",
   });
@@ -628,10 +631,11 @@ Deno.test("integration: contextSecretFile() decrypts <filename>.enc from the sec
     );
 
     const workflow = {
+      context: { secrets: { files: [{ name: "creds", path: "creds.json" }] } },
       jobs: {
         build: {
           steps: [{
-            run: "grep -q abc \"${{ contextSecretFile('creds.json') }}\"",
+            run: "grep -q abc \"${{ context.secrets.files.creds.path }}\"",
           }],
         },
       },
@@ -648,30 +652,35 @@ Deno.test("integration: contextSecretFile() decrypts <filename>.enc from the sec
   }
 });
 
-Deno.test("integration: an unresolvable contextFile() reference fails before any job runs", async () => {
+Deno.test("integration: an unresolvable declared context.files entry fails before any job runs", async () => {
   const workflowDir = await Deno.makeTempDir({
     prefix: "integration-context-file-missing-",
   });
   try {
     const workflow = {
+      context: { files: [{ name: "missing_file", path: "MISSING.json" }] },
       jobs: {
-        build: { steps: [{ run: "echo ${{ contextFile('MISSING.json') }}" }] },
+        build: {
+          steps: [{ run: "echo ${{ context.files.missing_file.path }}" }],
+        },
       },
     };
     await assertRejects(
       () => runWorkflow(workflow, { workflowDir, context: "production" }),
       Error,
-      "MISSING.json",
+      "missing_file",
     );
   } finally {
     await Deno.remove(workflowDir, { recursive: true });
   }
 });
 
-Deno.test("integration: context.secrets declaring an unresolvable name fails before any job runs", async () => {
+Deno.test("integration: context.secrets.variables declaring an unresolvable name fails before any job runs", async () => {
   const workflowDir = join(import.meta.dirname!, "tests", "fixtures");
   const workflow = {
-    context: { secrets: [{ name: "ENSEMBLE_TEST_UNSET_SECRET" }] },
+    context: {
+      secrets: { variables: [{ name: "ENSEMBLE_TEST_UNSET_SECRET" }] },
+    },
     jobs: {
       build: { steps: [{ run: "exit 0" }] },
     },
@@ -683,11 +692,13 @@ Deno.test("integration: context.secrets declaring an unresolvable name fails bef
   );
 });
 
-Deno.test("integration: context.secrets can be satisfied by options.variables without touching Deno.env", async () => {
+Deno.test("integration: context.secrets.variables can be satisfied by options.variables without touching Deno.env", async () => {
   const workflowDir = join(import.meta.dirname!, "tests", "fixtures");
   Deno.env.delete("ENSEMBLE_TEST_CALLER_SECRET");
   const workflow = {
-    context: { secrets: [{ name: "ENSEMBLE_TEST_CALLER_SECRET" }] },
+    context: {
+      secrets: { variables: [{ name: "ENSEMBLE_TEST_CALLER_SECRET" }] },
+    },
     jobs: {
       build: {
         steps: [{ run: 'test "$ENSEMBLE_TEST_CALLER_SECRET" = from-caller' }],
