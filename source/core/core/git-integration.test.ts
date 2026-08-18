@@ -237,6 +237,34 @@ Deno.test("setRepositoryAuth: re-validates access, throwing (and not persisting)
   );
 });
 
+Deno.test("registerGitRepository: an invalid PAT against a real HTTPS remote surfaces a clear error, not git's raw 'could not read Username' text", async () => {
+  // Real network call, like git-write.test.ts's own PAT-rejection tests —
+  // a genuinely bad token against a real public repo always fails the same
+  // way, so this isn't flaky. Reproduces the actual bug report: in an
+  // environment with no git credential helper configured (true of the
+  // server's own container — no ~/.gitconfig), GitHub rejecting a bad PAT
+  // makes git fall through to an interactive username prompt instead of a
+  // clean 401, surfacing as "could not read Username ... No such device or
+  // address" — meaningless to anyone who doesn't already know git's
+  // internals. registerGitRepository/setRepositoryAuth's shared clone path
+  // (sparseCloneWorkflows) should reword that into something actionable.
+  await withContext({ "README.md": "unused" }, async (ctx) => {
+    const error = await assertRejects(
+      () =>
+        registerGitRepository(ctx.repositories, {
+          repoUrl: "https://github.com/octocat/Spoon-Knife",
+          projectName: "spoon-knife",
+          auth: { type: "pat", token: "ghp_definitely_invalid_test_token" },
+        }),
+      Error,
+    );
+    assertEquals(
+      error.message.includes("GitHub rejected the personal access token"),
+      true,
+    );
+  });
+});
+
 Deno.test("registerGitRepository: throws when the repo has no workflows/ folder", async () => {
   await withContext({ "README.md": "hi" }, async (ctx) => {
     await assertRejects(

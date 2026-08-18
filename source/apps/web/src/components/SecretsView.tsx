@@ -1,4 +1,4 @@
-import { KeyRound, Plus, ShieldAlert, Trash2 } from "lucide-react";
+import { KeyRound, Pencil, Plus, ShieldAlert, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router";
 import {
@@ -69,9 +69,13 @@ function ContextPicker(
 }
 
 function AddSecretForm(
-  { onAdded }: { onAdded: (key: string, value: string) => Promise<void> },
+  { fixedKey, onAdded }: {
+    /** Pre-fills and locks the Name field — used when editing an existing key from its row, so retyping it can't introduce a typo that creates a second, similarly-named secret instead of replacing the intended one. */
+    fixedKey?: string;
+    onAdded: (key: string, value: string) => Promise<void>;
+  },
 ) {
-  const [key, setKey] = useState("");
+  const [key, setKey] = useState(fixedKey ?? "");
   const [value, setValue] = useState("");
   const [status, setStatus] = useState<
     { state: "idle" } | { state: "loading" } | {
@@ -82,12 +86,17 @@ function AddSecretForm(
     state: "idle",
   });
 
+  useEffect(() => {
+    setKey(fixedKey ?? "");
+    setValue("");
+    setStatus({ state: "idle" });
+  }, [fixedKey]);
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setStatus({ state: "loading" });
     try {
       await onAdded(key.trim(), value);
-      setKey("");
       setValue("");
       setStatus({ state: "idle" });
     } catch (error) {
@@ -109,6 +118,7 @@ function AddSecretForm(
           placeholder="PGPASSWORD"
           value={key}
           onChange={(event) => setKey(event.target.value)}
+          disabled={fixedKey !== undefined}
           required
         />
       </div>
@@ -140,8 +150,9 @@ function AddSecretForm(
 }
 
 function SecretsTable(
-  { keys, onDelete }: {
+  { keys, onEdit, onDelete }: {
     keys: SecretKeySummary[];
+    onEdit: (key: string) => void;
     onDelete: (key: string) => Promise<void>;
   },
 ) {
@@ -172,7 +183,7 @@ function SecretsTable(
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
-              <TableHead className="w-12" />
+              <TableHead className="w-20" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -190,16 +201,27 @@ function SecretsTable(
               <TableRow key={key}>
                 <TableCell className="font-medium font-mono">{key}</TableCell>
                 <TableCell>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    className="text-muted-foreground hover:text-destructive"
-                    disabled={pending === key}
-                    onClick={() => handleDelete(key)}
-                  >
-                    <Trash2 className="size-3.5" />
-                    <span className="sr-only">Delete secret</span>
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="text-muted-foreground hover:text-foreground"
+                      onClick={() => onEdit(key)}
+                    >
+                      <Pencil className="size-3.5" />
+                      <span className="sr-only">Edit secret</span>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="text-muted-foreground hover:text-destructive"
+                      disabled={pending === key}
+                      onClick={() => handleDelete(key)}
+                    >
+                      <Trash2 className="size-3.5" />
+                      <span className="sr-only">Delete secret</span>
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
@@ -226,7 +248,8 @@ export function SecretsView() {
   const [contextName, setContextName] = useState("");
   const [keys, setKeys] = useState<SecretKeySummary[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [addOpen, setAddOpen] = useState(false);
+  /** undefined = closed, "" = adding a new secret, a key name = editing that one (pre-filled, locked). */
+  const [editorKey, setEditorKey] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     fetchWorkflows()
@@ -277,22 +300,28 @@ export function SecretsView() {
           </div>
         </div>
         {trimmedContext && !loadError && (
-          <Sheet open={addOpen} onOpenChange={setAddOpen}>
+          <Sheet
+            open={editorKey !== undefined}
+            onOpenChange={(open) => setEditorKey(open ? "" : undefined)}
+          >
             <SheetTrigger render={<Button />}>
               <Plus className="size-4" /> Add secret
             </SheetTrigger>
             <SheetContent>
               <SheetHeader>
-                <SheetTitle>Add a secret</SheetTitle>
+                <SheetTitle>
+                  {editorKey ? `Replace "${editorKey}"` : "Add a secret"}
+                </SheetTitle>
                 <SheetDescription>
                   Encrypted with this repo's public key and committed to
                   contexts/{trimmedContext}/secrets.enc.
                 </SheetDescription>
               </SheetHeader>
               <AddSecretForm
+                fixedKey={editorKey || undefined}
                 onAdded={async (key, value) => {
                   await setSecret(workflowId, trimmedContext, key, value);
-                  setAddOpen(false);
+                  setEditorKey(undefined);
                   refetchKeys();
                 }}
               />
@@ -333,6 +362,7 @@ export function SecretsView() {
       {trimmedContext && !loadError && keys && (
         <SecretsTable
           keys={keys}
+          onEdit={(key) => setEditorKey(key)}
           onDelete={async (key) => {
             await deleteSecret(workflowId, trimmedContext, key);
             refetchKeys();

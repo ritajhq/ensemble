@@ -46,10 +46,21 @@ async function gitCacheRoot(): Promise<string> {
  * shell-escaped tokens) — the token never touches a shell string, is never
  * written into the resulting checkout's `.git/config` (a one-off `-c`
  * override doesn't persist), and never appears in the stored `repoUrl`.
+ *
+ * GitHub's git-over-HTTPS transport (unlike its REST/Contents API — see
+ * git-write.ts, which correctly uses `Authorization: Bearer` there) only
+ * accepts HTTP Basic auth for a PAT, classic or fine-grained: username
+ * `x-access-token`, password the token itself. A `Bearer` header here isn't
+ * recognized at all — GitHub's git-http-backend responds as if no
+ * credential was offered, which (with no git credential helper configured)
+ * surfaces as git's generic "could not read Username ... No such device or
+ * address" instead of an actual auth-rejected error, regardless of whether
+ * the token itself is valid.
  */
 function buildGitAuthArgs(auth: GitAuthStrategy): string[] {
   if (auth.type === "pat") {
-    return ["-c", `http.extraHeader=Authorization: Bearer ${auth.token}`];
+    const basic = btoa(`x-access-token:${auth.token}`);
+    return ["-c", `http.extraHeader=Authorization: Basic ${basic}`];
   }
   return [];
 }
@@ -79,8 +90,26 @@ async function sparseCloneWorkflows(
       .noThrow();
   if (cloneResult.code !== 0) {
     await removeIfExists(stagingDir);
+    const stderr = cloneResult.stderr.trim();
+    // GitHub rejecting a bad PAT doesn't read the same everywhere: with no
+    // git credential helper configured (true of this process's own
+    // container — see server/README), git falls through to trying an
+    // interactive username/password prompt and fails with an opaque
+    // "could not read Username ... no such device" instead of ever naming
+    // the real problem; elsewhere (a credential helper present) it's a
+    // cleaner "Authentication failed"/"invalid credentials". Reword either
+    // shape into something actionable whenever we know a PAT was actually
+    // offered.
+    const looksLikeRejectedPat = /could not read username/i.test(stderr) ||
+      /authentication failed/i.test(stderr) ||
+      /invalid credentials/i.test(stderr);
+    if (record.auth.type === "pat" && looksLikeRejectedPat) {
+      throw new Error(
+        `GitHub rejected the personal access token for "${record.repoUrl}" — check that it's still valid and has read access to this repository (raw git error: ${stderr}).`,
+      );
+    }
     throw new Error(
-      `Failed to clone "${record.repoUrl}": ${cloneResult.stderr.trim()}`,
+      `Failed to clone "${record.repoUrl}": ${stderr}`,
     );
   }
 
