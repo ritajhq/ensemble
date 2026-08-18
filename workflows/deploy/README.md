@@ -28,7 +28,7 @@ each and whether the `dev` profile/`--watch` are turned on.
 `development` and `production` — `workflow.yml` declares one
 `context.variables` entry per stable-per-environment value (image
 registry/tag, runner image, workspace paths, web live-reload/API endpoint),
-each backed by that context's own `contexts/<name>/variables.env`
+each backed by that context's own `contexts/<name>/variables.yml`
 (`KEY=value` per line — see `@ensemble/workflow`'s README for how
 `context.variables` resolution works). Every declared variable is already a
 plain env var (`$IMAGE_REGISTRY`, `$IMAGE_TAG`, ...) in every step's shell,
@@ -48,7 +48,7 @@ step (the only place `caddy_config` is referenced) never runs for it.
 
 **Secrets**: `GITHUB_WEBHOOK_SECRET` is declared under `workflow.yml`'s
 `context.secrets.variables` and stored encrypted, values-only, in
-`contexts/<name>/secrets.enc` (keys stay cleartext for readable diffs —
+`contexts/<name>/secrets.yml` (keys stay cleartext for readable diffs —
 see `@ensemble/workflow`'s README). Set or change it with:
 
 ```sh

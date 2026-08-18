@@ -295,7 +295,7 @@ async function editSecretVariable(
   contextDir: string,
   publicKey: string,
 ): Promise<void> {
-  const secretsPath = join(contextDir, "secrets.enc");
+  const secretsPath = join(contextDir, "secrets.yml");
   const current = await readSecretsFile(secretsPath);
   const keys = Object.keys(current).sort();
   console.log(
@@ -346,7 +346,7 @@ async function editSecretVariable(
   await Deno.mkdir(contextDir, { recursive: true });
   await Deno.writeTextFile(secretsPath, stringifyYaml(current));
   console.log(
-    `Saved "${key}" to ${contextName}/secrets.enc. Re-run to make another change.`,
+    `Saved "${key}" to ${contextName}/secrets.yml. Re-run to make another change.`,
   );
 }
 
@@ -427,7 +427,7 @@ async function editSecretFile(
 
 const secretsEditCommand = new Command()
   .description(
-    "Interactively add, replace, or remove one context's secret values (contexts/<context>/secrets.enc) or file secrets (contexts/<context>/secrets/<path>.enc) for a workflow, encrypting each with the repo's public key.",
+    "Interactively add, replace, or remove one context's secret values (contexts/<context>/secrets.yml) or file secrets (contexts/<context>/secrets/<path>.enc) for a workflow, encrypting each with the repo's public key.",
   )
   .arguments("<name:string> [context:string]")
   .action(async (_options, name, context) => {
@@ -459,7 +459,7 @@ const secretsEditCommand = new Command()
     }
   });
 
-/** Reports whether every secret in a context's secrets.enc is actually encrypted, e.g. to catch a hand-added plaintext value that was never run through `secrets edit`. Not currently wired to a subcommand — kept here as the natural place to add `secrets check` if that's wanted later. */
+/** Reports whether every secret in a context's secrets.yml is actually encrypted, e.g. to catch a hand-added plaintext value that was never run through `secrets edit`. Not currently wired to a subcommand — kept here as the natural place to add `secrets check` if that's wanted later. */
 export async function findUnencryptedKeys(
   secretsPath: string,
 ): Promise<string[]> {
@@ -470,7 +470,7 @@ export async function findUnencryptedKeys(
 
 const secretsCommand = new Command()
   .description(
-    "Manage a repo's encrypted context.secrets.variables (contexts/<name>/secrets.enc) and context.secrets.files (contexts/<name>/secrets/<path>.enc).",
+    "Manage a repo's encrypted context.secrets.variables (contexts/<name>/secrets.yml) and context.secrets.files (contexts/<name>/secrets/<path>.enc).",
   )
   .command("init", secretsInitCommand)
   .command("edit", secretsEditCommand);

@@ -2,7 +2,7 @@ import type { GitAuthStrategy } from "./git-repositories.ts";
 
 /**
  * Commits a file directly to a git host, no local clone — used by the
- * dashboard's secrets editor (see secrets.enc's per-context storage) to push
+ * dashboard's secrets editor (see secrets.yml's per-context storage) to push
  * a change without the heavier clone/sparse-checkout machinery
  * git-integration.ts already uses for reading a repo's workflows/ folder.
  * Kept behind this interface (rather than calling GitHub's API directly from

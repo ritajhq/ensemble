@@ -159,7 +159,7 @@ async function decryptBytes(
 
 const ENC_PREFIX = "ENC[X25519,epk:";
 
-/** Encrypts one value into the `ENC[X25519,epk:...,data:...,iv:...]` marker string stored as a secrets.enc YAML value. */
+/** Encrypts one value into the `ENC[X25519,epk:...,data:...,iv:...]` marker string stored as a secrets.yml YAML value. */
 export async function encryptValue(
   publicKey: string,
   plaintext: string,

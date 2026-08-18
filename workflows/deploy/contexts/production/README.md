@@ -36,7 +36,7 @@ cd ensemble
 `.ensemble/` + `workflows/` directory on the host — this is **separate**
 from the `ensemble` repo checkout above, and persists across redeploys
 (it's where registered workflows, run history, and auth tokens live).
-`contexts/production/variables.env` points `SERVER_WORKSPACE_PATH`
+`contexts/production/variables.yml` points `SERVER_WORKSPACE_PATH`
 at `/srv/ensemble/server-workspace` — adjust both if you want a different
 location.
 
@@ -66,7 +66,8 @@ openssl rand -hex 32
 ## 4. Provide the secrets private key
 
 `git clone` already brought every secret this repo needs — encrypted, in
-the committed `contexts/production/secrets.enc` files. The only thing it
+the committed `contexts/production/secrets.yml` (and, for whole files,
+`contexts/production/secrets/*.enc`). The only thing it
 couldn't bring is the private key that decrypts them (by design — the
 key never lives in git). Copy it onto this host out of band (e.g. `scp`
 from wherever it was generated with `ens init`), placing it at

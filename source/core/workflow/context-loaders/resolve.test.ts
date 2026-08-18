@@ -22,7 +22,7 @@ async function withDirs(
   }
 }
 
-/** Same as withDirs, but also sets up a real repoRoot with .ensemble/secrets.key, for tests that need a private key to decrypt secrets.enc. Returns the matching public key for the caller to encrypt test fixtures with. */
+/** Same as withDirs, but also sets up a real repoRoot with .ensemble/secrets.key, for tests that need a private key to decrypt secrets.yml. Returns the matching public key for the caller to encrypt test fixtures with. */
 async function withDirsAndKey(
   fn: (
     workflowDir: string,
@@ -136,8 +136,8 @@ Deno.test("resolveContext: a loader-sourced variable resolves from the local loa
       recursive: true,
     });
     await Deno.writeTextFile(
-      join(workflowDir, "contexts", "production", "variables.env"),
-      "IMAGE_TAG=v1\n",
+      join(workflowDir, "contexts", "production", "variables.yml"),
+      "IMAGE_TAG: v1\n",
     );
 
     const context: Context = { variables: [{ name: "IMAGE_TAG" }] };
@@ -194,13 +194,13 @@ Deno.test("resolveContext: secrets are always loader-sourced (never inline) and 
   });
 });
 
-Deno.test("resolveContext: a plaintext secrets.enc value resolves without needing a key (tolerant of a not-yet-encrypted file)", async () => {
+Deno.test("resolveContext: a plaintext secrets.yml value resolves without needing a key (tolerant of a not-yet-encrypted file)", async () => {
   await withDirs(async (workflowDir, runDir) => {
     await Deno.mkdir(join(workflowDir, "contexts", "production"), {
       recursive: true,
     });
     await Deno.writeTextFile(
-      join(workflowDir, "contexts", "production", "secrets.enc"),
+      join(workflowDir, "contexts", "production", "secrets.yml"),
       "TOKEN: abc123\n",
     );
 
@@ -216,14 +216,14 @@ Deno.test("resolveContext: a plaintext secrets.enc value resolves without needin
   });
 });
 
-Deno.test("resolveContext: an encrypted secrets.enc value decrypts using .ensemble/secrets.key", async () => {
+Deno.test("resolveContext: an encrypted secrets.yml value decrypts using .ensemble/secrets.key", async () => {
   await withDirsAndKey(async (workflowDir, runDir, repoRoot, publicKey) => {
     await Deno.mkdir(join(workflowDir, "contexts", "production"), {
       recursive: true,
     });
     const marker = await encryptValue(publicKey, "abc123");
     await Deno.writeTextFile(
-      join(workflowDir, "contexts", "production", "secrets.enc"),
+      join(workflowDir, "contexts", "production", "secrets.yml"),
       `TOKEN: "${marker}"\n`,
     );
 
@@ -249,7 +249,7 @@ Deno.test("resolveContext: an encrypted secret with no key available anywhere fa
     const { publicKey } = await generateKeypair();
     const marker = await encryptValue(publicKey, "abc123");
     await Deno.writeTextFile(
-      join(workflowDir, "contexts", "production", "secrets.enc"),
+      join(workflowDir, "contexts", "production", "secrets.yml"),
       `TOKEN: "${marker}"\n`,
     );
 
@@ -271,7 +271,7 @@ Deno.test("resolveContext: falls back to the .ensemble/global/ tier when no per-
         recursive: true,
       });
       await Deno.writeTextFile(
-        join(repoRoot, ".ensemble", "global", "secrets.enc"),
+        join(repoRoot, ".ensemble", "global", "secrets.yml"),
         "REGISTRY_PASSWORD: hunter2\n",
       );
 
@@ -303,14 +303,14 @@ Deno.test("resolveContext: a per-context loader's value wins over the global tie
         recursive: true,
       });
       await Deno.writeTextFile(
-        join(workflowDir, "contexts", "production", "secrets.enc"),
+        join(workflowDir, "contexts", "production", "secrets.yml"),
         "TOKEN: per-context\n",
       );
       await Deno.mkdir(join(repoRoot, ".ensemble", "global"), {
         recursive: true,
       });
       await Deno.writeTextFile(
-        join(repoRoot, ".ensemble", "global", "secrets.enc"),
+        join(repoRoot, ".ensemble", "global", "secrets.yml"),
         "TOKEN: global\n",
       );
 

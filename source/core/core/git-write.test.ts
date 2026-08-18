@@ -8,7 +8,7 @@ Deno.test("createGithubContentsProvider: putFile rejects a non-PAT auth strategy
       provider.putFile(
         "https://github.com/acme/widgets",
         { type: "none" },
-        "workflows/deploy/contexts/production/secrets.enc",
+        "workflows/deploy/contexts/production/secrets.yml",
         new Uint8Array(),
         "Update secrets",
         { name: "ensemble", email: "ensemble@example.com" },

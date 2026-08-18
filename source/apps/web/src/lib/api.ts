@@ -433,7 +433,7 @@ export async function fetchSecretsContext(
   );
 }
 
-/** Encrypts `value` with the linked repo's own committed public key and commits contexts/<context>/secrets.enc. Returns the new commit's sha. */
+/** Encrypts `value` with the linked repo's own committed public key and commits contexts/<context>/secrets.yml. Returns the new commit's sha. */
 export async function setSecret(
   workflowId: string,
   context: string,

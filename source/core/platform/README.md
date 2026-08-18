@@ -141,7 +141,7 @@ containerized/triggered run of that workflow (see "Secrets" below).
 ### `secrets` — `/v1/secrets/:workflowId/:context/...`
 
 A dashboard-facing editor for a git-linked workflow's
-`contexts/<context>/secrets.enc` — committing directly to that workflow's
+`contexts/<context>/secrets.yml` — committing directly to that workflow's
 linked repository rather than touching anything on this server's own
 disk. Only works for a workflow with a `WorkflowGitLink` (created/synced
 from a registered git repository, see `git-integration` above); a purely
@@ -163,7 +163,7 @@ edit` instead — same file format either way, just a different write path.
 - **Encrypts, never decrypts.** Setting a value fetches the repo's own
   committed `.ensemble/secrets.key.pub` (via `GitWriteProvider.getFile`),
   encrypts the new value against it in memory, and commits the updated
-  `secrets.enc` (via `GitWriteProvider.putFile`) — the server never needs,
+  `secrets.yml` (via `GitWriteProvider.putFile`) — the server never needs,
   fetches, or stores the *private* key for this path. Reading back only
   ever returns key names for the same reason: there's nothing here capable
   of decrypting a value to show it, by design, not merely by convention.
@@ -172,7 +172,7 @@ edit` instead — same file format either way, just a different write path.
   `createGithubContentsProvider()` (GitHub's Contents API), kept behind
   that interface so a future non-GitHub git host is a new implementation,
   not a rearchitecture (see `@ensemble/core`'s `git-write.ts`).
-- The commit path is `workflows/<pathInRepo>/contexts/<context>/secrets.enc`,
+- The commit path is `workflows/<pathInRepo>/contexts/<context>/secrets.yml`,
   derived from the workflow's `WorkflowGitLink.pathInRepo` — the same
   layout `ens workflow secrets edit` produces locally, so either editor
   can pick up where the other left off with no format translation.

@@ -8,39 +8,37 @@ import {
   isEncryptedMarker,
 } from "./secrets-crypto.ts";
 
-/** Parses a multi-line `.env` file (`KEY=value` per line, `#` comments, blank lines ignored, quoted values unwrapped) into a plain key/value map. */
-function parseEnvFile(text: string): Record<string, string> {
+/** Parses a plain `KEY: value` YAML mapping (`contexts/<name>/variables.yml`) into a key/value map — every value must be a plain string, no ENC[...] markers expected here (see parseSecretsFile for that). */
+function parseVariablesFile(text: string): Record<string, string> {
+  const parsed = parseYaml(text);
+  if (parsed === null || parsed === undefined) return {};
+  if (typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("variables.yml must be a YAML map of key: value pairs.");
+  }
   const result: Record<string, string> = {};
-  for (const line of text.split("\n")) {
-    const trimmed = line.trim();
-    if (trimmed === "" || trimmed.startsWith("#")) continue;
-    const eq = trimmed.indexOf("=");
-    if (eq <= 0) continue;
-    const key = trimmed.slice(0, eq).trim();
-    let value = trimmed.slice(eq + 1).trim();
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
+  for (
+    const [key, value] of Object.entries(parsed as Record<string, unknown>)
+  ) {
+    if (typeof value !== "string") {
+      throw new Error(`variables.yml's value for "${key}" must be a string.`);
     }
     result[key] = value;
   }
   return result;
 }
 
-/** Reads one key out of a shared `.env` file (`contexts/<name>/variables.env`). Undefined if the file or the key is missing. */
-async function loadFromEnvFile(
+/** Reads one key out of a shared YAML map (`contexts/<name>/variables.yml`). Undefined if the file or the key is missing. */
+async function loadFromVariablesFile(
   path: string,
   key: string,
 ): Promise<LoadedValue | undefined> {
   if (!await exists(path, { isFile: true })) return undefined;
-  const parsed = parseEnvFile(await Deno.readTextFile(path));
+  const parsed = parseVariablesFile(await Deno.readTextFile(path));
   return Object.hasOwn(parsed, key) ? { scalar: parsed[key] } : undefined;
 }
 
 /**
- * Parses `contexts/<name>/secrets.enc` — a YAML map whose keys stay
+ * Parses `contexts/<name>/secrets.yml` — a YAML map whose keys stay
  * cleartext (readable diffs) and whose values are each either an
  * `ENC[X25519,...]` marker (see secrets-crypto.ts) or, tolerantly, a plain
  * string (treated as already-plaintext — lets a value be hand-edited/added
@@ -51,21 +49,21 @@ function parseSecretsFile(text: string): Record<string, string> {
   const parsed = parseYaml(text);
   if (parsed === null || parsed === undefined) return {};
   if (typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error("secrets.enc must be a YAML map of key: value pairs.");
+    throw new Error("secrets.yml must be a YAML map of key: value pairs.");
   }
   const result: Record<string, string> = {};
   for (
     const [key, value] of Object.entries(parsed as Record<string, unknown>)
   ) {
     if (typeof value !== "string") {
-      throw new Error(`secrets.enc's value for "${key}" must be a string.`);
+      throw new Error(`secrets.yml's value for "${key}" must be a string.`);
     }
     result[key] = value;
   }
   return result;
 }
 
-/** Reads one key out of `contexts/<name>/secrets.enc`, decrypting its value if it's an ENC[...] marker. Undefined if the file or the key is missing. `privateKey` is resolved lazily by the caller — only actually needed once an ENC[...] value is found. */
+/** Reads one key out of `contexts/<name>/secrets.yml`, decrypting its value if it's an ENC[...] marker. Undefined if the file or the key is missing. `privateKey` is resolved lazily by the caller — only actually needed once an ENC[...] value is found. */
 async function loadFromSecretsFile(
   path: string,
   key: string,
@@ -108,18 +106,19 @@ async function loadEncryptedFile(
 /**
  * Reads variables/secrets from a folder convention next to the workflow's
  * own `workflow.yml`: every declared `context.variables` entry is a
- * `KEY=value` line in `contexts/<name>/variables.env`, while every declared
- * `context.secrets` entry is a `KEY: value` line in `contexts/<name>/
- * secrets.enc` (a YAML map — keys stay cleartext for readable diffs, values
- * are `ENC[X25519,...]` markers decrypted with the resolved private key; see
- * secrets-crypto.ts). `contextFile("NAME.ext")` is a separate mechanism for
- * raw plaintext file content a tool needs verbatim (e.g. `terraform
- * -var-file`) — those live as individually-named files directly under
- * `contexts/<name>/` (so avoid naming one `variables.env` or `secrets.enc` —
- * those two names are already taken by the mechanisms above, and `secrets/`
- * by the one below). `contextSecretFile("NAME.ext")` is the same idea but
- * encrypted whole-file: `contexts/<name>/secrets/NAME.ext.enc`, decrypted to
- * a temp path under `runDir` at resolve time.
+ * `KEY: value` entry in `contexts/<name>/variables.yml` (a plain YAML map),
+ * while every declared `context.secrets.variables` entry is a `KEY: value`
+ * entry in `contexts/<name>/secrets.yml` (same YAML-map shape — keys stay
+ * cleartext for readable diffs, values are `ENC[X25519,...]` markers
+ * decrypted with the resolved private key; see secrets-crypto.ts). A
+ * declared `context.files`/`context.secrets.files` entry's `path` is a
+ * separate mechanism for raw plaintext file content a tool needs verbatim —
+ * those live as individually-named files directly under `contexts/<name>/`
+ * (so avoid naming one `variables.yml` or `secrets.yml` — those two names
+ * are already taken by the mechanisms above, and `secrets/` by the one
+ * below). A `context.secrets.files` entry is the same idea but encrypted
+ * whole-file: `contexts/<name>/secrets/<path>.enc`, decrypted to a temp path
+ * under `runDir` at resolve time.
  */
 export function createLocalLoader(
   workflowDir: string,
@@ -139,8 +138,8 @@ export function createLocalLoader(
       contextName: string,
       key: string,
     ): Promise<LoadedValue | undefined> {
-      return loadFromEnvFile(
-        join(contextsRoot, contextName, "variables.env"),
+      return loadFromVariablesFile(
+        join(contextsRoot, contextName, "variables.yml"),
         key,
       );
     },
@@ -149,7 +148,7 @@ export function createLocalLoader(
       key: string,
     ): Promise<LoadedValue | undefined> {
       return loadFromSecretsFile(
-        join(contextsRoot, contextName, "secrets.enc"),
+        join(contextsRoot, contextName, "secrets.yml"),
         key,
         resolvePrivateKey,
       );
@@ -179,7 +178,7 @@ export function createLocalLoader(
  * `<repoRoot>/.ensemble/global/` instead of a single workflow's own
  * `contexts/<name>/` — one shared place to provision a value every workflow
  * on this host needs (e.g. registry credentials), instead of copy-pasting it
- * into each workflow's own `contexts/<name>/secrets.enc`. `contextName` is
+ * into each workflow's own `contexts/<name>/secrets.yml`. `contextName` is
  * accepted (to satisfy ContextLoader) but ignored: there's only one global
  * tier, not one per `--context` name — see resolve.ts's selectLoaders,
  * which appends this after the per-context loader as a fallback tier.
@@ -200,14 +199,14 @@ export function createLocalGlobalLoader(
       _contextName: string,
       key: string,
     ): Promise<LoadedValue | undefined> {
-      return loadFromEnvFile(join(globalRoot, "variables.env"), key);
+      return loadFromVariablesFile(join(globalRoot, "variables.yml"), key);
     },
     loadSecret(
       _contextName: string,
       key: string,
     ): Promise<LoadedValue | undefined> {
       return loadFromSecretsFile(
-        join(globalRoot, "secrets.enc"),
+        join(globalRoot, "secrets.yml"),
         key,
         resolvePrivateKey,
       );

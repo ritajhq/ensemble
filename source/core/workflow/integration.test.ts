@@ -414,7 +414,7 @@ Deno.test("integration: context.name is null when a context: block is declared b
   assertEquals(outcomes.build.result, "success");
 });
 
-Deno.test("integration: a workflow resolves a variable from the local loader's contexts/<name>/variables.env", async () => {
+Deno.test("integration: a workflow resolves a variable from the local loader's contexts/<name>/variables.yml", async () => {
   const workflowDir = await Deno.makeTempDir({
     prefix: "integration-context-local-",
   });
@@ -423,8 +423,8 @@ Deno.test("integration: a workflow resolves a variable from the local loader's c
       recursive: true,
     });
     await Deno.writeTextFile(
-      join(workflowDir, "contexts", "production", "variables.env"),
-      "IMAGE_TAG=v1.2.3\n",
+      join(workflowDir, "contexts", "production", "variables.yml"),
+      "IMAGE_TAG: v1.2.3\n",
     );
 
     const workflow = {
@@ -488,7 +488,7 @@ Deno.test("integration: trigger is absent (not just empty) when no trigger is pa
   );
 });
 
-Deno.test("integration: context.secrets.variables resolves from the local loader's contexts/<name>/secrets.enc in run: steps", async () => {
+Deno.test("integration: context.secrets.variables resolves from the local loader's contexts/<name>/secrets.yml in run: steps", async () => {
   const workflowDir = await Deno.makeTempDir({
     prefix: "integration-context-secret-",
   });
@@ -500,7 +500,7 @@ Deno.test("integration: context.secrets.variables resolves from the local loader
     // this test doesn't need a real keypair, matching a value a developer
     // hand-adds before the first `ens workflow secrets edit` encrypts it.
     await Deno.writeTextFile(
-      join(workflowDir, "contexts", "production", "secrets.enc"),
+      join(workflowDir, "contexts", "production", "secrets.yml"),
       "GITHUB_WEBHOOK_SECRET: super-secret\n",
     );
 
@@ -535,7 +535,7 @@ Deno.test("integration: context.secrets.variables is available to script: steps 
       recursive: true,
     });
     await Deno.writeTextFile(
-      join(workflowDir, "contexts", "production", "secrets.enc"),
+      join(workflowDir, "contexts", "production", "secrets.yml"),
       "ENSEMBLE_TEST_ALLOWED_SECRET: visible\n",
     );
     Deno.env.delete("ENSEMBLE_TEST_FORBIDDEN_SECRET");

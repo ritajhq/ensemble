@@ -1,9 +1,7 @@
-# Secrets live encrypted in contexts/<name>/secrets.enc (and, for whole
+# Secrets live encrypted in contexts/<name>/secrets.yml (and, for whole
 # files, contexts/<name>/secrets/*.enc) — both ARE committed. See "ens
-# workflow secrets edit" and workflow.yml's context.secrets.variables. Only
-# an accidental plaintext secrets.env needs ignoring — note this is distinct
-# from contexts/*/variables.env, which IS committed (non-secret
-# per-environment config, see workflow.yml's context.variables).
-contexts/*/secrets.env
+# workflow secrets edit" and workflow.yml's context.secrets.variables. Note
+# this is distinct from contexts/*/variables.yml, which IS committed
+# (non-secret per-environment config, see workflow.yml's context.variables).
 
 workspace

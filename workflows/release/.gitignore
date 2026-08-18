@@ -1,5 +1,3 @@
 # Secrets (GH_TOKEN, REGISTRY_USERNAME, REGISTRY_PASSWORD) live encrypted
-# in contexts/<name>/secrets.enc, which IS committed — see "ens workflow
+# in contexts/<name>/secrets.yml, which IS committed — see "ens workflow
 # secrets edit" and @ensemble/workflow's context-loaders/secrets-crypto.ts.
-# Only an accidental plaintext .env needs ignoring.
-contexts/*/secrets.env

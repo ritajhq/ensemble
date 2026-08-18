@@ -213,51 +213,62 @@ jobs:
   exactly: `--context <name>` is optional and unvalidated, `context.path` is
   just `<repoRoot>/contexts/<name>` (see "Running a workflow" above).
 
-### Context files (`contextFile()`)
+### Context files (`context.files`)
 
-`contextFile("<filename>")` (an expression function, not a YAML key) reads one
-whole file's content verbatim from `contexts/<name>/<filename>` — resolved to a
-real path on disk, for tools that want a real file (e.g.
-`terraform apply -var-file=...`), not a parsed value:
+`context.files` declares a whole file this workflow needs verbatim from its
+deploy context — a `{name, path}` pair, `path` relative to
+`contexts/<name>/`, resolved to a real path on disk for tools that want a
+real file (e.g. `docker compose --env-file=...`), not a parsed value:
 
 ```yaml
+context:
+  files:
+    - name: caddy_config
+      path: Caddyfile
+
 jobs:
   deploy:
     steps:
-      - run: terraform apply -var-file="${{ contextFile('tfvars.json') }}"
+      - run: docker compose --profile dev -f "${{ context.files.caddy_config.path }}" up
 ```
 
+- Addressed as `${{ context.files.<name>.path }}` — plain property access,
+  no expression function. No `NAME`/`NAME_FILE` env var (a declared file's
+  `name` isn't guaranteed to be a valid env var identifier).
 - Files sit directly in `contexts/<name>/`, alongside (not nested under) that
-  context's `variables.env`/`secrets.enc` — pick a filename that doesn't collide
+  context's `variables.yml`/`secrets.yml` — pick a `path` that doesn't collide
   with those two reserved names, or with the `secrets/` subfolder
-  `contextSecretFile()` uses (see below).
-- Every `contextFile()`/`contextSecretFile()` call anywhere in the workflow is
-  found statically and resolved **before any job runs** (same fail-fast contract
-  as `context.variables`/`context.secrets`) — _except_ one inside a job or step
-  whose own `if:` can be proven, from `--context` alone, to never run (e.g.
-  `if: context.name == 'development'` when `--context
-  production` was given) —
-  that reference is skipped entirely, so a file only one context's steps
-  actually read never needs to exist for any other context. Only a plain
-  `context.name == '...'`/`!= '...'` (or a boolean combination of them) is
-  provable this way; an `if:` referencing anything else (`needs.*`, `matrix.*`,
-  ...) can't be decided this early and falls back to eager resolution, same as
-  always.
-- `contextSecretFile("<filename>")` is the encrypted counterpart — see "Secrets
+  `context.secrets.files` uses (see below).
+- A declared entry only needs to actually resolve for a given `--context` if
+  some job/step whose own `if:` isn't provably false for that context
+  references it anywhere (`run:`/`if:`/`name:` text) — resolved **before any
+  job runs**, same fail-fast contract as `context.variables`/
+  `context.secrets`. Only a plain `context.name == '...'`/`!= '...'` (or a
+  boolean combination of them) is provable this way; an `if:` referencing
+  anything else (`needs.*`, `matrix.*`, ...) can't be decided this early and
+  falls back to eager resolution, same as always. This is how a file that
+  only exists under one context's folder (e.g. a dev-only Caddyfile) can be
+  declared once without breaking every other context.
+- `context.secrets.files` is the encrypted counterpart — see "Secrets
   (`context.secrets`)" below.
 
 ## Secrets (`context.secrets`)
 
-A workflow can declare named secrets, resolved per-context and injected as real
-env vars into every job/step's subprocess — decrypted in memory only, never
-written to disk as plaintext:
+A workflow can declare named secret values and/or whole encrypted files,
+resolved per-context — values are injected as real env vars into every
+job/step's subprocess, decrypted in memory only, never written to disk as
+plaintext:
 
 ```yaml
 context:
   secrets:
-    - name: REGISTRY_PASSWORD
-    - name: GITHUB_WEBHOOK_SECRET
-      default: "" # optional — makes this one non-required
+    variables:
+      - name: REGISTRY_PASSWORD
+      - name: GITHUB_WEBHOOK_SECRET
+        default: "" # optional — makes this one non-required
+    files:
+      - name: tls_cert
+        path: cert.pem
 
 jobs:
   publish:
@@ -265,21 +276,25 @@ jobs:
       - run: docker login registry.example.com -u "$REGISTRY_USERNAME" -p "$REGISTRY_PASSWORD"
 ```
 
-- Backed by `contexts/<name>/secrets.enc` next to the workflow — a
-  git-committable YAML file, SOPS-style: keys stay cleartext (readable
-  diffs/code review), values are each an `ENC[X25519,epk:...,data:...,iv:...]`
-  marker (hybrid X25519 + AES-256-GCM envelope encryption — one repo-wide
-  keypair, `.ensemble/secrets.key` / `.ensemble/secrets.key.pub`, not
-  per-workflow or per-context). A value that isn't yet an `ENC[...]` marker is
-  tolerated as already-plaintext, so a file can be hand-edited before its first
-  real encryption pass.
+- `context.secrets.variables` is backed by `contexts/<name>/secrets.yml` next
+  to the workflow — a git-committable YAML file, SOPS-style: keys stay
+  cleartext (readable diffs/code review), values are each an
+  `ENC[X25519,epk:...,data:...,iv:...]` marker (hybrid X25519 + AES-256-GCM
+  envelope encryption — one repo-wide keypair, `.ensemble/secrets.key` /
+  `.ensemble/secrets.key.pub`, not per-workflow or per-context). A value
+  that isn't yet an `ENC[...]` marker is tolerated as already-plaintext, so
+  a file can be hand-edited before its first real encryption pass. Each
+  entry is also addressable as
+  `${{ context.secrets.variables.<key>.{name,value,path} }}`, the same way
+  a plaintext `context.variables` entry is.
 - **Editing**: `ens workflow secrets edit <name> [context]` (interactive:
-  add/replace/remove one key at a time, values never echoed back) writes
-  straight to your local checkout — commit/push it yourself like any other file.
-  A workflow linked to a registered git repository also gets a dashboard editor
-  (`/v1/secrets/...`, see `@ensemble/platform`'s README) that commits directly
-  to that repo instead — same file format, same public key, but the server only
-  ever needs the _public_ key to encrypt a new value, never the private one.
+  choose value or file secrets, then add/replace/remove one at a time,
+  values never echoed back) writes straight to your local checkout —
+  commit/push it yourself like any other file. A workflow linked to a
+  registered git repository also gets a dashboard editor (`/v1/secrets/...`,
+  see `@ensemble/platform`'s README) that commits directly to that repo
+  instead — same file format, same public key, but the server only ever
+  needs the _public_ key to encrypt a new value, never the private one.
 - **Decrypting** (at `ens workflow run` time, or inside a server-triggered
   containerized run) needs the private key: locally from
   `.ensemble/secrets.key`, or — for a containerized/triggered run — from
@@ -288,15 +303,17 @@ jobs:
   `@ensemble/platform`'s README). Resolved lazily and only once actually needed
   — a workflow that declares no `context.secrets` never touches the private key
   at all.
-- A run fails fast, before any job starts, if a declared secret with no
-  `default` can't be resolved — the same fail-fast contract as an invalid
+- A run fails fast, before any job starts, if a declared secret variable with
+  no `default` can't be resolved — the same fail-fast contract as an invalid
   `--context` or a missing `context.variables` entry.
-- **Whole-file secrets** (e.g. a certificate the tooling needs as a real file,
-  not an env var) use `contextSecretFile("<filename>")` instead of
-  `contextFile()` — backed by `contexts/<name>/secrets/<filename>.enc`
-  (whole-file encrypted, no partial/per-line encryption for these), decrypted to
-  a temp path under the run's own scratch directory and cleaned up with
-  everything else when the run finishes.
+- **Whole-file secrets** (e.g. a certificate the tooling needs as a real
+  file, not an env var) are `context.secrets.files` entries instead of
+  `context.secrets.variables` — backed by `contexts/<name>/secrets/<path>.enc`
+  (whole-file encrypted, no partial/per-line encryption for these), addressed
+  as `${{ context.secrets.files.<name>.path }}`, decrypted to a temp path
+  under the run's own scratch directory and cleaned up with everything else
+  when the run finishes. Same per-context reachability rule as
+  `context.files` applies here too.
 - Never confuse this with the plain `variables:`/`context.variables` block (see
   below) — those values are legible in git history and any plan/diff logging;
   `context.secrets` is the only mechanism here backed by encryption at rest.
@@ -567,11 +584,14 @@ by fail-fast exits via its process signal, not a normal error.
   only present when `RunWorkflowOptions.trigger` was passed in; absent (and
   therefore an error to reference) for a direct/untriggered run. `trigger.type`
   is always `"manual"` or `"github"` when present.
-- `context.name` / `context.path` — the deploy context this run was invoked with
+- `context.name` — the deploy context this run was invoked with
   (`--context <name>`, or `RunWorkflowOptions.context`), only present when one
-  was given; absent (and therefore an error to reference) otherwise. Unlike
-  `variables.*`, `context` isn't overridable per-name and isn't injected as
-  shell env — it's just these two fields.
+  was given; absent (and therefore an error to reference) otherwise.
+  `context.variables.<key>.{name,value,path}` / `context.files.<name>.path` /
+  `context.secrets.variables.<key>.{name,value,path}` /
+  `context.secrets.files.<name>.path` address that context's own declared
+  entries — see "Contexts", "Context files", and "Secrets" above. Unlike
+  `variables.*`, none of these are overridable per-name.
 - `repositories.<name>.path` — where a `resources.repositories` entry was
   checked out (see "Resources" above), only present when the workflow declares
   at least one. `in: { repository: <name> }` on a job/step is the common way to

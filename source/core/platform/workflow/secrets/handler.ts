@@ -47,7 +47,7 @@ function resolveParams(
 }
 
 /**
- * Resolves the git repo + secrets.enc path a workflow's secrets live at, or
+ * Resolves the git repo + secrets.yml path a workflow's secrets live at, or
  * an error Response if the workflow has no WorkflowGitLink — only
  * git-linked workflows get a working dashboard secrets editor (a local-only
  * workflow's secrets are edited via `ens workflow secrets edit` instead, see
@@ -88,7 +88,7 @@ async function resolveGitTarget(
   return {
     repoUrl: record.repoUrl,
     auth: record.auth,
-    secretsPath: `${workflowRoot}/contexts/${context}/secrets.enc`,
+    secretsPath: `${workflowRoot}/contexts/${context}/secrets.yml`,
     secretsDir: `${workflowRoot}/contexts/${context}/secrets`,
     workflowYmlPath: `${workflowRoot}/workflow.yml`,
   };
@@ -200,7 +200,7 @@ export async function handleGetSecretsContext(
 /**
  * POST /v1/secrets/:workflowId/:context/:key/set — encrypts `value` with the
  * repo's own committed public key (.ensemble/secrets.key.pub) and commits
- * the updated contexts/<context>/secrets.enc via the GitWriteProvider. The
+ * the updated contexts/<context>/secrets.yml via the GitWriteProvider. The
  * server never holds or needs the private key for this — only the public
  * key, which travels with the repo, so this path never decrypts anything.
  */

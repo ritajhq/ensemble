@@ -25,7 +25,7 @@ jobs:
 
       - name: print_secret
         run: |
-          echo "DEMO_SECRET (decrypted from contexts/${{ context.name }}/secrets.enc): $DEMO_SECRET"
+          echo "DEMO_SECRET (decrypted from contexts/${{ context.name }}/secrets.yml): $DEMO_SECRET"
 
       - name: print_secret_file
         run: |

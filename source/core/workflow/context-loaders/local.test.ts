@@ -42,14 +42,14 @@ Deno.test("local loader: isAvailable is true when contexts/<name> exists", async
   });
 });
 
-Deno.test("local loader: loadVariable reads a key out of contexts/<name>/variables.env", async () => {
+Deno.test("local loader: loadVariable reads a key out of contexts/<name>/variables.yml", async () => {
   await withWorkflowDir(async (workflowDir) => {
     await Deno.mkdir(join(workflowDir, "contexts", "production"), {
       recursive: true,
     });
     await Deno.writeTextFile(
-      join(workflowDir, "contexts", "production", "variables.env"),
-      "IMAGE_TAG=v1.2.3\n",
+      join(workflowDir, "contexts", "production", "variables.yml"),
+      "IMAGE_TAG: v1.2.3\n",
     );
 
     const loader = createLocalLoader(workflowDir, noKeyNeeded, workflowDir);
@@ -59,14 +59,14 @@ Deno.test("local loader: loadVariable reads a key out of contexts/<name>/variabl
   });
 });
 
-Deno.test("local loader: variables.env can declare multiple KEY=value lines", async () => {
+Deno.test("local loader: variables.yml can declare multiple key: value entries", async () => {
   await withWorkflowDir(async (workflowDir) => {
     await Deno.mkdir(join(workflowDir, "contexts", "production"), {
       recursive: true,
     });
     await Deno.writeTextFile(
-      join(workflowDir, "contexts", "production", "variables.env"),
-      "IMAGE_TAG=v1.2.3\nREGION=us-east-1\n",
+      join(workflowDir, "contexts", "production", "variables.yml"),
+      "IMAGE_TAG: v1.2.3\nREGION: us-east-1\n",
     );
 
     const loader = createLocalLoader(workflowDir, noKeyNeeded, workflowDir);
@@ -81,13 +81,13 @@ Deno.test("local loader: variables.env can declare multiple KEY=value lines", as
   });
 });
 
-Deno.test("local loader: loadSecret reads a plaintext key out of contexts/<name>/secrets.enc (tolerant of a not-yet-encrypted value)", async () => {
+Deno.test("local loader: loadSecret reads a plaintext key out of contexts/<name>/secrets.yml (tolerant of a not-yet-encrypted value)", async () => {
   await withWorkflowDir(async (workflowDir) => {
     await Deno.mkdir(join(workflowDir, "contexts", "staging"), {
       recursive: true,
     });
     await Deno.writeTextFile(
-      join(workflowDir, "contexts", "staging", "secrets.enc"),
+      join(workflowDir, "contexts", "staging", "secrets.yml"),
       "GITHUB_WEBHOOK_SECRET: shh\n",
     );
 
@@ -105,7 +105,7 @@ Deno.test("local loader: loadSecret decrypts an ENC[...] value using the resolve
     });
     const marker = await encryptValue(publicKey, "shh");
     await Deno.writeTextFile(
-      join(workflowDir, "contexts", "staging", "secrets.enc"),
+      join(workflowDir, "contexts", "staging", "secrets.yml"),
       `GITHUB_WEBHOOK_SECRET: "${marker}"\n`,
     );
 
@@ -127,7 +127,7 @@ Deno.test("local loader: loadSecret propagates a resolvePrivateKey failure when 
     });
     const marker = await encryptValue(publicKey, "shh");
     await Deno.writeTextFile(
-      join(workflowDir, "contexts", "staging", "secrets.enc"),
+      join(workflowDir, "contexts", "staging", "secrets.yml"),
       `TOKEN: "${marker}"\n`,
     );
 
@@ -140,21 +140,21 @@ Deno.test("local loader: loadSecret propagates a resolvePrivateKey failure when 
   });
 });
 
-Deno.test("local loader: loadVariable returns undefined when variables.env exists but the key isn't in it", async () => {
+Deno.test("local loader: loadVariable returns undefined when variables.yml exists but the key isn't in it", async () => {
   await withWorkflowDir(async (workflowDir) => {
     await Deno.mkdir(join(workflowDir, "contexts", "production"), {
       recursive: true,
     });
     await Deno.writeTextFile(
-      join(workflowDir, "contexts", "production", "variables.env"),
-      "OTHER=x\n",
+      join(workflowDir, "contexts", "production", "variables.yml"),
+      "OTHER: x\n",
     );
     const loader = createLocalLoader(workflowDir, noKeyNeeded, workflowDir);
     assertEquals(await loader.loadVariable("production", "MISSING"), undefined);
   });
 });
 
-Deno.test("local loader: loadVariable returns undefined when variables.env doesn't exist", async () => {
+Deno.test("local loader: loadVariable returns undefined when variables.yml doesn't exist", async () => {
   await withWorkflowDir(async (workflowDir) => {
     await Deno.mkdir(join(workflowDir, "contexts", "production"), {
       recursive: true,
@@ -177,19 +177,22 @@ Deno.test("local loader: loadVariable returns undefined when the context itself 
   });
 });
 
-Deno.test("local loader: variables.env handles quoted values and ignores blank/comment lines", async () => {
+Deno.test("local loader: variables.yml rejects a non-string value", async () => {
   await withWorkflowDir(async (workflowDir) => {
     await Deno.mkdir(join(workflowDir, "contexts", "production"), {
       recursive: true,
     });
     await Deno.writeTextFile(
-      join(workflowDir, "contexts", "production", "variables.env"),
-      '# a comment\n\nGREETING="hello world"\n',
+      join(workflowDir, "contexts", "production", "variables.yml"),
+      "REPLICAS: 3\n",
     );
 
     const loader = createLocalLoader(workflowDir, noKeyNeeded, workflowDir);
-    const result = await loader.loadVariable("production", "GREETING");
-    assertEquals(result?.scalar, "hello world");
+    await assertRejects(
+      () => loader.loadVariable("production", "REPLICAS"),
+      Error,
+      "must be a string",
+    );
   });
 });
 
@@ -277,13 +280,13 @@ Deno.test("local global loader: isAvailable is false when .ensemble/global doesn
   });
 });
 
-Deno.test("local global loader: loadSecret reads .ensemble/global/secrets.enc, ignoring the contextName argument", async () => {
+Deno.test("local global loader: loadSecret reads .ensemble/global/secrets.yml, ignoring the contextName argument", async () => {
   await withWorkflowDir(async (repoRoot) => {
     await Deno.mkdir(join(repoRoot, ".ensemble", "global"), {
       recursive: true,
     });
     await Deno.writeTextFile(
-      join(repoRoot, ".ensemble", "global", "secrets.enc"),
+      join(repoRoot, ".ensemble", "global", "secrets.yml"),
       "REGISTRY_PASSWORD: hunter2\n",
     );
 
@@ -299,14 +302,14 @@ Deno.test("local global loader: loadSecret reads .ensemble/global/secrets.enc, i
   });
 });
 
-Deno.test("local global loader: loadVariable reads .ensemble/global/variables.env", async () => {
+Deno.test("local global loader: loadVariable reads .ensemble/global/variables.yml", async () => {
   await withWorkflowDir(async (repoRoot) => {
     await Deno.mkdir(join(repoRoot, ".ensemble", "global"), {
       recursive: true,
     });
     await Deno.writeTextFile(
-      join(repoRoot, ".ensemble", "global", "variables.env"),
-      "REGION=us-east-1\n",
+      join(repoRoot, ".ensemble", "global", "variables.yml"),
+      "REGION: us-east-1\n",
     );
 
     const loader = createLocalGlobalLoader(repoRoot, noKeyNeeded, repoRoot);
@@ -323,7 +326,7 @@ Deno.test("local global loader: loadSecret returns undefined for a key with no m
       recursive: true,
     });
     await Deno.writeTextFile(
-      join(repoRoot, ".ensemble", "global", "secrets.enc"),
+      join(repoRoot, ".ensemble", "global", "secrets.yml"),
       "OTHER: x\n",
     );
     const loader = createLocalGlobalLoader(repoRoot, noKeyNeeded, repoRoot);

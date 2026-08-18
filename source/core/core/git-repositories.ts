@@ -18,7 +18,7 @@ export interface GitRepositoryRecord {
   /**
    * This repo's X25519 private key (base64 pkcs8 — see
    * @ensemble/workflow's context-loaders/secrets-crypto.ts), used to decrypt
-   * contexts/<name>/secrets.enc for any workflow linked to this repo when
+   * contexts/<name>/secrets.yml for any workflow linked to this repo when
    * its run is containerized (see run-workflow-in-container.ts). Optional:
    * a repo registered before this field existed, or whose workflows never
    * declare context.secrets, has none — decryption then simply isn't
