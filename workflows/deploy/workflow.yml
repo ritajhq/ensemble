@@ -10,8 +10,20 @@ resources:
       url: https://github.com/ritajhq/ensemble.git
 
 context:
+  variables:
+    - name: IMAGE_REGISTRY
+    - name: IMAGE_TAG
+    - name: SERVER_RUNNER_IMAGE
+    - name: SERVER_WORKSPACE_PATH
+    - name: SERVER_HOST_WORKFLOWS_PATH
+    - name: WEB_LIVE_RELOAD
+    - name: WEB_API_ENDPOINT
+  files:
+    - name: caddy_config
+      path: Caddyfile
   secrets:
-    - name: GITHUB_WEBHOOK_SECRET
+    variables:
+      - name: GITHUB_WEBHOOK_SECRET
 
 jobs:
   watch_cli:
@@ -93,52 +105,43 @@ jobs:
     in:
       repository: ensemble
     steps:
-      - id: install_terraform
-        name: install_terraform
+      - id: runtime_env
+        name: resolve host facts and secrets
         run: |
           set -euo pipefail
-          tf_version="1.9.8"
-          tf_bin="/tmp/terraform-${tf_version}/terraform"
-          if [ ! -x "$tf_bin" ]; then
-            mkdir -p "/tmp/terraform-${tf_version}"
-            wget -qO /tmp/terraform.zip \
-              "https://releases.hashicorp.com/terraform/${tf_version}/terraform_${tf_version}_linux_amd64.zip"
-            unzip -qo /tmp/terraform.zip -d "/tmp/terraform-${tf_version}"
-          fi
-          echo "tf_bin=$tf_bin" >> "$WORKFLOW_OUTPUT"
+          cd workflows/deploy
 
-      - name: terraform_init
-        run: |
-          set -euo pipefail
-          cd workflows/deploy/terraform
-          "${{ steps.install_terraform.outputs.tf_bin }}" init
+          runtime_env="$(mktemp)"
+          {
+            echo "SERVER_DOCKER_GID=$(getent group docker | cut -d: -f3)"
+            echo "GITHUB_WEBHOOK_SECRET=$GITHUB_WEBHOOK_SECRET"
+            echo "SERVER_HOST_WORKFLOWS_PATH=$(realpath -m "$SERVER_HOST_WORKFLOWS_PATH")"
+          } > "$runtime_env"
+          echo "runtime_env=$runtime_env" >> "$WORKFLOW_OUTPUT"
 
-      - name: "terraform_apply (context: ${{ context.name }})"
+      - name: "docker compose up (context: ${{ context.name }})"
         if: "${{ context.name != 'development' }}"
         run: |
           set -euo pipefail
+          cd workflows/deploy
+          docker compose \
+            --env-file "${{ steps.runtime_env.outputs.runtime_env }}" \
+            up -d
 
-          cd workflows/deploy/terraform
-          "${{ steps.install_terraform.outputs.tf_bin }}" apply -auto-approve \
-            -var-file="${{ contextFile('tfvars.json') }}" \
-            -var="server_github_webhook_secret=$GITHUB_WEBHOOK_SECRET" \
-            -var="server_docker_gid=$(getent group docker | cut -d: -f3)"
-
-      - name: "terraform_apply, watch mode (context: ${{ context.name }})"
+      - name: "docker compose up, watch mode (context: ${{ context.name }})"
         if: "${{ context.name == 'development' }}"
         run: |
           set -euo pipefail
+          cd workflows/deploy
 
-          ARTIFACTS_WEB="${{ ensembleArtifacts('web') }}"
-          ARTIFACTS_SERVER="${{ ensembleArtifacts('server') }}"
-          CLI_PATH="${{ ensembleArtifacts('packages') }}/ensemble-linux-x64"
+          {
+            echo "CADDY_CONFIG=${{ context.files.caddy_config.path }}"
+            echo "ARTIFACTS_WEB=${{ ensembleArtifacts('web') }}"
+            echo "ARTIFACTS_SERVER=${{ ensembleArtifacts('server') }}"
+            echo "CLI_PATH=${{ ensembleArtifacts('packages') }}/ensemble-linux-x64"
+          } >> "${{ steps.runtime_env.outputs.runtime_env }}"
 
-          cd workflows/deploy/terraform
-          "${{ steps.install_terraform.outputs.tf_bin }}" apply -auto-approve \
-            -var-file="${{ contextFile('tfvars.json') }}" \
-            -var="artifacts_web=$ARTIFACTS_WEB" \
-            -var="artifacts_server=$ARTIFACTS_SERVER" \
-            -var="cli_path=$CLI_PATH" \
-            -var="caddy_config=${{ contextFile('Caddyfile') }}" \
-            -var="server_github_webhook_secret=$GITHUB_WEBHOOK_SECRET" \
-            -var="server_docker_gid=$(getent group docker | cut -d: -f3)"
+          docker compose \
+            --env-file "${{ steps.runtime_env.outputs.runtime_env }}" \
+            --profile dev \
+            up --watch

@@ -1,16 +1,9 @@
 # Secrets live encrypted in contexts/<name>/secrets.enc (and, for whole
 # files, contexts/<name>/secrets/*.enc) — both ARE committed. See "ens
-# workflow secrets edit" and terraform/variables.tf's
-# server_github_webhook_secret. Only an accidental plaintext .env needs
-# ignoring.
+# workflow secrets edit" and workflow.yml's context.secrets.variables. Only
+# an accidental plaintext secrets.env needs ignoring — note this is distinct
+# from contexts/*/variables.env, which IS committed (non-secret
+# per-environment config, see workflow.yml's context.variables).
 contexts/*/secrets.env
-
-# terraform's own local state/cache — this deploy uses local state (no
-# backend configured), so plan/apply output and provider binaries land here.
-# .terraform.lock.hcl is NOT ignored — that one should be committed, it
-# pins exact provider versions/checksums (Terraform's own lockfile).
-terraform/.terraform/
-terraform/terraform.tfstate
-terraform/terraform.tfstate.backup
 
 workspace

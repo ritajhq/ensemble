@@ -17,11 +17,11 @@ One-time setup on the target Ubuntu server, then `ens workflow run deploy
   `ens workflow run release --context production`, run wherever that
   happens for you — not part of this guide).
 - An existing gateway/reverse proxy in front of this host — this deploy's
-  own `caddy` container never runs in production (`workflow.yml`'s
-  `terraform_apply` step only passes `caddy_config` — and this context has
-  no `Caddyfile` at all — when `context.name == 'development'`); routing
-  `server:8787` (the `/v1/*` API) and `web:8000` (everything else) to the
-  outside world is handled separately, outside this repo.
+  own `caddy` container never runs in production (`compose.yaml` gates it
+  behind the `dev` Compose profile, which `workflow.yml` only ever passes
+  for `context.name == 'development'`); routing `server:8787` (the `/v1/*`
+  API) and `web:8000` (everything else) to the outside world is handled
+  separately, outside this repo.
 
 ## 1. Clone the repo
 
@@ -36,7 +36,7 @@ cd ensemble
 `.ensemble/` + `workflows/` directory on the host — this is **separate**
 from the `ensemble` repo checkout above, and persists across redeploys
 (it's where registered workflows, run history, and auth tokens live).
-`contexts/production/tfvars.json` points `server_workspace_path`
+`contexts/production/variables.env` points `SERVER_WORKSPACE_PATH`
 at `/srv/ensemble/server-workspace` — adjust both if you want a different
 location.
 
@@ -94,15 +94,14 @@ value, is covered in `workflows/deploy/README.md`.)
 ens workflow run deploy --context production
 ```
 
-This installs Terraform into `/tmp` if it isn't already there, then applies
-`workflows/deploy/terraform/` against the `production` context's
-`tfvars.json` — starting `server` and `web` (no `caddy`, see
-Prerequisites) on the `edge` network, pulling
+This runs `docker compose` against `workflows/deploy/compose.yaml` with the
+`production` context's `.env` — starting `server` and `web` (no `caddy`,
+see Prerequisites) on the `edge` network, pulling
 `registry.ritaj.app/...:latest` images.
 
-Re-run the same command for every later deploy — it's the same Terraform
-state, so it'll only apply what actually changed (typically just pulling
-newer `:latest` images and recreating the containers using them).
+Re-run the same command for every later deploy — `docker compose up -d` is
+idempotent, so it'll only recreate what actually changed (typically just
+pulling newer `:latest` images and recreating the containers using them).
 
 ## Verifying it worked
 
@@ -123,12 +122,7 @@ should return `{"workflows":[]}` (empty until you register/create some).
 ## Troubleshooting
 
 - **"Could not find repository root (no .ensemble directory found...)"** in
-  `server`'s logs — step 2 wasn't done, or `server_workspace_path` in
-  `tfvars.json` doesn't match where you actually created it.
-- **`terraform plan`/`apply` reports "No changes" but containers are
-  visibly down/unhealthy** — make sure you're on
-  `terraform-provider-dockercompose` v0.2.2 or later (`terraform init
-  -upgrade` inside `workflows/deploy/terraform/` if unsure); earlier
-  versions don't detect a partially-crashed stack correctly.
+  `server`'s logs — step 2 wasn't done, or `SERVER_WORKSPACE_PATH` in
+  `.env` doesn't match where you actually created it.
 - **Everything else** — `docker logs ensemble-server` / `docker logs
   ensemble-web` first; both containers log to stdout.

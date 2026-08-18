@@ -117,7 +117,7 @@ const CSS_TOUCH_DELAY_MS = 500;
  * no write means no mtime change, which means no filesystem event for
  * anything watching cssOut downstream (notably Docker Compose Watch's
  * `sync`, which only syncs on a detected change event — see
- * workflows/deploy/terraform/main.tf's develop_watch block). Force-touching
+ * workflows/deploy/compose.yaml's develop.watch block). Force-touching
  * cssOut guarantees a real event fires every time, regardless of whether
  * Tailwind itself decided the content was unchanged. Harmless when Tailwind
  * did write: the touch just follows it.

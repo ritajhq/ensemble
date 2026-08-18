@@ -1,0 +1,50 @@
+networks:
+  edge:
+    name: edge
+    external: true
+
+services:
+  server:
+    image: ${IMAGE_REGISTRY:-}ensemble/server:${IMAGE_TAG:-latest}
+    container_name: ensemble-server
+    networks: [edge]
+    user: "1000:1000"
+    group_add: ["${SERVER_DOCKER_GID}"]
+    environment:
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET}
+      ENSEMBLE_RUNNER_IMAGE: ${SERVER_RUNNER_IMAGE}
+      ENSEMBLE_HOST_WORKFLOWS_PATH: ${SERVER_HOST_WORKFLOWS_PATH}
+    volumes:
+      - ${SERVER_WORKSPACE_PATH}:/workspace
+      - /var/run/docker.sock:/var/run/docker.sock
+    develop:
+      watch:
+        - action: sync+restart
+          path: ${ARTIFACTS_SERVER:-.}
+          target: /app/server
+        - action: sync+restart
+          path: ${CLI_PATH:-.}
+          target: /usr/local/bin/ens
+
+  web:
+    image: ${IMAGE_REGISTRY:-}ensemble/web:latest
+    container_name: ensemble-web
+    networks: [edge]
+    environment:
+      LIVE_RELOAD: ${WEB_LIVE_RELOAD}
+      INJECT_API_ENDPOINT: ${WEB_API_ENDPOINT}
+    develop:
+      watch:
+        - action: sync
+          path: ${ARTIFACTS_WEB:-.}
+          target: /app/www
+
+  caddy:
+    image: caddy:alpine
+    container_name: ensemble-caddy
+    networks: [edge]
+    profiles: [dev]
+    ports: ["8999:8000"]
+    volumes:
+      - ${CADDY_CONFIG:-./contexts/development/Caddyfile}:/etc/caddy/Caddyfile:ro
+    depends_on: [server, web]
