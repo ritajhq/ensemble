@@ -8,8 +8,10 @@ import {
 } from "@ensemble/core";
 import {
   handleDeleteSecret,
+  handleDeleteSecretFile,
   handleGetSecretsContext,
   handleSetSecret,
+  handleSetSecretFile,
 } from "./handler.ts";
 
 /** In-memory GitWriteProvider fake — no real GitHub API calls needed to test the handlers' own auth/validation logic. */
@@ -22,6 +24,11 @@ function makeFakeGit(): GitWriteProvider & { files: Map<string, Uint8Array> } {
     },
     putFile(_repoUrl, _auth, path, content) {
       files.set(path, content);
+      return Promise.resolve({ commitSha: "deadbeef" });
+    },
+    deleteFile(_repoUrl, _auth, path) {
+      if (!files.has(path)) return Promise.resolve(undefined);
+      files.delete(path);
       return Promise.resolve({ commitSha: "deadbeef" });
     },
   };
@@ -133,6 +140,7 @@ Deno.test("handleGetSecretsContext: succeeds (200, empty keys) when the linked r
     assertEquals(response.status, 200);
     const body = await response.json();
     assertEquals(body.keys, []);
+    assertEquals(body.files, []);
   });
 });
 
@@ -192,5 +200,162 @@ Deno.test("handleGetSecretsContext: 404 when the workflow has no git link at all
       { workflowId: id, context: "production" },
     );
     assertEquals(response.status, 404);
+  });
+});
+
+const DEMO_CONF_WORKFLOW_YML = `
+jobs:
+  demo:
+    steps:
+      - run: exit 0
+context:
+  secrets:
+    files:
+      - name: demo_conf
+        path: demo.conf
+`;
+
+Deno.test("handleGetSecretsContext: lists declared context.secrets.files entries with their set/unset state", async () => {
+  await withContext(async (ctx) => {
+    await linkWorkflow(ctx, "deploy", "pat");
+    ctx.git.files.set(
+      "workflows/deploy/workflow.yml",
+      new TextEncoder().encode(DEMO_CONF_WORKFLOW_YML),
+    );
+    ctx.git.files.set(
+      "workflows/deploy/contexts/production/secrets/demo.conf.enc",
+      new Uint8Array([1, 2, 3]),
+    );
+
+    const id = encodeWorkflowId("deploy");
+    const response = await handleGetSecretsContext(
+      ctx.repositories,
+      ctx.links,
+      ctx.git,
+      authedRequest(`http://x/v1/secrets/${id}/production`),
+      { workflowId: id, context: "production" },
+    );
+    assertEquals(response.status, 200);
+    const body = await response.json();
+    assertEquals(body.files, [{ name: "demo_conf", isSet: true }]);
+  });
+});
+
+Deno.test("handleGetSecretsContext: a declared but unset context.secrets.files entry reports isSet: false", async () => {
+  await withContext(async (ctx) => {
+    await linkWorkflow(ctx, "deploy", "pat");
+    ctx.git.files.set(
+      "workflows/deploy/workflow.yml",
+      new TextEncoder().encode(DEMO_CONF_WORKFLOW_YML),
+    );
+
+    const id = encodeWorkflowId("deploy");
+    const response = await handleGetSecretsContext(
+      ctx.repositories,
+      ctx.links,
+      ctx.git,
+      authedRequest(`http://x/v1/secrets/${id}/production`),
+      { workflowId: id, context: "production" },
+    );
+    const body = await response.json();
+    assertEquals(body.files, [{ name: "demo_conf", isSet: false }]);
+  });
+});
+
+Deno.test("handleSetSecretFile: 400 for a name the workflow doesn't declare under context.secrets.files", async () => {
+  await withContext(async (ctx) => {
+    await linkWorkflow(ctx, "deploy", "pat");
+    ctx.git.files.set(
+      "workflows/deploy/workflow.yml",
+      new TextEncoder().encode(DEMO_CONF_WORKFLOW_YML),
+    );
+
+    const id = encodeWorkflowId("deploy");
+    const response = await handleSetSecretFile(
+      ctx.repositories,
+      ctx.links,
+      ctx.git,
+      authedRequest(`http://x/v1/secrets/${id}/production/not_declared/set-file`, {
+        contentBase64: btoa("hi"),
+      }),
+      { workflowId: id, context: "production", name: "not_declared" },
+    );
+    assertEquals(response.status, 400);
+    const body = await response.json();
+    assertEquals(body.error.includes("not_declared"), true);
+  });
+});
+
+Deno.test("handleSetSecretFile: 400 with a clear message when the linked repo has no PAT", async () => {
+  await withContext(async (ctx) => {
+    await linkWorkflow(ctx, "deploy", "none");
+    const id = encodeWorkflowId("deploy");
+    const response = await handleSetSecretFile(
+      ctx.repositories,
+      ctx.links,
+      ctx.git,
+      authedRequest(`http://x/v1/secrets/${id}/production/demo_conf/set-file`, {
+        contentBase64: btoa("hi"),
+      }),
+      { workflowId: id, context: "production", name: "demo_conf" },
+    );
+    assertEquals(response.status, 400);
+    const body = await response.json();
+    assertEquals(
+      body.error.includes("write-scoped personal access token"),
+      true,
+    );
+  });
+});
+
+Deno.test("handleSetSecretFile: encrypts and commits the declared entry, then handleDeleteSecretFile removes it", async () => {
+  await withContext(async (ctx) => {
+    await linkWorkflow(ctx, "deploy", "pat");
+    ctx.git.files.set(
+      "workflows/deploy/workflow.yml",
+      new TextEncoder().encode(DEMO_CONF_WORKFLOW_YML),
+    );
+    const { generateKeypair } = await import("@ensemble/workflow");
+    const { publicKey } = await generateKeypair();
+    ctx.git.files.set(
+      ".ensemble/secrets.key.pub",
+      new TextEncoder().encode(publicKey),
+    );
+
+    const id = encodeWorkflowId("deploy");
+    const setResponse = await handleSetSecretFile(
+      ctx.repositories,
+      ctx.links,
+      ctx.git,
+      authedRequest(`http://x/v1/secrets/${id}/production/demo_conf/set-file`, {
+        contentBase64: btoa("hello world"),
+      }),
+      { workflowId: id, context: "production", name: "demo_conf" },
+    );
+    assertEquals(setResponse.status, 200);
+    assertEquals(
+      ctx.git.files.has(
+        "workflows/deploy/contexts/production/secrets/demo.conf.enc",
+      ),
+      true,
+    );
+
+    const deleteResponse = await handleDeleteSecretFile(
+      ctx.repositories,
+      ctx.links,
+      ctx.git,
+      authedRequest(
+        `http://x/v1/secrets/${id}/production/demo_conf/delete-file`,
+        {},
+      ),
+      { workflowId: id, context: "production", name: "demo_conf" },
+    );
+    assertEquals(deleteResponse.status, 200);
+    assertEquals(
+      ctx.git.files.has(
+        "workflows/deploy/contexts/production/secrets/demo.conf.enc",
+      ),
+      false,
+    );
   });
 });

@@ -5,20 +5,26 @@ import {
 } from "@ensemble/core";
 import {
   handleDeleteSecret,
+  handleDeleteSecretFile,
   handleGetSecretsContext,
   handleSetSecret,
+  handleSetSecretFile,
 } from "./handler.ts";
 import type { Feature } from "../../features.ts";
 
 export {
   handleDeleteSecret,
+  handleDeleteSecretFile,
   handleGetSecretsContext,
   handleSetSecret,
+  handleSetSecretFile,
 } from "./handler.ts";
 export {
   noWriteAccessMessage,
+  type SecretFileSummary,
   type SecretKeySummary,
   type SecretsContextSummaryResponse,
+  type SetSecretFileRequest,
   type SetSecretRequest,
   type SetSecretResponse,
 } from "./contract.ts";
@@ -64,6 +70,24 @@ export function createSecretsFeatures(
       }),
       handle: (request, params) =>
         handleDeleteSecret(repositories, links, git, request, params),
+    },
+    {
+      name: "secrets-set-file",
+      method: "POST",
+      pattern: new URLPattern({
+        pathname: "/v1/secrets/:workflowId/:context/:name/set-file",
+      }),
+      handle: (request, params) =>
+        handleSetSecretFile(repositories, links, git, request, params),
+    },
+    {
+      name: "secrets-delete-file",
+      method: "POST",
+      pattern: new URLPattern({
+        pathname: "/v1/secrets/:workflowId/:context/:name/delete-file",
+      }),
+      handle: (request, params) =>
+        handleDeleteSecretFile(repositories, links, git, request, params),
     },
   ];
 }

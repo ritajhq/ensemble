@@ -404,22 +404,33 @@ export interface SecretKeySummary {
   key: string;
 }
 
+/** One declared context.secrets.files entry and whether it currently has an encrypted <path>.enc committed. */
+export interface SecretFileSummary {
+  name: string;
+  isSet: boolean;
+}
+
+export interface SecretsContextSummary {
+  keys: SecretKeySummary[];
+  files: SecretFileSummary[];
+}
+
 /**
- * Key names only for one (workflow, context) — never a value, matching the
- * git integration's own "never round-trip a stored secret" principle. 404s
- * (surfaced as a thrown error whose message names the reason) when the
- * workflow has no linked git repository — the secrets editor only works for
- * git-linked workflows; a local-only workflow is edited via
- * `ens workflow secrets edit` instead.
+ * Value-secret key names (never a value) and declared file-secret names
+ * (with set/unset state, never content) for one (workflow, context) —
+ * matching the git integration's own "never round-trip a stored secret"
+ * principle. 404s (surfaced as a thrown error whose message names the
+ * reason) when the workflow has no linked git repository — the secrets
+ * editor only works for git-linked workflows; a local-only workflow is
+ * edited via `ens workflow secrets edit` instead.
  */
 export async function fetchSecretsContext(
   workflowId: string,
   context: string,
-): Promise<SecretKeySummary[]> {
-  const { keys } = await getJson<{ keys: SecretKeySummary[] }>(
+): Promise<SecretsContextSummary> {
+  return await getJson<SecretsContextSummary>(
     `/v1/secrets/${workflowId}/${encodeURIComponent(context)}`,
   );
-  return keys;
 }
 
 /** Encrypts `value` with the linked repo's own committed public key and commits contexts/<context>/secrets.enc. Returns the new commit's sha. */
@@ -447,6 +458,48 @@ export async function deleteSecret(
     `/v1/secrets/${workflowId}/${encodeURIComponent(context)}/${
       encodeURIComponent(key)
     }/delete`,
+    {},
+  );
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      resolve(result.slice(result.indexOf(",") + 1));
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+/** Encrypts `file`'s bytes with the linked repo's own committed public key and commits it to contexts/<context>/secrets/<declared path>.enc. `name` must match a context.secrets.files entry the workflow already declares. Returns the new commit's sha. */
+export async function setSecretFile(
+  workflowId: string,
+  context: string,
+  name: string,
+  file: File,
+): Promise<string> {
+  const contentBase64 = await fileToBase64(file);
+  const { commitSha } = await postJson<{ commitSha: string }>(
+    `/v1/secrets/${workflowId}/${encodeURIComponent(context)}/${
+      encodeURIComponent(name)
+    }/set-file`,
+    { contentBase64 },
+  );
+  return commitSha;
+}
+
+export async function deleteSecretFile(
+  workflowId: string,
+  context: string,
+  name: string,
+): Promise<void> {
+  await postJson(
+    `/v1/secrets/${workflowId}/${encodeURIComponent(context)}/${
+      encodeURIComponent(name)
+    }/delete-file`,
     {},
   );
 }

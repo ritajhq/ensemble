@@ -25,6 +25,14 @@ export interface GitWriteProvider {
     message: string,
     author: { name: string; email: string },
   ): Promise<{ commitSha: string }>;
+  /** Deletes one file at `path`, committing directly. No-ops (returns undefined) if the file doesn't exist. */
+  deleteFile(
+    repoUrl: string,
+    auth: GitAuthStrategy,
+    path: string,
+    message: string,
+    author: { name: string; email: string },
+  ): Promise<{ commitSha: string } | undefined>;
 }
 
 function toBase64(bytes: Uint8Array): string {
@@ -133,6 +141,41 @@ export function createGithubContentsProvider(): GitWriteProvider {
       if (!response.ok) {
         throw new Error(
           `GitHub Contents API PUT ${path} failed: ${response.status} ${await response
+            .text()}`,
+        );
+      }
+      const body = await response.json();
+      return { commitSha: body.commit.sha };
+    },
+
+    async deleteFile(repoUrl, auth, path, message, author) {
+      const { owner, repo } = parseGithubOwnerRepo(repoUrl);
+      const url =
+        `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+
+      // DELETE also requires the current blob sha — same GET-then-mutate
+      // dance putFile already does.
+      const existing = await fetch(url, { headers: authHeaders(auth) });
+      if (existing.status === 404) {
+        await existing.body?.cancel();
+        return undefined;
+      }
+      if (!existing.ok) {
+        throw new Error(
+          `GitHub Contents API GET ${path} failed: ${existing.status} ${await existing
+            .text()}`,
+        );
+      }
+      const sha = (await existing.json()).sha;
+
+      const response = await fetch(url, {
+        method: "DELETE",
+        headers: { ...authHeaders(auth), "content-type": "application/json" },
+        body: JSON.stringify({ message, sha, committer: author, author }),
+      });
+      if (!response.ok) {
+        throw new Error(
+          `GitHub Contents API DELETE ${path} failed: ${response.status} ${await response
             .text()}`,
         );
       }

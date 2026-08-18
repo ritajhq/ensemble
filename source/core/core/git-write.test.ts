@@ -18,6 +18,22 @@ Deno.test("createGithubContentsProvider: putFile rejects a non-PAT auth strategy
   );
 });
 
+Deno.test("createGithubContentsProvider: deleteFile rejects a non-PAT auth strategy before making any request", async () => {
+  const provider = createGithubContentsProvider();
+  await assertRejects(
+    () =>
+      provider.deleteFile(
+        "https://github.com/acme/widgets",
+        { type: "none" },
+        "workflows/deploy/contexts/production/secrets/tls_cert.enc",
+        "Remove secret file",
+        { name: "ensemble", email: "ensemble@example.com" },
+      ),
+    Error,
+    "write-scoped",
+  );
+});
+
 Deno.test("createGithubContentsProvider: getFile rejects a non-PAT auth strategy before making any request", async () => {
   const provider = createGithubContentsProvider();
   await assertRejects(
