@@ -1,3 +1,58 @@
+## [1.0.1-alpha] - 2026-08-18
+
+### 🚀 Features
+
+- *(workflow)* Let github triggers declare a per-tag-pattern deploy context
+- *(workflow/release)* Add github trigger context
+## [1.0.0-alpha] - 2026-08-18
+
+### 🚀 Features
+
+- *(web)* Convert job selects to Select component, fix broken select.tsx theme classes
+- *(pack)* Support --watch for kits that declare it
+- *(deploy)* Watch-build cli/server/web and sync the compiled cli into server
+- *(workflow)* Make the job manual input always a list, add multi-select combobox
+- *(deploy)* Add watch_runner job to keep the runner image in sync with the compiled cli
+- *(release)* Add a manual trigger with local/production context branching
+- *(web)* Keep relative timestamps live and add hover tooltips
+- *(workflow)* Expose a workflow's contexts/ subfolder names as a trigger UI picker
+- *(release)* Add hot-server build/publish, remove workflows/server
+- *(workflows)* Remove local workflow files and configurations
+- *(workflow,platform)* Replace server-side vault with git-committed encrypted secrets
+- *(workflows)* Migrate deploy, release, and demo to encrypted secrets.enc
+- *(web,platform)* Add a git integration detail page with editable access, secrets key, and unregister
+- *(web,platform)* Enhance SecretsView with edit functionality and improved error handling for Git integration
+- *(workflow)* Restructure context.files and split context.secrets into variables/files
+- *(cli)* Support editing context.secrets.files via workflow secrets edit
+- *(platform,web)* Dashboard support for context.secrets.files
+- *(workflow)* Add ensemble.artifacts()/ensemble.packages() namespaced expression functions
+- *(workflow)* Auto-apply set -euo pipefail to run: steps
+- *(platform,web)* Add Secrets and variables tab with plain context.variables/files view
+- *(workflow/deploy)* Simplify API path matching in Caddyfile
+- *(workflow/release)* Reintroduce changelog update and GitHub release steps
+
+### 🐛 Bug Fixes
+
+- *(workflow/server)* Make manual trigger's job input a list default
+- *(deploy)* Rename production tfvars to the name terraform_apply expects, add unused-caddy placeholder
+- *(workflows/deploy)* Correct image reference for web service in dockercompose stack
+- *(platform,web)* Handle missing git write access for secrets, fix Select showing raw values
+- *(docs)* Update backlog
+
+### 🚜 Refactor
+
+- *(deploy)* Replace Terraform with plain Docker Compose and structured context.variables
+- *(workflows)* Migrate demo and release to context.secrets.variables/files
+- *(workflow)* Standardize context variables/secrets storage on .yml
+
+### 📚 Documentation
+
+- *(deploy)* Add a production deploy guide
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.0.32-test
+- *(deploy)* Bump dockercompose provider lockfile to v0.2.2
 ## [0.0.32-test] - 2026-08-09
 
 ### 🚀 Features
