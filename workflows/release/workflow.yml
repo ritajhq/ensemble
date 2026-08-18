@@ -123,49 +123,49 @@ jobs:
           docker image tag web:latest ensemble/web:latest
           docker image tag ensemble/runner:latest runner:latest
 
-      # - name: update_changelog
-      #   if: "${{ context.name == 'production' }}"
-      #   run: |
-      #     tag="${{ steps.resolve_version.outputs.version }}"
-      #     cliff_version="2.13.1"
-      #     git_cliff="/tmp/git-cliff-${cliff_version}/git-cliff"
-      #     if [ ! -x "$git_cliff" ]; then
-      #       arch="$(uname -m)"
-      #       wget -qO /tmp/git-cliff.tar.gz \
-      #         "https://github.com/orhun/git-cliff/releases/download/v${cliff_version}/git-cliff-${cliff_version}-${arch}-unknown-linux-musl.tar.gz"
-      #       tar -xzf /tmp/git-cliff.tar.gz -C /tmp
-      #     fi
+      - name: update_changelog
+        if: "${{ context.name == 'production' }}"
+        run: |
+          tag="${{ steps.resolve_version.outputs.version }}"
+          cliff_version="2.13.1"
+          git_cliff="/tmp/git-cliff-${cliff_version}/git-cliff"
+          if [ ! -x "$git_cliff" ]; then
+            arch="$(uname -m)"
+            wget -qO /tmp/git-cliff.tar.gz \
+              "https://github.com/orhun/git-cliff/releases/download/v${cliff_version}/git-cliff-${cliff_version}-${arch}-unknown-linux-musl.tar.gz"
+            tar -xzf /tmp/git-cliff.tar.gz -C /tmp
+          fi
 
-      #     "$git_cliff" --tag "$tag" -o CHANGELOG.md
-      #     "$git_cliff" --tag "$tag" --latest --strip all -o /tmp/ensemble-release-notes.md
+          "$git_cliff" --tag "$tag" -o CHANGELOG.md
+          "$git_cliff" --tag "$tag" --latest --strip all -o /tmp/ensemble-release-notes.md
 
-      #     gh auth setup-git
-      #     git config user.name "ensemble-release-bot"
-      #     git config user.email "release-bot@ritaj.app"
-      #     git add CHANGELOG.md
-      #     if ! git diff --cached --quiet; then
-      #       git commit -m "chore(changelog): update for $tag"
+          gh auth setup-git
+          git config user.name "ensemble-release-bot"
+          git config user.email "release-bot@ritaj.app"
+          git add CHANGELOG.md
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(changelog): update for $tag"
 
-      #       attempt=1
-      #       max_attempts=5
-      #       until git push origin HEAD:main; do
-      #         if [ "$attempt" -ge "$max_attempts" ]; then
-      #           echo "error: could not push changelog to main after $max_attempts attempts (main kept moving)." >&2
-      #           exit 1
-      #         fi
-      #         echo "push rejected, main moved — rebasing and retrying ($attempt/$max_attempts)..."
-      #         git fetch origin main
-      #         git rebase origin/main
-      #         attempt=$((attempt + 1))
-      #       done
-      #     fi
+            attempt=1
+            max_attempts=5
+            until git push origin HEAD:main; do
+              if [ "$attempt" -ge "$max_attempts" ]; then
+                echo "error: could not push changelog to main after $max_attempts attempts (main kept moving)." >&2
+                exit 1
+              fi
+              echo "push rejected, main moved — rebasing and retrying ($attempt/$max_attempts)..."
+              git fetch origin main
+              git rebase origin/main
+              attempt=$((attempt + 1))
+            done
+          fi
 
-      # - name: create_github_release
-      #   if: "${{ context.name == 'production' }}"
-      #   run: |
-      #     tag="${{ steps.resolve_version.outputs.version }}"
-      #     gh release create "$tag" \
-      #       source/artifacts/packages/ensemble-linux-x64 \
-      #       --title "$tag" \
-      #       --notes-file /tmp/ensemble-release-notes.md \
-      #       --repo ritajhq/ensemble
+      - name: create_github_release
+        if: "${{ context.name == 'production' }}"
+        run: |
+          tag="${{ steps.resolve_version.outputs.version }}"
+          gh release create "$tag" \
+            source/artifacts/packages/ensemble-linux-x64 \
+            --title "$tag" \
+            --notes-file /tmp/ensemble-release-notes.md \
+            --repo ritajhq/ensemble
