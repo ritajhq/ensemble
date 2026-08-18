@@ -143,8 +143,10 @@ async function runShell(
 ): Promise<{ code: number; outputs: Record<string, string>; log: StepLogCapture }> {
   const outputHandle = await resultChannel.create();
   try {
-    const cmd = new Deno.Command(Deno.build.os === "windows" ? "cmd" : "/bin/sh", {
-      args: Deno.build.os === "windows" ? ["/c", command] : ["-c", command],
+    const isWindows = Deno.build.os === "windows";
+    const shellCommand = isWindows ? command : `set -euo pipefail\n${command}`;
+    const cmd = new Deno.Command(isWindows ? "cmd" : "/bin/sh", {
+      args: isWindows ? ["/c", shellCommand] : ["-c", shellCommand],
       cwd,
       // clearEnv: without it, Deno.Command merges `env` on top of this
       // process's own full environment rather than replacing it — silently

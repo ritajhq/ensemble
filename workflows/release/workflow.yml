@@ -35,7 +35,6 @@ jobs:
       - id: resolve_version
         name: resolve_version
         run: |
-          set -euo pipefail
           if [ "${{ trigger.type }}" = "github" ]; then
             echo "version=${{ trigger.tag }}" >> "$WORKFLOW_OUTPUT"
           else
@@ -45,17 +44,14 @@ jobs:
       - name: docker_login
         if: "${{ context.name == 'production' }}"
         run: |
-          set -euo pipefail
           docker login registry.ritaj.app -u "$REGISTRY_USERNAME" -p "$REGISTRY_PASSWORD"
 
       - name: compile_cli
         run: |
-          set -euo pipefail
           ens pack cli deno.compile
 
       - name: build_server_image
         run: |
-          set -euo pipefail
           ens build -m production server
           ens pack -o cli cli deno.compile
 
@@ -63,25 +59,20 @@ jobs:
 
       - name: build_web_image
         run: |
-          set -euo pipefail
           ens build -m production web
           ens pack web docker
 
       - name: build_runner_image
         run: |
-          set -euo pipefail
           ens pack -o ensemble/runner runner docker
 
       - name: build_hot_server_image
         run: |
-          set -euo pipefail
           ens pack hot-server docker
 
       - name: publish_server_image
         if: "${{ context.name == 'production' }}"
         run: |
-          set -euo pipefail
-
           VERSION="${{ steps.resolve_version.outputs.version }}"
 
           docker image tag server:latest registry.ritaj.app/ensemble/server:latest
@@ -93,8 +84,6 @@ jobs:
       - name: publish_web_image
         if: "${{ context.name == 'production' }}"
         run: |
-          set -euo pipefail
-
           VERSION="${{ steps.resolve_version.outputs.version }}"
 
           docker image tag web:latest registry.ritaj.app/ensemble/web:latest
@@ -106,8 +95,6 @@ jobs:
       - name: publish_runner_image
         if: "${{ context.name == 'production' }}"
         run: |
-          set -euo pipefail
-
           VERSION="${{ steps.resolve_version.outputs.version }}"
 
           docker image tag ensemble/runner:latest registry.ritaj.app/ensemble/runner:latest
@@ -119,7 +106,6 @@ jobs:
       - name: publish_hot_server_image
         if: "${{ context.name == 'production' }}"
         run: |
-          set -euo pipefail
           # hot-server is a shared, unversioned runtime shell (not an
           # ensemble-specific build) — :latest only, no version tag.
           docker image tag hot-server:latest registry.ritaj.app/hot-server:latest
@@ -128,7 +114,6 @@ jobs:
       - name: update_local_images
         if: "${{ context.name != 'production' }}"
         run: |
-          set -euo pipefail
           # No registry involved locally — just make the freshly built images
           # available under the plain names the local deploy stack (and
           # server's spawned runner) actually reference: ensemble/server,
@@ -141,9 +126,7 @@ jobs:
       # - name: update_changelog
       #   if: "${{ context.name == 'production' }}"
       #   run: |
-      #     set -euo pipefail
       #     tag="${{ steps.resolve_version.outputs.version }}"
-
       #     cliff_version="2.13.1"
       #     git_cliff="/tmp/git-cliff-${cliff_version}/git-cliff"
       #     if [ ! -x "$git_cliff" ]; then
@@ -180,7 +163,6 @@ jobs:
       # - name: create_github_release
       #   if: "${{ context.name == 'production' }}"
       #   run: |
-      #     set -euo pipefail
       #     tag="${{ steps.resolve_version.outputs.version }}"
       #     gh release create "$tag" \
       #       source/artifacts/packages/ensemble-linux-x64 \

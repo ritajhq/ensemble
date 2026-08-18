@@ -19,6 +19,16 @@ Deno.test("runStep: run: failure throws", async () => {
   await assertRejects(() => runStep({ run: "exit 1" }, workflowDir, cwd, emptyCtx()));
 });
 
+Deno.test("runStep: run: errexit is on by default (a failing command aborts the script)", async () => {
+  await assertRejects(() =>
+    runStep({ run: "false\necho should-not-run >&2" }, workflowDir, cwd, emptyCtx())
+  );
+});
+
+Deno.test("runStep: run: pipefail is on by default (a failing pipe stage fails the step)", async () => {
+  await assertRejects(() => runStep({ run: "false | true" }, workflowDir, cwd, emptyCtx()));
+});
+
 Deno.test("runStep: run: with continue-on-error swallows failure", async () => {
   const result = await runStep(
     { run: "exit 1", "continue-on-error": true },
