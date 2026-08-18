@@ -97,6 +97,8 @@ export interface GithubTrigger {
     /** Glob patterns (e.g. "1.*") matched against the pushed tag name. */
     tags: string[];
   };
+  /** Deploy context to run under when this entry's tags match the pushed tag — same meaning as --context / a manual trigger's context field. Omit to leave the run's context unresolved. */
+  context?: string;
 }
 
 /** Exactly one of "manual" or "github" is set. */

@@ -235,6 +235,10 @@
           },
           "required": ["tags"],
           "additionalProperties": false
+        },
+        "context": {
+          "description": "Deploy context to run under when this entry's tags match the pushed tag — same meaning as --context / a manual trigger's context field. Omit to leave the run's context unresolved.",
+          "type": "string"
         }
       },
       "required": ["push"],

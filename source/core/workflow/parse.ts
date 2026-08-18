@@ -275,7 +275,13 @@ function validateGithubTrigger(
       `on[${index}].github must declare a non-empty "push.tags" list of strings.`,
     );
   }
-  return { push: { tags: tags as string[] } };
+  if (raw.context !== undefined && typeof raw.context !== "string") {
+    fail(file, `on[${index}].github.context must be a string.`);
+  }
+  return {
+    push: { tags: tags as string[] },
+    ...(raw.context !== undefined ? { context: raw.context as string } : {}),
+  };
 }
 
 function validateTrigger(

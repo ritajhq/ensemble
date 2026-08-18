@@ -8,7 +8,7 @@ import {
   type WorkflowGitLinkStore,
 } from "@ensemble/core";
 import { isAuthorizedFor } from "../../../auth/tokens.ts";
-import { matchesAnyTagPattern } from "./match.ts";
+import { findMatchingGithubTrigger } from "./match.ts";
 import {
   isManualGithubTriggerRequest,
   type ManualGithubTriggerResponse,
@@ -75,8 +75,10 @@ export async function handleManualGithubTrigger(
     }, { status: 404 });
   }
 
-  const githubTrigger = workflow.on?.find((t) => t.github)?.github;
-  if (!githubTrigger) {
+  const githubTriggers = workflow.on
+    ?.map((t) => t.github)
+    .filter((g) => g !== undefined);
+  if (!githubTriggers || githubTriggers.length === 0) {
     return Response.json(
       {
         error:
@@ -86,12 +88,14 @@ export async function handleManualGithubTrigger(
     );
   }
 
-  if (!matchesAnyTagPattern(body.tag, githubTrigger.push.tags)) {
+  const matchedTrigger = findMatchingGithubTrigger(workflow.on, body.tag);
+  if (!matchedTrigger) {
+    const patterns = githubTriggers.flatMap((g) => g.push.tags);
     return Response.json(
       {
         error:
-          `Tag "${body.tag}" doesn't match this trigger's push.tags patterns (${
-            githubTrigger.push.tags.join(", ")
+          `Tag "${body.tag}" doesn't match any "github" trigger's push.tags patterns (${
+            patterns.join(", ")
           }).`,
       },
       { status: 400 },
@@ -106,6 +110,7 @@ export async function handleManualGithubTrigger(
         tag: body.tag,
         sha: body.sha,
       },
+      context: matchedTrigger.context,
       repositories,
       links,
     });

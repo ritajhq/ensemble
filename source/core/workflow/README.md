@@ -512,6 +512,30 @@ jobs:
   no user-declared input list for `github` today, unlike `manual`. Only the
   `push`/`tags` shape is supported for now; other GitHub events are a future
   extension of this same `github:` block.
+  - **`context`**: an optional deploy context name to run under when this
+    entry's tags match — same meaning as `--context` or a `manual` trigger's
+    `type: context` input. Unlike `manual` (where a caller picks the context
+    per request), a `github` push carries nothing but the tag itself, so
+    there's no other way to resolve `context.variables`/`context.secrets` for
+    a github-triggered run without declaring it here. Omit it to leave the
+    run's context unresolved, same as today.
+  - A workflow can declare **several** `- github:` entries, each with its own
+    `push.tags`/`context` — the first entry (in declaration order) whose
+    `tags` match the pushed tag wins, so put more specific patterns first:
+    ```yaml
+    on:
+      - github:
+          push:
+            tags: ["*.*.*-test"]
+          context: test
+      - github:
+          push:
+            tags: ["*.*.*"]
+          context: production
+    ```
+    Here, a tag like `1.2.3-test` matches the first entry (context `test`);
+    a plain `1.2.3` skips it (doesn't match `*.*.*-test`) and falls through
+    to the second (context `production`).
 
 `trigger.type` is always set to `"manual"` or `"github"` alongside whatever else
 that trigger kind populates, so steps/`if:` can branch on how the run was

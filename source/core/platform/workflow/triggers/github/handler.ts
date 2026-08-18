@@ -6,7 +6,7 @@ import {
   trackedRunWorkflowByName,
   type WorkflowGitLinkStore,
 } from "@ensemble/core";
-import { extractTagFromRef, matchesAnyTagPattern } from "./match.ts";
+import { extractTagFromRef, findMatchingGithubTrigger } from "./match.ts";
 import { verifyGithubSignature } from "./signature.ts";
 
 interface GithubPushPayload {
@@ -80,16 +80,19 @@ export async function handleGithubTrigger(
 
   const workflows = await listWorkflows();
 
-  const matches = workflows.filter(({ workflow }) => {
-    const githubTrigger = workflow.on?.find((t) => t.github)?.github;
+  const matches = workflows
+    .map(({ name, workflow }) => ({
+      name,
+      trigger: findMatchingGithubTrigger(workflow.on, tag),
+    }))
+    .filter((m): m is { name: string; trigger: NonNullable<typeof m.trigger> } =>
+      m.trigger !== undefined
+    );
 
-    return githubTrigger !== undefined &&
-      matchesAnyTagPattern(tag, githubTrigger.push.tags);
-  });
-
-  for (const { name } of matches) {
+  for (const { name, trigger } of matches) {
     trackedRunWorkflowByName(runs, name, {
       trigger: { type: "github", ref: payload.ref, tag, sha: payload.after },
+      context: trigger.context,
       repositories,
       links,
     }).catch((error) => {
