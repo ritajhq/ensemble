@@ -11,9 +11,11 @@ import {
 } from "@ensemble/core";
 import {
   emitWorkflowEvent,
+  encryptFile,
   encryptValue,
   generateKeypair,
   isEncryptedMarker,
+  parseWorkflowFile,
   SECRETS_PRIVATE_KEY_PATH,
   SECRETS_PUBLIC_KEY_PATH,
   type WorkflowEvent,
@@ -287,9 +289,145 @@ async function readSecretsFile(path: string): Promise<Record<string, string>> {
   return parsed as Record<string, string>;
 }
 
+async function editSecretVariable(
+  name: string,
+  contextName: string,
+  contextDir: string,
+  publicKey: string,
+): Promise<void> {
+  const secretsPath = join(contextDir, "secrets.enc");
+  const current = await readSecretsFile(secretsPath);
+  const keys = Object.keys(current).sort();
+  console.log(
+    `\n${name} / ${contextName} — ${
+      keys.length === 0 ? "no secrets set yet" : `${keys.length} secret(s):`
+    }`,
+  );
+  for (const key of keys) console.log(`  ${key}`);
+
+  const action = await Select.prompt({
+    message: "What would you like to do?",
+    options: [
+      { name: "Add or replace a secret", value: "set" },
+      { name: "Remove a secret", value: "delete" },
+      { name: "Done", value: "done" },
+    ],
+  });
+
+  if (action === "done") return;
+
+  if (action === "delete") {
+    if (keys.length === 0) {
+      console.log("Nothing to remove.");
+      return;
+    }
+    const key = await Select.prompt({
+      message: "Which secret?",
+      options: keys,
+    });
+    delete current[key];
+    await Deno.mkdir(contextDir, { recursive: true });
+    await Deno.writeTextFile(secretsPath, stringifyYaml(current));
+    console.log(`Removed "${key}". Re-run to make another change.`);
+    return;
+  }
+
+  const key = await Input.prompt({
+    message: "Secret name:",
+    validate: (value) => value.trim().length > 0 || "Name can't be empty.",
+  });
+  const value = await Secret.prompt({
+    message: `Value for "${key}":`,
+    // Never pre-fills or echoes back an existing value — same principle
+    // as the dashboard never round-tripping a stored secret.
+  });
+  current[key] = await encryptValue(publicKey, value);
+
+  await Deno.mkdir(contextDir, { recursive: true });
+  await Deno.writeTextFile(secretsPath, stringifyYaml(current));
+  console.log(
+    `Saved "${key}" to ${contextName}/secrets.enc. Re-run to make another change.`,
+  );
+}
+
+async function editSecretFile(
+  name: string,
+  contextName: string,
+  contextDir: string,
+  publicKey: string,
+  workflowDir: string,
+): Promise<void> {
+  const workflow = await parseWorkflowFile(join(workflowDir, "workflow.yml"));
+  const declared = workflow.context?.secrets?.files ?? [];
+  if (declared.length === 0) {
+    console.log(
+      `"${name}" declares no context.secrets.files entries in its workflow.yml — nothing to edit. ` +
+        `Add one under context.secrets.files (e.g. { name: my_file, path: my_file.conf }) first.`,
+    );
+    return;
+  }
+
+  const secretsDir = join(contextDir, "secrets");
+  const setNames = new Set<string>();
+  for (const entry of declared) {
+    if (await exists(join(secretsDir, `${entry.path}.enc`), { isFile: true })) {
+      setNames.add(entry.name);
+    }
+  }
+  console.log(
+    `\n${name} / ${contextName} — ${declared.length} declared file secret(s):`,
+  );
+  for (const entry of declared) {
+    console.log(`  ${entry.name} (${entry.path}) — ${
+      setNames.has(entry.name) ? "set" : "not set"
+    }`);
+  }
+
+  const action = await Select.prompt({
+    message: "What would you like to do?",
+    options: [
+      { name: "Add or replace a file secret", value: "set" },
+      { name: "Remove a file secret", value: "delete" },
+      { name: "Done", value: "done" },
+    ],
+  });
+
+  if (action === "done") return;
+
+  const entryName = await Select.prompt({
+    message: "Which declared file secret?",
+    options: declared.map((entry) => entry.name),
+  });
+  const entry = declared.find((e) => e.name === entryName)!;
+  const encPath = join(secretsDir, `${entry.path}.enc`);
+
+  if (action === "delete") {
+    if (!setNames.has(entryName)) {
+      console.log(`"${entryName}" isn't set. Nothing to remove.`);
+      return;
+    }
+    await Deno.remove(encPath);
+    console.log(`Removed "${entryName}" (${entry.path}.enc). Re-run to make another change.`);
+    return;
+  }
+
+  const localPath = await Input.prompt({
+    message: `Local file to encrypt for "${entryName}" (${entry.path}):`,
+    validate: (value) => value.trim().length > 0 || "Path can't be empty.",
+  });
+  const plaintext = await Deno.readFile(localPath.trim());
+  const encrypted = await encryptFile(publicKey, plaintext);
+
+  await Deno.mkdir(secretsDir, { recursive: true });
+  await Deno.writeFile(encPath, encrypted);
+  console.log(
+    `Saved "${entryName}" to ${contextName}/secrets/${entry.path}.enc. Re-run to make another change.`,
+  );
+}
+
 const secretsEditCommand = new Command()
   .description(
-    "Interactively add, replace, or remove one context's secrets (contexts/<context>/secrets.enc) for a workflow, encrypting each value with the repo's public key.",
+    "Interactively add, replace, or remove one context's secret values (contexts/<context>/secrets.enc) or file secrets (contexts/<context>/secrets/<path>.enc) for a workflow, encrypting each with the repo's public key.",
   )
   .arguments("<name:string> [context:string]")
   .action(async (_options, name, context) => {
@@ -297,7 +435,6 @@ const secretsEditCommand = new Command()
     const repoRoot = await findRepoRoot();
     const contextName = await resolveContextName(name, context);
     const contextDir = join(workflowDir, "contexts", contextName);
-    const secretsPath = join(contextDir, "secrets.enc");
 
     const publicKeyPath = join(repoRoot, SECRETS_PUBLIC_KEY_PATH);
     if (!await exists(publicKeyPath, { isFile: true })) {
@@ -307,58 +444,19 @@ const secretsEditCommand = new Command()
     }
     const publicKey = (await Deno.readTextFile(publicKeyPath)).trim();
 
-    const current = await readSecretsFile(secretsPath);
-    const keys = Object.keys(current).sort();
-    console.log(
-      `\n${name} / ${contextName} — ${
-        keys.length === 0 ? "no secrets set yet" : `${keys.length} secret(s):`
-      }`,
-    );
-    for (const key of keys) console.log(`  ${key}`);
-
-    const action = await Select.prompt({
-      message: "What would you like to do?",
+    const kind = await Select.prompt({
+      message: "Edit which kind of secret?",
       options: [
-        { name: "Add or replace a secret", value: "set" },
-        { name: "Remove a secret", value: "delete" },
-        { name: "Done", value: "done" },
+        { name: "Value secret (context.secrets.variables)", value: "variable" },
+        { name: "File secret (context.secrets.files)", value: "file" },
       ],
     });
 
-    if (action === "done") return;
-
-    if (action === "delete") {
-      if (keys.length === 0) {
-        console.log("Nothing to remove.");
-        return;
-      }
-      const key = await Select.prompt({
-        message: "Which secret?",
-        options: keys,
-      });
-      delete current[key];
-      await Deno.mkdir(contextDir, { recursive: true });
-      await Deno.writeTextFile(secretsPath, stringifyYaml(current));
-      console.log(`Removed "${key}". Re-run to make another change.`);
-      return;
+    if (kind === "variable") {
+      await editSecretVariable(name, contextName, contextDir, publicKey);
+    } else {
+      await editSecretFile(name, contextName, contextDir, publicKey, workflowDir);
     }
-
-    const key = await Input.prompt({
-      message: "Secret name:",
-      validate: (value) => value.trim().length > 0 || "Name can't be empty.",
-    });
-    const value = await Secret.prompt({
-      message: `Value for "${key}":`,
-      // Never pre-fills or echoes back an existing value — same principle
-      // as the dashboard never round-tripping a stored secret.
-    });
-    current[key] = await encryptValue(publicKey, value);
-
-    await Deno.mkdir(contextDir, { recursive: true });
-    await Deno.writeTextFile(secretsPath, stringifyYaml(current));
-    console.log(
-      `Saved "${key}" to ${contextName}/secrets.enc. Re-run to make another change.`,
-    );
   });
 
 /** Reports whether every secret in a context's secrets.enc is actually encrypted, e.g. to catch a hand-added plaintext value that was never run through `secrets edit`. Not currently wired to a subcommand — kept here as the natural place to add `secrets check` if that's wanted later. */
@@ -372,7 +470,7 @@ export async function findUnencryptedKeys(
 
 const secretsCommand = new Command()
   .description(
-    "Manage a repo's encrypted context.secrets (contexts/<name>/secrets.enc, contexts/<name>/secrets/<file>.enc).",
+    "Manage a repo's encrypted context.secrets.variables (contexts/<name>/secrets.enc) and context.secrets.files (contexts/<name>/secrets/<path>.enc).",
   )
   .command("init", secretsInitCommand)
   .command("edit", secretsEditCommand);
