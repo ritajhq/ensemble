@@ -4,7 +4,13 @@ on:
   - github:
       push:
         tags:
+          - '*-*'
+  - github:
+      push:
+        tags:
           - '*.*.*'
+      context: production
+
   - manual:
       inputs:
         - name: version
