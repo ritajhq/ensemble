@@ -91,11 +91,33 @@ function isTruthy(value: data.ExpressionData): boolean {
   }
 }
 
+/**
+ * Rewrites `ensemble.artifacts(...)`/`ensemble.packages(...)` call syntax
+ * into the flat `ensembleArtifacts(...)`/`ensemblePackages(...)` form the
+ * real lexer/parser actually understands, before either ever sees the text.
+ * The vendored `@actions/expressions` grammar has no rule for calling a
+ * function on a dotted member (`identifier.member(...)`) — only a bare
+ * `identifier(...)` call, or `identifier.member` as a property lookup with
+ * no call after it — and it's a real external npm dependency, not code in
+ * this repo, so that grammar can't be extended directly. This is a
+ * text-level substitution, not a parsed rewrite: it only recognizes the
+ * exact `ensemble.artifacts(`/`ensemble.packages(` token sequence
+ * (whitespace-tolerant around the dot), so it's blind to e.g. a string
+ * literal that happens to contain that same text — acceptable here since
+ * workflow expressions are short and this pattern is unlikely to appear
+ * inside a literal.
+ */
+function rewriteEnsembleNamespaceCalls(expr: string): string {
+  return expr
+    .replace(/\bensemble\s*\.\s*artifacts\s*\(/g, "ensembleArtifacts(")
+    .replace(/\bensemble\s*\.\s*packages\s*\(/g, "ensemblePackages(");
+}
+
 /** Strips a single `${{ ... }}` wrapper if present; `if:` allows bare expressions too. */
 function unwrap(expr: string): string {
   const trimmed = expr.trim();
   const match = trimmed.match(/^\$\{\{(.*)\}\}$/s);
-  return match ? match[1].trim() : trimmed;
+  return rewriteEnsembleNamespaceCalls(match ? match[1].trim() : trimmed);
 }
 
 function reraise(expr: string, error: unknown): never {
@@ -129,6 +151,20 @@ const ENSEMBLE_ARTIFACTS_FUNCTION: FunctionInfo = {
   maxArgs: 1,
 };
 
+/**
+ * `ensemble.packages("<name>")` (rewritten to `ensemblePackages("<name>")`
+ * before parsing — see rewriteEnsembleNamespaceCalls): resolves to
+ * `<cwd>/source/artifacts/packages/<name>`, the special-cased `packages`
+ * artifacts subfolder `ens pack` writes compiled binaries into — e.g. the
+ * `ensemble-linux-x64` CLI binary. Spares a caller the manual
+ * `ensembleArtifacts('packages')` + string concatenation this replaces.
+ */
+const ENSEMBLE_PACKAGES_FUNCTION: FunctionInfo = {
+  name: "ensemblePackages",
+  minArgs: 1,
+  maxArgs: 1,
+};
+
 function ensembleArtifactsLookup(
   cwd: string | undefined,
   name: string,
@@ -139,6 +175,18 @@ function ensembleArtifactsLookup(
     );
   }
   return new data.StringData(join(cwd, "source", "artifacts", name));
+}
+
+function ensemblePackagesLookup(
+  cwd: string | undefined,
+  name: string,
+): data.ExpressionData {
+  if (cwd === undefined) {
+    throw new WorkflowExpressionError(
+      `ensemble.packages("${name}") has no working directory to resolve against here.`,
+    );
+  }
+  return new data.StringData(join(cwd, "source", "artifacts", "packages", name));
 }
 
 function buildWorkflowFunctions(
@@ -152,10 +200,20 @@ function buildWorkflowFunctions(
       call: (arg: data.ExpressionData) =>
         ensembleArtifactsLookup(cwd, fromExpressionData(arg) as string),
     }],
+    ["ensemblepackages", {
+      name: "ensemblePackages",
+      minArgs: 1,
+      maxArgs: 1,
+      call: (arg: data.ExpressionData) =>
+        ensemblePackagesLookup(cwd, fromExpressionData(arg) as string),
+    }],
   ]);
 }
 
-const WORKFLOW_FUNCTION_INFOS: FunctionInfo[] = [ENSEMBLE_ARTIFACTS_FUNCTION];
+const WORKFLOW_FUNCTION_INFOS: FunctionInfo[] = [
+  ENSEMBLE_ARTIFACTS_FUNCTION,
+  ENSEMBLE_PACKAGES_FUNCTION,
+];
 
 function parseAndEvaluate(
   expr: string,

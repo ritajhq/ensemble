@@ -84,7 +84,7 @@ jobs:
             kill "$pid"
           fi
 
-          CLI_BIN="${{ ensembleArtifacts('packages') }}/ensemble-linux-x64"
+          CLI_BIN="${{ ensemble.packages('ensemble-linux-x64') }}"
 
           setsid sh -c '
             set -euo pipefail
@@ -136,9 +136,9 @@ jobs:
 
           {
             echo "CADDY_CONFIG=${{ context.files.caddy_config.path }}"
-            echo "ARTIFACTS_WEB=${{ ensembleArtifacts('web') }}"
-            echo "ARTIFACTS_SERVER=${{ ensembleArtifacts('server') }}"
-            echo "CLI_PATH=${{ ensembleArtifacts('packages') }}/ensemble-linux-x64"
+            echo "ARTIFACTS_WEB=${{ ensemble.artifacts('web') }}"
+            echo "ARTIFACTS_SERVER=${{ ensemble.artifacts('server') }}"
+            echo "CLI_PATH=${{ ensemble.packages('ensemble-linux-x64') }}"
           } >> "${{ steps.runtime_env.outputs.runtime_env }}"
 
           docker compose \

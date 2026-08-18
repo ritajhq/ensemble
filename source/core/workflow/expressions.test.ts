@@ -161,6 +161,34 @@ Deno.test("evaluate: ensembleArtifacts() with no cwd given throws", () => {
   assertThrows(() => evaluate("ensembleArtifacts('web')", {}), WorkflowExpressionError);
 });
 
+Deno.test("evaluate: ensemble.artifacts('<name>') is rewritten to ensembleArtifacts('<name>') before parsing", () => {
+  assertEquals(
+    evaluate("ensemble.artifacts('web')", {}, "/repo/checkout"),
+    "/repo/checkout/source/artifacts/web",
+  );
+});
+
+Deno.test("evaluate: ensemble.packages('<name>') joins the given cwd with source/artifacts/packages/<name>", () => {
+  assertEquals(
+    evaluate("ensemble.packages('ensemble-linux-x64')", {}, "/repo/checkout"),
+    "/repo/checkout/source/artifacts/packages/ensemble-linux-x64",
+  );
+});
+
+Deno.test("evaluate: ensemble.packages() with no cwd given throws", () => {
+  assertThrows(
+    () => evaluate("ensemble.packages('ensemble-linux-x64')", {}),
+    WorkflowExpressionError,
+  );
+});
+
+Deno.test("evaluate: ensemble . artifacts ( 'web' ) tolerates whitespace around the dot/parens in the rewrite", () => {
+  assertEquals(
+    evaluate("ensemble . artifacts ( 'web' )", {}, "/repo/checkout"),
+    "/repo/checkout/source/artifacts/web",
+  );
+});
+
 Deno.test("findStaticContextFileReferences: finds a context.files.<name> property access", () => {
   assertEquals(
     findStaticContextFileReferences("${{ context.files.tf_vars.path }}"),

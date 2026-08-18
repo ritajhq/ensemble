@@ -170,7 +170,8 @@ export function evaluateStepIf(expr: string, ctx: JobContext): boolean {
  * Replaces `${{ ... }}` occurrences in `text` (e.g. a step's `run:` or
  * `name:`) using this job's context. `cwd`, when given, is the calling
  * step's own resolved working directory (see run-step.ts's
- * resolveStepCwd) — the anchor `ensembleArtifacts()` resolves against.
+ * resolveStepCwd) — the anchor `ensembleArtifacts()`/`ensemble.artifacts()`/
+ * `ensemble.packages()` resolve against.
  */
 export function interpolateStep(text: string, ctx: JobContext, cwd?: string): string {
   return interpolate(text, toRecord(ctx), cwd);
