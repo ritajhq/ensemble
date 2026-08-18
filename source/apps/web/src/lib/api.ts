@@ -503,3 +503,30 @@ export async function deleteSecretFile(
     {},
   );
 }
+
+export interface ContextVariableSummary {
+  name: string;
+  /** Resolved from contexts/<context>/variables.yml, or workflow.yml's own inline `value`/`default` — absent if unresolved. */
+  value?: string;
+}
+
+/** One declared context.files entry and its committed path. */
+export interface ContextFileSummary {
+  name: string;
+  path: string;
+}
+
+export interface ContextValuesSummary {
+  variables: ContextVariableSummary[];
+  files: ContextFileSummary[];
+}
+
+/** Plain (non-secret) context.variables/context.files for one (workflow, context) — actual values, unlike fetchSecretsContext. Same git-link gating as secrets: 404s when the workflow has no linked git repository. */
+export async function fetchContextValues(
+  workflowId: string,
+  context: string,
+): Promise<ContextValuesSummary> {
+  return await getJson<ContextValuesSummary>(
+    `/v1/context-values/${workflowId}/${encodeURIComponent(context)}`,
+  );
+}

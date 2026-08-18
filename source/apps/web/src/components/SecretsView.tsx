@@ -2,8 +2,11 @@ import { FileUp, KeyRound, Pencil, Plus, ShieldAlert, Trash2 } from "lucide-reac
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router";
 import {
+  type ContextFileSummary,
+  type ContextVariableSummary,
   deleteSecret,
   deleteSecretFile,
+  fetchContextValues,
   fetchSecretsContext,
   fetchWorkflows,
   type SecretFileSummary,
@@ -446,6 +449,68 @@ function SecretFilesTable(
   );
 }
 
+function ContextVariablesTable({ variables }: { variables: ContextVariableSummary[] }) {
+  return (
+    <Card className="py-0">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Name</TableHead>
+            <TableHead>Value</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {variables.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={2} className="text-center text-muted-foreground">
+                This workflow declares no context.variables entries.
+              </TableCell>
+            </TableRow>
+          )}
+          {variables.map(({ name, value }) => (
+            <TableRow key={name}>
+              <TableCell className="font-medium font-mono">{name}</TableCell>
+              <TableCell className="font-mono text-muted-foreground">
+                {value ?? <span className="italic">unresolved</span>}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </Card>
+  );
+}
+
+function ContextFilesTable({ files }: { files: ContextFileSummary[] }) {
+  return (
+    <Card className="py-0">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Name</TableHead>
+            <TableHead>Path</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {files.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={2} className="text-center text-muted-foreground">
+                This workflow declares no context.files entries.
+              </TableCell>
+            </TableRow>
+          )}
+          {files.map(({ name, path }) => (
+            <TableRow key={name}>
+              <TableCell className="font-medium font-mono">{name}</TableCell>
+              <TableCell className="font-mono text-muted-foreground">{path}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </Card>
+  );
+}
+
 function FilesTab(
   { workflowId, trimmedContext, files, refetchFiles }: {
     workflowId: string;
@@ -513,6 +578,12 @@ export function SecretsView() {
   const [contextName, setContextName] = useState("");
   const [keys, setKeys] = useState<SecretKeySummary[] | null>(null);
   const [files, setFiles] = useState<SecretFileSummary[] | null>(null);
+  const [variableValues, setVariableValues] = useState<
+    ContextVariableSummary[] | null
+  >(null);
+  const [fileValues, setFileValues] = useState<ContextFileSummary[] | null>(
+    null,
+  );
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -532,17 +603,26 @@ export function SecretsView() {
     if (!trimmed) {
       setKeys(null);
       setFiles(null);
+      setVariableValues(null);
+      setFileValues(null);
       return;
     }
-    fetchSecretsContext(workflowId, trimmed)
-      .then((result) => {
-        setKeys(result.keys);
-        setFiles(result.files);
+    Promise.all([
+      fetchSecretsContext(workflowId, trimmed),
+      fetchContextValues(workflowId, trimmed),
+    ])
+      .then(([secrets, values]) => {
+        setKeys(secrets.keys);
+        setFiles(secrets.files);
+        setVariableValues(values.variables);
+        setFileValues(values.files);
         setLoadError(null);
       })
       .catch((error) => {
         setKeys(null);
         setFiles(null);
+        setVariableValues(null);
+        setFileValues(null);
         setLoadError(error instanceof Error ? error.message : String(error));
       });
   }
@@ -553,15 +633,17 @@ export function SecretsView() {
   }, [workflowId, contextName]);
 
   const trimmedContext = useMemo(() => contextName.trim(), [contextName]);
+  const loaded = keys && files && variableValues && fileValues;
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-6 py-6">
       <div className="flex items-center gap-3">
         <KeyRound className="size-6" />
         <div>
-          <h1 className="text-xl font-semibold">Secrets</h1>
+          <h1 className="text-xl font-semibold">Secrets and variables</h1>
           <p className="text-sm text-muted-foreground">
-            Encrypted and committed to this workflow's linked git repository.
+            Committed to this workflow's linked git repository — secrets are
+            encrypted, variables and files are plaintext.
           </p>
         </div>
       </div>
@@ -577,7 +659,7 @@ export function SecretsView() {
 
       {!trimmedContext && (
         <p className="text-sm text-muted-foreground">
-          Choose or enter a context name to manage its secrets.
+          Choose or enter a context name to manage its secrets and variables.
         </p>
       )}
 
@@ -585,23 +667,25 @@ export function SecretsView() {
         <Card className="flex flex-row items-start gap-3 p-4">
           <ShieldAlert className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
           <div className="flex flex-col gap-1">
-            <p className="text-sm font-medium">Secrets editor unavailable</p>
+            <p className="text-sm font-medium">Editor unavailable</p>
             <p className="text-sm text-muted-foreground">{loadError}</p>
           </div>
         </Card>
       )}
 
-      {trimmedContext && !loadError && (!keys || !files) && (
+      {trimmedContext && !loadError && !loaded && (
         <p className="text-sm text-muted-foreground">Loading…</p>
       )}
 
-      {trimmedContext && !loadError && keys && files && (
-        <Tabs defaultValue="variables">
+      {trimmedContext && !loadError && loaded && (
+        <Tabs defaultValue="secrets">
           <TabsList>
+            <TabsTab value="secrets">Secrets</TabsTab>
+            <TabsTab value="secret-files">Secret files</TabsTab>
             <TabsTab value="variables">Variables</TabsTab>
             <TabsTab value="files">Files</TabsTab>
           </TabsList>
-          <TabsPanel value="variables">
+          <TabsPanel value="secrets">
             <VariablesTab
               workflowId={workflowId}
               trimmedContext={trimmedContext}
@@ -609,13 +693,19 @@ export function SecretsView() {
               refetchKeys={refetch}
             />
           </TabsPanel>
-          <TabsPanel value="files">
+          <TabsPanel value="secret-files">
             <FilesTab
               workflowId={workflowId}
               trimmedContext={trimmedContext}
               files={files}
               refetchFiles={refetch}
             />
+          </TabsPanel>
+          <TabsPanel value="variables">
+            <ContextVariablesTable variables={variableValues} />
+          </TabsPanel>
+          <TabsPanel value="files">
+            <ContextFilesTable files={fileValues} />
           </TabsPanel>
         </Tabs>
       )}

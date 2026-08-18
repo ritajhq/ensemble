@@ -23,7 +23,7 @@ export function RunsLayout() {
             className="h-9 rounded-md border-b-0 data-[selected]:border-b-0 aria-[current=page]:border-b-0"
             render={<NavLink to={`/workflows/${workflowId}/secrets`} />}
           >
-            Secrets
+            Secrets and variables
           </TabsTab>
         </TabsList>
       </Tabs>

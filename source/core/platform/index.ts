@@ -9,11 +9,13 @@ import { workflowRegistryFeature } from "./workflow/registry/index.ts";
 import { createGitIntegrationFeatures } from "./workflow/integrations/git/index.ts";
 import { createDashboardFeatures } from "./workflow/dashboard/index.ts";
 import { createSecretsFeatures } from "./workflow/secrets/index.ts";
+import { createContextValuesFeatures } from "./workflow/context-values/index.ts";
 import type { Feature } from "./features.ts";
 
 export { type Feature, isFeatureEnabled } from "./features.ts";
 export * from "./workflow/index.ts";
 export * from "./workflow/secrets/index.ts";
+export * from "./workflow/context-values/index.ts";
 
 export interface PlatformStores {
   repositories: GitRepositoryStore;
@@ -35,5 +37,6 @@ export function createAllFeatures(stores: PlatformStores): Feature[] {
     ...createGitIntegrationFeatures(stores.repositories),
     ...createDashboardFeatures(stores),
     ...createSecretsFeatures(stores.repositories, stores.links),
+    ...createContextValuesFeatures(stores.repositories, stores.links),
   ];
 }
