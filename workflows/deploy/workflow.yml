@@ -112,7 +112,7 @@ jobs:
 
           runtime_env="$(mktemp)"
           {
-            echo "SERVER_DOCKER_GID=$(getent group docker | cut -d: -f3)"
+            echo "SERVER_DOCKER_GID=$(stat -c %g /var/run/docker.sock)"
             echo "GITHUB_WEBHOOK_SECRET=$GITHUB_WEBHOOK_SECRET"
             echo "SERVER_HOST_WORKFLOWS_PATH=$(realpath -m "$SERVER_HOST_WORKFLOWS_PATH")"
             echo "IMAGE_TAG=${{ trigger.version }}"
