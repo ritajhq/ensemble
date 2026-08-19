@@ -62,7 +62,7 @@ export function createDashboardFeatures(stores: DashboardStores): Feature[] {
       name: "workflow-list",
       method: "GET",
       pattern: new URLPattern({ pathname: "/v1/workflows" }),
-      handle: (request) => handleListWorkflows(runs, request),
+      handle: (request) => handleListWorkflows(repositories, links, runs, request),
     },
     {
       name: "workflow-create",

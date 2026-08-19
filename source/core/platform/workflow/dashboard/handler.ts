@@ -11,6 +11,7 @@ import {
   readWorkflowFile,
   type RunStore,
   subscribeToRun,
+  syncAllWorkflowGitLinks,
   syncWorkflowFromGitLinkIfPresent,
   trackedRunWorkflowByName,
   type WorkflowGitLinkStore,
@@ -102,6 +103,8 @@ async function summarizeWorkflow(
 }
 
 export async function handleListWorkflows(
+  repositories: GitRepositoryStore,
+  links: WorkflowGitLinkStore,
   runs: RunStore,
   request: Request,
 ): Promise<Response> {
@@ -110,6 +113,8 @@ export async function handleListWorkflows(
       status: 401,
     });
   }
+
+  await syncAllWorkflowGitLinks(repositories, links);
 
   const resolved = await listWorkflows();
   const workflows = await Promise.all(
