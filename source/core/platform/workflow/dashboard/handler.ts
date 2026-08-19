@@ -11,7 +11,6 @@ import {
   readWorkflowFile,
   type RunStore,
   subscribeToRun,
-  syncAllWorkflowGitLinks,
   syncWorkflowFromGitLinkIfPresent,
   trackedRunWorkflowByName,
   type WorkflowGitLinkStore,
@@ -23,6 +22,7 @@ import type {
   DeleteRunResponse,
   DeleteWorkflowResponse,
   GetStepLogResponse,
+  GetWorkflowResponse,
   ListRunsResponse,
   ListRunStepsResponse,
   ListWorkflowFilesResponse,
@@ -103,8 +103,6 @@ async function summarizeWorkflow(
 }
 
 export async function handleListWorkflows(
-  repositories: GitRepositoryStore,
-  links: WorkflowGitLinkStore,
   runs: RunStore,
   request: Request,
 ): Promise<Response> {
@@ -114,8 +112,6 @@ export async function handleListWorkflows(
     });
   }
 
-  await syncAllWorkflowGitLinks(repositories, links);
-
   const resolved = await listWorkflows();
   const workflows = await Promise.all(
     resolved.map(({ name, workflow, workflowDir }) =>
@@ -124,6 +120,43 @@ export async function handleListWorkflows(
   );
 
   return Response.json({ workflows } satisfies ListWorkflowsResponse);
+}
+
+/**
+ * GET /v1/workflows/:id — a single workflow's current summary, resyncing it
+ * from its git link first (if it has one) so a UI landing on this workflow
+ * sees the latest triggers/inputs without waiting for a run. Scoped to just
+ * this one workflow rather than the list endpoint syncing every linked
+ * workflow up front: cheaper when there are many workflows, and avoids two
+ * workflows that share a repo racing on that repo's cache dir (see
+ * syncWorkflowFromGit's doc comment).
+ */
+export async function handleGetWorkflow(
+  repositories: GitRepositoryStore,
+  links: WorkflowGitLinkStore,
+  runs: RunStore,
+  request: Request,
+  params: Record<string, string | undefined>,
+): Promise<Response> {
+  if (!await isAuthorizedFor(request, "read")) {
+    return Response.json({ error: "Missing or invalid bearer token." }, {
+      status: 401,
+    });
+  }
+
+  const resolved = resolveWorkflowNameParam(params);
+  if ("errorResponse" in resolved) return resolved.errorResponse;
+
+  try {
+    await syncWorkflowFromGitLinkIfPresent(repositories, links, resolved.name);
+    const { workflow, workflowDir } = await getWorkflowByName(resolved.name);
+    const summary = await summarizeWorkflow(runs, resolved.name, workflow, workflowDir);
+    return Response.json({ workflow: summary } satisfies GetWorkflowResponse);
+  } catch (error) {
+    return Response.json({
+      error: error instanceof Error ? error.message : String(error),
+    }, { status: 404 });
+  }
 }
 
 /**

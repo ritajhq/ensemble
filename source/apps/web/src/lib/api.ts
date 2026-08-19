@@ -154,6 +154,14 @@ export async function fetchWorkflows(): Promise<WorkflowSummary[]> {
   return workflows;
 }
 
+/** Fetches one workflow by id, resyncing it from its git link first (if any) so triggers/inputs are current. */
+export async function fetchWorkflow(workflowId: string): Promise<WorkflowSummary> {
+  const { workflow } = await getJson<{ workflow: WorkflowSummary }>(
+    `/v1/workflows/${workflowId}`,
+  );
+  return workflow;
+}
+
 export async function fetchRuns(workflowId: string): Promise<RunRecord[]> {
   const { runs } = await getJson<{ runs: RunRecord[] }>(
     `/v1/workflows/${workflowId}/runs`,

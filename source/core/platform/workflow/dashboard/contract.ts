@@ -35,6 +35,10 @@ export interface ListWorkflowsResponse {
   workflows: WorkflowSummary[];
 }
 
+export interface GetWorkflowResponse {
+  workflow: WorkflowSummary;
+}
+
 /** Where a new workflow's initial content comes from, if not the default empty stub. */
 export interface CreateWorkflowGitSourceRequest {
   projectName: string;

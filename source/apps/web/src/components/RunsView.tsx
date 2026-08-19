@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router";
 import {
   deleteRun,
   fetchRuns,
-  fetchWorkflows,
+  fetchWorkflow,
   type RunRecord,
   type WorkflowTriggerSummary,
 } from "../lib/api.ts";
@@ -207,11 +207,10 @@ export function RunsView() {
     setRuns(null);
     setError(null);
     refetchRuns();
-    fetchWorkflows()
-      .then((workflows) => {
-        const workflow = workflows.find((w) => w.id === workflowId);
-        setTriggers(workflow?.triggers ?? []);
-        setContexts(workflow?.contexts ?? []);
+    fetchWorkflow(workflowId)
+      .then((workflow) => {
+        setTriggers(workflow.triggers);
+        setContexts(workflow.contexts);
       })
       .catch(() => {});
   }, [workflowId]);
