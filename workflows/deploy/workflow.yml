@@ -2,7 +2,13 @@
 # yaml-embedded-languages: shell
 
 on:
-  - manual: {}
+  - manual:
+      inputs:
+        - name: version
+          type: git-tags
+          repository: https://github.com/ritajhq/ensemble.git
+          default: latest
+          display: "Image tag to deploy"
 
 resources:
   repositories:
@@ -12,7 +18,6 @@ resources:
 context:
   variables:
     - name: IMAGE_REGISTRY
-    - name: IMAGE_TAG
     - name: SERVER_RUNNER_IMAGE
     - name: SERVER_WORKSPACE_PATH
     - name: SERVER_HOST_WORKFLOWS_PATH
@@ -110,6 +115,7 @@ jobs:
             echo "SERVER_DOCKER_GID=$(getent group docker | cut -d: -f3)"
             echo "GITHUB_WEBHOOK_SECRET=$GITHUB_WEBHOOK_SECRET"
             echo "SERVER_HOST_WORKFLOWS_PATH=$(realpath -m "$SERVER_HOST_WORKFLOWS_PATH")"
+            echo "IMAGE_TAG=${{ trigger.version }}"
           } > "$runtime_env"
           echo "runtime_env=$runtime_env" >> "$WORKFLOW_OUTPUT"
 

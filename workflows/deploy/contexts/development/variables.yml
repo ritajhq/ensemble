@@ -1,5 +1,4 @@
 IMAGE_REGISTRY: ""
-IMAGE_TAG: latest
 
 SERVER_RUNNER_IMAGE: runner:latest
 SERVER_WORKSPACE_PATH: ./contexts/development/workspace
