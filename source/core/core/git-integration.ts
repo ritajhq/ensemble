@@ -66,6 +66,42 @@ function buildGitAuthArgs(auth: GitAuthStrategy): string[] {
 }
 
 /**
+ * Lists tag names from a remote repository via `git ls-remote --tags`, newest
+ * first — no clone needed. If `repoUrl` matches a registered repository's
+ * `repoUrl`, reuses its stored auth so a private repo's tags are still
+ * listable; otherwise fetches unauthenticated. Peeled refs (`^{}`, an
+ * annotated tag's underlying commit) are skipped so each tag name appears
+ * once. Returns an empty list (rather than throwing) if the remote can't be
+ * reached or has no tags — a `git-tags` input degrades to free text in that
+ * case, same as any other input a UI can't pre-populate.
+ */
+export async function listRemoteGitTags(
+  repositories: GitRepositoryStore,
+  repoUrl: string,
+): Promise<string[]> {
+  const registered = await repositories.list();
+  const match = registered.find((record) => record.repoUrl === repoUrl);
+  const auth: GitAuthStrategy = match?.auth ?? { type: "none" };
+  const authArgs = buildGitAuthArgs(auth);
+
+  const result = await $`git ls-remote ${authArgs} --tags --refs ${repoUrl}`
+    .stdout("piped")
+    .stderr("null")
+    .noThrow();
+  if (result.code !== 0) return [];
+
+  const tags = result.stdout
+    .trim()
+    .split("\n")
+    .filter((line) => line.length > 0)
+    .map((line) => line.split("refs/tags/")[1])
+    .filter((tag): tag is string => Boolean(tag))
+    .reverse();
+
+  return tags;
+}
+
+/**
  * Sparse-checks out only the `workflows/` folder of a git repository into a
  * fresh staging directory (blobless, single commit) so a bad URL or a repo
  * lacking a workflows/ folder never touches the live cache. Caller is

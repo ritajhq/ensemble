@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
+  fetchRemoteGitTags,
   triggerGithubWorkflow,
   triggerManualWorkflow,
   type ManualInput,
@@ -14,6 +15,7 @@ import {
   ComboboxChipsInput,
   ComboboxContent,
   ComboboxEmpty,
+  ComboboxInput,
   ComboboxItem,
   ComboboxList,
   Input,
@@ -110,6 +112,49 @@ function JobCombobox(
   );
 }
 
+/**
+ * Single-select searchable combobox for a `git-tags`-typed manual input —
+ * lists tags fetched from the input's declared repository, filtered as the
+ * user types. The typed text itself is the form value (via
+ * onInputValueChange), so picking a tag from the list or just typing one
+ * that isn't in it both work — useful since the list reflects the repo at
+ * fetch time and a brand-new tag may not have shown up yet.
+ */
+function GitTagsCombobox(
+  { id, repository, value, onChange }: {
+    id: string;
+    repository: string;
+    value: string;
+    onChange: (value: string) => void;
+  },
+) {
+  const [tags, setTags] = useState<string[] | null>(null);
+
+  useEffect(() => {
+    setTags(null);
+    fetchRemoteGitTags(repository).then(setTags).catch(() => setTags([]));
+  }, [repository]);
+
+  return (
+    <Combobox
+      items={tags ?? []}
+      inputValue={value}
+      onInputValueChange={onChange}
+    >
+      <ComboboxInput
+        id={id}
+        placeholder={tags === null ? "Loading tags…" : "Select or type a tag…"}
+      />
+      <ComboboxContent>
+        <ComboboxEmpty>No tags match — the typed value will be used as-is.</ComboboxEmpty>
+        <ComboboxList>
+          {(tag: string) => <ComboboxItem key={tag} value={tag}>{tag}</ComboboxItem>}
+        </ComboboxList>
+      </ComboboxContent>
+    </Combobox>
+  );
+}
+
 function ManualInputField(
   { input, value, onChange, jobs }: {
     input: ManualInput;
@@ -152,6 +197,24 @@ function ManualInputField(
     );
   }
 
+  if (input.type === "git-tags") {
+    return (
+      <div className="flex flex-col gap-1">
+        <label className="text-xs text-muted-foreground" htmlFor={id}>
+          {label}
+          {input.default === undefined && <span className="text-destructive"> *</span>}
+        </label>
+        <GitTagsCombobox
+          id={id}
+          repository={input.repository}
+          value={value as string}
+          onChange={onChange}
+        />
+        <p className="text-xs text-muted-foreground">{input.repository}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-1">
       <label className="text-xs text-muted-foreground" htmlFor={id}>
@@ -166,9 +229,6 @@ function ManualInputField(
         placeholder={input.default !== undefined ? String(input.default) : undefined}
         className={input.type === "object" ? "font-mono" : undefined}
       />
-      {input.type === "git-tags" && (
-        <p className="text-xs text-muted-foreground">Tag name — see {input.repository}</p>
-      )}
       {input.type === "object" && <p className="text-xs text-muted-foreground">JSON object.</p>}
     </div>
   );

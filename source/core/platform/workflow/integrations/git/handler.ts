@@ -1,6 +1,7 @@
 import {
   type GitAuthStrategy,
   type GitRepositoryStore,
+  listRemoteGitTags,
   listRepoWorkflowCandidates,
   refreshGitRepository,
   registerGitRepository,
@@ -15,6 +16,7 @@ import {
   isSetRepositoryAuthRequest,
   isSetRepositorySecretsKeyRequest,
   type ListGitRepositoriesResponse,
+  type ListRemoteGitTagsResponse,
   type ListRepoWorkflowCandidatesResponse,
   type RefreshGitRepositoryResponse,
   type RegisterGitRepositoryResponse,
@@ -293,4 +295,32 @@ export async function handleListRepoWorkflowCandidates(
       error: error instanceof Error ? error.message : String(error),
     }, { status: 400 });
   }
+}
+
+/**
+ * GET /v1/integrations/git/tags?repoUrl=... — tag names from an arbitrary
+ * remote repository, for a `git-tags` manual trigger input's picker. Not
+ * scoped to a registered project (the URL a workflow.yml declares needn't be
+ * registered) — reuses a registered repo's auth when `repoUrl` happens to
+ * match one, otherwise fetches unauthenticated.
+ */
+export async function handleListRemoteGitTags(
+  repositories: GitRepositoryStore,
+  request: Request,
+): Promise<Response> {
+  if (!await isAuthorizedFor(request, "read")) {
+    return Response.json({ error: "Missing or invalid bearer token." }, {
+      status: 401,
+    });
+  }
+
+  const repoUrl = new URL(request.url).searchParams.get("repoUrl");
+  if (!repoUrl) {
+    return Response.json({ error: "Missing \"repoUrl\" query parameter." }, {
+      status: 400,
+    });
+  }
+
+  const tags = await listRemoteGitTags(repositories, repoUrl);
+  return Response.json({ tags } satisfies ListRemoteGitTagsResponse);
 }

@@ -1,6 +1,7 @@
 import type { GitRepositoryStore } from "@ensemble/core";
 import {
   handleListGitRepositories,
+  handleListRemoteGitTags,
   handleListRepoWorkflowCandidates,
   handleRefreshGitRepository,
   handleRegisterGitRepository,
@@ -12,6 +13,7 @@ import type { Feature } from "../../../features.ts";
 
 export {
   handleListGitRepositories,
+  handleListRemoteGitTags,
   handleListRepoWorkflowCandidates,
   handleRefreshGitRepository,
   handleRegisterGitRepository,
@@ -22,6 +24,7 @@ export {
 export type {
   GitRepositorySummary,
   ListGitRepositoriesResponse,
+  ListRemoteGitTagsResponse,
   ListRepoWorkflowCandidatesResponse,
   RefreshGitRepositoryResponse,
   RegisterGitRepositoryRequest,
@@ -95,6 +98,12 @@ export function createGitIntegrationFeatures(
       }),
       handle: (request, params) =>
         handleListRepoWorkflowCandidates(repositories, request, params),
+    },
+    {
+      name: "git-integration-tags-list",
+      method: "GET",
+      pattern: new URLPattern({ pathname: "/v1/integrations/git/tags" }),
+      handle: (request) => handleListRemoteGitTags(repositories, request),
     },
   ];
 }

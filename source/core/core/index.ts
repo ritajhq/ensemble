@@ -24,6 +24,7 @@ export {
 } from "./remote.ts";
 export {
   deriveProjectName,
+  listRemoteGitTags,
   listRepoWorkflowCandidates,
   refreshGitRepository,
   registerGitRepository,

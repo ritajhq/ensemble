@@ -364,6 +364,14 @@ export async function fetchRepoWorkflowCandidates(
   return candidates;
 }
 
+/** Tag names (newest first) from an arbitrary remote repository, for a `git-tags` manual trigger input's picker. */
+export async function fetchRemoteGitTags(repoUrl: string): Promise<string[]> {
+  const { tags } = await getJson<{ tags: string[] }>(
+    `/v1/integrations/git/tags?repoUrl=${encodeURIComponent(repoUrl)}`,
+  );
+  return tags;
+}
+
 /** Where a new workflow's initial content comes from, if not the default empty stub. */
 export interface CreateWorkflowGitSource {
   projectName: string;

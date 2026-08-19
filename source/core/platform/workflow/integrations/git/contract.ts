@@ -106,3 +106,8 @@ export interface RepoWorkflowCandidateSummary {
 export interface ListRepoWorkflowCandidatesResponse {
   candidates: RepoWorkflowCandidateSummary[];
 }
+
+export interface ListRemoteGitTagsResponse {
+  /** Newest first. Empty if the remote has no tags or couldn't be reached. */
+  tags: string[];
+}
