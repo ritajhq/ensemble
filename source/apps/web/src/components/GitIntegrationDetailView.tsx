@@ -352,7 +352,7 @@ export function GitIntegrationDetailView() {
   }, [projectName]);
 
   return (
-    <div className="min-h-0 min-w-0 flex-1 overflow-auto p-6">
+    <div className="min-h-0 min-w-0 flex-1 overflow-auto scroll-stable p-6">
       <div className="mx-auto flex max-w-4xl flex-col gap-6">
         <Button
           variant="ghost"

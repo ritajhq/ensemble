@@ -8,8 +8,8 @@ export function RunsLayout() {
   const activeTab = pathname.endsWith("/secrets") ? "secrets" : "runs";
 
   return (
-    <div className="min-h-0 min-w-0 flex-1 overflow-auto">
-      <Tabs value={activeTab} className="gap-0">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <Tabs value={activeTab} className="shrink-0 gap-0">
         <TabsList className="h-auto w-full justify-start gap-2 border-b px-6 py-2">
           <TabsTab
             value="runs"
@@ -27,7 +27,9 @@ export function RunsLayout() {
           </TabsTab>
         </TabsList>
       </Tabs>
-      <Outlet />
+      <div className="min-h-0 min-w-0 flex-1 overflow-auto scroll-stable">
+        <Outlet />
+      </div>
     </div>
   );
 }
