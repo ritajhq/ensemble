@@ -1,10 +1,16 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ritajhq/ensemble/main/.ensemble/schemas/workflow.schema.json
 
 on:
+  # Only throwaway/test tags (e.g. "0.0.14-test") are excluded from
+  # production — matched first, with no context, purely so they don't
+  # fall through to the catch-all entry below. Real pre-release tags like
+  # "1.0.0-alpha"/"1.0.1-beta" are still full production releases.
   - github:
       push:
         tags:
-          - '*-*'
+          - '*-test'
+  # Everything else — plain semver ("1.2.3") and alpha/beta/rc pre-release
+  # tags — triggers a real production release.
   - github:
       push:
         tags:
