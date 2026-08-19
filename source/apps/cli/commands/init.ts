@@ -20,4 +20,7 @@ export const initCommand = new Command()
     console.log(
       `Never commit ${name}/.ensemble/secrets.key (already in .gitignore).`,
     );
+    console.log(
+      `\nAdded an example workflow at ${name}/workflows/test — run it with \`ens workflow run test\`.`,
+    );
   });
