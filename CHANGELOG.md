@@ -1,3 +1,12 @@
+## [1.0.5-alpha] - 2026-08-19
+
+### 🐛 Bug Fixes
+
+- *(deploy)* Resolve docker GID from socket stat instead of getent
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 1.0.4-alpha
 ## [1.0.4-alpha] - 2026-08-19
 
 ### 🚀 Features
