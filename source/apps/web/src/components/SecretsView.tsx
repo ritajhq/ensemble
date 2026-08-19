@@ -1,4 +1,15 @@
-import { FileUp, KeyRound, Pencil, Plus, ShieldAlert, Trash2 } from "lucide-react";
+import {
+  Braces,
+  FileLock2,
+  FileText,
+  FileUp,
+  KeyRound,
+  Pencil,
+  Plus,
+  Search,
+  ShieldAlert,
+  Trash2,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router";
 import {
@@ -8,7 +19,7 @@ import {
   deleteSecretFile,
   fetchContextValues,
   fetchSecretsContext,
-  fetchWorkflows,
+  fetchWorkflow,
   type SecretFileSummary,
   type SecretKeySummary,
   setSecret,
@@ -18,6 +29,9 @@ import {
   Button,
   Card,
   Input,
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
   Select,
   SelectContent,
   SelectItem,
@@ -29,10 +43,6 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-  Tabs,
-  TabsList,
-  TabsPanel,
-  TabsTab,
 } from "@ritaj/ui";
 import {
   Table,
@@ -42,6 +52,39 @@ import {
   TableHeader,
   TableRow,
 } from "@ritaj/ui/components/ui/table";
+
+/**
+ * Wraps a table in a fixed-height, internally-scrolling frame with a local
+ * search box — these tables aren't expected to hold large lists, so a
+ * search filters the already-loaded rows client-side rather than hitting
+ * the server.
+ */
+function SearchableTable(
+  { search, onSearchChange, placeholder, children }: {
+    search: string;
+    onSearchChange: (value: string) => void;
+    placeholder: string;
+    children: React.ReactNode;
+  },
+) {
+  return (
+    <div className="flex flex-col gap-2">
+      <InputGroup className="max-w-sm">
+        <InputGroupAddon>
+          <Search className="size-4" />
+        </InputGroupAddon>
+        <InputGroupInput
+          placeholder={placeholder}
+          value={search}
+          onChange={(event) => onSearchChange(event.target.value)}
+        />
+      </InputGroup>
+      <Card className="max-h-72 overflow-y-auto py-0">
+        {children}
+      </Card>
+    </div>
+  );
+}
 
 function ContextPicker(
   { value, onChange, knownContexts }: {
@@ -160,14 +203,23 @@ function AddSecretForm(
 }
 
 function SecretsTable(
-  { keys, onEdit, onDelete }: {
+  { keys, search, onEdit, onDelete }: {
     keys: SecretKeySummary[];
+    search: string;
     onEdit: (key: string) => void;
     onDelete: (key: string) => Promise<void>;
   },
 ) {
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const filtered = useMemo(
+    () =>
+      keys.filter(({ key }) =>
+        key.toLowerCase().includes(search.trim().toLowerCase())
+      ),
+    [keys, search],
+  );
 
   async function handleDelete(key: string) {
     setPending(key);
@@ -188,61 +240,59 @@ function SecretsTable(
   return (
     <div className="flex flex-col gap-2">
       {error && <p className="text-sm text-destructive">{error}</p>}
-      <Card className="py-0">
-        <Table>
-          <TableHeader>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Name</TableHead>
+            <TableHead className="w-20" />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {filtered.length === 0 && (
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead className="w-20" />
+              <TableCell
+                colSpan={2}
+                className="text-center text-muted-foreground"
+              >
+                {keys.length === 0 ? "No secrets set." : "No matches."}
+              </TableCell>
             </TableRow>
-          </TableHeader>
-          <TableBody>
-            {keys.length === 0 && (
-              <TableRow>
-                <TableCell
-                  colSpan={2}
-                  className="text-center text-muted-foreground"
-                >
-                  No secrets set.
-                </TableCell>
-              </TableRow>
-            )}
-            {keys.map(({ key }) => (
-              <TableRow key={key}>
-                <TableCell className="font-medium font-mono">{key}</TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      className="text-muted-foreground hover:text-foreground"
-                      onClick={() => onEdit(key)}
-                    >
-                      <Pencil className="size-3.5" />
-                      <span className="sr-only">Edit secret</span>
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      className="text-muted-foreground hover:text-destructive"
-                      disabled={pending === key}
-                      onClick={() => handleDelete(key)}
-                    >
-                      <Trash2 className="size-3.5" />
-                      <span className="sr-only">Delete secret</span>
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Card>
+          )}
+          {filtered.map(({ key }) => (
+            <TableRow key={key}>
+              <TableCell className="font-medium font-mono">{key}</TableCell>
+              <TableCell>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="text-muted-foreground hover:text-foreground"
+                    onClick={() => onEdit(key)}
+                  >
+                    <Pencil className="size-3.5" />
+                    <span className="sr-only">Edit secret</span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="text-muted-foreground hover:text-destructive"
+                    disabled={pending === key}
+                    onClick={() => handleDelete(key)}
+                  >
+                    <Trash2 className="size-3.5" />
+                    <span className="sr-only">Delete secret</span>
+                  </Button>
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }
 
-function VariablesTab(
+function SecretsSection(
   { workflowId, trimmedContext, keys, refetchKeys }: {
     workflowId: string;
     trimmedContext: string;
@@ -252,15 +302,19 @@ function VariablesTab(
 ) {
   /** undefined = closed, "" = adding a new secret, a key name = editing that one (pre-filled, locked). */
   const [editorKey, setEditorKey] = useState<string | undefined>(undefined);
+  const [search, setSearch] = useState("");
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex justify-end">
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <h2 className="flex items-center gap-2 text-sm font-medium">
+          <KeyRound className="size-4 text-muted-foreground" /> Secrets
+        </h2>
         <Sheet
           open={editorKey !== undefined}
           onOpenChange={(open) => setEditorKey(open ? "" : undefined)}
         >
-          <SheetTrigger render={<Button />}>
+          <SheetTrigger render={<Button size="sm" />}>
             <Plus className="size-4" /> Add secret
           </SheetTrigger>
           <SheetContent>
@@ -284,14 +338,21 @@ function VariablesTab(
           </SheetContent>
         </Sheet>
       </div>
-      <SecretsTable
-        keys={keys}
-        onEdit={(key) => setEditorKey(key)}
-        onDelete={async (key) => {
-          await deleteSecret(workflowId, trimmedContext, key);
-          refetchKeys();
-        }}
-      />
+      <SearchableTable
+        search={search}
+        onSearchChange={setSearch}
+        placeholder="Search secrets..."
+      >
+        <SecretsTable
+          keys={keys}
+          search={search}
+          onEdit={(key) => setEditorKey(key)}
+          onDelete={async (key) => {
+            await deleteSecret(workflowId, trimmedContext, key);
+            refetchKeys();
+          }}
+        />
+      </SearchableTable>
     </div>
   );
 }
@@ -359,14 +420,23 @@ function AddSecretFileForm(
 }
 
 function SecretFilesTable(
-  { files, onEdit, onDelete }: {
+  { files, search, onEdit, onDelete }: {
     files: SecretFileSummary[];
+    search: string;
     onEdit: (name: string) => void;
     onDelete: (name: string) => Promise<void>;
   },
 ) {
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const filtered = useMemo(
+    () =>
+      files.filter(({ name }) =>
+        name.toLowerCase().includes(search.trim().toLowerCase())
+      ),
+    [files, search],
+  );
 
   async function handleDelete(name: string) {
     setPending(name);
@@ -387,131 +457,151 @@ function SecretFilesTable(
   return (
     <div className="flex flex-col gap-2">
       {error && <p className="text-sm text-destructive">{error}</p>}
-      <Card className="py-0">
-        <Table>
-          <TableHeader>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Name</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead className="w-20" />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {filtered.length === 0 && (
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="w-20" />
+              <TableCell
+                colSpan={3}
+                className="text-center text-muted-foreground"
+              >
+                {files.length === 0
+                  ? "This workflow declares no context.secrets.files entries."
+                  : "No matches."}
+              </TableCell>
             </TableRow>
-          </TableHeader>
-          <TableBody>
-            {files.length === 0 && (
-              <TableRow>
-                <TableCell
-                  colSpan={3}
-                  className="text-center text-muted-foreground"
-                >
-                  This workflow declares no context.secrets.files entries.
-                </TableCell>
-              </TableRow>
-            )}
-            {files.map(({ name, isSet }) => (
-              <TableRow key={name}>
-                <TableCell className="font-medium font-mono">{name}</TableCell>
-                <TableCell className="text-muted-foreground">
-                  {isSet ? "Set" : "Not set"}
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      className="text-muted-foreground hover:text-foreground"
-                      onClick={() => onEdit(name)}
-                    >
-                      {isSet ? <Pencil className="size-3.5" /> : (
-                        <FileUp className="size-3.5" />
-                      )}
-                      <span className="sr-only">
-                        {isSet ? "Replace file secret" : "Upload file secret"}
-                      </span>
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      className="text-muted-foreground hover:text-destructive"
-                      disabled={!isSet || pending === name}
-                      onClick={() => handleDelete(name)}
-                    >
-                      <Trash2 className="size-3.5" />
-                      <span className="sr-only">Delete file secret</span>
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Card>
+          )}
+          {filtered.map(({ name, isSet }) => (
+            <TableRow key={name}>
+              <TableCell className="font-medium font-mono">{name}</TableCell>
+              <TableCell className="text-muted-foreground">
+                {isSet ? "Set" : "Not set"}
+              </TableCell>
+              <TableCell>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="text-muted-foreground hover:text-foreground"
+                    onClick={() => onEdit(name)}
+                  >
+                    {isSet ? <Pencil className="size-3.5" /> : (
+                      <FileUp className="size-3.5" />
+                    )}
+                    <span className="sr-only">
+                      {isSet ? "Replace file secret" : "Upload file secret"}
+                    </span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="text-muted-foreground hover:text-destructive"
+                    disabled={!isSet || pending === name}
+                    onClick={() => handleDelete(name)}
+                  >
+                    <Trash2 className="size-3.5" />
+                    <span className="sr-only">Delete file secret</span>
+                  </Button>
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }
 
-function ContextVariablesTable({ variables }: { variables: ContextVariableSummary[] }) {
+function ContextVariablesTable(
+  { variables, search }: { variables: ContextVariableSummary[]; search: string },
+) {
+  const filtered = useMemo(
+    () =>
+      variables.filter(({ name }) =>
+        name.toLowerCase().includes(search.trim().toLowerCase())
+      ),
+    [variables, search],
+  );
+
   return (
-    <Card className="py-0">
-      <Table>
-        <TableHeader>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Name</TableHead>
+          <TableHead>Value</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {filtered.length === 0 && (
           <TableRow>
-            <TableHead>Name</TableHead>
-            <TableHead>Value</TableHead>
+            <TableCell colSpan={2} className="text-center text-muted-foreground">
+              {variables.length === 0
+                ? "This workflow declares no context.variables entries."
+                : "No matches."}
+            </TableCell>
           </TableRow>
-        </TableHeader>
-        <TableBody>
-          {variables.length === 0 && (
-            <TableRow>
-              <TableCell colSpan={2} className="text-center text-muted-foreground">
-                This workflow declares no context.variables entries.
-              </TableCell>
-            </TableRow>
-          )}
-          {variables.map(({ name, value }) => (
-            <TableRow key={name}>
-              <TableCell className="font-medium font-mono">{name}</TableCell>
-              <TableCell className="font-mono text-muted-foreground">
-                {value ?? <span className="italic">unresolved</span>}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </Card>
+        )}
+        {filtered.map(({ name, value }) => (
+          <TableRow key={name}>
+            <TableCell className="font-medium font-mono">{name}</TableCell>
+            <TableCell className="font-mono text-muted-foreground">
+              {value ?? <span className="italic">unresolved</span>}
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   );
 }
 
-function ContextFilesTable({ files }: { files: ContextFileSummary[] }) {
+function ContextFilesTable(
+  { files, search }: { files: ContextFileSummary[]; search: string },
+) {
+  const filtered = useMemo(
+    () =>
+      files.filter(({ name }) =>
+        name.toLowerCase().includes(search.trim().toLowerCase())
+      ),
+    [files, search],
+  );
+
   return (
-    <Card className="py-0">
-      <Table>
-        <TableHeader>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Name</TableHead>
+          <TableHead>Path</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {filtered.length === 0 && (
           <TableRow>
-            <TableHead>Name</TableHead>
-            <TableHead>Path</TableHead>
+            <TableCell colSpan={2} className="text-center text-muted-foreground">
+              {files.length === 0
+                ? "This workflow declares no context.files entries."
+                : "No matches."}
+            </TableCell>
           </TableRow>
-        </TableHeader>
-        <TableBody>
-          {files.length === 0 && (
-            <TableRow>
-              <TableCell colSpan={2} className="text-center text-muted-foreground">
-                This workflow declares no context.files entries.
-              </TableCell>
-            </TableRow>
-          )}
-          {files.map(({ name, path }) => (
-            <TableRow key={name}>
-              <TableCell className="font-medium font-mono">{name}</TableCell>
-              <TableCell className="font-mono text-muted-foreground">{path}</TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </Card>
+        )}
+        {filtered.map(({ name, path }) => (
+          <TableRow key={name}>
+            <TableCell className="font-medium font-mono">{name}</TableCell>
+            <TableCell className="font-mono text-muted-foreground">{path}</TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   );
 }
 
-function FilesTab(
+function SecretFilesSection(
   { workflowId, trimmedContext, files, refetchFiles }: {
     workflowId: string;
     trimmedContext: string;
@@ -520,9 +610,15 @@ function FilesTab(
   },
 ) {
   const [editorName, setEditorName] = useState<string | undefined>(undefined);
+  const [search, setSearch] = useState("");
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <h2 className="flex items-center gap-2 text-sm font-medium">
+          <FileLock2 className="size-4 text-muted-foreground" /> Secret files
+        </h2>
+      </div>
       <Sheet
         open={editorName !== undefined}
         onOpenChange={(open) => !open && setEditorName(undefined)}
@@ -549,14 +645,21 @@ function FilesTab(
           )}
         </SheetContent>
       </Sheet>
-      <SecretFilesTable
-        files={files}
-        onEdit={(name) => setEditorName(name)}
-        onDelete={async (name) => {
-          await deleteSecretFile(workflowId, trimmedContext, name);
-          refetchFiles();
-        }}
-      />
+      <SearchableTable
+        search={search}
+        onSearchChange={setSearch}
+        placeholder="Search secret files..."
+      >
+        <SecretFilesTable
+          files={files}
+          search={search}
+          onEdit={(name) => setEditorName(name)}
+          onDelete={async (name) => {
+            await deleteSecretFile(workflowId, trimmedContext, name);
+            refetchFiles();
+          }}
+        />
+      </SearchableTable>
     </div>
   );
 }
@@ -587,10 +690,9 @@ export function SecretsView() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchWorkflows()
-      .then((workflows) => {
-        const workflow = workflows.find((w) => w.id === workflowId);
-        const contexts = workflow?.contexts ?? [];
+    fetchWorkflow(workflowId)
+      .then((workflow) => {
+        const contexts = workflow.contexts;
         setKnownContexts(contexts);
         if (contexts.length > 0 && !contextName) setContextName(contexts[0]);
       })
@@ -635,6 +737,9 @@ export function SecretsView() {
   const trimmedContext = useMemo(() => contextName.trim(), [contextName]);
   const loaded = keys && files && variableValues && fileValues;
 
+  const [variablesSearch, setVariablesSearch] = useState("");
+  const [filesSearch, setFilesSearch] = useState("");
+
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-6 py-6">
       <div className="flex items-center gap-3">
@@ -678,36 +783,47 @@ export function SecretsView() {
       )}
 
       {trimmedContext && !loadError && loaded && (
-        <Tabs defaultValue="secrets">
-          <TabsList>
-            <TabsTab value="secrets">Secrets</TabsTab>
-            <TabsTab value="secret-files">Secret files</TabsTab>
-            <TabsTab value="variables">Variables</TabsTab>
-            <TabsTab value="files">Files</TabsTab>
-          </TabsList>
-          <TabsPanel value="secrets">
-            <VariablesTab
-              workflowId={workflowId}
-              trimmedContext={trimmedContext}
-              keys={keys}
-              refetchKeys={refetch}
-            />
-          </TabsPanel>
-          <TabsPanel value="secret-files">
-            <FilesTab
-              workflowId={workflowId}
-              trimmedContext={trimmedContext}
-              files={files}
-              refetchFiles={refetch}
-            />
-          </TabsPanel>
-          <TabsPanel value="variables">
-            <ContextVariablesTable variables={variableValues} />
-          </TabsPanel>
-          <TabsPanel value="files">
-            <ContextFilesTable files={fileValues} />
-          </TabsPanel>
-        </Tabs>
+        <div className="flex flex-col gap-8">
+          <SecretsSection
+            workflowId={workflowId}
+            trimmedContext={trimmedContext}
+            keys={keys}
+            refetchKeys={refetch}
+          />
+          <SecretFilesSection
+            workflowId={workflowId}
+            trimmedContext={trimmedContext}
+            files={files}
+            refetchFiles={refetch}
+          />
+          <div className="flex flex-col gap-3">
+            <h2 className="flex items-center gap-2 text-sm font-medium">
+              <Braces className="size-4 text-muted-foreground" /> Variables
+            </h2>
+            <SearchableTable
+              search={variablesSearch}
+              onSearchChange={setVariablesSearch}
+              placeholder="Search variables..."
+            >
+              <ContextVariablesTable
+                variables={variableValues}
+                search={variablesSearch}
+              />
+            </SearchableTable>
+          </div>
+          <div className="flex flex-col gap-3">
+            <h2 className="flex items-center gap-2 text-sm font-medium">
+              <FileText className="size-4 text-muted-foreground" /> Files
+            </h2>
+            <SearchableTable
+              search={filesSearch}
+              onSearchChange={setFilesSearch}
+              placeholder="Search files..."
+            >
+              <ContextFilesTable files={fileValues} search={filesSearch} />
+            </SearchableTable>
+          </div>
+        </div>
       )}
     </div>
   );
