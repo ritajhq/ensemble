@@ -1,5 +1,6 @@
 {
   "name": "@ensemble/core",
+  "license": "MIT",
   "exports": "./index.ts",
   "imports": {
     "@std/assert": "jsr:@std/assert@1.0.14",

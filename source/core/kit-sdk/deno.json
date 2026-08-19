@@ -1,5 +1,6 @@
 {
   "name": "@ensemble/kit-sdk",
+  "license": "MIT",
   "exports": "./index.ts",
   "imports": {
     "@std/cli": "jsr:@std/cli@1.0.32",
