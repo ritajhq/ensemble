@@ -1,3 +1,26 @@
+## [1.0.2-alpha] - 2026-08-19
+
+### 🚀 Features
+
+- *(workflow/deploy)* Take image tag as manual git-tags input
+- *(runs)* Persist and surface a run's resolved deploy context in the dashboard
+- *(workflow/dashboard)* Add per-workflow endpoint that resyncs its git link
+- *(cli/init)* Drop self-vendoring, sparse-checkout kits, scaffold example test workflow
+- *(workflow/dashboard)* Render git-tags manual inputs as a searchable combobox
+- *(web)* Replace secrets/variables tabs with stacked sections, each with its own search
+
+### 🐛 Bug Fixes
+
+- *(workflow/release)* Narrow test-tag exclusion to only *-test, not any pre-release tag
+- *(workflow/dashboard)* Resync git-linked workflows before listing
+
+### 🎨 Styling
+
+- *(web)* Subtle theme-aware scrollbars, stable scrollbar gutter, and a fixed workflow tab strip
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 1.0.1-alpha
 ## [1.0.1-alpha] - 2026-08-18
 
 ### 🚀 Features
