@@ -43,6 +43,8 @@ export interface RunRecord {
   steps?: StepRecord[];
   /** Data the trigger that started this run supplied (e.g. `{type:"manual",...}`, `{type:"github",...}`), if any. */
   trigger?: Record<string, unknown>;
+  /** The resolved deploy context this run executed under, if any — absent when the workflow declares no `context:` block, the trigger didn't specify one, or (for old records) this predates context tracking. */
+  context?: string;
 }
 
 export interface StepLog {
@@ -319,7 +321,7 @@ export class RunStore {
    */
   async trackedRunWorkflow(
     workflowName: string,
-    trigger: Record<string, unknown> | undefined,
+    meta: { trigger?: Record<string, unknown>; context?: string } | undefined,
     run: (events: Delegate<[WorkflowEvent]>) => Promise<RunWorkflowResult>,
   ): Promise<boolean> {
     const runId = crypto.randomUUID();
@@ -327,6 +329,8 @@ export class RunStore {
     const jobs: Record<string, JobStatus> = {};
     const steps: StepRecord[] = [];
     const events = new Delegate<[WorkflowEvent]>();
+    const trigger = meta?.trigger;
+    const context = meta?.context;
 
     function findOrCreateStep(jobId: string, index: number, label: string): StepRecord {
       let step = steps.find((s) => s.jobId === jobId && s.index === index);
@@ -381,6 +385,7 @@ export class RunStore {
         jobs: { ...jobs },
         steps: [...steps],
         trigger,
+        context,
       });
     });
 
@@ -392,8 +397,18 @@ export class RunStore {
       jobs: {},
       steps: [],
       trigger,
+      context,
     });
-    publishRunUpdate(runId, { runId, workflowName, status: "in_progress", startedAt, jobs: {}, steps: [], trigger });
+    publishRunUpdate(runId, {
+      runId,
+      workflowName,
+      status: "in_progress",
+      startedAt,
+      jobs: {},
+      steps: [],
+      trigger,
+      context,
+    });
 
     try {
       const { success } = await run(events);
@@ -406,6 +421,7 @@ export class RunStore {
         jobs,
         steps,
         trigger,
+        context,
       };
       await this.putRun(record);
       publishRunUpdate(runId, record);
@@ -420,6 +436,7 @@ export class RunStore {
         jobs,
         steps,
         trigger,
+        context,
       };
       await this.putRun(record);
       publishRunUpdate(runId, record);

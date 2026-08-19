@@ -303,7 +303,7 @@ function WorkflowCard({ workflow }: { workflow: WorkflowSummary }) {
               key={index}
               trigger={trigger}
               className="size-3.5 shrink-0 text-muted-foreground"
-              title={`${triggerTypeLabel(trigger.type)} trigger`}
+              title={`${triggerTypeLabel(trigger)} trigger`}
             />
           ))}
         </div>

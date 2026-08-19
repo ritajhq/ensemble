@@ -31,6 +31,11 @@ function triggerLabel(run: RunRecord): string {
   return typeof type === "string" ? type : "—";
 }
 
+/** The resolved deploy context this run executed under, or "—" when none. */
+function contextLabel(run: RunRecord): string {
+  return run.context ?? "—";
+}
+
 function StartedAt({ startedAt }: { startedAt: string }) {
   const relative = useRelativeTime(startedAt);
   return <span title={new Date(startedAt).toLocaleString()}>{relative}</span>;
@@ -44,6 +49,7 @@ const ACTIVE_RUN_FIELDS: {
   { label: "Started", render: (run) => <StartedAt startedAt={run.startedAt} /> },
   { label: "Duration", render: (run) => formatDuration(run.startedAt, run.finishedAt) },
   { label: "Trigger", render: (run) => triggerLabel(run) },
+  { label: "Context", render: (run) => contextLabel(run) },
 ];
 
 function ActiveRunCard(
@@ -156,7 +162,10 @@ function RunHistoryRow(
     >
       <Badge variant="secondary" className="font-mono">{run.runId.slice(0, 8)}</Badge>
       <Badge variant={statusVariant(run.status)}>{run.status}</Badge>
-      <span className="flex-1 text-muted-foreground">{triggerLabel(run)}</span>
+      <span className="flex-1 text-muted-foreground">
+        {triggerLabel(run)}
+        {run.context && <> · {run.context}</>}
+      </span>
       <span className="shrink-0 text-muted-foreground" title={new Date(run.startedAt).toLocaleString()}>
         {startedRelative}
       </span>

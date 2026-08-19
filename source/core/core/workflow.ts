@@ -474,7 +474,7 @@ export async function trackedRunWorkflowByName(
 ): Promise<boolean> {
   return await runs.trackedRunWorkflow(
     name,
-    options.trigger,
+    { trigger: options.trigger, context: options.context },
     (events) =>
       runWorkflowByName(name, { ...options, containerized: true, events }),
   );

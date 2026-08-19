@@ -27,6 +27,8 @@ export interface WorkflowGithubTriggerSummary {
   type: "github";
   /** Glob patterns a pushed tag must match, from this trigger's `push.tags`. */
   tagPatterns: string[];
+  /** Deploy context a matching tag push resolves to, if this entry declares one. */
+  context?: string;
 }
 
 export type WorkflowTriggerSummary =
@@ -65,6 +67,8 @@ export interface RunRecord {
   /** Absent on RunRecords persisted before step tracking existed. */
   steps?: StepRecord[];
   trigger?: Record<string, unknown>;
+  /** The resolved deploy context this run executed under, if any. */
+  context?: string;
 }
 
 export interface WorkflowFileNode {

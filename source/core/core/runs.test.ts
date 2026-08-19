@@ -17,23 +17,36 @@ async function successfulRun(): Promise<{ outcomes: Record<string, never>; succe
 Deno.test("RunStore: trackedRunWorkflow persists a run record readable via getRun/listRunsForWorkflow/getLatestRun", async () => {
   await withRunStore(async (store) => {
     let capturedRunId: string | undefined;
-    const success = await store.trackedRunWorkflow("my-workflow", { type: "manual" }, async () => {
-      const runs = await store.listRunsForWorkflow("my-workflow");
-      capturedRunId = runs[0]?.runId;
-      return await successfulRun();
-    });
+    const success = await store.trackedRunWorkflow(
+      "my-workflow",
+      { trigger: { type: "manual" }, context: "production" },
+      async () => {
+        const runs = await store.listRunsForWorkflow("my-workflow");
+        capturedRunId = runs[0]?.runId;
+        return await successfulRun();
+      },
+    );
 
     assertEquals(success, true);
     const runs = await store.listRunsForWorkflow("my-workflow");
     assertEquals(runs.length, 1);
     assertEquals(runs[0].status, "succeeded");
     assertEquals(runs[0].trigger, { type: "manual" });
+    assertEquals(runs[0].context, "production");
 
     const latest = await store.getLatestRun("my-workflow");
     assertEquals(latest?.runId, capturedRunId);
 
     const byId = await store.getRun(runs[0].runId, "my-workflow");
     assertEquals(byId?.status, "succeeded");
+  });
+});
+
+Deno.test("RunStore: trackedRunWorkflow leaves context undefined when the caller doesn't supply one", async () => {
+  await withRunStore(async (store) => {
+    await store.trackedRunWorkflow("my-workflow", { trigger: { type: "manual" } }, successfulRun);
+    const runs = await store.listRunsForWorkflow("my-workflow");
+    assertEquals(runs[0].context, undefined);
   });
 });
 

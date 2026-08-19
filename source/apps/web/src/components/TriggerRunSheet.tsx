@@ -287,7 +287,12 @@ function ManualTriggerForm(
 }
 
 function GithubTriggerForm(
-  { workflowId, tagPatterns, onTriggered }: { workflowId: string; tagPatterns: string[]; onTriggered: () => void },
+  { workflowId, tagPatterns, context, onTriggered }: {
+    workflowId: string;
+    tagPatterns: string[];
+    context?: string;
+    onTriggered: () => void;
+  },
 ) {
   const [tag, setTag] = useState("");
   const [sha, setSha] = useState("");
@@ -322,6 +327,9 @@ function GithubTriggerForm(
         />
         <p className="text-xs text-muted-foreground">
           Must match: {tagPatterns.join(", ")}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Runs under context: {context ?? "none"}
         </p>
       </div>
       <div className="flex flex-col gap-1">
@@ -361,13 +369,13 @@ export function TriggerRunSheet(
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger render={<Button size="sm" variant="secondary" />}>
         <TriggerIcon trigger={trigger} className="size-4" />
-        {triggerTypeLabel(trigger.type)}
+        {triggerTypeLabel(trigger)}
       </SheetTrigger>
       <SheetContent>
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <TriggerIcon trigger={trigger} className="size-4" />
-            Run — {triggerTypeLabel(trigger.type)}
+            Run — {triggerTypeLabel(trigger)}
           </SheetTitle>
           <SheetDescription>
             {trigger.type === "manual"
@@ -392,6 +400,7 @@ export function TriggerRunSheet(
             <GithubTriggerForm
               workflowId={workflowId}
               tagPatterns={trigger.tagPatterns}
+              context={trigger.context}
               onTriggered={() => {
                 setOpen(false);
                 onTriggered();

@@ -47,7 +47,11 @@ function summarizeTrigger(
     };
   }
   if (trigger.github) {
-    return { type: "github", tagPatterns: trigger.github.push.tags };
+    return {
+      type: "github",
+      tagPatterns: trigger.github.push.tags,
+      context: trigger.github.context,
+    };
   }
   return undefined;
 }

@@ -34,6 +34,11 @@ function triggerLabel(run: RunRecord): string {
   return typeof type === "string" ? type : "—";
 }
 
+/** The resolved deploy context this run executed under, or "—" when none. */
+function contextLabel(run: RunRecord): string {
+  return run.context ?? "—";
+}
+
 const RUN_DETAIL_FIELDS: {
   label: string;
   render: (run: RunRecord) => ReactNode;
@@ -42,6 +47,7 @@ const RUN_DETAIL_FIELDS: {
   { label: "Started", render: (run) => formatRelativeTime(run.startedAt) },
   { label: "Duration", render: (run) => formatDuration(run.startedAt, run.finishedAt) },
   { label: "Trigger", render: (run) => triggerLabel(run) },
+  { label: "Context", render: (run) => contextLabel(run) },
 ];
 
 function DeleteRunButton({ workflowId, runId, onDeleted }: { workflowId: string; runId: string; onDeleted: () => void }) {

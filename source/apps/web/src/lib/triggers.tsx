@@ -14,12 +14,21 @@ export function TriggerIcon(
   }
 }
 
-/** Human-readable label for a trigger type, e.g. on a run button or in a run's trigger column. */
-export function triggerTypeLabel(type: WorkflowTriggerSummary["type"]): string {
-  switch (type) {
+/**
+ * Human-readable label for a trigger, e.g. on a run button or in a run's
+ * trigger column. A workflow can declare several `github:` entries (each
+ * with its own `push.tags`/`context`) — appending the tag pattern(s)
+ * disambiguates them, since they'd otherwise all render as plain "GitHub".
+ * A workflow only ever has one `manual` entry in practice, so that case
+ * stays a plain label.
+ */
+export function triggerTypeLabel(trigger: WorkflowTriggerSummary): string {
+  switch (trigger.type) {
     case "manual":
       return "Manual";
     case "github":
-      return "GitHub";
+      return trigger.tagPatterns.length > 0
+        ? `GitHub — ${trigger.tagPatterns.join(", ")}`
+        : "GitHub";
   }
 }
