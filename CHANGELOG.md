@@ -1,3 +1,17 @@
+## [1.0.4-alpha] - 2026-08-19
+
+### 🚀 Features
+
+- *(kits)* Add scaffold.ts to build kits, wire ens app create
+## [1.0.3-alpha] - 2026-08-19
+
+### 🚀 Features
+
+- *(ship/runner)* Add docker-cli-compose and coreutils to the Dockerfile dependencies
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 1.0.2-alpha
 ## [1.0.2-alpha] - 2026-08-19
 
 ### 🚀 Features
