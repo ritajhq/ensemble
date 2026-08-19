@@ -1,5 +1,6 @@
 import { Command } from "@cliffy/command";
 import { getInstalledVersion } from "@ensemble/core";
+import { appCommand } from "./commands/app.ts";
 import { buildCommand } from "./commands/build.ts";
 import { configCommand } from "./commands/config.ts";
 import { initCommand } from "./commands/init.ts";
@@ -17,6 +18,7 @@ try {
     .version(version)
     .description("Ensemble — from source code to deployment, in one CLI.")
     .command("init", initCommand)
+    .command("app", appCommand)
     .command("build", buildCommand)
     .command("pack", packCommand)
     .command("workflow", workflowCommand)

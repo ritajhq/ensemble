@@ -2420,6 +2420,7 @@
           "jsr:@david/dax@0.42.0",
           "jsr:@ensemble/core@*",
           "jsr:@ensemble/kit-sdk@*",
+          "jsr:@std/fs@1.0.24",
           "jsr:@std/path@1.1.6"
         ]
       },

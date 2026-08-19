@@ -1,4 +1,5 @@
 export { findRepoRoot } from "./repo.ts";
+export { runAppCreate, type RunAppCreateOptions } from "./app.ts";
 export {
   type BuildAppConfig,
   type EnsembleConfig,
