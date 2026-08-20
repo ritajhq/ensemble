@@ -113,18 +113,13 @@ jobs:
 
 A workflow can declare `resources.repositories` — git repositories checked out
 automatically before any job runs, so a workflow doesn't need a hand-rolled
-`run: git clone ...` step. An entry is either a remote repository to clone, or
-`in: { repository: self }` — a reserved sentinel meaning "the repo this
-workflow file itself lives in":
+`run: git clone ...` step:
 
 ```yaml
 resources:
   repositories:
     ensemble:
-      in:
-        repository: self # reserved: this repo, resolved from disk instead of a url
-    deploy-config:
-      url: https://github.com/ritajhq/ensemble-deploy-config.git
+      url: https://github.com/ritajhq/ensemble.git
       ref: main # optional; branch/tag/commit, defaults to the remote's default branch
 
 jobs:
@@ -135,9 +130,9 @@ jobs:
       - run: git describe --tags --abbrev=0
 ```
 
-- Checked out once per run, sequentially, into `<runDir>/repos/<name>` — a
-  full clone, not shallow, since steps commonly need tag history
-  (`git describe`, changelog generation).
+- Cloned once per run, sequentially, into `<runDir>/repos/<name>` — a full
+  clone, not shallow, since steps commonly need tag history (`git describe`,
+  changelog generation).
 - Exposed as `${{ repositories.<name>.path }}` in expressions/`run:`/`name:`
   interpolation, and `ctx.repositories.<name>.path` in `script:` steps — see
   "Expression contexts" below.
@@ -149,29 +144,19 @@ jobs:
   ${{ repositories.<name>.path }}`. Job-level `in:` applies to every step
   that doesn't declare its own; a step's own `in:` always wins over the job's.
   `name` must be a key under `resources.repositories` — referencing anything
-  else is a `WorkflowExpressionError`. This is the same `{ repository: ... }`
-  shape a repository entry's own `in:` uses (see below) — the difference is
-  that a job/step's `in.repository` is a name lookup, while a repository
-  entry's `in.repository` only ever accepts the literal `self`.
-- **`in: { repository: self }`** on a repository entry itself resolves that
-  entry against the current repo (the one the running `ens` command's
-  `.ensemble` marker was found in — see `findRepoRoot`) instead of a `url`.
-  By default this still does a real (local) `git clone` into the run's own
-  scratch dir, so a run is isolated from uncommitted changes just like any
-  other entry. Two CLI flags change that resolution for a specific run,
-  without touching `workflow.yml`:
-  - **`--local`** — every `in: self` entry uses the repo's working tree
-    directly, no clone: uncommitted changes included, zero copy. This is what
-    makes "the same workflow runs everywhere" actually true in practice — the
-    exact same `workflow.yml` clones fresh on a server/CI run, but operates on
-    your live working tree when you pass `--local` locally.
-  - **`--repository <name>=<path|url>`** (repeatable) — overrides any one
-    declared repository (self or remote) for this run only. A value that's an
-    existing local directory is used as-is (no clone); otherwise it's treated
-    as a git URL and cloned. Takes precedence over both a `url` and an
-    `in: self` entry (including under `--local`) for that name. CLI-only —
-    there's no workflow-file equivalent, since this is a one-off/per-machine
-    concern, not something a team's `workflow.yml` should declare.
+  else is a `WorkflowExpressionError`.
+- **Local dev**: `.ensemble/config.local.yaml` (gitignored, per-developer) can
+  override a repository name to point at an existing local directory instead of
+  cloning:
+  ```yaml
+  workflows:
+    repositories:
+      ensemble: /home/you/ritaj/ensemble
+  ```
+  This is what makes "the same workflow runs everywhere" actually true in
+  practice — the exact same `workflow.yml` clones fresh on a server/CI run, but
+  operates on your live working tree (uncommitted changes included) when you run
+  it locally, with zero workflow-file changes either way.
 
 `resources.repositories` is for **source** — the code being built/deployed. It's
 deliberately not overloaded to also carry deploy config/secrets: those have a

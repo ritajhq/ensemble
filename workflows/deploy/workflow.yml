@@ -13,8 +13,7 @@ on:
 resources:
   repositories:
     ensemble:
-      in:
-        repository: self
+      url: https://github.com/ritajhq/ensemble.git
 
 context:
   variables:

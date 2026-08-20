@@ -820,7 +820,7 @@ jobs:
       await assertRejects(
         () => parseWorkflowFile(path),
         WorkflowParseError,
-        'resources.repositories.ensemble must have a non-empty string "url" (or "in: { repository: self }")',
+        'resources.repositories.ensemble must have a non-empty string "url"',
       );
     },
   );
@@ -876,79 +876,6 @@ jobs:
   } finally {
     Deno.env.delete("ENSEMBLE_TEST_REPO_URL");
   }
-});
-
-Deno.test("parseWorkflowFile: resources.repositories entry with in: { repository: self } parses", async () => {
-  await withFixture(
-    "repositories-in-self.yml",
-    `
-resources:
-  repositories:
-    ensemble:
-      in:
-        repository: self
-jobs:
-  build:
-    steps:
-      - run: echo hi
-`,
-    async (path) => {
-      const workflow = await parseWorkflowFile(path);
-      assertEquals(workflow.resources?.repositories?.ensemble, {
-        in: { repository: "self" },
-        ref: undefined,
-      });
-    },
-  );
-});
-
-Deno.test("parseWorkflowFile: resources.repositories entry with in.repository other than self fails", async () => {
-  await withFixture(
-    "repositories-in-other.yml",
-    `
-resources:
-  repositories:
-    ensemble:
-      in:
-        repository: other
-jobs:
-  build:
-    steps:
-      - run: echo hi
-`,
-    async (path) => {
-      await assertRejects(
-        () => parseWorkflowFile(path),
-        WorkflowParseError,
-        'resources.repositories.ensemble.in.repository must be "self"',
-      );
-    },
-  );
-});
-
-Deno.test("parseWorkflowFile: resources.repositories entry with both url and in fails", async () => {
-  await withFixture(
-    "repositories-url-and-in.yml",
-    `
-resources:
-  repositories:
-    ensemble:
-      url: https://github.com/ritajhq/ensemble.git
-      in:
-        repository: self
-jobs:
-  build:
-    steps:
-      - run: echo hi
-`,
-    async (path) => {
-      await assertRejects(
-        () => parseWorkflowFile(path),
-        WorkflowParseError,
-        'resources.repositories.ensemble must have exactly one of "url" or "in", not both',
-      );
-    },
-  );
 });
 
 Deno.test("parseWorkflowFile: step with in.repository parses", async () => {

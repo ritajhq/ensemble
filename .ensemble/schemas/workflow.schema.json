@@ -62,45 +62,19 @@
       "additionalProperties": false
     },
     "repository": {
-      "oneOf": [
-        {
-          "type": "object",
-          "properties": {
-            "url": {
-              "description": "Git URL to clone. A value containing $(NAME) is resolved from the process's own env var NAME at parse time.",
-              "type": "string"
-            },
-            "ref": {
-              "description": "Branch, tag, or commit to check out. Defaults to the remote's default branch.",
-              "type": "string"
-            }
-          },
-          "required": ["url"],
-          "additionalProperties": false
+      "type": "object",
+      "properties": {
+        "url": {
+          "description": "Git URL to clone. A value containing $(NAME) is resolved from the process's own env var NAME at parse time.",
+          "type": "string"
         },
-        {
-          "type": "object",
-          "properties": {
-            "in": {
-              "description": "Reuses the job/step \"in\" shape; only { repository: self } is valid here — a reserved sentinel meaning \"the repo this workflow file lives in,\" resolved from disk instead of cloned from a url.",
-              "type": "object",
-              "properties": {
-                "repository": {
-                  "const": "self"
-                }
-              },
-              "required": ["repository"],
-              "additionalProperties": false
-            },
-            "ref": {
-              "description": "Branch, tag, or commit to check out. Defaults to repoRoot's current branch.",
-              "type": "string"
-            }
-          },
-          "required": ["in"],
-          "additionalProperties": false
+        "ref": {
+          "description": "Branch, tag, or commit to check out. Defaults to the remote's default branch.",
+          "type": "string"
         }
-      ]
+      },
+      "required": ["url"],
+      "additionalProperties": false
     },
     "context": {
       "type": "object",

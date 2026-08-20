@@ -118,15 +118,6 @@ const runCommand = new Command()
     "Load workflow variables from a .env file. Merged under -v/--var, so an explicit -v for the same key wins.",
   )
   .option(
-    "--local",
-    'Resolve every resources.repositories entry declared as `in: { repository: self }` straight to this repo\'s own working tree instead of cloning it. Ignored under --remote.',
-  )
-  .option(
-    "--repository <override:string>",
-    "Override a declared resources.repositories entry (NAME=PATH or NAME=URL). Repeatable. Wins over both `url` and `in: { repository: self }` resolution for that name. Ignored under --remote.",
-    { collect: true },
-  )
-  .option(
     "-i, --input <input:string>",
     "Set a value for the workflow's declared manual trigger input (NAME=VALUE). VALUE is JSON-parsed when possible (e.g. -i replicas=3, -i enabled=true), else used as a plain string. Repeatable — repeating the same NAME collects its values into a list (e.g. -i job=server -i job=web) instead of the last one winning.",
     { collect: true },
@@ -150,8 +141,6 @@ const runCommand = new Command()
         remote,
         var: vars,
         envFile,
-        local,
-        repository,
         input: inputs,
         triggerJson,
         emitEvents,
@@ -222,8 +211,6 @@ const runCommand = new Command()
         variables: overrides,
         trigger,
         events,
-        local,
-        repositoryOverrides: CliUtil.parseVarOverrides(repository ?? []),
       });
       if (!success) Deno.exit(1);
     },

@@ -532,39 +532,24 @@ function validateRepository(
   if (!isRecord(raw)) {
     fail(file, `resources.repositories.${name} must be a mapping.`);
   }
-  if (raw.url !== undefined && raw.in !== undefined) {
+  if (typeof raw.url !== "string" || raw.url.length === 0) {
     fail(
       file,
-      `resources.repositories.${name} must have exactly one of "url" or "in", not both.`,
+      `resources.repositories.${name} must have a non-empty string "url".`,
     );
   }
   if (raw.ref !== undefined && typeof raw.ref !== "string") {
     fail(file, `resources.repositories.${name} has a non-string "ref".`);
   }
-  const ref = raw.ref !== undefined
-    ? resolveEnvRefs(file, `resources.repositories.${name}.ref`, raw.ref as string)
-    : undefined;
-
-  if (raw.in !== undefined) {
-    const stepIn = validateIn(file, `resources.repositories.${name}.in`, raw.in);
-    if (stepIn.repository !== "self") {
-      fail(
-        file,
-        `resources.repositories.${name}.in.repository must be "self" — a repository entry can't reference another declared repository.`,
-      );
-    }
-    return { in: stepIn, ref };
-  }
-
-  if (typeof raw.url !== "string" || raw.url.length === 0) {
-    fail(
-      file,
-      `resources.repositories.${name} must have a non-empty string "url" (or "in: { repository: self }").`,
-    );
-  }
   return {
     url: resolveEnvRefs(file, `resources.repositories.${name}.url`, raw.url),
-    ref,
+    ref: raw.ref !== undefined
+      ? resolveEnvRefs(
+        file,
+        `resources.repositories.${name}.ref`,
+        raw.ref as string,
+      )
+      : undefined,
   };
 }
 

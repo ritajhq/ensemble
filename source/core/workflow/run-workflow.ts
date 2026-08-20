@@ -56,15 +56,16 @@ export interface RunWorkflowOptions {
   /**
    * Repo root to expose to steps as `ENSEMBLE_WORKSPACE`, so an `ens` subcommand
    * invoked from a `run:` step can find it even though steps' `cwd` is a scratch
-   * temp dir unrelated to the repo (see findRepoRoot in @ensemble/core). Also
-   * used to resolve any `in: { repository: "self" }` resources.repositories
-   * entry.
+   * temp dir unrelated to the repo (see findRepoRoot in @ensemble/core).
    */
   repoRoot?: string;
-  /** --local flag: resolve every `in: { repository: "self" }` resources.repositories entry straight to repoRoot instead of cloning it. See checkoutRepositories. */
-  local?: boolean;
-  /** --repository <name>=<path|url> CLI overrides, keyed by repository name — points that name straight at an existing local checkout, or a different git URL, instead of its declared resolution. See checkoutRepositories. */
-  repositoryOverrides?: Record<string, string>;
+  /**
+   * Per-developer resources.repositories overrides (from
+   * .ensemble/config.local.yaml, resolved by the caller), keyed by
+   * repository name — points that name straight at an existing local
+   * checkout instead of cloning. See checkoutRepositories for details.
+   */
+  localRepositoryOverrides?: Record<string, string>;
   /** Notified as jobs start/finish, for callers that want to track run progress. */
   events?: Delegate<[WorkflowEvent]>;
 }
@@ -167,15 +168,6 @@ export async function runWorkflow(
   workflow: Workflow,
   options: RunWorkflowOptions,
 ): Promise<RunWorkflowResult> {
-  if (
-    options.repoRoot === undefined &&
-    Object.values(workflow.resources?.repositories ?? {}).some((repo) => repo.in?.repository === "self")
-  ) {
-    throw new Error(
-      `Workflow declares an "in: { repository: self }" resources.repositories entry, but no repoRoot was resolved for this run.`,
-    );
-  }
-
   const callerVars = { ...workflow.variables, ...options.variables };
   const concurrency = options.concurrency ?? Infinity;
 
@@ -199,7 +191,7 @@ export async function runWorkflow(
     const repositories = await checkoutRepositories(
       workflow.resources?.repositories,
       runDir,
-      { repoRoot: options.repoRoot!, local: options.local, overrides: options.repositoryOverrides },
+      options.localRepositoryOverrides,
     );
 
     const resolved = await resolveContext(
