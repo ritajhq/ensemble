@@ -41,9 +41,13 @@ export async function runAppCreate(options: RunAppCreateOptions): Promise<void> 
   }
 
   const denoExe = await resolveDenoExecutable();
-  const result = await $`${denoExe} run -A -q ${scaffoldEntry} --dest ${sourceDir} --name ${name}`
-    .cwd(kitDir)
-    .noThrow();
+  // --minimum-dependency-age 0: see the identical flag in build.ts — kits
+  // depend on first-party @ensemble/*/@ritaj/* packages that a fresh
+  // release can otherwise trip Deno's default 24h supply-chain guard on.
+  const result =
+    await $`${denoExe} run -A -q --minimum-dependency-age 0 ${scaffoldEntry} --dest ${sourceDir} --name ${name}`
+      .cwd(kitDir)
+      .noThrow();
   if (result.code !== 0) {
     throw new Error(`Scaffolding "${name}" with kit "${options.kit}" failed.`);
   }

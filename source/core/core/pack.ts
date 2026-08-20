@@ -69,7 +69,8 @@ export async function runPack(
   const localVars = getLocalVars(localConfig, "pack", shipName);
   const packVars = { ...fileVars, ...localVars, ...options.varOverrides };
 
-  const result = await $`${denoExe} run -A -q ${kitEntry}
+  // --minimum-dependency-age 0: see the identical flag in build.ts.
+  const result = await $`${denoExe} run -A -q --minimum-dependency-age 0 ${kitEntry}
     --artifacts ${artifactsDir}
     --packages ${packagesDir}
     --name ${shipName}

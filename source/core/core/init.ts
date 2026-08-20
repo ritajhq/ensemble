@@ -150,15 +150,7 @@ export async function runInit(options: RunInitOptions): Promise<void> {
   await Deno.writeTextFile(
     join(projectDir, "deno.json"),
     JSON.stringify(
-      {
-        workspace: ["source/apps/**", "source/libs/**", ".ensemble/kits/**"],
-        // @ensemble/* and @ritaj/* are first-party packages this project's
-        // own kits depend on — Deno's default 24h minimum dependency age
-        // (a supply-chain mitigation for unfamiliar third-party deps) would
-        // otherwise block `ens build`/`ens app create` from resolving a
-        // package published earlier the same day.
-        minimumDependencyAge: "0",
-      },
+      { workspace: ["source/apps/**", "source/libs/**", ".ensemble/kits/**"] },
       null,
       2,
     ) + "\n",
