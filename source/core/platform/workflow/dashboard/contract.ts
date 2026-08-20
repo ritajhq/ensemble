@@ -94,7 +94,7 @@ export interface DeleteRunResponse {
   success: boolean;
 }
 
-export interface MintSseTokenResponse {
+export interface MintWsTokenResponse {
   ok: true;
 }
 

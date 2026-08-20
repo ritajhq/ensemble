@@ -228,10 +228,15 @@ export async function fetchStepLog(
   );
 }
 
+/** `apiBase()`'s `http(s)://` origin, rewritten to the matching `ws(s)://` scheme for WebSocket connections. */
+function wsBase(): string {
+  return apiBase().replace(/^http/, "ws");
+}
+
 /**
- * Subscribes to live status updates for a run. `EventSource` can't send the
- * dashboard's Authorization header, so this first exchanges it for a
- * short-lived cookie (via /v1/auth/sse-token) before opening the stream —
+ * Subscribes to live status updates for a run. Browser `WebSocket` can't
+ * send the dashboard's Authorization header, so this first exchanges it for
+ * a short-lived cookie (via /v1/auth/ws-token) before opening the socket —
  * see auth/tokens.ts's isAuthorizedFor on the server for the matching read
  * side. Returns a cleanup function that closes the connection; safe to call
  * even if the mint request is still in flight or failed.
@@ -241,18 +246,15 @@ export function openRunEvents(
   runId: string,
   onUpdate: (run: RunRecord) => void,
 ): () => void {
-  let source: EventSource | undefined;
+  let socket: WebSocket | undefined;
   let cancelled = false;
 
-  postJson("/v1/auth/sse-token", {}).then(() => {
+  postJson("/v1/auth/ws-token", {}).then(() => {
     if (cancelled) return;
-    source = new EventSource(
-      `${apiBase()}/v1/workflows/${workflowId}/runs/${runId}/events`,
-      {
-        withCredentials: true,
-      },
+    socket = new WebSocket(
+      `${wsBase()}/v1/workflows/${workflowId}/runs/${runId}/events`,
     );
-    source.onmessage = (event) => {
+    socket.onmessage = (event) => {
       onUpdate(JSON.parse(event.data));
     };
   }).catch((error) => {
@@ -261,7 +263,7 @@ export function openRunEvents(
 
   return () => {
     cancelled = true;
-    source?.close();
+    socket?.close();
   };
 }
 

@@ -17,7 +17,7 @@ import {
   type WorkflowGitLinkStore,
 } from "@ensemble/core";
 import { setCookie } from "@std/http/cookie";
-import { isAuthorizedFor, SSE_TOKEN_COOKIE } from "../../auth/tokens.ts";
+import { isAuthorizedFor, WS_TOKEN_COOKIE } from "../../auth/tokens.ts";
 import type {
   CreateWorkflowResponse,
   DeleteRunResponse,
@@ -28,7 +28,7 @@ import type {
   ListRunStepsResponse,
   ListWorkflowFilesResponse,
   ListWorkflowsResponse,
-  MintSseTokenResponse,
+  MintWsTokenResponse,
   ReadWorkflowFileResponse,
   RunJobNode,
   RunWorkflowResponse,
@@ -447,15 +447,15 @@ export async function handleReadWorkflowFile(
 }
 
 /**
- * Exchanges a valid bearer token for a short-lived `sse_token` cookie, so
- * an `EventSource` connection (which can't set an Authorization header) can
+ * Exchanges a valid bearer token for a short-lived `ws_token` cookie, so
+ * a `WebSocket` connection (which can't set an Authorization header) can
  * still authenticate. The cookie carries the same token, just narrowly
  * scoped (path, short max-age) rather than being a separate credential —
  * see auth/tokens.ts's isAuthorizedFor for the matching read side.
  */
-export async function handleMintSseToken(request: Request): Promise<Response> {
+export async function handleMintWsToken(request: Request): Promise<Response> {
   // Deliberately checks the header directly, rather than going through
-  // isAuthorizedFor (which also accepts the sse_token cookie this endpoint
+  // isAuthorizedFor (which also accepts the ws_token cookie this endpoint
   // mints) — minting must always start from a real bearer token, never from
   // a cookie re-minting itself.
   const header = request.headers.get("authorization");
@@ -471,9 +471,9 @@ export async function handleMintSseToken(request: Request): Promise<Response> {
     });
   }
 
-  const response = Response.json({ ok: true } satisfies MintSseTokenResponse);
+  const response = Response.json({ ok: true } satisfies MintWsTokenResponse);
   setCookie(response.headers, {
-    name: SSE_TOKEN_COOKIE,
+    name: WS_TOKEN_COOKIE,
     value: token,
     path: "/v1/workflows",
     maxAge: 60,
@@ -483,21 +483,14 @@ export async function handleMintSseToken(request: Request): Promise<Response> {
   return response;
 }
 
-const SSE_ENCODER = new TextEncoder();
-
-/** Streams `record` as a single SSE `data:` message. */
-function formatSseEvent(record: unknown): Uint8Array {
-  return SSE_ENCODER.encode(`data: ${JSON.stringify(record)}\n\n`);
-}
-
 /**
- * Streams live status updates for a single run over SSE: job/step state
- * transitions, not log output (logs stay fetched on demand via
- * handleGetStepLog). Pushes an immediate snapshot on connect — closing the
- * race where the run finishes between the dashboard's initial REST fetch
- * and this subscription — then forwards every subsequent update published
- * by trackedRunWorkflow (see core/runs-broadcast.ts) until the client
- * disconnects.
+ * Streams live status updates for a single run over WebSocket: job/step
+ * state transitions, not log output (logs stay fetched on demand via
+ * handleGetStepLog). Pushes an immediate snapshot once the socket opens —
+ * closing the race where the run finishes between the dashboard's initial
+ * REST fetch and this subscription — then forwards every subsequent update
+ * published by trackedRunWorkflow (see core/runs-broadcast.ts) until the
+ * client disconnects.
  */
 export async function handleRunEvents(
   runs: RunStore,
@@ -525,21 +518,14 @@ export async function handleRunEvents(
     });
   }
 
-  const stream = new ReadableStream<Uint8Array>({
-    start(controller) {
-      controller.enqueue(formatSseEvent(initial));
-      const unsubscribe = subscribeToRun(runId, (record) => {
-        controller.enqueue(formatSseEvent(record));
-      });
-      request.signal.addEventListener("abort", unsubscribe);
-    },
-  });
+  const { socket, response } = Deno.upgradeWebSocket(request);
+  socket.onopen = () => {
+    socket.send(JSON.stringify(initial));
+    const unsubscribe = subscribeToRun(runId, (record) => {
+      socket.send(JSON.stringify(record));
+    });
+    socket.onclose = unsubscribe;
+  };
 
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      "Connection": "keep-alive",
-    },
-  });
+  return response;
 }
