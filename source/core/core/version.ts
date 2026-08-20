@@ -111,6 +111,10 @@ export interface InstallResult {
  * currently installed version: "patch" stays on the current major.minor line,
  * "minor" stays on the current major line, "major" allows any major.
  * No installed-version marker behaves as if the current version were 0.0.0.
+ *
+ * If the installed version has a pre-release suffix, the update stays on that
+ * same pre-release channel (e.g. "alpha" -> "alpha"). Otherwise, only normal
+ * (non-pre-release) releases are considered.
  */
 export async function installNext(bump: BumpKind): Promise<InstallResult> {
   const current = await getInstalledVersion();
@@ -118,6 +122,7 @@ export async function installNext(bump: BumpKind): Promise<InstallResult> {
 
   const releases = await listReleases();
   const candidates = releases.filter(({ version }) => {
+    if (version.preRelease !== base.preRelease) return false;
     if (compareSemVer(version, base) <= 0) return false;
     if (bump === "major") return true;
     if (bump === "minor") return version.major === base.major;

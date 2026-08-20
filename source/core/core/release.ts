@@ -58,6 +58,13 @@ async function findLastTag(repoRoot: string): Promise<{ tag: string; version: Se
   return tags.reduce((max, t) => (compareSemVer(t.version, max.version) > 0 ? t : max));
 }
 
+/** The highest tag by semver precedence on a given pre-release line (`preRelease` undefined means the stable line). */
+async function findLastTagOnLine(repoRoot: string, preRelease: string | undefined): Promise<{ tag: string; version: SemVer } | undefined> {
+  const tags = (await listSemVerTags(repoRoot)).filter((t) => t.version.preRelease === preRelease);
+  if (tags.length === 0) return undefined;
+  return tags.reduce((max, t) => (compareSemVer(t.version, max.version) > 0 ? t : max));
+}
+
 /** True if the working tree has uncommitted changes (staged, unstaged, or untracked). */
 export async function hasUncommittedChanges(repoRoot: string): Promise<boolean> {
   const output = await $`git status --porcelain`.cwd(repoRoot).text();
@@ -99,10 +106,15 @@ async function buildPreview(repoRoot: string, base: SemVer, flags: ReleaseFlags)
 
 export type BumpKind = "major" | "minor" | "patch";
 
-/** Previews the version bump from the last tag per semver rules. No tags yet behaves as if the last tag were 0.0.0. Does not create the tag — call applyRelease separately once confirmed. */
+/**
+ * Previews the version bump from the last tag per semver rules. No tags yet behaves as if the last tag were 0.0.0.
+ * Bumps within the target pre-release line: with `-p <suffix>`, from the last tag on that suffix's line; without
+ * it, from the last stable (non-pre-release) tag, ignoring pre-release tags entirely.
+ * Does not create the tag — call applyRelease separately once confirmed.
+ */
 export async function releaseNext(bump: BumpKind, flags: ReleaseFlags): Promise<ReleasePreview> {
   const repoRoot = await findRepoRoot();
-  const last = await findLastTag(repoRoot);
+  const last = await findLastTagOnLine(repoRoot, flags.preRelease);
   const base = last?.version ?? { major: 0, minor: 0, patch: 0 };
   const bumped: SemVer = bump === "major"
     ? { major: base.major + 1, minor: 0, patch: 0 }
