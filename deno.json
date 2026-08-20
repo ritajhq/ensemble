@@ -24,7 +24,7 @@
   ],
   "tasks": {
     "cli": "deno run -A source/apps/cli/main.ts",
-    "compile": "deno compile -A --output .ensemble/bin/ens source/apps/cli/main.ts",
+    "compile": "deno compile -A --include source/core/workflow/run-script-subprocess.ts --output .ensemble/bin/ens source/apps/cli/main.ts",
     "server": "deno run -A source/apps/server/main.ts"
   }
 }

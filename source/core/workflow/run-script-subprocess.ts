@@ -10,12 +10,14 @@
  * (result-channel.ts) produced; today that's a temp file path, written via
  * Deno.writeTextFile.
  *
- * This file's SOURCE (not this file itself) is embedded into
- * @ensemble/workflow at compile time via a `with { type: "text" }` import in
- * run-step.ts, then materialized to a real temp file at runtime before each
- * script step — this is what keeps script: steps resolvable even from a
- * `deno compile`d `ens` binary, whose own `import.meta.url` doesn't point to
- * a real on-disk path.
+ * This file's SOURCE (not this file itself) is read via `Deno.readTextFile`
+ * by run-step.ts (against this file's own `import.meta.url`, not a `{ type:
+ * "text" }` import — JSR's module graph builder rejects that attribute),
+ * then materialized to a real temp file at runtime before each script step —
+ * this is what keeps script: steps resolvable even from a `deno compile`d
+ * `ens` binary, whose own `import.meta.url` doesn't point to a real on-disk
+ * path. The root deno.json's "compile" task must `--include` this file so
+ * it's embedded in the compiled binary too.
  */
 
 async function readStdin(): Promise<string> {

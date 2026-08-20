@@ -1,6 +1,5 @@
 import { isAbsolute, resolve } from "@std/path";
 import { RealEnvironment, which } from "@david/which";
-import bootstrapSource from "./run-script-subprocess.ts" with { type: "text" };
 import type { Step, StepIn } from "./schema.ts";
 import type { JobContext, StepResult } from "./context.ts";
 import { evaluateStepIf, interpolateStep, toStepContext } from "./context.ts";
@@ -52,14 +51,23 @@ async function resolveDenoExecutable(): Promise<string> {
 let cachedBootstrapPath: Promise<string> | undefined;
 
 /**
- * Materializes the subprocess bootstrap's embedded source to a real temp
- * file on first use, so it can be `deno run` as an actual subprocess even
- * when @ensemble/workflow itself is embedded in a `deno compile`d binary
- * (whose own `import.meta.url` doesn't correspond to a real on-disk path).
+ * Materializes the subprocess bootstrap's source to a real temp file on
+ * first use, so it can be `deno run` as an actual subprocess even when
+ * @ensemble/workflow itself is embedded in a `deno compile`d binary (whose
+ * own `import.meta.url` doesn't correspond to a real on-disk path).
+ * run-script-subprocess.ts is read via `Deno.readTextFile` against its own
+ * `import.meta.url` rather than imported with `{ type: "text" }`, since JSR's
+ * module graph builder rejects that import attribute — reading it as a plain
+ * file instead needs the compiled `ens` binary to `--include
+ * source/core/workflow/run-script-subprocess.ts` so it's embedded too (see
+ * the root deno.json's "compile" task).
  */
 function getBootstrapPath(): Promise<string> {
   if (!cachedBootstrapPath) {
     cachedBootstrapPath = (async () => {
+      const bootstrapSource = await Deno.readTextFile(
+        new URL("./run-script-subprocess.ts", import.meta.url),
+      );
       const path = await Deno.makeTempFile({ suffix: ".ts" });
       await Deno.writeTextFile(path, bootstrapSource);
       return path;
