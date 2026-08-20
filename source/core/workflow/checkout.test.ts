@@ -18,7 +18,7 @@ async function makeFixtureRepo(dir: string): Promise<void> {
 }
 
 Deno.test("checkoutRepositories: undefined repositories returns undefined", async () => {
-  const result = await checkoutRepositories(undefined, "/tmp/unused");
+  const result = await checkoutRepositories(undefined, "/tmp/unused", { repoRoot: "/tmp/unused" });
   assertEquals(result, undefined);
 });
 
@@ -28,7 +28,11 @@ Deno.test("checkoutRepositories: clones a declared repository into runDir/repos/
   try {
     await makeFixtureRepo(fixtureDir);
 
-    const result = await checkoutRepositories({ demo: { url: fixtureDir } }, runDir);
+    const result = await checkoutRepositories(
+      { demo: { url: fixtureDir } },
+      runDir,
+      { repoRoot: fixtureDir },
+    );
 
     const expectedPath = join(runDir, "repos", "demo");
     assertEquals(result, { demo: { path: expectedPath } });
@@ -39,7 +43,55 @@ Deno.test("checkoutRepositories: clones a declared repository into runDir/repos/
   }
 });
 
-Deno.test("checkoutRepositories: a local override skips cloning entirely", async () => {
+Deno.test("checkoutRepositories: in: self under --local uses repoRoot directly, no clone", async () => {
+  const fixtureDir = await Deno.makeTempDir({ prefix: "checkout-fixture-" });
+  const runDir = await Deno.makeTempDir({ prefix: "checkout-run-" });
+  try {
+    await makeFixtureRepo(fixtureDir);
+
+    const result = await checkoutRepositories(
+      { demo: { in: { repository: "self" } } },
+      runDir,
+      { repoRoot: fixtureDir, local: true },
+    );
+
+    assertEquals(result, { demo: { path: fixtureDir } });
+    // No clone happened — the run's own repos/ dir was never populated.
+    let cloned = true;
+    try {
+      await Deno.stat(join(runDir, "repos", "demo"));
+    } catch {
+      cloned = false;
+    }
+    assertEquals(cloned, false);
+  } finally {
+    await Deno.remove(fixtureDir, { recursive: true });
+    await Deno.remove(runDir, { recursive: true });
+  }
+});
+
+Deno.test("checkoutRepositories: in: self without --local locally clones repoRoot", async () => {
+  const fixtureDir = await Deno.makeTempDir({ prefix: "checkout-fixture-" });
+  const runDir = await Deno.makeTempDir({ prefix: "checkout-run-" });
+  try {
+    await makeFixtureRepo(fixtureDir);
+
+    const result = await checkoutRepositories(
+      { demo: { in: { repository: "self" } } },
+      runDir,
+      { repoRoot: fixtureDir },
+    );
+
+    const expectedPath = join(runDir, "repos", "demo");
+    assertEquals(result, { demo: { path: expectedPath } });
+    assertEquals(await Deno.readTextFile(join(expectedPath, "file.txt")), "hello");
+  } finally {
+    await Deno.remove(fixtureDir, { recursive: true });
+    await Deno.remove(runDir, { recursive: true });
+  }
+});
+
+Deno.test("checkoutRepositories: --repository override on a url entry skips cloning", async () => {
   const fixtureDir = await Deno.makeTempDir({ prefix: "checkout-fixture-" });
   const runDir = await Deno.makeTempDir({ prefix: "checkout-run-" });
   try {
@@ -50,11 +102,10 @@ Deno.test("checkoutRepositories: a local override skips cloning entirely", async
     const result = await checkoutRepositories(
       { demo: { url: fixtureDir } },
       runDir,
-      { demo: overridePath },
+      { repoRoot: fixtureDir, overrides: { demo: overridePath } },
     );
 
     assertEquals(result, { demo: { path: overridePath } });
-    // No clone happened — the run's own repos/ dir was never populated.
     let cloned = true;
     try {
       await Deno.stat(join(runDir, "repos", "demo"));
@@ -64,6 +115,48 @@ Deno.test("checkoutRepositories: a local override skips cloning entirely", async
     assertEquals(cloned, false);
 
     await Deno.remove(overridePath, { recursive: true });
+  } finally {
+    await Deno.remove(fixtureDir, { recursive: true });
+    await Deno.remove(runDir, { recursive: true });
+  }
+});
+
+Deno.test("checkoutRepositories: --repository override on an in: self entry wins over --local", async () => {
+  const fixtureDir = await Deno.makeTempDir({ prefix: "checkout-fixture-" });
+  const runDir = await Deno.makeTempDir({ prefix: "checkout-run-" });
+  try {
+    await makeFixtureRepo(fixtureDir);
+    const overridePath = await Deno.makeTempDir({ prefix: "checkout-override-" });
+
+    const result = await checkoutRepositories(
+      { demo: { in: { repository: "self" } } },
+      runDir,
+      { repoRoot: fixtureDir, local: true, overrides: { demo: overridePath } },
+    );
+
+    assertEquals(result, { demo: { path: overridePath } });
+
+    await Deno.remove(overridePath, { recursive: true });
+  } finally {
+    await Deno.remove(fixtureDir, { recursive: true });
+    await Deno.remove(runDir, { recursive: true });
+  }
+});
+
+Deno.test("checkoutRepositories: a --repository override that isn't an existing directory is cloned as a URL", async () => {
+  const fixtureDir = await Deno.makeTempDir({ prefix: "checkout-fixture-" });
+  const runDir = await Deno.makeTempDir({ prefix: "checkout-run-" });
+  try {
+    await makeFixtureRepo(fixtureDir);
+
+    const result = await checkoutRepositories(
+      { demo: { url: "https://example.invalid/unused.git" } },
+      runDir,
+      { repoRoot: fixtureDir, overrides: { demo: `file://${fixtureDir}` } },
+    );
+
+    const expectedPath = join(runDir, "repos", "demo");
+    assertEquals(result, { demo: { path: expectedPath } });
   } finally {
     await Deno.remove(fixtureDir, { recursive: true });
     await Deno.remove(runDir, { recursive: true });
@@ -80,7 +173,7 @@ Deno.test("checkoutRepositories: an override for one name doesn't affect a sibli
     const result = await checkoutRepositories(
       { demo: { url: fixtureDir }, other: { url: fixtureDir } },
       runDir,
-      { demo: overridePath },
+      { repoRoot: fixtureDir, overrides: { demo: overridePath } },
     );
 
     assertEquals(result?.demo, { path: overridePath });
@@ -97,7 +190,12 @@ Deno.test("checkoutRepositories: a failed clone throws", async () => {
   const runDir = await Deno.makeTempDir({ prefix: "checkout-run-" });
   try {
     await assertRejects(
-      () => checkoutRepositories({ demo: { url: "/nonexistent/path/to/nowhere" } }, runDir),
+      () =>
+        checkoutRepositories(
+          { demo: { url: "/nonexistent/path/to/nowhere" } },
+          runDir,
+          { repoRoot: "/tmp/unused" },
+        ),
       Error,
       'Failed to check out repository "demo"',
     );

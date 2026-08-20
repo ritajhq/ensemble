@@ -39,7 +39,8 @@ context:
 resources:
   repositories:
     ensemble:
-      url: https://github.com/ritajhq/ensemble.git
+      in:
+        repository: self
 
 jobs:
   release:

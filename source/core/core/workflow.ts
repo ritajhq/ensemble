@@ -12,7 +12,6 @@ import {
 } from "@ensemble/workflow";
 import { RunStore } from "./runs.ts";
 import { runWorkflowInContainer } from "./run-workflow-in-container.ts";
-import { getLocalRepositoryOverrides, loadLocalConfig } from "./config.ts";
 import {
   syncWorkflowFromGit,
   unlinkWorkflowFromGit,
@@ -51,6 +50,10 @@ export interface RunWorkflowByNameOptions {
    */
   repositories?: GitRepositoryStore;
   links?: WorkflowGitLinkStore;
+  /** --local flag: resolve every `in: { repository: "self" }` resources.repositories entry to this repo's own working tree instead of cloning it. */
+  local?: boolean;
+  /** --repository <name>=<path|url> CLI overrides, keyed by repository name. */
+  repositoryOverrides?: Record<string, string>;
   /** Notified as jobs/steps start/finish. Only meaningful to a caller that wants to track progress itself (e.g. trackedRunWorkflowByName) — a plain local run has no need for it. */
   events?: Delegate<[WorkflowEvent]>;
 }
@@ -445,7 +448,6 @@ export async function runWorkflowByName(
 
   const repoRoot = await findRepoRoot();
   const { workflow, workflowDir } = await getWorkflowByName(name);
-  const localConfig = await loadLocalConfig(repoRoot);
   return await runWorkflow(workflow, {
     workflowDir,
     job: options.job,
@@ -454,7 +456,8 @@ export async function runWorkflowByName(
     trigger: options.trigger,
     context: options.context,
     repoRoot,
-    localRepositoryOverrides: getLocalRepositoryOverrides(localConfig),
+    local: options.local,
+    repositoryOverrides: options.repositoryOverrides,
     events: options.events,
   });
 }

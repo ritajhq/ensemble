@@ -108,9 +108,11 @@ export interface Trigger {
 }
 
 export interface RepositoryResource {
-  /** Git URL to clone. A value containing $(NAME) is resolved from the process's own env var NAME at parse time. */
-  url: string;
-  /** Branch, tag, or commit to check out. Defaults to the remote's default branch. */
+  /** Git URL to clone. Mutually exclusive with `in`. A value containing $(NAME) is resolved from the process's own env var NAME at parse time. */
+  url?: string;
+  /** Reuses the job/step `in` shape; only `{ repository: "self" }` is valid here — a reserved sentinel meaning "the repo this workflow file lives in," resolved from disk instead of cloned from `url`. Mutually exclusive with `url`. */
+  in?: StepIn;
+  /** Branch, tag, or commit to check out. Defaults to the remote's default branch (url form) or repoRoot's current branch (in: self form). */
   ref?: string;
 }
 
