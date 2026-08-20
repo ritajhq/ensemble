@@ -747,3 +747,48 @@ Deno.test("integration: a job depending on a hard-failed job is skipped, not run
   assertEquals(outcomes.deploy.result, "skipped");
   assertEquals(success, false);
 });
+
+Deno.test("integration: in: { repository: self } with --local runs the step in repoRoot directly", async () => {
+  const repoRoot = await Deno.makeTempDir({ prefix: "self-repo-" });
+  try {
+    const workflow = {
+      jobs: {
+        build: {
+          in: { repository: "self" },
+          steps: [{ run: "pwd" }],
+        },
+      },
+    };
+    const { outcomes, success } = await runWorkflow(workflow, {
+      workflowDir: examplesDir,
+      repoRoot,
+      local: true,
+    });
+    assertEquals(success, true);
+    assertEquals(outcomes.build.result, "success");
+  } finally {
+    await Deno.remove(repoRoot, { recursive: true });
+  }
+});
+
+Deno.test("integration: a workflow that never references self never resolves an origin remote", async () => {
+  // repoRoot deliberately isn't a git repo at all — if self resolution ran
+  // unconditionally, `git remote get-url origin` would fail here.
+  const repoRoot = await Deno.makeTempDir({ prefix: "not-a-repo-" });
+  try {
+    const workflow = {
+      jobs: {
+        build: {
+          steps: [{ run: "exit 0" }],
+        },
+      },
+    };
+    const { success } = await runWorkflow(workflow, {
+      workflowDir: examplesDir,
+      repoRoot,
+    });
+    assertEquals(success, true);
+  } finally {
+    await Deno.remove(repoRoot, { recursive: true });
+  }
+});

@@ -1,5 +1,5 @@
 import { pooledMap } from "@std/async";
-import type { Job, Workflow } from "./schema.ts";
+import type { Job, StepIn, Workflow } from "./schema.ts";
 import type { Delegate } from "@ritaj/event";
 import { buildBatches, transitiveDeps } from "./graph.ts";
 import {
@@ -13,9 +13,17 @@ import {
 import { runJob, type StepEvent } from "./run-job.ts";
 import { expandMatrix } from "./matrix.ts";
 import { JobLogger, printSummary, type SummaryRow } from "./logging.ts";
-import { checkoutRepositories } from "./checkout.ts";
+import { checkoutRepositories, resolveSelfRepository } from "./checkout.ts";
 import { resolveContext } from "./context-loaders/resolve.ts";
 import { findContextFileReferences } from "./parse.ts";
+
+/** True if any job or step in this workflow declares in: { repository: "self" }. */
+export function referencesSelf(workflow: Workflow): boolean {
+  const usesIt = (stepIn: StepIn | undefined) => stepIn?.repository === "self";
+  return Object.values(workflow.jobs).some((job) =>
+    usesIt(job.in) || job.steps.some((step) => usesIt(step.in))
+  );
+}
 
 /**
  * Fired as jobs (and, for non-matrixed jobs, their steps) start/finish, so a
@@ -56,16 +64,14 @@ export interface RunWorkflowOptions {
   /**
    * Repo root to expose to steps as `ENSEMBLE_WORKSPACE`, so an `ens` subcommand
    * invoked from a `run:` step can find it even though steps' `cwd` is a scratch
-   * temp dir unrelated to the repo (see findRepoRoot in @ensemble/core).
+   * temp dir unrelated to the repo (see findRepoRoot in @ensemble/core). Also
+   * used to resolve `in: { repository: "self" }`, when referenced.
    */
   repoRoot?: string;
-  /**
-   * Per-developer resources.repositories overrides (from
-   * .ensemble/config.local.yaml, resolved by the caller), keyed by
-   * repository name — points that name straight at an existing local
-   * checkout instead of cloning. See checkoutRepositories for details.
-   */
-  localRepositoryOverrides?: Record<string, string>;
+  /** --local flag: `in: { repository: "self" }` uses repoRoot directly instead of being locally cloned. See resolveSelfRepository. */
+  local?: boolean;
+  /** --repository <name>=<path|url> CLI overrides, keyed by repository name — points that name straight at an existing local checkout, or a different git URL, instead of its declared/default resolution. See checkoutRepositories, resolveSelfRepository. */
+  repositoryOverrides?: Record<string, string>;
   /** Notified as jobs start/finish, for callers that want to track run progress. */
   events?: Delegate<[WorkflowEvent]>;
 }
@@ -188,11 +194,25 @@ export async function runWorkflow(
   // workflowDir itself stays reserved for resolving `script:` paths.
   const runDir = await Deno.makeTempDir({ prefix: "ensemble-run-" });
   try {
-    const repositories = await checkoutRepositories(
+    let repositories = await checkoutRepositories(
       workflow.resources?.repositories,
       runDir,
-      options.localRepositoryOverrides,
+      { overrides: options.repositoryOverrides },
     );
+
+    if (referencesSelf(workflow)) {
+      if (options.repoRoot === undefined) {
+        throw new Error(
+          `A job or step declares "in: { repository: self }", but no repoRoot was resolved for this run.`,
+        );
+      }
+      repositories ??= {};
+      repositories.self = await resolveSelfRepository(runDir, {
+        repoRoot: options.repoRoot,
+        local: options.local,
+        overrides: options.repositoryOverrides,
+      });
+    }
 
     const resolved = await resolveContext(
       workflow.context,

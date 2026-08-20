@@ -5,6 +5,7 @@ import type { Delegate } from "@ritaj/event";
 import { findRepoRoot } from "./repo.ts";
 import {
   parseWorkflowFile,
+  referencesSelf,
   runWorkflow,
   type RunWorkflowResult,
   type Workflow,
@@ -12,7 +13,6 @@ import {
 } from "@ensemble/workflow";
 import { RunStore } from "./runs.ts";
 import { runWorkflowInContainer } from "./run-workflow-in-container.ts";
-import { getLocalRepositoryOverrides, loadLocalConfig } from "./config.ts";
 import {
   syncWorkflowFromGit,
   unlinkWorkflowFromGit,
@@ -51,6 +51,10 @@ export interface RunWorkflowByNameOptions {
    */
   repositories?: GitRepositoryStore;
   links?: WorkflowGitLinkStore;
+  /** --local flag: `in: { repository: "self" }` resolves to this repo's own working tree instead of being locally cloned. Local CLI runs only — see runWorkflowByName's containerized branch. */
+  local?: boolean;
+  /** --repository <name>=<path|url> CLI overrides, keyed by repository name. */
+  repositoryOverrides?: Record<string, string>;
   /** Notified as jobs/steps start/finish. Only meaningful to a caller that wants to track progress itself (e.g. trackedRunWorkflowByName) — a plain local run has no need for it. */
   events?: Delegate<[WorkflowEvent]>;
 }
@@ -428,6 +432,12 @@ export async function runWorkflowByName(
   options: RunWorkflowByNameOptions,
 ): Promise<RunWorkflowResult> {
   if (options.containerized) {
+    const { workflow } = await getWorkflowByName(name);
+    if (referencesSelf(workflow)) {
+      throw new Error(
+        `Workflow "${name}" declares "in: { repository: self }", which isn't yet supported for containerized/server-triggered runs.`,
+      );
+    }
     const secretsKey = await resolveContainerizedSecretsKey(
       name,
       options.repositories,
@@ -445,7 +455,6 @@ export async function runWorkflowByName(
 
   const repoRoot = await findRepoRoot();
   const { workflow, workflowDir } = await getWorkflowByName(name);
-  const localConfig = await loadLocalConfig(repoRoot);
   return await runWorkflow(workflow, {
     workflowDir,
     job: options.job,
@@ -454,7 +463,8 @@ export async function runWorkflowByName(
     trigger: options.trigger,
     context: options.context,
     repoRoot,
-    localRepositoryOverrides: getLocalRepositoryOverrides(localConfig),
+    local: options.local,
+    repositoryOverrides: options.repositoryOverrides,
     events: options.events,
   });
 }

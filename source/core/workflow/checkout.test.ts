@@ -1,6 +1,6 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { join } from "@std/path";
-import { checkoutRepositories } from "./checkout.ts";
+import { checkoutRepositories, resolveSelfRepository } from "./checkout.ts";
 
 /** Creates a throwaway local git repo with one commit, for checkoutRepositories to clone from. */
 async function makeFixtureRepo(dir: string): Promise<void> {
@@ -18,7 +18,7 @@ async function makeFixtureRepo(dir: string): Promise<void> {
 }
 
 Deno.test("checkoutRepositories: undefined repositories returns undefined", async () => {
-  const result = await checkoutRepositories(undefined, "/tmp/unused");
+  const result = await checkoutRepositories(undefined, "/tmp/unused", {});
   assertEquals(result, undefined);
 });
 
@@ -28,7 +28,7 @@ Deno.test("checkoutRepositories: clones a declared repository into runDir/repos/
   try {
     await makeFixtureRepo(fixtureDir);
 
-    const result = await checkoutRepositories({ demo: { url: fixtureDir } }, runDir);
+    const result = await checkoutRepositories({ demo: { url: fixtureDir } }, runDir, {});
 
     const expectedPath = join(runDir, "repos", "demo");
     assertEquals(result, { demo: { path: expectedPath } });
@@ -39,7 +39,7 @@ Deno.test("checkoutRepositories: clones a declared repository into runDir/repos/
   }
 });
 
-Deno.test("checkoutRepositories: a local override skips cloning entirely", async () => {
+Deno.test("checkoutRepositories: a --repository override skips cloning entirely", async () => {
   const fixtureDir = await Deno.makeTempDir({ prefix: "checkout-fixture-" });
   const runDir = await Deno.makeTempDir({ prefix: "checkout-run-" });
   try {
@@ -50,7 +50,7 @@ Deno.test("checkoutRepositories: a local override skips cloning entirely", async
     const result = await checkoutRepositories(
       { demo: { url: fixtureDir } },
       runDir,
-      { demo: overridePath },
+      { overrides: { demo: overridePath } },
     );
 
     assertEquals(result, { demo: { path: overridePath } });
@@ -80,7 +80,7 @@ Deno.test("checkoutRepositories: an override for one name doesn't affect a sibli
     const result = await checkoutRepositories(
       { demo: { url: fixtureDir }, other: { url: fixtureDir } },
       runDir,
-      { demo: overridePath },
+      { overrides: { demo: overridePath } },
     );
 
     assertEquals(result?.demo, { path: overridePath });
@@ -97,11 +97,96 @@ Deno.test("checkoutRepositories: a failed clone throws", async () => {
   const runDir = await Deno.makeTempDir({ prefix: "checkout-run-" });
   try {
     await assertRejects(
-      () => checkoutRepositories({ demo: { url: "/nonexistent/path/to/nowhere" } }, runDir),
+      () => checkoutRepositories({ demo: { url: "/nonexistent/path/to/nowhere" } }, runDir, {}),
       Error,
       'Failed to check out repository "demo"',
     );
   } finally {
+    await Deno.remove(runDir, { recursive: true });
+  }
+});
+
+Deno.test("resolveSelfRepository: --local uses repoRoot directly, no clone", async () => {
+  const fixtureDir = await Deno.makeTempDir({ prefix: "checkout-fixture-" });
+  const runDir = await Deno.makeTempDir({ prefix: "checkout-run-" });
+  try {
+    await makeFixtureRepo(fixtureDir);
+
+    const result = await resolveSelfRepository(runDir, { repoRoot: fixtureDir, local: true });
+
+    assertEquals(result, { path: fixtureDir });
+    let cloned = true;
+    try {
+      await Deno.stat(join(runDir, "repos", "self"));
+    } catch {
+      cloned = false;
+    }
+    assertEquals(cloned, false);
+  } finally {
+    await Deno.remove(fixtureDir, { recursive: true });
+    await Deno.remove(runDir, { recursive: true });
+  }
+});
+
+Deno.test("resolveSelfRepository: without --local, clones repoRoot's origin remote", async () => {
+  const originDir = await Deno.makeTempDir({ prefix: "checkout-origin-" });
+  const repoRoot = await Deno.makeTempDir({ prefix: "checkout-fixture-" });
+  const runDir = await Deno.makeTempDir({ prefix: "checkout-run-" });
+  try {
+    await makeFixtureRepo(originDir);
+    await makeFixtureRepo(repoRoot);
+    const { success } = await new Deno.Command("git", {
+      args: ["-C", repoRoot, "remote", "add", "origin", originDir],
+    }).output();
+    if (!success) throw new Error("failed to set origin remote");
+
+    const result = await resolveSelfRepository(runDir, { repoRoot });
+
+    const expectedPath = join(runDir, "repos", "self");
+    assertEquals(result, { path: expectedPath });
+    assertEquals(await Deno.readTextFile(join(expectedPath, "file.txt")), "hello");
+  } finally {
+    await Deno.remove(originDir, { recursive: true });
+    await Deno.remove(repoRoot, { recursive: true });
+    await Deno.remove(runDir, { recursive: true });
+  }
+});
+
+Deno.test("resolveSelfRepository: a --repository self= override wins over --local", async () => {
+  const fixtureDir = await Deno.makeTempDir({ prefix: "checkout-fixture-" });
+  const runDir = await Deno.makeTempDir({ prefix: "checkout-run-" });
+  try {
+    await makeFixtureRepo(fixtureDir);
+    const overridePath = await Deno.makeTempDir({ prefix: "checkout-override-" });
+
+    const result = await resolveSelfRepository(runDir, {
+      repoRoot: fixtureDir,
+      local: true,
+      overrides: { self: overridePath },
+    });
+
+    assertEquals(result, { path: overridePath });
+
+    await Deno.remove(overridePath, { recursive: true });
+  } finally {
+    await Deno.remove(fixtureDir, { recursive: true });
+    await Deno.remove(runDir, { recursive: true });
+  }
+});
+
+Deno.test("resolveSelfRepository: no origin remote configured throws a clear error", async () => {
+  const repoRoot = await Deno.makeTempDir({ prefix: "checkout-fixture-" });
+  const runDir = await Deno.makeTempDir({ prefix: "checkout-run-" });
+  try {
+    await makeFixtureRepo(repoRoot);
+
+    await assertRejects(
+      () => resolveSelfRepository(runDir, { repoRoot }),
+      Error,
+      'no "origin" remote configured',
+    );
+  } finally {
+    await Deno.remove(repoRoot, { recursive: true });
     await Deno.remove(runDir, { recursive: true });
   }
 });

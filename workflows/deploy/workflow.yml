@@ -10,11 +10,6 @@ on:
           default: latest
           display: "Image tag to deploy"
 
-resources:
-  repositories:
-    ensemble:
-      url: https://github.com/ritajhq/ensemble.git
-
 context:
   variables:
     - name: IMAGE_REGISTRY
@@ -34,7 +29,7 @@ jobs:
   watch_cli:
     if: "${{ context.name == 'development' }}"
     in:
-      repository: ensemble
+      repository: self
     steps:
       - name: watch_pack_cli
         run: |
@@ -48,7 +43,7 @@ jobs:
   watch_server:
     if: "${{ context.name == 'development' }}"
     in:
-      repository: ensemble
+      repository: self
     steps:
       - name: watch_build_server
         run: |
@@ -62,7 +57,7 @@ jobs:
   watch_web:
     if: "${{ context.name == 'development' }}"
     in:
-      repository: ensemble
+      repository: self
     steps:
       - name: watch_build_web
         run: |
@@ -76,7 +71,7 @@ jobs:
   watch_runner:
     if: "${{ context.name == 'development' }}"
     in:
-      repository: ensemble
+      repository: self
     steps:
       - name: watch_pack_runner
         run: |
@@ -103,7 +98,7 @@ jobs:
 
   deploy:
     in:
-      repository: ensemble
+      repository: self
     steps:
       - id: runtime_env
         name: resolve host facts and secrets

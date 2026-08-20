@@ -36,15 +36,10 @@ context:
       - name: JSR_TOKEN
         default: ''
 
-resources:
-  repositories:
-    ensemble:
-      url: https://github.com/ritajhq/ensemble.git
-
 jobs:
   release:
     in:
-      repository: ensemble
+      repository: self
     steps:
       - id: resolve_version
         name: resolve_version

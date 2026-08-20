@@ -5,6 +5,7 @@ import {
   deleteWorkflow,
   listWorkflowContexts,
   resolveContainerizedSecretsKey,
+  runWorkflowByName,
 } from "./workflow.ts";
 import {
   registerGitRepository,
@@ -368,6 +369,23 @@ Deno.test("resolveContainerizedSecretsKey: different workflows linked to differe
         ctx.links,
       ),
       "gadgets-key",
+    );
+  });
+});
+
+Deno.test("runWorkflowByName: a containerized run referencing in: { repository: self } fails clearly, before spawning a container", async () => {
+  await withContext(async (ctx) => {
+    const workflowDir = join(ctx.repoRoot, "workflows", "self-ref");
+    await Deno.mkdir(workflowDir, { recursive: true });
+    await Deno.writeTextFile(
+      join(workflowDir, "workflow.yml"),
+      `jobs:\n  build:\n    in:\n      repository: self\n    steps:\n      - run: echo hi\n`,
+    );
+
+    await assertRejects(
+      () => runWorkflowByName("self-ref", { containerized: true }),
+      Error,
+      'declares "in: { repository: self }", which isn\'t yet supported for containerized/server-triggered runs',
     );
   });
 });

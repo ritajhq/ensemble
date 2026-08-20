@@ -144,19 +144,36 @@ jobs:
   ${{ repositories.<name>.path }}`. Job-level `in:` applies to every step
   that doesn't declare its own; a step's own `in:` always wins over the job's.
   `name` must be a key under `resources.repositories` — referencing anything
-  else is a `WorkflowExpressionError`.
-- **Local dev**: `.ensemble/config.local.yaml` (gitignored, per-developer) can
-  override a repository name to point at an existing local directory instead of
-  cloning:
+  else is a `WorkflowExpressionError` — **except** the reserved name `self`
+  (see below), which needs no `resources.repositories` entry at all.
+- **`in: { repository: self }`** is reserved: it means "the repo this
+  workflow itself belongs to," resolved without declaring anything under
+  `resources.repositories`:
   ```yaml
-  workflows:
-    repositories:
-      ensemble: /home/you/ritaj/ensemble
+  jobs:
+    release:
+      in:
+        repository: self
+      steps:
+        - run: git describe --tags --abbrev=0
   ```
-  This is what makes "the same workflow runs everywhere" actually true in
-  practice — the exact same `workflow.yml` clones fresh on a server/CI run, but
-  operates on your live working tree (uncommitted changes included) when you run
-  it locally, with zero workflow-file changes either way.
+  For a local CLI run, by default this resolves the repo's own `origin`
+  remote URL and clones it — isolating the run from uncommitted changes,
+  same as any other repository entry. Two flags change that for a given run,
+  without touching `workflow.yml`:
+  - **`--local`** — use the repo's live working tree directly, no clone:
+    uncommitted changes included. This is what makes "the same workflow runs
+    everywhere" actually true in practice — the exact same `workflow.yml`
+    clones fresh on a server/CI run, but operates on your live working tree
+    when you pass `--local` locally.
+  - **`--repository self=<path|url>`** — override where `self` (or any
+    other declared repository) is checked out from for this run only. A
+    value that's an existing local directory is used as-is (no clone);
+    otherwise it's treated as a git URL and cloned.
+
+  Server/containerized (manual/GitHub/dashboard-triggered) runs don't yet
+  support `in: { repository: self }` — referencing it in a workflow that's
+  triggered that way fails clearly before the run starts.
 
 `resources.repositories` is for **source** — the code being built/deployed. It's
 deliberately not overloaded to also carry deploy config/secrets: those have a

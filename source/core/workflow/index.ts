@@ -62,6 +62,7 @@ export {
 export { type StepEvent } from "./run-job.ts";
 export { type StepLogCapture, StepRunError } from "./run-step.ts";
 export {
+  referencesSelf,
   runWorkflow,
   type RunWorkflowOptions,
   type RunWorkflowResult,
