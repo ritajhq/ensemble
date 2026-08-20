@@ -13,6 +13,6 @@
     "@david/which": "jsr:@david/which@0.4.2",
     "@ensemble/kit-sdk": "jsr:@ensemble/kit-sdk",
     "@ensemble/workflow": "jsr:@ensemble/workflow",
-    "@ritaj/event": "jsr:@ritaj/event"
+    "@ritaj/event": "jsr:@ritaj/event@1.0.9-alpha"
   }
 }
