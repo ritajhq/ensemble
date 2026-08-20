@@ -65,9 +65,35 @@ jobs:
         run: |
           VERSION="${{ steps.resolve_version.outputs.version }}"
 
-          for pkg in source/libs/event source/core/workflow source/core/kit-sdk source/core/core; do
-            (cd "$pkg" && deno publish --set-version "$VERSION" --allow-slow-types --token "$JSR_TOKEN")
-          done
+          # JSR requires every jsr: import specifier a published package uses
+          # to carry an explicit version constraint — the bare
+          # "jsr:@scope/name" specifiers these deno.json files use locally
+          # (resolved via workspace-name linking, not the registry) aren't
+          # publishable as-is. Since all 4 packages are released in lockstep
+          # under one version, pin_workspace_dep rewrites a dependent's own
+          # deno.json to the exact version its already-published dependency
+          # just got, right before that dependent is published in turn.
+          pin_workspace_dep() {
+            pkg_dir="$1"
+            dep_name="$2"
+            tmp="$(mktemp)"
+            jq --arg name "$dep_name" --arg version "jsr:$dep_name@$VERSION" \
+              '.imports[$name] = $version' \
+              "$pkg_dir/deno.json" > "$tmp"
+            mv "$tmp" "$pkg_dir/deno.json"
+          }
+
+          (cd source/libs/event && deno publish --set-version "$VERSION" --allow-slow-types --token "$JSR_TOKEN")
+
+          pin_workspace_dep source/core/workflow @ritaj/event
+          (cd source/core/workflow && deno publish --set-version "$VERSION" --allow-slow-types --token "$JSR_TOKEN")
+
+          (cd source/core/kit-sdk && deno publish --set-version "$VERSION" --allow-slow-types --token "$JSR_TOKEN")
+
+          pin_workspace_dep source/core/core @ritaj/event
+          pin_workspace_dep source/core/core @ensemble/workflow
+          pin_workspace_dep source/core/core @ensemble/kit-sdk
+          (cd source/core/core && deno publish --set-version "$VERSION" --allow-slow-types --token "$JSR_TOKEN")
 
       - name: compile_cli
         run: |
