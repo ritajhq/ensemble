@@ -1,3 +1,13 @@
+## [0.0.2] - 2026-08-20
+
+### 🐛 Bug Fixes
+
+- *(init)* Disable minimum dependency age in scaffolded projects' deno.json
+- *(kits)* Scope minimum-dependency-age bypass to kit subprocess spawns, not project deno.json
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.0.1
 ## [0.0.1] - 2026-08-20
 
 ### ⚙️ Miscellaneous Tasks
