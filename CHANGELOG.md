@@ -1,3 +1,33 @@
+## [1.0.10-alpha] - 2026-08-20
+
+### 🐛 Bug Fixes
+
+- *(release)* Pass --allow-dirty to deno publish after pinning workspace deps
+## [1.0.9-alpha] - 2026-08-20
+
+### 🐛 Bug Fixes
+
+- *(ship/runner)* Add jq back to the Dockerfile (dropped by earlier reset)
+## [1.0.8-alpha] - 2026-08-20
+
+### 🐛 Bug Fixes
+
+- *(release)* Pin workspace-internal jsr: deps to release version before publishing
+## [1.0.7-alpha] - 2026-08-20
+
+### 🐛 Bug Fixes
+
+- *(workflow)* Replace text import attribute with readTextFile for JSR compat
+## [1.0.6-alpha] - 2026-08-20
+
+### 🚀 Features
+
+- *(jsr)* Publish kit-sdk, core, workflow, and event to JSR on production release
+- *(workflows/release)* Add JSR_TOKEN secret
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 1.0.5-alpha
 ## [1.0.5-alpha] - 2026-08-19
 
 ### 🐛 Bug Fixes
