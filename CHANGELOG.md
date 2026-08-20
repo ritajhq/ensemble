@@ -1,3 +1,9 @@
+## [0.0.1] - 2026-08-20
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 1.0.10-alpha
+- Update deno.lock
 ## [1.0.10-alpha] - 2026-08-20
 
 ### 🐛 Bug Fixes
