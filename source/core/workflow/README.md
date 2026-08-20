@@ -171,9 +171,13 @@ jobs:
     value that's an existing local directory is used as-is (no clone);
     otherwise it's treated as a git URL and cloned.
 
-  Server/containerized (manual/GitHub/dashboard-triggered) runs don't yet
-  support `in: { repository: self }` — referencing it in a workflow that's
-  triggered that way fails clearly before the run starts.
+  For a server/containerized (manual/GitHub/dashboard-triggered) run, `self`
+  resolves to the git URL of the repository the workflow was synced from
+  (its `WorkflowGitLink`) and is cloned inside the container — `--local`
+  and `--repository self=...` aren't reachable there (they're CLI-only).
+  Triggering a `self`-referencing workflow that has no such link (e.g. a
+  local-only stub, or one only ever uploaded and never git-synced) fails
+  immediately, before the run starts.
 
 `resources.repositories` is for **source** — the code being built/deployed. It's
 deliberately not overloaded to also carry deploy config/secrets: those have a

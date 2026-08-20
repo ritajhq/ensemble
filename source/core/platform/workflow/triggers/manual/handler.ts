@@ -1,4 +1,5 @@
 import {
+  assertSelfResolvable,
   decodeWorkflowId,
   getWorkflowByName,
   type GitRepositoryStore,
@@ -68,6 +69,7 @@ export async function handleManualTrigger(
   try {
     await syncWorkflowFromGitLinkIfPresent(repositories, links, name);
     ({ workflow } = await getWorkflowByName(name));
+    await assertSelfResolvable(workflow, name, repositories, links);
   } catch (error) {
     return Response.json({
       error: error instanceof Error ? error.message : String(error),

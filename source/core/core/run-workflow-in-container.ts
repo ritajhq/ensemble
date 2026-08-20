@@ -24,6 +24,18 @@ export interface RunWorkflowInContainerOptions {
    * an actual encrypted-secret lookup fails, and only then).
    */
   secretsKey?: string;
+  /**
+   * The git URL "self" (in: { repository: "self" }) resolves to for this
+   * run — the URL of the git repository this workflow is linked to (see
+   * core/workflow.ts's runWorkflowByName, which resolves this via
+   * WorkflowGitLink -> GitRepositoryRecord.repoUrl before calling here) —
+   * forwarded into the container as ENSEMBLE_SELF_REPO_URL so the inner
+   * `ens workflow run` invocation can resolve "self" without a real `.git`
+   * at /workspace (only workflows/ and an empty .ensemble/ marker are
+   * mounted — see resolveSelfRepository in @ensemble/workflow). Undefined
+   * when the workflow doesn't reference "self" at all.
+   */
+  selfRepoUrl?: string;
   /** Notified as jobs/steps start/finish inside the container, reconstructed from its stdout. */
   events?: Delegate<[WorkflowEvent]>;
 }
@@ -75,6 +87,7 @@ const UNFORWARDED_ENV_VARS = new Set([
   "ENSEMBLE_RUNNER_IMAGE",
   "ENSEMBLE_HOST_WORKFLOWS_PATH",
   "ENSEMBLE_SECRETS_KEY",
+  "ENSEMBLE_SELF_REPO_URL",
 ]);
 
 /**
@@ -86,10 +99,14 @@ const UNFORWARDED_ENV_VARS = new Set([
  * ENSEMBLE_SECRETS_KEY from `secretsKey` (the resolved per-repository key,
  * not anything from the server's own env — see UNFORWARDED_ENV_VARS above)
  * when one was resolved, letting the run decrypt its own context.secrets
- * entirely inside the container — no callback to the server needed.
+ * entirely inside the container — no callback to the server needed. Same
+ * treatment for ENSEMBLE_SELF_REPO_URL from `selfRepoUrl`, an env file (not
+ * a `docker run -e` arg) since a repo URL can itself embed a credential
+ * (e.g. `https://user:token@host/...`).
  */
 async function writeForwardedEnvFile(
   secretsKey: string | undefined,
+  selfRepoUrl: string | undefined,
 ): Promise<string> {
   const lines: string[] = [];
   for (const [name, value] of Object.entries(Deno.env.toObject())) {
@@ -98,6 +115,9 @@ async function writeForwardedEnvFile(
   }
   if (secretsKey !== undefined) {
     lines.push(`ENSEMBLE_SECRETS_KEY=${secretsKey}`);
+  }
+  if (selfRepoUrl !== undefined) {
+    lines.push(`ENSEMBLE_SELF_REPO_URL=${selfRepoUrl}`);
   }
   const path = await Deno.makeTempFile({ prefix: "ensemble-runner-env-" });
   await Deno.writeTextFile(path, lines.join("\n") + "\n");
@@ -174,7 +194,7 @@ export async function runWorkflowInContainer(
   const emptyEnsembleDir = await Deno.makeTempDir({
     prefix: "ensemble-runner-marker-",
   });
-  const envFile = await writeForwardedEnvFile(options.secretsKey);
+  const envFile = await writeForwardedEnvFile(options.secretsKey, options.selfRepoUrl);
   try {
     const args = [
       "run",

@@ -55,19 +55,24 @@ export async function checkoutRepositories(
 }
 
 /**
- * Resolves "self" — the repo the running workflow itself belongs to — for a
- * local CLI run, so a job/step's `in: { repository: "self" }` has somewhere
- * to point without needing a matching resources.repositories entry. Only
- * called when some job/step in the run actually references "self" (see
- * referencesSelf in run-workflow.ts); a workflow that never references it
- * never pays for this.
+ * Resolves "self" — the repo the running workflow itself belongs to — so a
+ * job/step's `in: { repository: "self" }` has somewhere to point without
+ * needing a matching resources.repositories entry. Only called when some
+ * job/step in the run actually references "self" (see referencesSelf in
+ * run-workflow.ts); a workflow that never references it never pays for
+ * this.
  *
  * `options.overrides.self` (--repository self=<path|url>), if set, wins
  * outright. Otherwise: `options.local` (--local) uses repoRoot directly, no
  * clone — the live working tree, uncommitted changes included. Without
- * --local, resolves repoRoot's own `origin` remote URL and clones it like
- * any other repository entry, isolating the run from repoRoot's uncommitted
- * state.
+ * --local, resolves a source URL and clones it like any other repository
+ * entry, isolating the run from repoRoot's uncommitted state: the
+ * ENSEMBLE_SELF_REPO_URL env var, if set (how a containerized/server-
+ * triggered run receives it — the platform server resolves it via the
+ * workflow's linked git repository and forwards it in, since the
+ * container's repoRoot has no real `.git` to read a remote from — see
+ * run-workflow-in-container.ts), otherwise repoRoot's own `origin` remote
+ * URL (a genuine local CLI run).
  */
 export async function resolveSelfRepository(
   runDir: string,
@@ -85,7 +90,7 @@ export async function resolveSelfRepository(
     return { path: options.repoRoot };
   }
 
-  const originUrl = await getOriginUrl(options.repoRoot);
+  const originUrl = Deno.env.get("ENSEMBLE_SELF_REPO_URL") ?? await getOriginUrl(options.repoRoot);
   return { path: await cloneRepository("self", originUrl, undefined, runDir) };
 }
 

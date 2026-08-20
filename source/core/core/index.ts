@@ -61,6 +61,7 @@ export {
   type UndoResult,
 } from "./release.ts";
 export {
+  assertSelfResolvable,
   createWorkflow,
   createWorkflowArchive,
   type CreateWorkflowGitSource,
@@ -73,6 +74,7 @@ export {
   listWorkflows,
   readWorkflowFile,
   resolveContainerizedSecretsKey,
+  resolveSelfRepoUrl,
   type ResolvedWorkflow,
   runWorkflowByName,
   type RunWorkflowByNameOptions,

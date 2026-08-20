@@ -1,4 +1,5 @@
 import {
+  assertSelfResolvable,
   type GitRepositoryStore,
   listWorkflows,
   type RunStore,
@@ -6,6 +7,7 @@ import {
   trackedRunWorkflowByName,
   type WorkflowGitLinkStore,
 } from "@ensemble/core";
+import type { Workflow } from "@ensemble/workflow";
 import { extractTagFromRef, findMatchingGithubTrigger } from "./match.ts";
 import { verifyGithubSignature } from "./signature.ts";
 
@@ -83,11 +85,24 @@ export async function handleGithubTrigger(
   const matches = workflows
     .map(({ name, workflow }) => ({
       name,
+      workflow,
       trigger: findMatchingGithubTrigger(workflow.on, tag),
     }))
-    .filter((m): m is { name: string; trigger: NonNullable<typeof m.trigger> } =>
+    .filter((
+      m,
+    ): m is { name: string; workflow: Workflow; trigger: NonNullable<typeof m.trigger> } =>
       m.trigger !== undefined
     );
+
+  try {
+    for (const { name, workflow } of matches) {
+      await assertSelfResolvable(workflow, name, repositories, links);
+    }
+  } catch (error) {
+    return Response.json({
+      error: error instanceof Error ? error.message : String(error),
+    }, { status: 400 });
+  }
 
   for (const { name, trigger } of matches) {
     trackedRunWorkflowByName(runs, name, {

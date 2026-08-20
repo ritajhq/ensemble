@@ -1,4 +1,5 @@
 import {
+  assertSelfResolvable,
   createWorkflow,
   decodeWorkflowId,
   deleteWorkflow,
@@ -364,6 +365,8 @@ export async function handleRunWorkflow(
 
   try {
     await syncWorkflowFromGitLinkIfPresent(repositories, links, resolved.name);
+    const { workflow } = await getWorkflowByName(resolved.name);
+    await assertSelfResolvable(workflow, resolved.name, repositories, links);
     const success = await trackedRunWorkflowByName(runs, resolved.name, {
       trigger: { type: "manual" },
       repositories,

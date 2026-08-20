@@ -152,6 +152,45 @@ Deno.test("resolveSelfRepository: without --local, clones repoRoot's origin remo
   }
 });
 
+Deno.test("resolveSelfRepository: ENSEMBLE_SELF_REPO_URL takes precedence over repoRoot's origin remote", async () => {
+  const envUrlDir = await Deno.makeTempDir({ prefix: "checkout-env-url-" });
+  const originDir = await Deno.makeTempDir({ prefix: "checkout-origin-" });
+  const repoRoot = await Deno.makeTempDir({ prefix: "checkout-fixture-" });
+  const runDir = await Deno.makeTempDir({ prefix: "checkout-run-" });
+  try {
+    await makeFixtureRepo(envUrlDir);
+    await Deno.writeTextFile(join(envUrlDir, "from-env.txt"), "from env");
+    await new Deno.Command("git", { args: ["-C", envUrlDir, "add", "from-env.txt"] }).output();
+    await new Deno.Command("git", {
+      args: ["-C", envUrlDir, "commit", "-q", "-m", "from env"],
+    }).output();
+
+    await makeFixtureRepo(originDir);
+    await makeFixtureRepo(repoRoot);
+    const { success } = await new Deno.Command("git", {
+      args: ["-C", repoRoot, "remote", "add", "origin", originDir],
+    }).output();
+    if (!success) throw new Error("failed to set origin remote");
+
+    Deno.env.set("ENSEMBLE_SELF_REPO_URL", envUrlDir);
+    try {
+      const result = await resolveSelfRepository(runDir, { repoRoot });
+
+      const expectedPath = join(runDir, "repos", "self");
+      assertEquals(result, { path: expectedPath });
+      // Cloned from envUrlDir (has from-env.txt), not originDir (doesn't).
+      assertEquals(await Deno.readTextFile(join(expectedPath, "from-env.txt")), "from env");
+    } finally {
+      Deno.env.delete("ENSEMBLE_SELF_REPO_URL");
+    }
+  } finally {
+    await Deno.remove(envUrlDir, { recursive: true });
+    await Deno.remove(originDir, { recursive: true });
+    await Deno.remove(repoRoot, { recursive: true });
+    await Deno.remove(runDir, { recursive: true });
+  }
+});
+
 Deno.test("resolveSelfRepository: a --repository self= override wins over --local", async () => {
   const fixtureDir = await Deno.makeTempDir({ prefix: "checkout-fixture-" });
   const runDir = await Deno.makeTempDir({ prefix: "checkout-run-" });

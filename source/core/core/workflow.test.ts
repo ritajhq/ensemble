@@ -1,10 +1,12 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { join } from "@std/path";
 import {
+  assertSelfResolvable,
   createWorkflow,
   deleteWorkflow,
   listWorkflowContexts,
   resolveContainerizedSecretsKey,
+  resolveSelfRepoUrl,
   runWorkflowByName,
 } from "./workflow.ts";
 import {
@@ -373,7 +375,7 @@ Deno.test("resolveContainerizedSecretsKey: different workflows linked to differe
   });
 });
 
-Deno.test("runWorkflowByName: a containerized run referencing in: { repository: self } fails clearly, before spawning a container", async () => {
+Deno.test("runWorkflowByName: a containerized run referencing in: { repository: self } with no git link fails clearly, before spawning a container", async () => {
   await withContext(async (ctx) => {
     const workflowDir = join(ctx.repoRoot, "workflows", "self-ref");
     await Deno.mkdir(workflowDir, { recursive: true });
@@ -383,9 +385,100 @@ Deno.test("runWorkflowByName: a containerized run referencing in: { repository: 
     );
 
     await assertRejects(
-      () => runWorkflowByName("self-ref", { containerized: true }),
+      () =>
+        runWorkflowByName("self-ref", {
+          containerized: true,
+          repositories: ctx.repositories,
+          links: ctx.links,
+        }),
       Error,
-      'declares "in: { repository: self }", which isn\'t yet supported for containerized/server-triggered runs',
+      "has no linked git repository",
     );
+  });
+});
+
+Deno.test("resolveSelfRepoUrl: resolves a repo's URL via the workflow's git link", async () => {
+  await withContext(async (ctx) => {
+    await ctx.repositories.put({
+      projectName: "widgets",
+      repoUrl: "https://github.com/acme/widgets.git",
+      auth: { type: "none" },
+      registeredAt: new Date().toISOString(),
+    });
+    await ctx.links.put({
+      workflowName: "deploy",
+      projectName: "widgets",
+      pathInRepo: "deploy",
+      syncedAt: new Date().toISOString(),
+    });
+
+    const url = await resolveSelfRepoUrl("deploy", ctx.repositories, ctx.links);
+    assertEquals(url, "https://github.com/acme/widgets.git");
+  });
+});
+
+Deno.test("resolveSelfRepoUrl: throws clearly when the workflow has no git link", async () => {
+  await withContext(async (ctx) => {
+    await assertRejects(
+      () => resolveSelfRepoUrl("local-only", ctx.repositories, ctx.links),
+      Error,
+      "has no linked git repository",
+    );
+  });
+});
+
+Deno.test("resolveSelfRepoUrl: throws clearly when the linked repository is no longer registered", async () => {
+  await withContext(async (ctx) => {
+    await ctx.links.put({
+      workflowName: "deploy",
+      projectName: "widgets",
+      pathInRepo: "deploy",
+      syncedAt: new Date().toISOString(),
+    });
+    // No matching repositories.put() — the project was removed after linking.
+    await assertRejects(
+      () => resolveSelfRepoUrl("deploy", ctx.repositories, ctx.links),
+      Error,
+      "is no longer registered",
+    );
+  });
+});
+
+Deno.test("assertSelfResolvable: no-op for a workflow that doesn't reference self, even with no stores", async () => {
+  const workflow = { jobs: { build: { steps: [{ run: "echo hi" }] } } };
+  await assertSelfResolvable(workflow, "anything", undefined, undefined);
+});
+
+Deno.test("assertSelfResolvable: throws for a self-referencing workflow with no git link", async () => {
+  await withContext(async (ctx) => {
+    const workflow = {
+      jobs: { build: { in: { repository: "self" }, steps: [{ run: "echo hi" }] } },
+    };
+    await assertRejects(
+      () => assertSelfResolvable(workflow, "self-ref", ctx.repositories, ctx.links),
+      Error,
+      "has no linked git repository",
+    );
+  });
+});
+
+Deno.test("assertSelfResolvable: resolves without throwing for a self-referencing workflow with a valid git link", async () => {
+  await withContext(async (ctx) => {
+    await ctx.repositories.put({
+      projectName: "widgets",
+      repoUrl: "https://github.com/acme/widgets.git",
+      auth: { type: "none" },
+      registeredAt: new Date().toISOString(),
+    });
+    await ctx.links.put({
+      workflowName: "self-ref",
+      projectName: "widgets",
+      pathInRepo: "self-ref",
+      syncedAt: new Date().toISOString(),
+    });
+    const workflow = {
+      jobs: { build: { in: { repository: "self" }, steps: [{ run: "echo hi" }] } },
+    };
+    await assertSelfResolvable(workflow, "self-ref", ctx.repositories, ctx.links);
   });
 });
