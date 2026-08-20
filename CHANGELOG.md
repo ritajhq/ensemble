@@ -1,3 +1,25 @@
+## [0.0.3] - 2026-08-20
+
+### 🚀 Features
+
+- *(workflow)* Resolve self repository for server/containerized runs
+
+### 🐛 Bug Fixes
+
+- *(workflow)* Make self a job/step in.repository value, not a resources.repositories entry
+## [0.0.3] - 2026-08-20
+
+### 🚀 Features
+
+- *(workflow)* Replace config.local.yaml repo overrides with in: self + --local/--repository
+
+### 🐛 Bug Fixes
+
+- *(version,release)* Scope bump target to current pre-release line
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.0.2
 ## [0.0.2] - 2026-08-20
 
 ### 🐛 Bug Fixes
