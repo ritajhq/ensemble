@@ -90,6 +90,19 @@ Deno.test("RunStore: deleteRun removes the run and returns true; a second delete
   });
 });
 
+Deno.test("RunStore: deleteAllRunsForWorkflow removes every run for that workflow but leaves other workflows' runs alone", async () => {
+  await withRunStore(async (store) => {
+    await store.trackedRunWorkflow("my-workflow", undefined, successfulRun);
+    await store.trackedRunWorkflow("my-workflow", undefined, successfulRun);
+    await store.trackedRunWorkflow("other-workflow", undefined, successfulRun);
+
+    await store.deleteAllRunsForWorkflow("my-workflow");
+
+    assertEquals(await store.listRunsForWorkflow("my-workflow"), []);
+    assertEquals((await store.listRunsForWorkflow("other-workflow")).length, 1);
+  });
+});
+
 Deno.test("RunStore: getRunSteps returns undefined for an unknown run", async () => {
   await withRunStore(async (store) => {
     assertEquals(await store.getRunSteps("nonexistent", "my-workflow"), undefined);

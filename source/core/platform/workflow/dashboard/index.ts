@@ -11,6 +11,7 @@ import {
   handleListWorkflows,
   handleMintWsToken,
   handleReadWorkflowFile,
+  handleRenameWorkflow,
   handleRunEvents,
   handleRunWorkflow,
 } from "./handler.ts";
@@ -30,6 +31,7 @@ export {
   type ListWorkflowsResponse,
   type MintWsTokenResponse,
   type ReadWorkflowFileResponse,
+  type RenameWorkflowResponse,
   type RunWorkflowResponse,
   type WorkflowSummary,
 } from "./contract.ts";
@@ -45,6 +47,7 @@ export {
   handleListWorkflows,
   handleMintWsToken,
   handleReadWorkflowFile,
+  handleRenameWorkflow,
   handleRunEvents,
   handleRunWorkflow,
 } from "./handler.ts";
@@ -83,7 +86,13 @@ export function createDashboardFeatures(stores: DashboardStores): Feature[] {
       name: "workflow-delete",
       method: "DELETE",
       pattern: new URLPattern({ pathname: "/v1/workflows/:id" }),
-      handle: (request, params) => handleDeleteWorkflow(links, request, params),
+      handle: (request, params) => handleDeleteWorkflow(links, runs, request, params),
+    },
+    {
+      name: "workflow-rename",
+      method: "PATCH",
+      pattern: new URLPattern({ pathname: "/v1/workflows/:id" }),
+      handle: (request, params) => handleRenameWorkflow(links, runs, request, params),
     },
     {
       name: "workflow-runs",

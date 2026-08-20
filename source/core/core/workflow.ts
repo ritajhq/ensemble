@@ -325,9 +325,17 @@ export async function createWorkflow(
   return await getWorkflowByName(trimmed);
 }
 
-/** Deletes workflows/<name>/ entirely and drops any WorkflowGitLink for it. */
+/**
+ * Deletes workflows/<name>/ entirely, drops any WorkflowGitLink for it, and
+ * clears its run history. Secrets committed to a linked git repo are left
+ * untouched — deleting them would mean deleting individual files one at a
+ * time (GitHub's Contents API has no directory delete), which isn't worth
+ * doing on every workflow delete; they're simply orphaned, the same as run
+ * history already was before this function tracked it.
+ */
 export async function deleteWorkflow(
   links: WorkflowGitLinkStore,
+  runs: RunStore,
   name: string,
 ): Promise<void> {
   const repoRoot = await findRepoRoot();
@@ -336,6 +344,50 @@ export async function deleteWorkflow(
     if (!(error instanceof Deno.errors.NotFound)) throw error;
   });
   await unlinkWorkflowFromGit(links, name);
+  await runs.deleteAllRunsForWorkflow(name);
+}
+
+/**
+ * Renames workflows/<name>/ to workflows/<newName>/ — a plain directory move,
+ * so anything stored inside it (workflow.yml, contexts/, secrets/) moves for
+ * free. Re-points its WorkflowGitLink to the new name if it has one. Leaves
+ * existing run history under the old name as-is (same orphaning precedent as
+ * deleteWorkflow takes for secrets) rather than rekeying every RunRecord.
+ * Throws if `newName` is invalid or a workflow already exists there.
+ */
+export async function renameWorkflow(
+  links: WorkflowGitLinkStore,
+  name: string,
+  newName: string,
+): Promise<ResolvedWorkflow> {
+  const trimmed = newName.trim();
+  if (!WORKFLOW_NAME_PATTERN.test(trimmed)) {
+    throw new Error(
+      `Invalid workflow name "${newName}" — expected letters, digits, ".", "_", "-", or "/", ` +
+        `not starting or ending with a separator.`,
+    );
+  }
+
+  const repoRoot = await findRepoRoot();
+  const workflowDir = join(repoRoot, "workflows", name);
+  const newWorkflowDir = join(repoRoot, "workflows", trimmed);
+  const newWorkflowFile = join(newWorkflowDir, "workflow.yml");
+  if (trimmed !== name && await exists(newWorkflowFile, { isFile: true })) {
+    throw new Error(`Workflow "${trimmed}" already exists.`);
+  }
+
+  if (trimmed !== name) {
+    await Deno.mkdir(dirname(newWorkflowDir), { recursive: true });
+    await Deno.rename(workflowDir, newWorkflowDir);
+
+    const link = await links.get(name);
+    if (link) {
+      await links.delete(name);
+      await links.put({ ...link, workflowName: trimmed });
+    }
+  }
+
+  return await getWorkflowByName(trimmed);
 }
 
 /**

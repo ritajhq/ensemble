@@ -5,6 +5,7 @@ import {
   createWorkflow,
   deleteWorkflow,
   listWorkflowContexts,
+  renameWorkflow,
   resolveContainerizedSecretsKey,
   resolveSelfRepoUrl,
   runWorkflowByName,
@@ -17,6 +18,7 @@ import {
   GitRepositoryStore,
   WorkflowGitLinkStore,
 } from "./git-repositories.ts";
+import { RunStore } from "./runs.ts";
 
 async function makeFixtureRepo(
   dir: string,
@@ -44,6 +46,7 @@ interface TestContext {
   repoRoot: string;
   repositories: GitRepositoryStore;
   links: WorkflowGitLinkStore;
+  runs: RunStore;
 }
 
 /** See git-integration.test.ts's identical helper doc comment: findRepoRoot() needs the process cwd itself moved into the fixture repoRoot, not just ENSEMBLE_WORKSPACE set. */
@@ -53,6 +56,7 @@ async function withContext(
   const repoRoot = await Deno.makeTempDir({ prefix: "workflow-test-repo-" });
   const repositoriesKv = await Deno.openKv(":memory:");
   const linksKv = await Deno.openKv(":memory:");
+  const runsKv = await Deno.openKv(":memory:");
   const previousCwd = Deno.cwd();
   try {
     await Deno.mkdir(join(repoRoot, ".ensemble"), { recursive: true });
@@ -62,11 +66,13 @@ async function withContext(
       repoRoot,
       repositories: new GitRepositoryStore(repositoriesKv),
       links: new WorkflowGitLinkStore(linksKv),
+      runs: new RunStore(runsKv),
     });
   } finally {
     Deno.chdir(previousCwd);
     repositoriesKv.close();
     linksKv.close();
+    runsKv.close();
     await Deno.remove(repoRoot, { recursive: true }).catch(() => {});
   }
 }
@@ -167,7 +173,7 @@ Deno.test("deleteWorkflow: removes the directory and any git link", async () => 
         "deploy",
       );
 
-      await deleteWorkflow(ctx.links, "my-workflow");
+      await deleteWorkflow(ctx.links, ctx.runs, "my-workflow");
 
       const exists = await Deno.stat(
         join(ctx.repoRoot, "workflows", "my-workflow"),
@@ -182,7 +188,85 @@ Deno.test("deleteWorkflow: removes the directory and any git link", async () => 
 
 Deno.test("deleteWorkflow: is a no-op (not an error) when the workflow doesn't exist", async () => {
   await withContext(async (ctx) => {
-    await deleteWorkflow(ctx.links, "nonexistent");
+    await deleteWorkflow(ctx.links, ctx.runs, "nonexistent");
+  });
+});
+
+Deno.test("deleteWorkflow: clears the workflow's run history", async () => {
+  await withContext(async (ctx) => {
+    await createWorkflow(ctx.repositories, ctx.links, "my-workflow");
+    await ctx.runs.trackedRunWorkflow(
+      "my-workflow",
+      undefined,
+      async () => ({ outcomes: {}, success: true }),
+    );
+
+    await deleteWorkflow(ctx.links, ctx.runs, "my-workflow");
+
+    assertEquals(await ctx.runs.listRunsForWorkflow("my-workflow"), []);
+  });
+});
+
+Deno.test("renameWorkflow: moves the directory and re-points its git link", async () => {
+  await withContext(async (ctx) => {
+    const fixtureDir = await Deno.makeTempDir({
+      prefix: "workflow-test-fixture-",
+    });
+    try {
+      await makeFixtureRepo(fixtureDir, {
+        "workflows/deploy/workflow.yml":
+          "jobs:\n  build:\n    steps:\n      - run: echo hi\n",
+      });
+      await registerGitRepository(ctx.repositories, {
+        repoUrl: fixtureDir,
+        projectName: "acme",
+      });
+      await syncWorkflowFromGit(
+        ctx.repositories,
+        ctx.links,
+        "my-workflow",
+        "acme",
+        "deploy",
+      );
+
+      const resolved = await renameWorkflow(
+        ctx.links,
+        "my-workflow",
+        "renamed-workflow",
+      );
+
+      assertEquals(resolved.name, "renamed-workflow");
+      const oldExists = await Deno.stat(
+        join(ctx.repoRoot, "workflows", "my-workflow"),
+      ).then(() => true).catch(() => false);
+      assertEquals(oldExists, false);
+      const newExists = await Deno.stat(
+        join(ctx.repoRoot, "workflows", "renamed-workflow"),
+      ).then(() => true).catch(() => false);
+      assertEquals(newExists, true);
+
+      assertEquals(await ctx.links.get("my-workflow"), undefined);
+      const newLink = await ctx.links.get("renamed-workflow");
+      assertEquals(newLink?.workflowName, "renamed-workflow");
+      assertEquals(newLink?.projectName, "acme");
+    } finally {
+      await Deno.remove(fixtureDir, { recursive: true }).catch(() => {});
+    }
+  });
+});
+
+Deno.test("renameWorkflow: rejects an invalid name", async () => {
+  await withContext(async (ctx) => {
+    await createWorkflow(ctx.repositories, ctx.links, "my-workflow");
+    await assertRejects(() => renameWorkflow(ctx.links, "my-workflow", "!!!"));
+  });
+});
+
+Deno.test("renameWorkflow: rejects when a workflow already exists at the new name", async () => {
+  await withContext(async (ctx) => {
+    await createWorkflow(ctx.repositories, ctx.links, "my-workflow");
+    await createWorkflow(ctx.repositories, ctx.links, "taken");
+    await assertRejects(() => renameWorkflow(ctx.links, "my-workflow", "taken"));
   });
 });
 

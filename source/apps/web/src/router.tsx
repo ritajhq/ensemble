@@ -7,6 +7,7 @@ import { RunDetailView } from "./components/RunDetailView.tsx";
 import { RunsLayout } from "./components/RunsLayout.tsx";
 import { RunsView } from "./components/RunsView.tsx";
 import { SecretsView } from "./components/SecretsView.tsx";
+import { SettingsView } from "./components/SettingsView.tsx";
 import { WorkflowsView } from "./components/WorkflowsView.tsx";
 import { decodeWorkflowId } from "./lib/workflow-id.ts";
 
@@ -48,6 +49,7 @@ export const router = createBrowserRouter([
                   { path: "runs", Component: RunsView },
                   { path: "runs/:runId", Component: RunDetailView },
                   { path: "secrets", Component: SecretsView },
+                  { path: "settings", Component: SettingsView },
                 ],
               },
             ],

@@ -10,6 +10,7 @@ import {
   listWorkflowFiles,
   listWorkflows,
   readWorkflowFile,
+  renameWorkflow,
   type RunStore,
   subscribeToRun,
   syncWorkflowFromGitLinkIfPresent,
@@ -30,11 +31,12 @@ import type {
   ListWorkflowsResponse,
   MintWsTokenResponse,
   ReadWorkflowFileResponse,
+  RenameWorkflowResponse,
   RunJobNode,
   RunWorkflowResponse,
   WorkflowTriggerSummary,
 } from "./contract.ts";
-import { isCreateWorkflowRequest } from "./contract.ts";
+import { isCreateWorkflowRequest, isRenameWorkflowRequest } from "./contract.ts";
 import type { Trigger, Workflow } from "@ensemble/workflow";
 
 function summarizeTrigger(
@@ -212,9 +214,10 @@ export async function handleCreateWorkflow(
   }
 }
 
-/** DELETE /v1/workflows/:id — removes a workflow's directory and any git link it has. */
+/** DELETE /v1/workflows/:id — removes a workflow's directory, any git link it has, and its run history. */
 export async function handleDeleteWorkflow(
   links: WorkflowGitLinkStore,
+  runs: RunStore,
   request: Request,
   params: Record<string, string | undefined>,
 ): Promise<Response> {
@@ -228,8 +231,54 @@ export async function handleDeleteWorkflow(
   if ("errorResponse" in resolved) return resolved.errorResponse;
 
   try {
-    await deleteWorkflow(links, resolved.name);
+    await deleteWorkflow(links, runs, resolved.name);
     return Response.json({ success: true } satisfies DeleteWorkflowResponse);
+  } catch (error) {
+    return Response.json({
+      error: error instanceof Error ? error.message : String(error),
+    }, { status: 400 });
+  }
+}
+
+/** PATCH /v1/workflows/:id — renames a workflow, moving workflows/<name>/ and re-pointing its git link if any. */
+export async function handleRenameWorkflow(
+  links: WorkflowGitLinkStore,
+  runs: RunStore,
+  request: Request,
+  params: Record<string, string | undefined>,
+): Promise<Response> {
+  if (!await isAuthorizedFor(request, "upload")) {
+    return Response.json({ error: "Missing or invalid bearer token." }, {
+      status: 401,
+    });
+  }
+
+  const resolved = resolveWorkflowNameParam(params);
+  if ("errorResponse" in resolved) return resolved.errorResponse;
+
+  const text = await request.text();
+  let body: unknown;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    return Response.json({ error: "Request body must be valid JSON." }, {
+      status: 400,
+    });
+  }
+  if (!isRenameWorkflowRequest(body)) {
+    return Response.json({ error: "Expected { name: string }." }, {
+      status: 400,
+    });
+  }
+
+  try {
+    const { name, workflow, workflowDir } = await renameWorkflow(
+      links,
+      resolved.name,
+      body.name,
+    );
+    const summary = await summarizeWorkflow(runs, name, workflow, workflowDir);
+    return Response.json({ workflow: summary } satisfies RenameWorkflowResponse);
   } catch (error) {
     return Response.json({
       error: error instanceof Error ? error.message : String(error),
