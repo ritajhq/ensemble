@@ -1,3 +1,20 @@
+## [0.0.6] - 2026-08-21
+
+### 🐛 Bug Fixes
+
+- *(git-integration)* Skip re-cloning a workflow's git link when the remote SHA hasn't moved
+
+### 🚜 Refactor
+
+- *(deploy)* Matrix-ify watch_build jobs and ship runner/server from cli bundle instead of compiled binary
+
+### 📚 Documentation
+
+- *(agent-context)* Add AI/contributor onboarding doc
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.0.5
 ## [0.0.4] - 2026-08-20
 
 ### 🚀 Features
