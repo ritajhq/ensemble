@@ -1,8 +1,10 @@
-## [0.0.4] - 2026-08-21
+## [0.0.4] - 2026-08-20
 
 ### 🚀 Features
 
 - *(workflow)* Resolve self repository for server/containerized runs
+- *(dashboard)* Stream run status updates over WebSocket instead of SSE
+- *(dashboard)* Add workflow settings page with rename and delete
 
 ### 🐛 Bug Fixes
 
@@ -11,6 +13,7 @@
 ### ⚙️ Miscellaneous Tasks
 
 - *(changelog)* Update for 0.0.3
+- *(changelog)* Update for 0.0.4
 ## [0.0.3] - 2026-08-20
 
 ### 🚀 Features
