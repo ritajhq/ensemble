@@ -14,6 +14,7 @@ services:
       GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET}
       ENSEMBLE_RUNNER_IMAGE: ${SERVER_RUNNER_IMAGE}
       ENSEMBLE_HOST_WORKFLOWS_PATH: ${SERVER_HOST_WORKFLOWS_PATH}
+      ENSEMBLE_IMAGE_TAG: ${IMAGE_TAG:-unknown}
     volumes:
       - ${SERVER_WORKSPACE_PATH}:/workspace
       - /var/run/docker.sock:/var/run/docker.sock

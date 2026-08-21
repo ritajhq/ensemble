@@ -10,6 +10,7 @@ import { createGitIntegrationFeatures } from "./workflow/integrations/git/index.
 import { createDashboardFeatures } from "./workflow/dashboard/index.ts";
 import { createSecretsFeatures } from "./workflow/secrets/index.ts";
 import { createContextValuesFeatures } from "./workflow/context-values/index.ts";
+import { createDebugFeature } from "./debug/index.ts";
 import type { Feature } from "./features.ts";
 
 export { type Feature, isFeatureEnabled } from "./features.ts";
@@ -30,7 +31,7 @@ export interface PlatformStores {
  * needs one.
  */
 export function createAllFeatures(stores: PlatformStores): Feature[] {
-  return [
+  const features = [
     createManualTriggerFeature(stores),
     ...createGithubTriggerFeatures(stores),
     workflowRegistryFeature,
@@ -38,5 +39,9 @@ export function createAllFeatures(stores: PlatformStores): Feature[] {
     ...createDashboardFeatures(stores),
     ...createSecretsFeatures(stores.repositories, stores.links),
     ...createContextValuesFeatures(stores.repositories, stores.links),
+  ];
+  return [
+    ...features,
+    createDebugFeature(features.map((feature) => feature.name)),
   ];
 }
