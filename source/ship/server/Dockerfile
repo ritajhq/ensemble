@@ -4,7 +4,6 @@ RUN apk add --no-cache docker-cli git curl
 
 WORKDIR /app
 
-COPY --from=packages ensemble-linux-x64 /usr/local/bin/ens
 COPY --from=artifacts server/main.js ./server/main.js
 
 WORKDIR /workspace

@@ -22,9 +22,6 @@ services:
         - action: sync+restart
           path: ${ARTIFACTS_SERVER:-.}
           target: /app/server
-        - action: sync+restart
-          path: ${CLI_PATH:-.}
-          target: /usr/local/bin/ens
 
   web:
     image: ${IMAGE_REGISTRY:-}ensemble/web:latest

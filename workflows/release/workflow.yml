@@ -96,8 +96,6 @@ jobs:
       - name: build_server_image
         run: |
           ens build -m production server
-          ens pack -o cli cli deno.compile
-
           ens pack server docker
 
       - name: build_web_image
@@ -107,6 +105,7 @@ jobs:
 
       - name: build_runner_image
         run: |
+          ens build -m production cli
           ens pack -o ensemble/runner runner docker
 
       - name: build_hot_server_image

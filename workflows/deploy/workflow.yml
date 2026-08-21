@@ -26,46 +26,21 @@ context:
       - name: GITHUB_WEBHOOK_SECRET
 
 jobs:
-  watch_cli:
+  watch_build:
     if: "${{ context.name == 'development' }}"
+    matrix:
+      axes:
+        target: [cli, server, web]
     in:
       repository: self
     steps:
-      - name: watch_pack_cli
+      - name: "watch_build_${{ matrix.target }}"
         run: |
-          PIDFILE=/tmp/ens-pack-watch-cli.pid
+          PIDFILE="/tmp/ens-build-watch-${{ matrix.target }}.pid"
           if pid=$(cat "$PIDFILE" 2>/dev/null) && kill -0 "$pid" 2>/dev/null; then
             kill "$pid"
           fi
-          setsid ens pack cli deno.compile --watch </dev/null >/tmp/ens-pack-watch-cli.log 2>&1 &
-          echo $! > "$PIDFILE"
-
-  watch_server:
-    if: "${{ context.name == 'development' }}"
-    in:
-      repository: self
-    steps:
-      - name: watch_build_server
-        run: |
-          PIDFILE=/tmp/ens-build-watch-server.pid
-          if pid=$(cat "$PIDFILE" 2>/dev/null) && kill -0 "$pid" 2>/dev/null; then
-            kill "$pid"
-          fi
-          setsid ens build server --watch </dev/null >/tmp/ens-build-watch-server.log 2>&1 &
-          echo $! > "$PIDFILE"
-
-  watch_web:
-    if: "${{ context.name == 'development' }}"
-    in:
-      repository: self
-    steps:
-      - name: watch_build_web
-        run: |
-          PIDFILE=/tmp/ens-build-watch-web.pid
-          if pid=$(cat "$PIDFILE" 2>/dev/null) && kill -0 "$pid" 2>/dev/null; then
-            kill "$pid"
-          fi
-          setsid ens build web --watch </dev/null >/tmp/ens-build-watch-web.log 2>&1 &
+          setsid ens build "${{ matrix.target }}" --watch </dev/null >"/tmp/ens-build-watch-${{ matrix.target }}.log" 2>&1 &
           echo $! > "$PIDFILE"
 
   watch_runner:
@@ -80,12 +55,12 @@ jobs:
             kill "$pid"
           fi
 
-          CLI_BIN="${{ ensemble.packages('ensemble-linux-x64') }}"
+          CLI_BUNDLE="${{ ensemble.artifacts('cli') }}/main.js"
 
           setsid sh -c '
             last=""
             while true; do
-              current=$(stat -c %Y "'"$CLI_BIN"'" 2>/dev/null || true)
+              current=$(stat -c %Y "'"$CLI_BUNDLE"'" 2>/dev/null || true)
               if [ -n "$current" ] && [ "$current" != "$last" ]; then
                 echo "Packing runner..."
                 ens pack -o ensemble/runner runner docker && docker tag ensemble/runner:latest runner:latest
@@ -131,7 +106,6 @@ jobs:
             echo "CADDY_CONFIG=${{ context.files.caddy_config.path }}"
             echo "ARTIFACTS_WEB=${{ ensemble.artifacts('web') }}"
             echo "ARTIFACTS_SERVER=${{ ensemble.artifacts('server') }}"
-            echo "CLI_PATH=${{ ensemble.packages('ensemble-linux-x64') }}"
           } >> "${{ steps.runtime_env.outputs.runtime_env }}"
 
           docker compose \

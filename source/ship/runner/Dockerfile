@@ -7,8 +7,8 @@ RUN ln -s /usr/bin/mcli /usr/bin/mc
 
 WORKDIR /app
 
-COPY --from=packages ensemble-linux-x64 /usr/local/bin/ens
+COPY --from=artifacts cli/main.js ./cli/main.js
 
 WORKDIR /workspace
 
-ENTRYPOINT ["ens"]
+ENTRYPOINT ["deno", "run", "-A", "/app/cli/main.js"]
