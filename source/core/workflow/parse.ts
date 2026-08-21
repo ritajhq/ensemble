@@ -541,6 +541,9 @@ function validateRepository(
   if (raw.ref !== undefined && typeof raw.ref !== "string") {
     fail(file, `resources.repositories.${name} has a non-string "ref".`);
   }
+  if (raw.token !== undefined && (typeof raw.token !== "string" || raw.token.length === 0)) {
+    fail(file, `resources.repositories.${name} has a non-empty-string "token".`);
+  }
   return {
     url: resolveEnvRefs(file, `resources.repositories.${name}.url`, raw.url),
     ref: raw.ref !== undefined
@@ -550,6 +553,7 @@ function validateRepository(
         raw.ref as string,
       )
       : undefined,
+    token: raw.token as string | undefined,
   };
 }
 
@@ -780,6 +784,27 @@ export function parseWorkflowText(file: string, text: string): Workflow {
   const variables = validateVariables(file, raw.variables);
   const resources = validateResources(file, raw.resources);
   const context = validateContext(file, raw.context);
+  validateRepositoryTokens(file, resources, context);
 
   return { on, variables, resources, context, jobs };
+}
+
+/** A repository's "token" must name a declared "context.secrets.variables" entry — checked statically so a typo'd/undeclared name fails at parse time instead of at the run-time secret lookup. */
+function validateRepositoryTokens(
+  file: string,
+  resources: Resources | undefined,
+  context: Context | undefined,
+): void {
+  const declaredSecretNames = new Set(
+    (context?.secrets?.variables ?? []).map((s) => s.name),
+  );
+  for (const [name, repo] of Object.entries(resources?.repositories ?? {})) {
+    if (repo.token === undefined) continue;
+    if (!declaredSecretNames.has(repo.token)) {
+      fail(
+        file,
+        `resources.repositories.${name} declares "token: ${repo.token}", which isn't a declared "context.secrets.variables" entry.`,
+      );
+    }
+  }
 }

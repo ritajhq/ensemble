@@ -42,6 +42,7 @@ export type {
   StepResult,
 } from "./context.ts";
 export { expandMatrix } from "./matrix.ts";
+export { type RepositoryAuth } from "./checkout.ts";
 export {
   type ContextLoader,
   ContextResolutionError,

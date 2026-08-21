@@ -18,6 +18,7 @@ import {
   unlinkWorkflowFromGit,
 } from "./git-integration.ts";
 import {
+  type GitAuthStrategy,
   GitRepositoryStore,
   WorkflowGitLinkStore,
 } from "./git-repositories.ts";
@@ -468,21 +469,27 @@ export async function resolveContainerizedSecretsKey(
   return record?.secretsKey;
 }
 
+/** resolveSelfRepoUrl's result: the linked repository's URL plus how to authenticate cloning it. */
+export interface SelfRepo {
+  repoUrl: string;
+  auth: GitAuthStrategy;
+}
+
 /**
- * Resolves the git URL "self" (in: { repository: "self" }) means for a
- * containerized/server-triggered run of workflow `name` — the URL of the
- * git repository this workflow was synced from, via its WorkflowGitLink.
- * Unlike resolveContainerizedSecretsKey (which gracefully degrades to
- * undefined — a missing key just means an eventual encrypted-secret lookup
- * fails later), a missing link or repository record here is always an
- * error: "self" has no other possible source server-side, so there's no
- * point deferring the failure to inside the container.
+ * Resolves what "self" (in: { repository: "self" }) means for a
+ * containerized/server-triggered run of workflow `name` — the URL and auth
+ * strategy of the git repository this workflow was synced from, via its
+ * WorkflowGitLink. Unlike resolveContainerizedSecretsKey (which gracefully
+ * degrades to undefined — a missing key just means an eventual
+ * encrypted-secret lookup fails later), a missing link or repository record
+ * here is always an error: "self" has no other possible source server-side,
+ * so there's no point deferring the failure to inside the container.
  */
 export async function resolveSelfRepoUrl(
   name: string,
   repositories: GitRepositoryStore | undefined,
   links: WorkflowGitLinkStore | undefined,
-): Promise<string> {
+): Promise<SelfRepo> {
   const link = repositories && links ? await links.get(name) : undefined;
   if (!link) {
     throw new Error(
@@ -495,7 +502,7 @@ export async function resolveSelfRepoUrl(
       `Workflow "${name}" declares "in: { repository: self }", but its linked repository "${link.projectName}" is no longer registered.`,
     );
   }
-  return record.repoUrl;
+  return { repoUrl: record.repoUrl, auth: record.auth };
 }
 
 /**
@@ -532,7 +539,7 @@ export async function runWorkflowByName(
 ): Promise<RunWorkflowResult> {
   if (options.containerized) {
     const { workflow } = await getWorkflowByName(name);
-    const selfRepoUrl = referencesSelf(workflow)
+    const selfRepo = referencesSelf(workflow)
       ? await resolveSelfRepoUrl(name, options.repositories, options.links)
       : undefined;
     const secretsKey = await resolveContainerizedSecretsKey(
@@ -546,7 +553,8 @@ export async function runWorkflowByName(
       context: options.context,
       trigger: options.trigger,
       secretsKey,
-      selfRepoUrl,
+      selfRepoUrl: selfRepo?.repoUrl,
+      selfRepoAuth: selfRepo?.auth,
       events: options.events,
     });
   }

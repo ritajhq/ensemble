@@ -773,6 +773,7 @@ jobs:
           ensemble: {
             url: "https://github.com/ritajhq/ensemble.git",
             ref: "main",
+            token: undefined,
           },
         },
       });
@@ -798,6 +799,7 @@ jobs:
       assertEquals(workflow.resources?.repositories?.ensemble, {
         url: "https://github.com/ritajhq/ensemble.git",
         ref: undefined,
+        token: undefined,
       });
     },
   );
@@ -876,6 +878,79 @@ jobs:
   } finally {
     Deno.env.delete("ENSEMBLE_TEST_REPO_URL");
   }
+});
+
+Deno.test("parseWorkflowFile: resources.repositories entry with a token naming a declared secret parses", async () => {
+  await withFixture(
+    "repositories-token.yml",
+    `
+resources:
+  repositories:
+    private:
+      url: https://github.com/ritajhq/private.git
+      token: PRIVATE_REPO_PAT
+context:
+  secrets:
+    variables:
+      - name: PRIVATE_REPO_PAT
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      const workflow = await parseWorkflowFile(path);
+      assertEquals(workflow.resources?.repositories?.private.token, "PRIVATE_REPO_PAT");
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: resources.repositories token naming an undeclared secret fails", async () => {
+  await withFixture(
+    "repositories-token-undeclared.yml",
+    `
+resources:
+  repositories:
+    private:
+      url: https://github.com/ritajhq/private.git
+      token: PRIVATE_REPO_PAT
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      await assertRejects(
+        () => parseWorkflowFile(path),
+        WorkflowParseError,
+        'resources.repositories.private declares "token: PRIVATE_REPO_PAT", which isn\'t a declared "context.secrets.variables" entry',
+      );
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: resources.repositories entry with an empty-string token fails", async () => {
+  await withFixture(
+    "repositories-token-empty.yml",
+    `
+resources:
+  repositories:
+    private:
+      url: https://github.com/ritajhq/private.git
+      token: ""
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      await assertRejects(
+        () => parseWorkflowFile(path),
+        WorkflowParseError,
+        'resources.repositories.private has a non-empty-string "token"',
+      );
+    },
+  );
 });
 
 Deno.test("parseWorkflowFile: step with in.repository parses", async () => {

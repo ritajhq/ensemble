@@ -1,5 +1,5 @@
 import { pooledMap } from "@std/async";
-import type { Job, StepIn, Workflow } from "./schema.ts";
+import type { Job, RepositoryResource, StepIn, Workflow } from "./schema.ts";
 import type { Delegate } from "@ritaj/event";
 import { buildBatches, transitiveDeps } from "./graph.ts";
 import {
@@ -13,9 +13,47 @@ import {
 import { runJob, type StepEvent } from "./run-job.ts";
 import { expandMatrix } from "./matrix.ts";
 import { JobLogger, printSummary, type SummaryRow } from "./logging.ts";
-import { checkoutRepositories, resolveSelfRepository } from "./checkout.ts";
+import { checkoutRepositories, type RepositoryAuth, resolveSelfRepository } from "./checkout.ts";
 import { resolveContext } from "./context-loaders/resolve.ts";
+import type { ResolvedVariable } from "./context-loaders/resolve.ts";
 import { findContextFileReferences } from "./parse.ts";
+
+/**
+ * Resolves each declared repository's `token` (a context.secrets.variables
+ * name — see schema.ts's RepositoryResource) into an actual PAT, looked up
+ * against this run's already-resolved secrets. A repo with no `token`
+ * declared clones unauthenticated ({ type: "none" }, checkout.ts's default).
+ */
+function resolveRepositoryAuth(
+  repositories: Record<string, RepositoryResource> | undefined,
+  secretVariables: Record<string, ResolvedVariable>,
+): Record<string, RepositoryAuth> | undefined {
+  if (repositories === undefined) return undefined;
+  const auth: Record<string, RepositoryAuth> = {};
+  for (const [name, repo] of Object.entries(repositories)) {
+    if (repo.token === undefined) continue;
+    const secret = secretVariables[repo.token];
+    if (secret === undefined) {
+      throw new Error(
+        `resources.repositories.${name} declares "token: ${repo.token}", which isn't a declared "context.secrets.variables" entry.`,
+      );
+    }
+    auth[name] = { type: "pat", token: secret.value };
+  }
+  return auth;
+}
+
+/**
+ * Auth for cloning "self" inside a containerized/server-triggered run — see
+ * ENSEMBLE_SELF_REPO_AUTH in run-workflow-in-container.ts, the JSON-encoded
+ * counterpart to ENSEMBLE_SELF_REPO_URL. Undefined (clone unauthenticated)
+ * for a genuine local CLI run, which never has this env var set.
+ */
+function resolveSelfRepositoryAuth(): RepositoryAuth | undefined {
+  const raw = Deno.env.get("ENSEMBLE_SELF_REPO_AUTH");
+  if (!raw) return undefined;
+  return JSON.parse(raw) as RepositoryAuth;
+}
 
 /** True if any job or step in this workflow declares in: { repository: "self" }. */
 export function referencesSelf(workflow: Workflow): boolean {
@@ -194,10 +232,26 @@ export async function runWorkflow(
   // workflowDir itself stays reserved for resolving `script:` paths.
   const runDir = await Deno.makeTempDir({ prefix: "ensemble-run-" });
   try {
+    // Resolved before checking out repositories: a resources.repositories
+    // entry's `token` names a context.secrets.variables entry, so its actual
+    // value has to already be known before that repo can be cloned.
+    const resolved = await resolveContext(
+      workflow.context,
+      findContextFileReferences(workflow, options.context),
+      options.context,
+      options.workflowDir,
+      runDir,
+      callerVars,
+      options.repoRoot,
+    );
+
     let repositories = await checkoutRepositories(
       workflow.resources?.repositories,
       runDir,
-      { overrides: options.repositoryOverrides },
+      {
+        overrides: options.repositoryOverrides,
+        auth: resolveRepositoryAuth(workflow.resources?.repositories, resolved.secrets.variables),
+      },
     );
 
     if (referencesSelf(workflow)) {
@@ -211,18 +265,9 @@ export async function runWorkflow(
         repoRoot: options.repoRoot,
         local: options.local,
         overrides: options.repositoryOverrides,
+        auth: resolveSelfRepositoryAuth(),
       });
     }
-
-    const resolved = await resolveContext(
-      workflow.context,
-      findContextFileReferences(workflow, options.context),
-      options.context,
-      options.workflowDir,
-      runDir,
-      callerVars,
-      options.repoRoot,
-    );
     // PATH/HOME locate binaries and per-user config/state on disk, not
     // credentials — always forwarded so `run:`/`script:` steps can still
     // shell out to bare command names (docker, git, terraform, ...) and have

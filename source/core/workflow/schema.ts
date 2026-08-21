@@ -112,6 +112,8 @@ export interface RepositoryResource {
   url: string;
   /** Branch, tag, or commit to check out. Defaults to the remote's default branch. */
   ref?: string;
+  /** Name of a declared "context.secrets.variables" entry holding a GitHub PAT, for cloning a private repository. Resolved against this run's already-resolved secrets — see run-workflow.ts's resolveRepositoryAuth. Omit for a public repository. */
+  token?: string;
 }
 
 export interface Resources {

@@ -496,8 +496,11 @@ Deno.test("resolveSelfRepoUrl: resolves a repo's URL via the workflow's git link
       syncedAt: new Date().toISOString(),
     });
 
-    const url = await resolveSelfRepoUrl("deploy", ctx.repositories, ctx.links);
-    assertEquals(url, "https://github.com/acme/widgets.git");
+    const selfRepo = await resolveSelfRepoUrl("deploy", ctx.repositories, ctx.links);
+    assertEquals(selfRepo, {
+      repoUrl: "https://github.com/acme/widgets.git",
+      auth: { type: "none" },
+    });
   });
 });
 

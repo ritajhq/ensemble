@@ -2,6 +2,7 @@ import type { Delegate } from "@ritaj/event";
 import {
   isEventLine,
   parseEventLine,
+  type RepositoryAuth,
   type RunWorkflowResult,
   type WorkflowEvent,
 } from "@ensemble/workflow";
@@ -36,6 +37,17 @@ export interface RunWorkflowInContainerOptions {
    * when the workflow doesn't reference "self" at all.
    */
   selfRepoUrl?: string;
+  /**
+   * How to authenticate cloning "self" — the linked git repository's own
+   * GitAuthStrategy (see core/workflow.ts's runWorkflowByName, which
+   * resolves this alongside selfRepoUrl via WorkflowGitLink ->
+   * GitRepositoryRecord.auth) — forwarded into the container as
+   * JSON-encoded ENSEMBLE_SELF_REPO_AUTH so the inner `ens workflow run`
+   * invocation can clone a private "self" repo. Undefined (clone
+   * unauthenticated) when the workflow doesn't reference "self", or the
+   * linked repository is public.
+   */
+  selfRepoAuth?: RepositoryAuth;
   /** Notified as jobs/steps start/finish inside the container, reconstructed from its stdout. */
   events?: Delegate<[WorkflowEvent]>;
 }
@@ -88,6 +100,7 @@ const UNFORWARDED_ENV_VARS = new Set([
   "ENSEMBLE_HOST_WORKFLOWS_PATH",
   "ENSEMBLE_SECRETS_KEY",
   "ENSEMBLE_SELF_REPO_URL",
+  "ENSEMBLE_SELF_REPO_AUTH",
 ]);
 
 /**
@@ -102,11 +115,15 @@ const UNFORWARDED_ENV_VARS = new Set([
  * entirely inside the container — no callback to the server needed. Same
  * treatment for ENSEMBLE_SELF_REPO_URL from `selfRepoUrl`, an env file (not
  * a `docker run -e` arg) since a repo URL can itself embed a credential
- * (e.g. `https://user:token@host/...`).
+ * (e.g. `https://user:token@host/...`) — and for ENSEMBLE_SELF_REPO_AUTH
+ * from `selfRepoAuth` (JSON-encoded RepositoryAuth), the PAT a private
+ * "self" repo needs, for the exact same reason: never in `docker run`'s own
+ * argv.
  */
 async function writeForwardedEnvFile(
   secretsKey: string | undefined,
   selfRepoUrl: string | undefined,
+  selfRepoAuth: RepositoryAuth | undefined,
 ): Promise<string> {
   const lines: string[] = [];
   for (const [name, value] of Object.entries(Deno.env.toObject())) {
@@ -118,6 +135,9 @@ async function writeForwardedEnvFile(
   }
   if (selfRepoUrl !== undefined) {
     lines.push(`ENSEMBLE_SELF_REPO_URL=${selfRepoUrl}`);
+  }
+  if (selfRepoAuth !== undefined) {
+    lines.push(`ENSEMBLE_SELF_REPO_AUTH=${JSON.stringify(selfRepoAuth)}`);
   }
   const path = await Deno.makeTempFile({ prefix: "ensemble-runner-env-" });
   await Deno.writeTextFile(path, lines.join("\n") + "\n");
@@ -194,7 +214,7 @@ export async function runWorkflowInContainer(
   const emptyEnsembleDir = await Deno.makeTempDir({
     prefix: "ensemble-runner-marker-",
   });
-  const envFile = await writeForwardedEnvFile(options.secretsKey, options.selfRepoUrl);
+  const envFile = await writeForwardedEnvFile(options.secretsKey, options.selfRepoUrl, options.selfRepoAuth);
   try {
     const args = [
       "run",
