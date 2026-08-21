@@ -74,6 +74,20 @@ export interface DeleteWorkflowResponse {
   success: boolean;
 }
 
+export interface RenameWorkflowRequest {
+  name: string;
+}
+
+export function isRenameWorkflowRequest(value: unknown): value is RenameWorkflowRequest {
+  if (typeof value !== "object" || value === null) return false;
+  const record = value as Record<string, unknown>;
+  return typeof record.name === "string" && record.name.trim().length > 0;
+}
+
+export interface RenameWorkflowResponse {
+  workflow: WorkflowSummary;
+}
+
 export interface ListRunsResponse {
   runs: RunRecord[];
 }
@@ -94,7 +108,7 @@ export interface DeleteRunResponse {
   success: boolean;
 }
 
-export interface MintSseTokenResponse {
+export interface MintWsTokenResponse {
   ok: true;
 }
 

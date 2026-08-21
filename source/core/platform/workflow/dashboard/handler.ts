@@ -10,6 +10,7 @@ import {
   listWorkflowFiles,
   listWorkflows,
   readWorkflowFile,
+  renameWorkflow,
   type RunStore,
   subscribeToRun,
   syncWorkflowFromGitLinkIfPresent,
@@ -17,7 +18,7 @@ import {
   type WorkflowGitLinkStore,
 } from "@ensemble/core";
 import { setCookie } from "@std/http/cookie";
-import { isAuthorizedFor, SSE_TOKEN_COOKIE } from "../../auth/tokens.ts";
+import { isAuthorizedFor, WS_TOKEN_COOKIE } from "../../auth/tokens.ts";
 import type {
   CreateWorkflowResponse,
   DeleteRunResponse,
@@ -28,13 +29,14 @@ import type {
   ListRunStepsResponse,
   ListWorkflowFilesResponse,
   ListWorkflowsResponse,
-  MintSseTokenResponse,
+  MintWsTokenResponse,
   ReadWorkflowFileResponse,
+  RenameWorkflowResponse,
   RunJobNode,
   RunWorkflowResponse,
   WorkflowTriggerSummary,
 } from "./contract.ts";
-import { isCreateWorkflowRequest } from "./contract.ts";
+import { isCreateWorkflowRequest, isRenameWorkflowRequest } from "./contract.ts";
 import type { Trigger, Workflow } from "@ensemble/workflow";
 
 function summarizeTrigger(
@@ -212,9 +214,10 @@ export async function handleCreateWorkflow(
   }
 }
 
-/** DELETE /v1/workflows/:id — removes a workflow's directory and any git link it has. */
+/** DELETE /v1/workflows/:id — removes a workflow's directory, any git link it has, and its run history. */
 export async function handleDeleteWorkflow(
   links: WorkflowGitLinkStore,
+  runs: RunStore,
   request: Request,
   params: Record<string, string | undefined>,
 ): Promise<Response> {
@@ -228,8 +231,54 @@ export async function handleDeleteWorkflow(
   if ("errorResponse" in resolved) return resolved.errorResponse;
 
   try {
-    await deleteWorkflow(links, resolved.name);
+    await deleteWorkflow(links, runs, resolved.name);
     return Response.json({ success: true } satisfies DeleteWorkflowResponse);
+  } catch (error) {
+    return Response.json({
+      error: error instanceof Error ? error.message : String(error),
+    }, { status: 400 });
+  }
+}
+
+/** PATCH /v1/workflows/:id — renames a workflow, moving workflows/<name>/ and re-pointing its git link if any. */
+export async function handleRenameWorkflow(
+  links: WorkflowGitLinkStore,
+  runs: RunStore,
+  request: Request,
+  params: Record<string, string | undefined>,
+): Promise<Response> {
+  if (!await isAuthorizedFor(request, "upload")) {
+    return Response.json({ error: "Missing or invalid bearer token." }, {
+      status: 401,
+    });
+  }
+
+  const resolved = resolveWorkflowNameParam(params);
+  if ("errorResponse" in resolved) return resolved.errorResponse;
+
+  const text = await request.text();
+  let body: unknown;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    return Response.json({ error: "Request body must be valid JSON." }, {
+      status: 400,
+    });
+  }
+  if (!isRenameWorkflowRequest(body)) {
+    return Response.json({ error: "Expected { name: string }." }, {
+      status: 400,
+    });
+  }
+
+  try {
+    const { name, workflow, workflowDir } = await renameWorkflow(
+      links,
+      resolved.name,
+      body.name,
+    );
+    const summary = await summarizeWorkflow(runs, name, workflow, workflowDir);
+    return Response.json({ workflow: summary } satisfies RenameWorkflowResponse);
   } catch (error) {
     return Response.json({
       error: error instanceof Error ? error.message : String(error),
@@ -447,15 +496,15 @@ export async function handleReadWorkflowFile(
 }
 
 /**
- * Exchanges a valid bearer token for a short-lived `sse_token` cookie, so
- * an `EventSource` connection (which can't set an Authorization header) can
+ * Exchanges a valid bearer token for a short-lived `ws_token` cookie, so
+ * a `WebSocket` connection (which can't set an Authorization header) can
  * still authenticate. The cookie carries the same token, just narrowly
  * scoped (path, short max-age) rather than being a separate credential —
  * see auth/tokens.ts's isAuthorizedFor for the matching read side.
  */
-export async function handleMintSseToken(request: Request): Promise<Response> {
+export async function handleMintWsToken(request: Request): Promise<Response> {
   // Deliberately checks the header directly, rather than going through
-  // isAuthorizedFor (which also accepts the sse_token cookie this endpoint
+  // isAuthorizedFor (which also accepts the ws_token cookie this endpoint
   // mints) — minting must always start from a real bearer token, never from
   // a cookie re-minting itself.
   const header = request.headers.get("authorization");
@@ -471,9 +520,9 @@ export async function handleMintSseToken(request: Request): Promise<Response> {
     });
   }
 
-  const response = Response.json({ ok: true } satisfies MintSseTokenResponse);
+  const response = Response.json({ ok: true } satisfies MintWsTokenResponse);
   setCookie(response.headers, {
-    name: SSE_TOKEN_COOKIE,
+    name: WS_TOKEN_COOKIE,
     value: token,
     path: "/v1/workflows",
     maxAge: 60,
@@ -483,21 +532,14 @@ export async function handleMintSseToken(request: Request): Promise<Response> {
   return response;
 }
 
-const SSE_ENCODER = new TextEncoder();
-
-/** Streams `record` as a single SSE `data:` message. */
-function formatSseEvent(record: unknown): Uint8Array {
-  return SSE_ENCODER.encode(`data: ${JSON.stringify(record)}\n\n`);
-}
-
 /**
- * Streams live status updates for a single run over SSE: job/step state
- * transitions, not log output (logs stay fetched on demand via
- * handleGetStepLog). Pushes an immediate snapshot on connect — closing the
- * race where the run finishes between the dashboard's initial REST fetch
- * and this subscription — then forwards every subsequent update published
- * by trackedRunWorkflow (see core/runs-broadcast.ts) until the client
- * disconnects.
+ * Streams live status updates for a single run over WebSocket: job/step
+ * state transitions, not log output (logs stay fetched on demand via
+ * handleGetStepLog). Pushes an immediate snapshot once the socket opens —
+ * closing the race where the run finishes between the dashboard's initial
+ * REST fetch and this subscription — then forwards every subsequent update
+ * published by trackedRunWorkflow (see core/runs-broadcast.ts) until the
+ * client disconnects.
  */
 export async function handleRunEvents(
   runs: RunStore,
@@ -525,21 +567,14 @@ export async function handleRunEvents(
     });
   }
 
-  const stream = new ReadableStream<Uint8Array>({
-    start(controller) {
-      controller.enqueue(formatSseEvent(initial));
-      const unsubscribe = subscribeToRun(runId, (record) => {
-        controller.enqueue(formatSseEvent(record));
-      });
-      request.signal.addEventListener("abort", unsubscribe);
-    },
-  });
+  const { socket, response } = Deno.upgradeWebSocket(request);
+  socket.onopen = () => {
+    socket.send(JSON.stringify(initial));
+    const unsubscribe = subscribeToRun(runId, (record) => {
+      socket.send(JSON.stringify(record));
+    });
+    socket.onclose = unsubscribe;
+  };
 
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      "Connection": "keep-alive",
-    },
-  });
+  return response;
 }

@@ -134,6 +134,25 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
   return await response.json();
 }
 
+async function patchJson<T>(path: string, body: unknown): Promise<T> {
+  const token = getToken();
+  const response = await fetch(`${apiBase()}${path}`, {
+    method: "PATCH",
+    headers: {
+      "content-type": "application/json",
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const responseBody = await response.json().catch(() => ({}));
+    throw new Error(
+      responseBody.error ?? `Request failed (${response.status})`,
+    );
+  }
+  return await response.json();
+}
+
 async function deleteJson<T>(path: string): Promise<T> {
   const token = getToken();
   const response = await fetch(`${apiBase()}${path}`, {
@@ -228,10 +247,15 @@ export async function fetchStepLog(
   );
 }
 
+/** `apiBase()`'s `http(s)://` origin, rewritten to the matching `ws(s)://` scheme for WebSocket connections. */
+function wsBase(): string {
+  return apiBase().replace(/^http/, "ws");
+}
+
 /**
- * Subscribes to live status updates for a run. `EventSource` can't send the
- * dashboard's Authorization header, so this first exchanges it for a
- * short-lived cookie (via /v1/auth/sse-token) before opening the stream —
+ * Subscribes to live status updates for a run. Browser `WebSocket` can't
+ * send the dashboard's Authorization header, so this first exchanges it for
+ * a short-lived cookie (via /v1/auth/ws-token) before opening the socket —
  * see auth/tokens.ts's isAuthorizedFor on the server for the matching read
  * side. Returns a cleanup function that closes the connection; safe to call
  * even if the mint request is still in flight or failed.
@@ -241,18 +265,15 @@ export function openRunEvents(
   runId: string,
   onUpdate: (run: RunRecord) => void,
 ): () => void {
-  let source: EventSource | undefined;
+  let socket: WebSocket | undefined;
   let cancelled = false;
 
-  postJson("/v1/auth/sse-token", {}).then(() => {
+  postJson("/v1/auth/ws-token", {}).then(() => {
     if (cancelled) return;
-    source = new EventSource(
-      `${apiBase()}/v1/workflows/${workflowId}/runs/${runId}/events`,
-      {
-        withCredentials: true,
-      },
+    socket = new WebSocket(
+      `${wsBase()}/v1/workflows/${workflowId}/runs/${runId}/events`,
     );
-    source.onmessage = (event) => {
+    socket.onmessage = (event) => {
       onUpdate(JSON.parse(event.data));
     };
   }).catch((error) => {
@@ -261,7 +282,7 @@ export function openRunEvents(
 
   return () => {
     cancelled = true;
-    source?.close();
+    socket?.close();
   };
 }
 
@@ -395,9 +416,21 @@ export async function createWorkflow(
   return workflow;
 }
 
-/** Permanently deletes a workflow's directory and drops any git link it has. */
+/** Permanently deletes a workflow's directory, drops any git link it has, and clears its run history. */
 export async function deleteWorkflow(workflowId: string): Promise<void> {
   await deleteJson(`/v1/workflows/${workflowId}`);
+}
+
+/** Renames a workflow. Returns its updated summary — note its `id` changes too, since that's derived from the name. */
+export async function renameWorkflow(
+  workflowId: string,
+  name: string,
+): Promise<WorkflowSummary> {
+  const { workflow } = await patchJson<{ workflow: WorkflowSummary }>(
+    `/v1/workflows/${workflowId}`,
+    { name },
+  );
+  return workflow;
 }
 
 export async function fetchWorkflowFiles(

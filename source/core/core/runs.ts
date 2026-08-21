@@ -239,6 +239,14 @@ export class RunStore {
     return true;
   }
 
+  /** Deletes every run (and its step logs) for a workflow — e.g. when the workflow itself is deleted. */
+  async deleteAllRunsForWorkflow(workflowName: string): Promise<void> {
+    const runs = await this.listRunsForWorkflow(workflowName);
+    for (const run of runs) {
+      await this.deleteRun(run.runId, workflowName);
+    }
+  }
+
   /**
    * Writes chunks in fixed-size batches rather than one big atomic transaction
    * — Deno KV caps both the mutation count and total payload size of a single

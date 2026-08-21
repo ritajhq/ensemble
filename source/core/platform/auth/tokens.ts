@@ -3,8 +3,8 @@ import { timingSafeEqual } from "@std/crypto/timing-safe-equal";
 import { getCookies } from "@std/http/cookie";
 import { findRepoRoot } from "@ensemble/core";
 
-/** Cookie name used to carry a token for connections (e.g. EventSource) that can't set an Authorization header. */
-export const SSE_TOKEN_COOKIE = "sse_token";
+/** Cookie name used to carry a token for connections (e.g. WebSocket) that can't set an Authorization header. */
+export const WS_TOKEN_COOKIE = "ws_token";
 
 export interface TokenPermissions {
   trigger?: boolean;
@@ -59,7 +59,7 @@ function timingSafeStringEqual(a: string, b: string): boolean {
 
 /**
  * Checks a request's `Authorization: Bearer <token>` — or, failing that, its
- * `sse_token` cookie, for connections like EventSource that can't set custom
+ * `ws_token` cookie, for connections like WebSocket that can't set custom
  * headers — against .ensemble/platform/tokens.json, requiring the matched
  * token's permission record to have `permission` set to true. Every
  * candidate token is compared (never short-circuiting on the first match)
@@ -77,7 +77,7 @@ export async function isAuthorizedFor(request: Request, permission: keyof TokenP
   const header = request.headers.get("authorization");
   const provided = header?.startsWith("Bearer ")
     ? header.slice("Bearer ".length)
-    : getCookies(request.headers)[SSE_TOKEN_COOKIE];
+    : getCookies(request.headers)[WS_TOKEN_COOKIE];
   if (!provided) return false;
 
   const tokens = await loadTokens();
