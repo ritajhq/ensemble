@@ -1,3 +1,12 @@
+## [0.0.7] - 2026-08-21
+
+### 🐛 Bug Fixes
+
+- *(cli)* Don't crash getInstalledVersion under deno run, only installNext/installSet need the compiled binary
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.0.6
 ## [0.0.6] - 2026-08-21
 
 ### 🐛 Bug Fixes
