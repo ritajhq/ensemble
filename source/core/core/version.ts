@@ -56,23 +56,35 @@ async function listReleases(): Promise<{ tag: string; version: SemVer; assetUrl:
     .filter((entry): entry is { tag: string; version: SemVer; assetUrl: string } => entry !== undefined);
 }
 
+/** Whether we're running as a compiled `ens` binary, as opposed to under `deno run`/`deno task`. */
+function isCompiledBinary(): boolean {
+  const path = Deno.execPath();
+  return path !== "deno" && !path.endsWith("/deno");
+}
+
 /** Path to the currently running compiled `ens` binary. Throws if running under `deno run`/`deno task` instead of a compiled binary. */
 function currentExecutablePath(): string {
-  const path = Deno.execPath();
-  if (path.endsWith("/deno") || path === "deno") {
+  if (!isCompiledBinary()) {
     throw new Error(
       "version update/set only works for the compiled `ens` binary, not when running via `deno run`/`deno task`.",
     );
   }
-  return path;
+  return Deno.execPath();
 }
 
 function versionMarkerPath(): string {
   return join(dirname(currentExecutablePath()), VERSION_MARKER);
 }
 
-/** The version recorded next to the running binary at install time, if any. */
+/**
+ * The version recorded next to the running binary at install time, if any.
+ * `undefined` both when there's no marker file and when there's no
+ * installed-binary concept to begin with (running under `deno run`/`deno task`) —
+ * this is a display/lookup path, not a mutating one, so it stays quiet rather
+ * than throwing `currentExecutablePath`'s compiled-binary-only error.
+ */
 export async function getInstalledVersion(): Promise<SemVer | undefined> {
+  if (!isCompiledBinary()) return undefined;
   const markerPath = versionMarkerPath();
   if (!await exists(markerPath, { isFile: true })) return undefined;
   const tag = (await Deno.readTextFile(markerPath)).trim();
