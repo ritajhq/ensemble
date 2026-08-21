@@ -1,3 +1,18 @@
+## [0.0.8] - 2026-08-21
+
+### 🐛 Bug Fixes
+
+- *(runner)* Alias deno run to ens so workflow steps can shell out to it
+## [0.0.8] - 2026-08-21
+
+### 🚀 Features
+
+- *(platform)* Add GET /v1/debug reporting the running image tag and mounted routes
+- *(workflow)* Authenticate private repo clones for self and resources.repositories
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.0.7
 ## [0.0.7] - 2026-08-21
 
 ### 🐛 Bug Fixes
