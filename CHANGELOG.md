@@ -1,4 +1,4 @@
-## [0.0.3] - 2026-08-20
+## [0.0.4] - 2026-08-21
 
 ### 🚀 Features
 
@@ -7,6 +7,10 @@
 ### 🐛 Bug Fixes
 
 - *(workflow)* Make self a job/step in.repository value, not a resources.repositories entry
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.0.3
 ## [0.0.3] - 2026-08-20
 
 ### 🚀 Features
