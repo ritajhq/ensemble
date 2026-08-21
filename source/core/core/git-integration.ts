@@ -102,6 +102,26 @@ export async function listRemoteGitTags(
 }
 
 /**
+ * The remote default branch's current HEAD commit SHA, via `git ls-remote`
+ * (no clone). Returns undefined if the remote can't be reached or has no
+ * HEAD — refreshRepoCache treats that the same as "unknown, clone to be
+ * safe" rather than failing here, since the clone itself will surface a
+ * clearer error.
+ */
+async function remoteHeadSha(
+  record: Pick<GitRepositoryRecord, "repoUrl" | "auth">,
+): Promise<string | undefined> {
+  const authArgs = buildGitAuthArgs(record.auth);
+  const result = await $`git ls-remote ${authArgs} ${record.repoUrl} HEAD`
+    .stdout("piped")
+    .stderr("null")
+    .noThrow();
+  if (result.code !== 0) return undefined;
+  const sha = result.stdout.trim().split(/\s+/)[0];
+  return sha || undefined;
+}
+
+/**
  * Sparse-checks out only the `workflows/` folder of a git repository into a
  * fresh staging directory (blobless, single commit) so a bad URL or a repo
  * lacking a workflows/ folder never touches the live cache. Caller is
@@ -174,6 +194,12 @@ async function sparseCloneWorkflows(
   return stagingDir;
 }
 
+/** `refreshRepoCache`'s result: where the refreshed cache landed, and the remote SHA it now reflects (for callers to persist as `lastFetchedSha`). */
+export interface RefreshedRepoCache {
+  cacheDir: string;
+  sha: string | undefined;
+}
+
 /**
  * Re-fetches `record`'s repository into its cache dir
  * (`.ensemble/platform/git-repos/<projectName>`), replacing whatever was
@@ -182,12 +208,26 @@ async function sparseCloneWorkflows(
  * a sync — none of them touch `workflows/` directly; only
  * `syncWorkflowFromGit` copies out of this cache into a live workflow
  * directory, and only after validating the specific path it's copying.
+ *
+ * Checks the remote's current HEAD SHA first (a cheap `git ls-remote`, no
+ * clone) and skips the clone entirely when it matches `record.lastFetchedSha`
+ * and the cache dir is still there — the common case for an unchanged repo,
+ * and the thing that made every `GET /v1/workflows/:id` for a git-linked
+ * workflow pay for a full clone even when nothing had changed. Falls back to
+ * a real clone whenever the SHA can't be determined (offline remote,
+ * ls-remote failure) or the cache dir is missing, so this never trades
+ * correctness for speed.
  */
 async function refreshRepoCache(
-  record: Pick<GitRepositoryRecord, "projectName" | "repoUrl" | "auth">,
-): Promise<string> {
+  record: Pick<GitRepositoryRecord, "projectName" | "repoUrl" | "auth" | "lastFetchedSha">,
+): Promise<RefreshedRepoCache> {
   const cacheRoot = await gitCacheRoot();
   const targetDir = join(cacheRoot, record.projectName);
+
+  const sha = await remoteHeadSha(record);
+  if (sha && sha === record.lastFetchedSha && await exists(targetDir, { isDirectory: true })) {
+    return { cacheDir: targetDir, sha };
+  }
 
   const stagingDir = await sparseCloneWorkflows(
     record,
@@ -201,7 +241,7 @@ async function refreshRepoCache(
   await Deno.rename(clonedWorkflowsDir, targetDir);
   await removeIfExists(stagingDir);
 
-  return targetDir;
+  return { cacheDir: targetDir, sha };
 }
 
 export interface RegisterGitRepositoryOptions {
@@ -230,7 +270,7 @@ export async function registerGitRepository(
   assertValidProjectName(projectName);
   const auth = options.auth ?? { type: "none" };
 
-  await refreshRepoCache({ projectName, repoUrl: options.repoUrl, auth });
+  const { sha } = await refreshRepoCache({ projectName, repoUrl: options.repoUrl, auth });
 
   const now = new Date().toISOString();
   const record: GitRepositoryRecord = {
@@ -239,6 +279,7 @@ export async function registerGitRepository(
     auth,
     registeredAt: now,
     lastFetchedAt: now,
+    lastFetchedSha: sha,
     secretsKey: options.secretsKey,
   };
   await repositories.put(record);
@@ -269,6 +310,10 @@ export async function setRepositorySecretsKey(
  * and re-register to point at a different URL. Re-validates clone access
  * with the new auth the same way registration does, so a bad/wrongly-scoped
  * PAT fails loudly here rather than silently at the next refresh/sync.
+ * Deliberately omits `lastFetchedSha` when calling refreshRepoCache (even
+ * though `record` may have one from before) so the SHA check never
+ * short-circuits this clone — the point here is proving the *new*
+ * credentials actually work, not skipping work.
  */
 export async function setRepositoryAuth(
   repositories: GitRepositoryStore,
@@ -279,12 +324,18 @@ export async function setRepositoryAuth(
   if (!record) {
     throw new Error(`Repository "${projectName}" is not registered.`);
   }
-  await refreshRepoCache({ projectName, repoUrl: record.repoUrl, auth });
+  const { sha } = await refreshRepoCache({
+    projectName,
+    repoUrl: record.repoUrl,
+    auth,
+    lastFetchedSha: undefined,
+  });
 
   const updated: GitRepositoryRecord = {
     ...record,
     auth,
     lastFetchedAt: new Date().toISOString(),
+    lastFetchedSha: sha,
   };
   await repositories.put(updated);
   return updated;
@@ -300,11 +351,12 @@ export async function refreshGitRepository(
     throw new Error(`Repository "${projectName}" is not registered.`);
   }
 
-  await refreshRepoCache(record);
+  const { sha } = await refreshRepoCache(record);
 
   const updated: GitRepositoryRecord = {
     ...record,
     lastFetchedAt: new Date().toISOString(),
+    lastFetchedSha: sha,
   };
   await repositories.put(updated);
   return updated;
@@ -348,10 +400,11 @@ export async function listRepoWorkflowCandidates(
     throw new Error(`Repository "${projectName}" is not registered.`);
   }
 
-  const cacheDir = await refreshRepoCache(record);
+  const { cacheDir, sha } = await refreshRepoCache(record);
   await repositories.put({
     ...record,
     lastFetchedAt: new Date().toISOString(),
+    lastFetchedSha: sha,
   });
 
   const candidates: RepoWorkflowCandidate[] = [];
@@ -392,10 +445,17 @@ export async function syncWorkflowFromGit(
     throw new Error(`Repository "${projectName}" is not registered.`);
   }
 
-  const cacheDir = await refreshRepoCache(record);
+  const existingLink = await links.get(workflowName);
+  const alreadySynced = existingLink?.projectName === projectName &&
+    existingLink?.pathInRepo === pathInRepo;
+
+  const { cacheDir, sha } = await refreshRepoCache(record);
+  const repoUnchanged = alreadySynced && sha !== undefined &&
+    sha === record.lastFetchedSha;
   await repositories.put({
     ...record,
     lastFetchedAt: new Date().toISOString(),
+    lastFetchedSha: sha,
   });
 
   const candidateDir = join(cacheDir, pathInRepo);
@@ -405,6 +465,12 @@ export async function syncWorkflowFromGit(
       `"${pathInRepo}" in "${record.repoUrl}" has no workflow.yml.`,
     );
   }
+
+  // The repo cache itself was reused as-is (unchanged SHA) and this
+  // workflow was already synced from this same repo/path, so the live
+  // workflow dir already reflects it — skip re-parsing and re-copying.
+  if (repoUnchanged) return;
+
   await parseWorkflowFile(candidateWorkflowFile);
 
   const repoRoot = await findRepoRoot();

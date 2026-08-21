@@ -16,6 +16,14 @@ export interface GitRepositoryRecord {
   /** Set once the validation/refresh clone into .ensemble/platform/git-repos/<projectName> has actually run. */
   lastFetchedAt?: string;
   /**
+   * The remote default branch's HEAD commit SHA as of `lastFetchedAt`, so a
+   * later refresh can skip re-cloning when the remote hasn't moved — see
+   * refreshRepoCache's doc comment. Unset for a record written before this
+   * field existed; that just means the next refresh clones unconditionally,
+   * same as today.
+   */
+  lastFetchedSha?: string;
+  /**
    * This repo's X25519 private key (base64 pkcs8 — see
    * @ensemble/workflow's context-loaders/secrets-crypto.ts), used to decrypt
    * contexts/<name>/secrets.yml for any workflow linked to this repo when

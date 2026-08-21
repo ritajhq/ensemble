@@ -399,6 +399,101 @@ Deno.test("syncWorkflowFromGit: throws for an invalid workflow.yml without touch
   );
 });
 
+Deno.test("syncWorkflowFromGit: a second sync with the remote unchanged skips re-cloning (cache dir's mtime is untouched)", async () => {
+  await withContext(
+    { "workflows/deploy/workflow.yml": SIMPLE_WORKFLOW_YML },
+    async (ctx) => {
+      await registerGitRepository(ctx.repositories, {
+        repoUrl: ctx.fixtureDir,
+        projectName: "acme",
+      });
+      await syncWorkflowFromGit(
+        ctx.repositories,
+        ctx.links,
+        "my-workflow",
+        "acme",
+        "deploy",
+      );
+      const recordAfterFirstSync = await ctx.repositories.get("acme");
+      assertEquals(typeof recordAfterFirstSync?.lastFetchedSha, "string");
+
+      const cacheDir = join(
+        ctx.repoRoot,
+        ".ensemble",
+        "platform",
+        "git-repos",
+        "acme",
+      );
+      const mtimeBefore = (await Deno.stat(cacheDir)).mtime;
+
+      await syncWorkflowFromGit(
+        ctx.repositories,
+        ctx.links,
+        "my-workflow",
+        "acme",
+        "deploy",
+      );
+
+      // A real re-clone deletes and recreates this directory (see
+      // refreshRepoCache), which would bump its mtime — unchanged mtime
+      // proves the clone was skipped since the remote SHA hadn't moved.
+      const mtimeAfter = (await Deno.stat(cacheDir)).mtime;
+      assertEquals(mtimeAfter?.getTime(), mtimeBefore?.getTime());
+
+      const content = await Deno.readTextFile(
+        join(ctx.repoRoot, "workflows", "my-workflow", "workflow.yml"),
+      );
+      assertEquals(content, SIMPLE_WORKFLOW_YML);
+    },
+  );
+});
+
+Deno.test("syncWorkflowFromGit: picks up new content once the remote SHA actually moves", async () => {
+  await withContext(
+    { "workflows/deploy/workflow.yml": SIMPLE_WORKFLOW_YML },
+    async (ctx) => {
+      await registerGitRepository(ctx.repositories, {
+        repoUrl: ctx.fixtureDir,
+        projectName: "acme",
+      });
+      await syncWorkflowFromGit(
+        ctx.repositories,
+        ctx.links,
+        "my-workflow",
+        "acme",
+        "deploy",
+      );
+
+      const updatedContent = SIMPLE_WORKFLOW_YML + "\n# updated\n";
+      await Deno.writeTextFile(
+        join(ctx.fixtureDir, "workflows/deploy/workflow.yml"),
+        updatedContent,
+      );
+      const run = async (args: string[]) => {
+        const { success } = await new Deno.Command("git", {
+          args,
+          cwd: ctx.fixtureDir,
+        }).output();
+        if (!success) throw new Error(`git ${args.join(" ")} failed`);
+      };
+      await run(["commit", "-aqm", "update workflow"]);
+
+      await syncWorkflowFromGit(
+        ctx.repositories,
+        ctx.links,
+        "my-workflow",
+        "acme",
+        "deploy",
+      );
+
+      const content = await Deno.readTextFile(
+        join(ctx.repoRoot, "workflows", "my-workflow", "workflow.yml"),
+      );
+      assertEquals(content, updatedContent);
+    },
+  );
+});
+
 Deno.test("removeGitRepository: deletes the record but leaves workflows/ untouched", async () => {
   await withContext(
     { "workflows/deploy/workflow.yml": SIMPLE_WORKFLOW_YML },
