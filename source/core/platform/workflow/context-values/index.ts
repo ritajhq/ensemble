@@ -1,16 +1,12 @@
-import {
-  createGithubContentsProvider,
-  type GitRepositoryStore,
-  type WorkflowGitLinkStore,
-} from "@ensemble/core";
+import * as Core from "@ensemble/core";
 import { handleGetContextValues } from "./handler.ts";
 import type { Feature } from "../../features.ts";
 
 export { handleGetContextValues } from "./handler.ts";
 export type {
-  ContextFileSummary,
-  ContextValuesSummaryResponse,
-  ContextVariableSummary,
+  FileSummary,
+  SummaryResponse,
+  VariableSummary,
 } from "./contract.ts";
 
 /**
@@ -22,10 +18,10 @@ export type {
  * workflow.yml / contexts/<name>/variables.yml directly.
  */
 export function createContextValuesFeatures(
-  repositories: GitRepositoryStore,
-  links: WorkflowGitLinkStore,
+  repositories: Core.GitRepositories.GitRepositoryStore,
+  links: Core.GitRepositories.WorkflowGitLinkStore,
 ): Feature[] {
-  const git = createGithubContentsProvider();
+  const git = Core.GitWrite.createGithubContentsProvider();
 
   return [
     {

@@ -1,37 +1,30 @@
 import { Command, EnumType } from "@cliffy/command";
 import { Confirm } from "@cliffy/prompt";
-import {
-  createReleaseTag,
-  deleteRemoteTag,
-  findRepoRoot,
-  hasUncommittedChanges,
-  pushCommits,
-  pushTag,
-  releaseNext,
-  releaseSet,
-  releaseUndo,
-  type ReleasePreview,
-} from "@ensemble/core";
+import * as Core from "@ensemble/core";
 
-async function confirmUncommittedChanges(repoRoot: string): Promise<boolean> {
-  if (!await hasUncommittedChanges(repoRoot)) return true;
+async function confirmUncommittedChanges(release: Core.Release.ReleaseService): Promise<boolean> {
+  if (!await release.hasUncommittedChanges()) return true;
   console.log("Warning: you have uncommitted changes. The release tag won't reflect them.");
   return await Confirm.prompt({ message: "Continue anyway?", default: false });
 }
 
-function printPreview(label: string, preview: ReleasePreview): void {
+function printPreview(label: string, preview: Core.Release.ReleasePreview): void {
   console.log(`${label} tag: ${preview.tag}`);
   console.log(`  from: ${preview.lastTag ?? "(no previous tag)"}`);
 }
 
 /** Creates the tag locally, then optionally pushes it — both only after the caller has answered every prompt. */
-async function createAndMaybePushRelease(repoRoot: string, preview: ReleasePreview, remote: string): Promise<void> {
+async function createAndMaybePushRelease(
+  release: Core.Release.ReleaseService,
+  preview: Core.Release.ReleasePreview,
+  remote: string,
+): Promise<void> {
   const push = await Confirm.prompt({ message: `Push commits and tag to "${remote}"?`, default: false });
-  await createReleaseTag(repoRoot, preview);
+  await release.createReleaseTag(preview);
   console.log(`Created tag: ${preview.tag}`);
   if (!push) return;
-  await pushCommits(repoRoot, remote);
-  await pushTag(repoRoot, preview.tag, remote);
+  await release.pushCommits(remote);
+  await release.pushTag(preview.tag, remote);
   console.log(`  pushed to: ${remote}`);
 }
 
@@ -46,29 +39,32 @@ export const releaseCommand = new Command()
   .type("bump", new EnumType(["patch", "minor", "major"]))
   .arguments("<bump:bump>")
   .action(async ({ dryRun, preRelease, meta, remote }, bump) => {
-    const repoRoot = await findRepoRoot();
-    if (!dryRun && !await confirmUncommittedChanges(repoRoot)) return;
-    const preview = await releaseNext(bump, { dryRun, preRelease, meta });
+    const repoRoot = await Core.findRepoRoot();
+    const release = new Core.Release.ReleaseService(repoRoot);
+    if (!dryRun && !await confirmUncommittedChanges(release)) return;
+    const preview = await release.next(bump, { dryRun, preRelease, meta });
     printPreview(dryRun ? "Would create" : "Will create", preview);
     if (dryRun) return;
-    await createAndMaybePushRelease(repoRoot, preview, remote);
+    await createAndMaybePushRelease(release, preview, remote);
   })
   .reset()
   .command("set", "Set an arbitrary version (shape x.y.z) and create a new release.")
   .arguments("<version:string>")
   .action(async ({ dryRun, preRelease, meta, remote }, version) => {
-    const repoRoot = await findRepoRoot();
-    if (!dryRun && !await confirmUncommittedChanges(repoRoot)) return;
-    const preview = await releaseSet(version, { dryRun, preRelease, meta });
+    const repoRoot = await Core.findRepoRoot();
+    const release = new Core.Release.ReleaseService(repoRoot);
+    if (!dryRun && !await confirmUncommittedChanges(release)) return;
+    const preview = await release.set(version, { dryRun, preRelease, meta });
     printPreview(dryRun ? "Would create" : "Will create", preview);
     if (dryRun) return;
-    await createAndMaybePushRelease(repoRoot, preview, remote);
+    await createAndMaybePushRelease(release, preview, remote);
   })
   .reset()
   .command("undo", "Deletes the last tag. Does not touch any commit.")
   .action(async ({ dryRun, remote }) => {
-    const repoRoot = await findRepoRoot();
-    const result = await releaseUndo({ dryRun });
+    const repoRoot = await Core.findRepoRoot();
+    const release = new Core.Release.ReleaseService(repoRoot);
+    const result = await release.undo({ dryRun });
     console.log(`${dryRun ? "Would delete" : "Deleted"} tag: ${result.tag}`);
     if (dryRun) return;
     const deleteFromRemote = await Confirm.prompt({
@@ -76,7 +72,7 @@ export const releaseCommand = new Command()
       default: false,
     });
     if (!deleteFromRemote) return;
-    await deleteRemoteTag(repoRoot, result.tag, remote);
+    await release.deleteRemoteTag(result.tag, remote);
     console.log(`  also deleted from remote: ${remote}`);
   })
   .reset();

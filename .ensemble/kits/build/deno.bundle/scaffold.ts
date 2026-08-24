@@ -1,8 +1,8 @@
 import { join } from "@std/path";
 import { ensureDir } from "@std/fs";
-import { getScaffoldKitContext } from "@ensemble/kit-sdk";
+import * as KitSdk from "@ensemble/kit-sdk";
 
-const ctx = getScaffoldKitContext();
+const ctx = KitSdk.Scaffold.getContext();
 await ensureDir(ctx.dest);
 
 await Deno.writeTextFile(

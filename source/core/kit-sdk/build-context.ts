@@ -1,17 +1,17 @@
 import { parseArgs } from "@std/cli/parse-args";
 import { requireFlag } from "./util.ts";
 
-export type BuildMode = "development" | "production";
+export type Mode = "development" | "production";
 
 /** The parameters ens passes to every build kit invocation. */
-export interface KitContext {
+export interface Context {
   /** Absolute path to the package's source directory. */
   source: string;
   /** Package name, i.e. its path inside `apps/` (e.g. "my-app/client"). */
   name: string;
   /** Absolute path to the directory the kit should write its build output to. */
   out: string;
-  mode: BuildMode;
+  mode: Mode;
   watch: boolean;
   /** Absolute path to the `source/` workspace root. */
   workspace: string;
@@ -35,7 +35,7 @@ function parseVars(raw: string): Record<string, string> {
 }
 
 /** Parses the standard build kit CLI contract. Call this from a build kit's entry point. */
-export function getKitContext(args: string[] = Deno.args): KitContext {
+export function getContext(args: string[] = Deno.args): Context {
   const flags = parseArgs(args, {
     string: [...REQUIRED_STRING_FLAGS, "vars"],
     boolean: ["watch"],

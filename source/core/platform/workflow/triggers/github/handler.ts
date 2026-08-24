@@ -1,12 +1,4 @@
-import {
-  assertSelfResolvable,
-  type GitRepositoryStore,
-  listWorkflows,
-  type RunStore,
-  syncAllWorkflowGitLinks,
-  trackedRunWorkflowByName,
-  type WorkflowGitLinkStore,
-} from "@ensemble/core";
+import * as Core from "@ensemble/core";
 import type { Workflow } from "@ensemble/workflow";
 import { extractTagFromRef, findMatchingGithubTrigger } from "./match.ts";
 import { verifyGithubSignature } from "./signature.ts";
@@ -26,10 +18,10 @@ function isGithubPushPayload(value: unknown): value is GithubPushPayload {
  * every workflow under workflows/ for an `on: - github:` entry whose
  * `push.tags` matches the pushed tag, and triggers all matches.
  */
-export async function handleGithubTrigger(
-  repositories: GitRepositoryStore,
-  links: WorkflowGitLinkStore,
-  runs: RunStore,
+export async function handle(
+  repositories: Core.GitRepositories.GitRepositoryStore,
+  links: Core.GitRepositories.WorkflowGitLinkStore,
+  runs: Core.Runs.RunStore,
   request: Request,
 ): Promise<Response> {
   const rawBody = await request.text();
@@ -78,9 +70,9 @@ export async function handleGithubTrigger(
     return new Response(null, { status: 204 }); // not a tag push
   }
 
-  await syncAllWorkflowGitLinks(repositories, links);
+  await Core.Workflows.syncAllWorkflowGitLinks(repositories, links);
 
-  const workflows = await listWorkflows();
+  const workflows = await Core.Workflows.listWorkflows();
 
   const matches = workflows
     .map(({ name, workflow }) => ({
@@ -96,7 +88,7 @@ export async function handleGithubTrigger(
 
   try {
     for (const { name, workflow } of matches) {
-      await assertSelfResolvable(workflow, name, repositories, links);
+      await Core.Workflows.assertSelfResolvable(workflow, name, repositories, links);
     }
   } catch (error) {
     return Response.json({
@@ -105,7 +97,7 @@ export async function handleGithubTrigger(
   }
 
   for (const { name, trigger } of matches) {
-    trackedRunWorkflowByName(runs, name, {
+    Core.Workflows.trackedRunWorkflowByName(runs, name, {
       trigger: { type: "github", ref: payload.ref, tag, sha: payload.after },
       context: trigger.context,
       repositories,

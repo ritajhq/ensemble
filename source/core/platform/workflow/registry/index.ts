@@ -3,10 +3,10 @@ import type { Feature } from "../../features.ts";
 
 export { handleUploadWorkflow } from "./handler.ts";
 export {
-  type WorkflowRegistryClient,
-  workflowRegistryClient,
-  type WorkflowRegistryClientOptions,
-  type WorkflowUploadResponse,
+  type Client,
+  client,
+  type ClientOptions,
+  type UploadResponse,
 } from "./client.ts";
 
 export const workflowRegistryFeature: Feature = {

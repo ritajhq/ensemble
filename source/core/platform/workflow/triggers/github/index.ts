@@ -1,20 +1,20 @@
-import type { GitRepositoryStore, RunStore, WorkflowGitLinkStore } from "@ensemble/core";
-import { handleGithubTrigger } from "./handler.ts";
-import { handleManualGithubTrigger } from "./manual-handler.ts";
+import type * as Core from "@ensemble/core";
+import { handle } from "./handler.ts";
+import { handleManual } from "./manual-handler.ts";
 import type { Feature } from "../../../features.ts";
 
-export { handleGithubTrigger } from "./handler.ts";
-export { handleManualGithubTrigger } from "./manual-handler.ts";
+export { handle } from "./handler.ts";
+export { handleManual } from "./manual-handler.ts";
 export {
-  isManualGithubTriggerRequest,
-  type ManualGithubTriggerRequest,
-  type ManualGithubTriggerResponse,
+  isManualTriggerRequest,
+  type ManualTriggerRequest,
+  type ManualTriggerResponse,
 } from "./manual-contract.ts";
 
 export interface GithubTriggerStores {
-  repositories: GitRepositoryStore;
-  links: WorkflowGitLinkStore;
-  runs: RunStore;
+  repositories: Core.GitRepositories.GitRepositoryStore;
+  links: Core.GitRepositories.WorkflowGitLinkStore;
+  runs: Core.Runs.RunStore;
 }
 
 /** Builds this module's routes, bound to `stores` — call once at startup with the process's own store instances. */
@@ -26,13 +26,13 @@ export function createGithubTriggerFeatures(stores: GithubTriggerStores): Featur
       name: "github-trigger",
       method: "POST",
       pattern: new URLPattern({ pathname: "/v1/webhooks/github" }),
-      handle: (request) => handleGithubTrigger(repositories, links, runs, request),
+      handle: (request) => handle(repositories, links, runs, request),
     },
     {
       name: "manual-github-trigger",
       method: "POST",
       pattern: new URLPattern({ pathname: "/v1/workflows/:id/trigger/github" }),
-      handle: (request, params) => handleManualGithubTrigger(repositories, links, runs, request, params),
+      handle: (request, params) => handleManual(repositories, links, runs, request, params),
     },
   ];
 }

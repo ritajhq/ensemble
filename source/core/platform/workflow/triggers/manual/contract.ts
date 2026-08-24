@@ -1,4 +1,4 @@
-export interface ManualTriggerRequest {
+export interface TriggerRequest {
   /** Run only this job (or these jobs) and their transitive dependencies. */
   job?: string | string[];
   /** Max number of jobs to run concurrently within a batch. */
@@ -11,11 +11,11 @@ export interface ManualTriggerRequest {
   inputs?: Record<string, unknown>;
 }
 
-export interface ManualTriggerResponse {
+export interface TriggerResponse {
   success: boolean;
 }
 
-export function isManualTriggerRequest(value: unknown): value is ManualTriggerRequest {
+export function isTriggerRequest(value: unknown): value is TriggerRequest {
   if (typeof value !== "object" || value === null) return false;
   const body = value as Record<string, unknown>;
 

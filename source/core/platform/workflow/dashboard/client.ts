@@ -1,13 +1,13 @@
-import { encodeWorkflowId } from "@ensemble/core";
+import * as Core from "@ensemble/core";
 import type { GetStepLogResponse, ListRunsResponse, ListRunStepsResponse, ListWorkflowsResponse } from "./contract.ts";
 
-export interface DashboardClientOptions {
+export interface ClientOptions {
   baseUrl: string;
   /** Sent as `Authorization: Bearer <token>` — must be a token granted "read" in the server's .ensemble/platform/tokens.json. */
   token: string;
 }
 
-export interface DashboardClient {
+export interface Client {
   queries: {
     listWorkflows(): Promise<ListWorkflowsResponse>;
     listRuns(name: string): Promise<ListRunsResponse>;
@@ -25,25 +25,25 @@ async function getJson<T>(url: URL, token: string): Promise<T> {
   return body as T;
 }
 
-export function dashboardClient(options: DashboardClientOptions): DashboardClient {
+export function client(options: ClientOptions): Client {
   return {
     queries: {
       listWorkflows(): Promise<ListWorkflowsResponse> {
         return getJson(new URL("/v1/workflows", options.baseUrl), options.token);
       },
       listRuns(name: string): Promise<ListRunsResponse> {
-        return getJson(new URL(`/v1/workflows/${encodeWorkflowId(name)}/runs`, options.baseUrl), options.token);
+        return getJson(new URL(`/v1/workflows/${Core.Workflows.encodeWorkflowId(name)}/runs`, options.baseUrl), options.token);
       },
       listRunSteps(name: string, runId: string): Promise<ListRunStepsResponse> {
         return getJson(
-          new URL(`/v1/workflows/${encodeWorkflowId(name)}/runs/${runId}/steps`, options.baseUrl),
+          new URL(`/v1/workflows/${Core.Workflows.encodeWorkflowId(name)}/runs/${runId}/steps`, options.baseUrl),
           options.token,
         );
       },
       getStepLog(name: string, runId: string, jobId: string, index: number): Promise<GetStepLogResponse> {
         return getJson(
           new URL(
-            `/v1/workflows/${encodeWorkflowId(name)}/runs/${runId}/steps/${encodeURIComponent(jobId)}/${index}/log`,
+            `/v1/workflows/${Core.Workflows.encodeWorkflowId(name)}/runs/${runId}/steps/${encodeURIComponent(jobId)}/${index}/log`,
             options.baseUrl,
           ),
           options.token,

@@ -1,23 +1,15 @@
-import {
-  findRepoRoot,
-  GIT_REPOSITORY_STORE_KV_PATH,
-  GitRepositoryStore,
-  RUN_STORE_KV_PATH,
-  RunStore,
-  WORKFLOW_GIT_LINK_STORE_KV_PATH,
-  WorkflowGitLinkStore,
-} from "@ensemble/core";
+import * as Core from "@ensemble/core";
 import { createAllFeatures, isFeatureEnabled } from "@ensemble/platform";
 
-const repoRoot = await findRepoRoot();
+const repoRoot = await Core.findRepoRoot();
 const stores = {
-  repositories: new GitRepositoryStore(
-    await Deno.openKv(`${repoRoot}/${GIT_REPOSITORY_STORE_KV_PATH}`),
+  repositories: new Core.GitRepositories.GitRepositoryStore(
+    await Deno.openKv(`${repoRoot}/${Core.GitRepositories.GIT_REPOSITORY_STORE_KV_PATH}`),
   ),
-  links: new WorkflowGitLinkStore(
-    await Deno.openKv(`${repoRoot}/${WORKFLOW_GIT_LINK_STORE_KV_PATH}`),
+  links: new Core.GitRepositories.WorkflowGitLinkStore(
+    await Deno.openKv(`${repoRoot}/${Core.GitRepositories.WORKFLOW_GIT_LINK_STORE_KV_PATH}`),
   ),
-  runs: new RunStore(await Deno.openKv(`${repoRoot}/${RUN_STORE_KV_PATH}`)),
+  runs: new Core.Runs.RunStore(await Deno.openKv(`${repoRoot}/${Core.Runs.RUN_STORE_KV_PATH}`)),
 };
 
 const allFeatures = createAllFeatures(stores);

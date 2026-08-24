@@ -1,29 +1,13 @@
-import {
-  createGithubContentsProvider,
-  type GitRepositoryStore,
-  type WorkflowGitLinkStore,
-} from "@ensemble/core";
-import {
-  handleDeleteSecret,
-  handleDeleteSecretFile,
-  handleGetSecretsContext,
-  handleSetSecret,
-  handleSetSecretFile,
-} from "./handler.ts";
+import * as Core from "@ensemble/core";
+import { SecretsHandlers } from "./handler.ts";
 import type { Feature } from "../../features.ts";
 
-export {
-  handleDeleteSecret,
-  handleDeleteSecretFile,
-  handleGetSecretsContext,
-  handleSetSecret,
-  handleSetSecretFile,
-} from "./handler.ts";
+export { SecretsHandlers, type SecretsStores } from "./handler.ts";
 export {
   noWriteAccessMessage,
-  type SecretFileSummary,
-  type SecretKeySummary,
-  type SecretsContextSummaryResponse,
+  type ContextSummaryResponse,
+  type FileSummary,
+  type KeySummary,
   type SetSecretFileRequest,
   type SetSecretRequest,
   type SetSecretResponse,
@@ -40,18 +24,18 @@ export {
  * future non-GitHub host is a new implementation, not a rearchitecture.
  */
 export function createSecretsFeatures(
-  repositories: GitRepositoryStore,
-  links: WorkflowGitLinkStore,
+  repositories: Core.GitRepositories.GitRepositoryStore,
+  links: Core.GitRepositories.WorkflowGitLinkStore,
 ): Feature[] {
-  const git = createGithubContentsProvider();
+  const git = Core.GitWrite.createGithubContentsProvider();
+  const handlers = new SecretsHandlers({ repositories, links, git });
 
   return [
     {
       name: "secrets-context-get",
       method: "GET",
       pattern: new URLPattern({ pathname: "/v1/secrets/:workflowId/:context" }),
-      handle: (request, params) =>
-        handleGetSecretsContext(repositories, links, git, request, params),
+      handle: (request, params) => handlers.handleGetContext(request, params),
     },
     {
       name: "secrets-set",
@@ -59,8 +43,7 @@ export function createSecretsFeatures(
       pattern: new URLPattern({
         pathname: "/v1/secrets/:workflowId/:context/:key/set",
       }),
-      handle: (request, params) =>
-        handleSetSecret(repositories, links, git, request, params),
+      handle: (request, params) => handlers.handleSetSecret(request, params),
     },
     {
       name: "secrets-delete",
@@ -68,8 +51,7 @@ export function createSecretsFeatures(
       pattern: new URLPattern({
         pathname: "/v1/secrets/:workflowId/:context/:key/delete",
       }),
-      handle: (request, params) =>
-        handleDeleteSecret(repositories, links, git, request, params),
+      handle: (request, params) => handlers.handleDelete(request, params),
     },
     {
       name: "secrets-set-file",
@@ -78,7 +60,7 @@ export function createSecretsFeatures(
         pathname: "/v1/secrets/:workflowId/:context/:name/set-file",
       }),
       handle: (request, params) =>
-        handleSetSecretFile(repositories, links, git, request, params),
+        handlers.handleSetSecretFile(request, params),
     },
     {
       name: "secrets-delete-file",
@@ -86,8 +68,7 @@ export function createSecretsFeatures(
       pattern: new URLPattern({
         pathname: "/v1/secrets/:workflowId/:context/:name/delete-file",
       }),
-      handle: (request, params) =>
-        handleDeleteSecretFile(repositories, links, git, request, params),
+      handle: (request, params) => handlers.handleDeleteFile(request, params),
     },
   ];
 }

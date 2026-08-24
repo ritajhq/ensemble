@@ -1,11 +1,11 @@
-import type { Delegate } from "@ritaj/event";
+import type { Delegate } from "@duesabati/evento";
 import {
   isEventLine,
   parseEventLine,
   type RepositoryAuth,
-  type RunWorkflowResult,
   type WorkflowEvent,
 } from "@ensemble/workflow";
+import type * as Workflow from "@ensemble/workflow";
 
 export interface RunWorkflowInContainerOptions {
   /** Run only this job (or these jobs) and their transitive dependencies. */
@@ -210,7 +210,7 @@ async function pumpEvents(
 export async function runWorkflowInContainer(
   name: string,
   options: RunWorkflowInContainerOptions,
-): Promise<RunWorkflowResult> {
+): Promise<Workflow.RunWorkflow.Result> {
   const emptyEnsembleDir = await Deno.makeTempDir({
     prefix: "ensemble-runner-marker-",
   });

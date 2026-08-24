@@ -10,15 +10,12 @@ import {
   resolveSelfRepoUrl,
   runWorkflowByName,
 } from "./workflow.ts";
-import {
-  registerGitRepository,
-  syncWorkflowFromGit,
-} from "./git-integration.ts";
+import { GitIntegrationService } from "./git-integration.ts";
 import {
   GitRepositoryStore,
   WorkflowGitLinkStore,
 } from "./git-repositories.ts";
-import { RunStore } from "./runs.ts";
+import { RunStore } from "./runs/index.ts";
 
 async function makeFixtureRepo(
   dir: string,
@@ -126,7 +123,7 @@ Deno.test("createWorkflow: with a git source, seeds content from the repo and re
         "workflows/deploy/workflow.yml":
           "jobs:\n  build:\n    steps:\n      - run: echo hi\n",
       });
-      await registerGitRepository(ctx.repositories, {
+      await new GitIntegrationService(ctx.repositories).register({
         repoUrl: fixtureDir,
         projectName: "acme",
       });
@@ -161,19 +158,14 @@ Deno.test("deleteWorkflow: removes the directory and any git link", async () => 
         "workflows/deploy/workflow.yml":
           "jobs:\n  build:\n    steps:\n      - run: echo hi\n",
       });
-      await registerGitRepository(ctx.repositories, {
+      const gitIntegration = new GitIntegrationService(ctx.repositories, ctx.links);
+      await gitIntegration.register({
         repoUrl: fixtureDir,
         projectName: "acme",
       });
-      await syncWorkflowFromGit(
-        ctx.repositories,
-        ctx.links,
-        "my-workflow",
-        "acme",
-        "deploy",
-      );
+      await gitIntegration.sync("my-workflow", "acme", "deploy");
 
-      await deleteWorkflow(ctx.links, ctx.runs, "my-workflow");
+      await deleteWorkflow(ctx.repositories, ctx.links, ctx.runs, "my-workflow");
 
       const exists = await Deno.stat(
         join(ctx.repoRoot, "workflows", "my-workflow"),
@@ -188,7 +180,7 @@ Deno.test("deleteWorkflow: removes the directory and any git link", async () => 
 
 Deno.test("deleteWorkflow: is a no-op (not an error) when the workflow doesn't exist", async () => {
   await withContext(async (ctx) => {
-    await deleteWorkflow(ctx.links, ctx.runs, "nonexistent");
+    await deleteWorkflow(ctx.repositories, ctx.links, ctx.runs, "nonexistent");
   });
 });
 
@@ -201,7 +193,7 @@ Deno.test("deleteWorkflow: clears the workflow's run history", async () => {
       async () => ({ outcomes: {}, success: true }),
     );
 
-    await deleteWorkflow(ctx.links, ctx.runs, "my-workflow");
+    await deleteWorkflow(ctx.repositories, ctx.links, ctx.runs, "my-workflow");
 
     assertEquals(await ctx.runs.listRunsForWorkflow("my-workflow"), []);
   });
@@ -217,17 +209,12 @@ Deno.test("renameWorkflow: moves the directory and re-points its git link", asyn
         "workflows/deploy/workflow.yml":
           "jobs:\n  build:\n    steps:\n      - run: echo hi\n",
       });
-      await registerGitRepository(ctx.repositories, {
+      const gitIntegration = new GitIntegrationService(ctx.repositories, ctx.links);
+      await gitIntegration.register({
         repoUrl: fixtureDir,
         projectName: "acme",
       });
-      await syncWorkflowFromGit(
-        ctx.repositories,
-        ctx.links,
-        "my-workflow",
-        "acme",
-        "deploy",
-      );
+      await gitIntegration.sync("my-workflow", "acme", "deploy");
 
       const resolved = await renameWorkflow(
         ctx.links,

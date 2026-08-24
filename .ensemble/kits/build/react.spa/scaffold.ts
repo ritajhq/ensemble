@@ -1,6 +1,6 @@
 import { join } from "@std/path";
 import { ensureDir } from "@std/fs";
-import { getScaffoldKitContext } from "@ensemble/kit-sdk";
+import * as KitSdk from "@ensemble/kit-sdk";
 
 const DENO_JSON = `{
   "compilerOptions": {
@@ -55,7 +55,7 @@ const INDEX_HTML = `<!doctype html>
 </html>
 `;
 
-const ctx = getScaffoldKitContext();
+const ctx = KitSdk.Scaffold.getContext();
 await ensureDir(join(ctx.dest, "public"));
 
 await Deno.writeTextFile(join(ctx.dest, "deno.json"), DENO_JSON);

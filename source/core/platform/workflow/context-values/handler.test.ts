@@ -1,15 +1,10 @@
 import { assertEquals } from "@std/assert";
 import { join } from "@std/path";
-import {
-  encodeWorkflowId,
-  GitRepositoryStore,
-  type GitWriteProvider,
-  WorkflowGitLinkStore,
-} from "@ensemble/core";
+import * as Core from "@ensemble/core";
 import { handleGetContextValues } from "./handler.ts";
 
 /** In-memory GitWriteProvider fake — no real GitHub API calls needed to test the handler's own auth/validation logic. */
-function makeFakeGit(): GitWriteProvider & { files: Map<string, Uint8Array> } {
+function makeFakeGit(): Core.GitWrite.GitWriteProvider & { files: Map<string, Uint8Array> } {
   const files = new Map<string, Uint8Array>();
   return {
     files,
@@ -30,8 +25,8 @@ function makeFakeGit(): GitWriteProvider & { files: Map<string, Uint8Array> } {
 
 interface TestContext {
   repoRoot: string;
-  repositories: GitRepositoryStore;
-  links: WorkflowGitLinkStore;
+  repositories: Core.GitRepositories.GitRepositoryStore;
+  links: Core.GitRepositories.WorkflowGitLinkStore;
   git: ReturnType<typeof makeFakeGit>;
 }
 
@@ -58,8 +53,8 @@ async function withContext(
     Deno.chdir(repoRoot);
     await fn({
       repoRoot,
-      repositories: new GitRepositoryStore(repositoriesKv),
-      links: new WorkflowGitLinkStore(linksKv),
+      repositories: new Core.GitRepositories.GitRepositoryStore(repositoriesKv),
+      links: new Core.GitRepositories.WorkflowGitLinkStore(linksKv),
       git: makeFakeGit(),
     });
   } finally {
@@ -97,7 +92,7 @@ async function linkWorkflow(
 
 Deno.test("handleGetContextValues: 404 when the workflow has no git link at all", async () => {
   await withContext(async (ctx) => {
-    const id = encodeWorkflowId("local-only");
+    const id = Core.Workflows.encodeWorkflowId("local-only");
     const response = await handleGetContextValues(
       ctx.repositories,
       ctx.links,
@@ -112,7 +107,7 @@ Deno.test("handleGetContextValues: 404 when the workflow has no git link at all"
 Deno.test("handleGetContextValues: empty variables/files when workflow.yml declares none", async () => {
   await withContext(async (ctx) => {
     await linkWorkflow(ctx, "deploy");
-    const id = encodeWorkflowId("deploy");
+    const id = Core.Workflows.encodeWorkflowId("deploy");
     const response = await handleGetContextValues(
       ctx.repositories,
       ctx.links,
@@ -156,7 +151,7 @@ Deno.test("handleGetContextValues: resolves a variable's value from contexts/<co
       new TextEncoder().encode("IMAGE_TAG: v1.2.3\n"),
     );
 
-    const id = encodeWorkflowId("deploy");
+    const id = Core.Workflows.encodeWorkflowId("deploy");
     const response = await handleGetContextValues(
       ctx.repositories,
       ctx.links,
@@ -183,7 +178,7 @@ Deno.test("handleGetContextValues: a variable unresolved anywhere (no loader ent
       new TextEncoder().encode(DEPLOY_WORKFLOW_YML),
     );
 
-    const id = encodeWorkflowId("deploy");
+    const id = Core.Workflows.encodeWorkflowId("deploy");
     const response = await handleGetContextValues(
       ctx.repositories,
       ctx.links,

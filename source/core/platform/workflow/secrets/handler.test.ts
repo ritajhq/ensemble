@@ -1,21 +1,10 @@
 import { assertEquals } from "@std/assert";
 import { join } from "@std/path";
-import {
-  encodeWorkflowId,
-  GitRepositoryStore,
-  type GitWriteProvider,
-  WorkflowGitLinkStore,
-} from "@ensemble/core";
-import {
-  handleDeleteSecret,
-  handleDeleteSecretFile,
-  handleGetSecretsContext,
-  handleSetSecret,
-  handleSetSecretFile,
-} from "./handler.ts";
+import * as Core from "@ensemble/core";
+import { SecretsHandlers } from "./handler.ts";
 
 /** In-memory GitWriteProvider fake — no real GitHub API calls needed to test the handlers' own auth/validation logic. */
-function makeFakeGit(): GitWriteProvider & { files: Map<string, Uint8Array> } {
+function makeFakeGit(): Core.GitWrite.GitWriteProvider & { files: Map<string, Uint8Array> } {
   const files = new Map<string, Uint8Array>();
   return {
     files,
@@ -36,9 +25,10 @@ function makeFakeGit(): GitWriteProvider & { files: Map<string, Uint8Array> } {
 
 interface TestContext {
   repoRoot: string;
-  repositories: GitRepositoryStore;
-  links: WorkflowGitLinkStore;
+  repositories: Core.GitRepositories.GitRepositoryStore;
+  links: Core.GitRepositories.WorkflowGitLinkStore;
   git: ReturnType<typeof makeFakeGit>;
+  handlers: SecretsHandlers;
 }
 
 const TOKEN = "test-token";
@@ -60,11 +50,15 @@ async function withContext(
       JSON.stringify({ [TOKEN]: { read: true, upload: true } }),
     );
     Deno.chdir(repoRoot);
+    const repositories = new Core.GitRepositories.GitRepositoryStore(repositoriesKv);
+    const links = new Core.GitRepositories.WorkflowGitLinkStore(linksKv);
+    const git = makeFakeGit();
     await fn({
       repoRoot,
-      repositories: new GitRepositoryStore(repositoriesKv),
-      links: new WorkflowGitLinkStore(linksKv),
-      git: makeFakeGit(),
+      repositories,
+      links,
+      git,
+      handlers: new SecretsHandlers({ repositories, links, git }),
     });
   } finally {
     Deno.chdir(previousCwd);
@@ -106,14 +100,11 @@ async function linkWorkflow(
   });
 }
 
-Deno.test("handleGetSecretsContext: 400 with a clear message when the linked repo has no PAT", async () => {
+Deno.test("handleGetContext: 400 with a clear message when the linked repo has no PAT", async () => {
   await withContext(async (ctx) => {
     await linkWorkflow(ctx, "deploy", "none");
-    const id = encodeWorkflowId("deploy");
-    const response = await handleGetSecretsContext(
-      ctx.repositories,
-      ctx.links,
-      ctx.git,
+    const id = Core.Workflows.encodeWorkflowId("deploy");
+    const response = await ctx.handlers.handleGetContext(
       authedRequest(`http://x/v1/secrets/${id}/production`),
       { workflowId: id, context: "production" },
     );
@@ -126,14 +117,11 @@ Deno.test("handleGetSecretsContext: 400 with a clear message when the linked rep
   });
 });
 
-Deno.test("handleGetSecretsContext: succeeds (200, empty keys) when the linked repo has a PAT", async () => {
+Deno.test("handleGetContext: succeeds (200, empty keys) when the linked repo has a PAT", async () => {
   await withContext(async (ctx) => {
     await linkWorkflow(ctx, "deploy", "pat");
-    const id = encodeWorkflowId("deploy");
-    const response = await handleGetSecretsContext(
-      ctx.repositories,
-      ctx.links,
-      ctx.git,
+    const id = Core.Workflows.encodeWorkflowId("deploy");
+    const response = await ctx.handlers.handleGetContext(
       authedRequest(`http://x/v1/secrets/${id}/production`),
       { workflowId: id, context: "production" },
     );
@@ -147,11 +135,8 @@ Deno.test("handleGetSecretsContext: succeeds (200, empty keys) when the linked r
 Deno.test("handleSetSecret: 400 with a clear message when the linked repo has no PAT", async () => {
   await withContext(async (ctx) => {
     await linkWorkflow(ctx, "deploy", "none");
-    const id = encodeWorkflowId("deploy");
-    const response = await handleSetSecret(
-      ctx.repositories,
-      ctx.links,
-      ctx.git,
+    const id = Core.Workflows.encodeWorkflowId("deploy");
+    const response = await ctx.handlers.handleSetSecret(
       authedRequest(`http://x/v1/secrets/${id}/production/DB_PASSWORD/set`, {
         value: "hunter2",
       }),
@@ -166,14 +151,11 @@ Deno.test("handleSetSecret: 400 with a clear message when the linked repo has no
   });
 });
 
-Deno.test("handleDeleteSecret: 400 with a clear message when the linked repo has no PAT", async () => {
+Deno.test("handleDelete: 400 with a clear message when the linked repo has no PAT", async () => {
   await withContext(async (ctx) => {
     await linkWorkflow(ctx, "deploy", "none");
-    const id = encodeWorkflowId("deploy");
-    const response = await handleDeleteSecret(
-      ctx.repositories,
-      ctx.links,
-      ctx.git,
+    const id = Core.Workflows.encodeWorkflowId("deploy");
+    const response = await ctx.handlers.handleDelete(
       authedRequest(
         `http://x/v1/secrets/${id}/production/DB_PASSWORD/delete`,
         {},
@@ -189,13 +171,10 @@ Deno.test("handleDeleteSecret: 400 with a clear message when the linked repo has
   });
 });
 
-Deno.test("handleGetSecretsContext: 404 when the workflow has no git link at all (distinct from the no-PAT case)", async () => {
+Deno.test("handleGetContext: 404 when the workflow has no git link at all (distinct from the no-PAT case)", async () => {
   await withContext(async (ctx) => {
-    const id = encodeWorkflowId("local-only");
-    const response = await handleGetSecretsContext(
-      ctx.repositories,
-      ctx.links,
-      ctx.git,
+    const id = Core.Workflows.encodeWorkflowId("local-only");
+    const response = await ctx.handlers.handleGetContext(
       authedRequest(`http://x/v1/secrets/${id}/production`),
       { workflowId: id, context: "production" },
     );
@@ -215,7 +194,7 @@ context:
         path: demo.conf
 `;
 
-Deno.test("handleGetSecretsContext: lists declared context.secrets.files entries with their set/unset state", async () => {
+Deno.test("handleGetContext: lists declared context.secrets.files entries with their set/unset state", async () => {
   await withContext(async (ctx) => {
     await linkWorkflow(ctx, "deploy", "pat");
     ctx.git.files.set(
@@ -227,11 +206,8 @@ Deno.test("handleGetSecretsContext: lists declared context.secrets.files entries
       new Uint8Array([1, 2, 3]),
     );
 
-    const id = encodeWorkflowId("deploy");
-    const response = await handleGetSecretsContext(
-      ctx.repositories,
-      ctx.links,
-      ctx.git,
+    const id = Core.Workflows.encodeWorkflowId("deploy");
+    const response = await ctx.handlers.handleGetContext(
       authedRequest(`http://x/v1/secrets/${id}/production`),
       { workflowId: id, context: "production" },
     );
@@ -241,7 +217,7 @@ Deno.test("handleGetSecretsContext: lists declared context.secrets.files entries
   });
 });
 
-Deno.test("handleGetSecretsContext: a declared but unset context.secrets.files entry reports isSet: false", async () => {
+Deno.test("handleGetContext: a declared but unset context.secrets.files entry reports isSet: false", async () => {
   await withContext(async (ctx) => {
     await linkWorkflow(ctx, "deploy", "pat");
     ctx.git.files.set(
@@ -249,11 +225,8 @@ Deno.test("handleGetSecretsContext: a declared but unset context.secrets.files e
       new TextEncoder().encode(DEMO_CONF_WORKFLOW_YML),
     );
 
-    const id = encodeWorkflowId("deploy");
-    const response = await handleGetSecretsContext(
-      ctx.repositories,
-      ctx.links,
-      ctx.git,
+    const id = Core.Workflows.encodeWorkflowId("deploy");
+    const response = await ctx.handlers.handleGetContext(
       authedRequest(`http://x/v1/secrets/${id}/production`),
       { workflowId: id, context: "production" },
     );
@@ -270,11 +243,8 @@ Deno.test("handleSetSecretFile: 400 for a name the workflow doesn't declare unde
       new TextEncoder().encode(DEMO_CONF_WORKFLOW_YML),
     );
 
-    const id = encodeWorkflowId("deploy");
-    const response = await handleSetSecretFile(
-      ctx.repositories,
-      ctx.links,
-      ctx.git,
+    const id = Core.Workflows.encodeWorkflowId("deploy");
+    const response = await ctx.handlers.handleSetSecretFile(
       authedRequest(`http://x/v1/secrets/${id}/production/not_declared/set-file`, {
         contentBase64: btoa("hi"),
       }),
@@ -289,11 +259,8 @@ Deno.test("handleSetSecretFile: 400 for a name the workflow doesn't declare unde
 Deno.test("handleSetSecretFile: 400 with a clear message when the linked repo has no PAT", async () => {
   await withContext(async (ctx) => {
     await linkWorkflow(ctx, "deploy", "none");
-    const id = encodeWorkflowId("deploy");
-    const response = await handleSetSecretFile(
-      ctx.repositories,
-      ctx.links,
-      ctx.git,
+    const id = Core.Workflows.encodeWorkflowId("deploy");
+    const response = await ctx.handlers.handleSetSecretFile(
       authedRequest(`http://x/v1/secrets/${id}/production/demo_conf/set-file`, {
         contentBase64: btoa("hi"),
       }),
@@ -308,25 +275,22 @@ Deno.test("handleSetSecretFile: 400 with a clear message when the linked repo ha
   });
 });
 
-Deno.test("handleSetSecretFile: encrypts and commits the declared entry, then handleDeleteSecretFile removes it", async () => {
+Deno.test("handleSetSecretFile: encrypts and commits the declared entry, then handleDeleteFile removes it", async () => {
   await withContext(async (ctx) => {
     await linkWorkflow(ctx, "deploy", "pat");
     ctx.git.files.set(
       "workflows/deploy/workflow.yml",
       new TextEncoder().encode(DEMO_CONF_WORKFLOW_YML),
     );
-    const { generateKeypair } = await import("@ensemble/workflow");
-    const { publicKey } = await generateKeypair();
+    const { SecretsCrypto } = await import("@ensemble/workflow");
+    const { publicKey } = await SecretsCrypto.generateKeypair();
     ctx.git.files.set(
       ".ensemble/secrets.key.pub",
       new TextEncoder().encode(publicKey),
     );
 
-    const id = encodeWorkflowId("deploy");
-    const setResponse = await handleSetSecretFile(
-      ctx.repositories,
-      ctx.links,
-      ctx.git,
+    const id = Core.Workflows.encodeWorkflowId("deploy");
+    const setResponse = await ctx.handlers.handleSetSecretFile(
       authedRequest(`http://x/v1/secrets/${id}/production/demo_conf/set-file`, {
         contentBase64: btoa("hello world"),
       }),
@@ -340,10 +304,7 @@ Deno.test("handleSetSecretFile: encrypts and commits the declared entry, then ha
       true,
     );
 
-    const deleteResponse = await handleDeleteSecretFile(
-      ctx.repositories,
-      ctx.links,
-      ctx.git,
+    const deleteResponse = await ctx.handlers.handleDeleteFile(
       authedRequest(
         `http://x/v1/secrets/${id}/production/demo_conf/delete-file`,
         {},

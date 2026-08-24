@@ -1,6 +1,6 @@
 import { pooledMap } from "@std/async";
 import type { Job, RepositoryResource, StepIn, Workflow } from "./schema.ts";
-import type { Delegate } from "@ritaj/event";
+import type { Delegate } from "@duesabati/evento";
 import { buildBatches, transitiveDeps } from "./graph.ts";
 import {
   buildRootContext,

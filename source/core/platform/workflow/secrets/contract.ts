@@ -10,21 +10,21 @@ export function noWriteAccessMessage(workflowName: string): string {
   return `Repository "${workflowName}" isn't registered with a write-scoped personal access token — the secrets editor needs one to commit on your behalf. Add one under Git integrations.`;
 }
 
-export interface SecretKeySummary {
+export interface KeySummary {
   key: string;
 }
 
 /** One declared context.secrets.files entry and whether it currently has an encrypted <path>.enc committed. */
-export interface SecretFileSummary {
+export interface FileSummary {
   name: string;
   isSet: boolean;
 }
 
-export interface SecretsContextSummaryResponse {
+export interface ContextSummaryResponse {
   /** Key names only — never a value, matching the dashboard's git integration principle of never round-tripping a stored secret. */
-  keys: SecretKeySummary[];
+  keys: KeySummary[];
   /** Every context.secrets.files entry this workflow declares, whether or not it's been set yet. Empty if the workflow declares none (or its workflow.yml can't be resolved/parsed). */
-  files: SecretFileSummary[];
+  files: FileSummary[];
 }
 
 export interface SetSecretRequest {

@@ -4,8 +4,8 @@ import { load as loadEnv } from "@std/dotenv";
 import { $ } from "@david/dax";
 import { findRepoRoot } from "./repo.ts";
 import { resolveDenoExecutable } from "./deno-exe.ts";
-import { loadKitModes } from "@ensemble/kit-sdk";
-import { getLocalVars, loadLocalConfig } from "./config.ts";
+import * as KitSdk from "@ensemble/kit-sdk";
+import { EnsembleConfigStore } from "./config.ts";
 
 export interface RunPackOptions {
   /** Defaults to the first mode declared in the kit's kit.yml, or "default" if it has none. */
@@ -40,7 +40,7 @@ export async function runPack(
   let mode = options.mode;
   const kitManifest = join(kitDir, "kit.yml");
   if (await exists(kitManifest, { isFile: true })) {
-    const modes = await loadKitModes(kitDir);
+    const modes = await KitSdk.Pack.loadModes(kitDir);
     const [firstMode] = Object.keys(modes);
     if (!firstMode) {
       throw new Error(`Kit manifest at ${kitManifest} declares an empty "modes" map.`);
@@ -65,8 +65,9 @@ export async function runPack(
 
   const envFile = join(workspace, "envs", "pack", `${shipName}.env`);
   const fileVars = await loadEnv({ envPath: envFile, export: false });
-  const localConfig = await loadLocalConfig(repoRoot);
-  const localVars = getLocalVars(localConfig, "pack", shipName);
+  const config = new EnsembleConfigStore(repoRoot);
+  const localConfig = await config.loadLocal();
+  const localVars = config.getVars(localConfig, "pack", shipName);
   const packVars = { ...fileVars, ...localVars, ...options.varOverrides };
 
   // --minimum-dependency-age 0: see the identical flag in build.ts.

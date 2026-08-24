@@ -4,7 +4,7 @@ import { parse as parseYaml } from "@std/yaml";
 import { requireFlag } from "./util.ts";
 
 /** The parameters ens passes to every pack kit invocation. */
-export interface PackKitContext {
+export interface Context {
   /** Absolute path to the ship's directory. */
   ship: string;
   /** Ship name, i.e. its path inside `ship/` (e.g. "web/spa"). */
@@ -39,7 +39,7 @@ function parseVars(raw: string): Record<string, string> {
 }
 
 /** Parses the standard pack kit CLI contract. Call this from a pack kit's entry point. */
-export function getPackKitContext(args: string[] = Deno.args): PackKitContext {
+export function getContext(args: string[] = Deno.args): Context {
   const flags = parseArgs(args, {
     string: ["name", "output-name", "artifacts", "packages", "mode", "vars"],
     boolean: ["watch"],
@@ -69,7 +69,7 @@ export function getPackKitContext(args: string[] = Deno.args): PackKitContext {
 }
 
 /** Reads the `modes` map declared in a pack kit's own `kit.yml` manifest. */
-export async function loadKitModes(kitDir: string): Promise<Record<string, string>> {
+export async function loadModes(kitDir: string): Promise<Record<string, string>> {
   const path = join(kitDir, "kit.yml");
   let text: string;
   try {

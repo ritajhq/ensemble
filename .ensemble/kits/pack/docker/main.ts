@@ -1,12 +1,12 @@
 import { dirname, fromFileUrl, join } from "@std/path";
 import { ensureDir } from "@std/fs";
 import { $ } from "@david/dax";
-import { getPackKitContext, loadKitModes } from "@ensemble/kit-sdk";
+import * as KitSdk from "@ensemble/kit-sdk";
 
 const kitDir = dirname(fromFileUrl(import.meta.url));
-const ctx = getPackKitContext();
+const ctx = KitSdk.Pack.getContext();
 
-const modes = await loadKitModes(kitDir);
+const modes = await KitSdk.Pack.loadModes(kitDir);
 const format = modes[ctx.mode];
 if (!format) {
   const available = Object.keys(modes).join(", ") || "(none declared)";

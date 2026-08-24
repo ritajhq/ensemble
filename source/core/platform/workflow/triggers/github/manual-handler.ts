@@ -1,18 +1,9 @@
-import {
-  assertSelfResolvable,
-  decodeWorkflowId,
-  getWorkflowByName,
-  type GitRepositoryStore,
-  type RunStore,
-  syncWorkflowFromGitLinkIfPresent,
-  trackedRunWorkflowByName,
-  type WorkflowGitLinkStore,
-} from "@ensemble/core";
+import * as Core from "@ensemble/core";
 import { isAuthorizedFor } from "../../../auth/tokens.ts";
 import { findMatchingGithubTrigger } from "./match.ts";
 import {
-  isManualGithubTriggerRequest,
-  type ManualGithubTriggerResponse,
+  isManualTriggerRequest,
+  type ManualTriggerResponse,
 } from "./manual-contract.ts";
 
 /**
@@ -21,10 +12,10 @@ import {
  * optionally a sha) — for workflows that only care about being pushed to,
  * not about any particular commit actually existing.
  */
-export async function handleManualGithubTrigger(
-  repositories: GitRepositoryStore,
-  links: WorkflowGitLinkStore,
-  runs: RunStore,
+export async function handleManual(
+  repositories: Core.GitRepositories.GitRepositoryStore,
+  links: Core.GitRepositories.WorkflowGitLinkStore,
+  runs: Core.Runs.RunStore,
   request: Request,
   params: Record<string, string | undefined>,
 ): Promise<Response> {
@@ -42,7 +33,7 @@ export async function handleManualGithubTrigger(
   }
   let name: string;
   try {
-    name = decodeWorkflowId(id);
+    name = Core.Workflows.decodeWorkflowId(id);
   } catch (error) {
     return Response.json({
       error: error instanceof Error ? error.message : String(error),
@@ -60,7 +51,7 @@ export async function handleManualGithubTrigger(
       });
     }
   }
-  if (!isManualGithubTriggerRequest(body)) {
+  if (!isManualTriggerRequest(body)) {
     return Response.json({ error: "Expected { tag: string, sha?: string }." }, {
       status: 400,
     });
@@ -68,9 +59,9 @@ export async function handleManualGithubTrigger(
 
   let workflow;
   try {
-    await syncWorkflowFromGitLinkIfPresent(repositories, links, name);
-    ({ workflow } = await getWorkflowByName(name));
-    await assertSelfResolvable(workflow, name, repositories, links);
+    await Core.Workflows.syncWorkflowFromGitLinkIfPresent(repositories, links, name);
+    ({ workflow } = await Core.Workflows.getWorkflowByName(name));
+    await Core.Workflows.assertSelfResolvable(workflow, name, repositories, links);
   } catch (error) {
     return Response.json({
       error: error instanceof Error ? error.message : String(error),
@@ -105,7 +96,7 @@ export async function handleManualGithubTrigger(
   }
 
   try {
-    const success = await trackedRunWorkflowByName(runs, name, {
+    const success = await Core.Workflows.trackedRunWorkflowByName(runs, name, {
       trigger: {
         type: "github",
         ref: `refs/tags/${body.tag}`,
@@ -116,7 +107,7 @@ export async function handleManualGithubTrigger(
       repositories,
       links,
     });
-    return Response.json({ success } satisfies ManualGithubTriggerResponse);
+    return Response.json({ success } satisfies ManualTriggerResponse);
   } catch (error) {
     return Response.json({
       error: error instanceof Error ? error.message : String(error),

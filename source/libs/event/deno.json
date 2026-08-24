@@ -1,8 +1,0 @@
-{
-  "name": "@ritaj/event",
-  "license": "MIT",
-  "exports": "./index.ts",
-  "compilerOptions": {
-    "experimentalDecorators": true
-  }
-}

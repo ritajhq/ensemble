@@ -1,26 +1,8 @@
-import type { GitRepositoryStore } from "@ensemble/core";
-import {
-  handleListGitRepositories,
-  handleListRemoteGitTags,
-  handleListRepoWorkflowCandidates,
-  handleRefreshGitRepository,
-  handleRegisterGitRepository,
-  handleRemoveGitRepository,
-  handleSetRepositoryAuth,
-  handleSetRepositorySecretsKey,
-} from "./handler.ts";
+import type * as Core from "@ensemble/core";
+import { GitIntegrationHandlers } from "./handler.ts";
 import type { Feature } from "../../../features.ts";
 
-export {
-  handleListGitRepositories,
-  handleListRemoteGitTags,
-  handleListRepoWorkflowCandidates,
-  handleRefreshGitRepository,
-  handleRegisterGitRepository,
-  handleRemoveGitRepository,
-  handleSetRepositoryAuth,
-  handleSetRepositorySecretsKey,
-} from "./handler.ts";
+export { GitIntegrationHandlers } from "./handler.ts";
 export type {
   GitRepositorySummary,
   ListGitRepositoriesResponse,
@@ -37,14 +19,16 @@ export type {
 
 /** Builds this module's routes, bound to `repositories` — call once at startup with the process's own GitRepositoryStore instance. */
 export function createGitIntegrationFeatures(
-  repositories: GitRepositoryStore,
+  repositories: Core.GitRepositories.GitRepositoryStore,
 ): Feature[] {
+  const handlers = new GitIntegrationHandlers(repositories);
+
   return [
     {
       name: "git-integration-register",
       method: "POST",
       pattern: new URLPattern({ pathname: "/v1/integrations/git/register" }),
-      handle: (request) => handleRegisterGitRepository(repositories, request),
+      handle: (request) => handlers.handleRegisterRepository(request),
     },
     {
       name: "git-integration-repositories-list",
@@ -52,7 +36,7 @@ export function createGitIntegrationFeatures(
       pattern: new URLPattern({
         pathname: "/v1/integrations/git/repositories",
       }),
-      handle: (request) => handleListGitRepositories(repositories, request),
+      handle: (request) => handlers.handleListRepositories(request),
     },
     {
       name: "git-integration-repository-refresh",
@@ -61,7 +45,7 @@ export function createGitIntegrationFeatures(
         pathname: "/v1/integrations/git/repositories/:projectName/refresh",
       }),
       handle: (request, params) =>
-        handleRefreshGitRepository(repositories, request, params),
+        handlers.handleRefreshRepository(request, params),
     },
     {
       name: "git-integration-repository-remove",
@@ -70,7 +54,7 @@ export function createGitIntegrationFeatures(
         pathname: "/v1/integrations/git/repositories/:projectName/remove",
       }),
       handle: (request, params) =>
-        handleRemoveGitRepository(repositories, request, params),
+        handlers.handleRemoveRepository(request, params),
     },
     {
       name: "git-integration-repository-secrets-key-set",
@@ -79,7 +63,7 @@ export function createGitIntegrationFeatures(
         pathname: "/v1/integrations/git/repositories/:projectName/secrets-key",
       }),
       handle: (request, params) =>
-        handleSetRepositorySecretsKey(repositories, request, params),
+        handlers.handleSetRepositorySecretsKey(request, params),
     },
     {
       name: "git-integration-repository-auth-set",
@@ -88,7 +72,7 @@ export function createGitIntegrationFeatures(
         pathname: "/v1/integrations/git/repositories/:projectName/auth",
       }),
       handle: (request, params) =>
-        handleSetRepositoryAuth(repositories, request, params),
+        handlers.handleSetRepositoryAuth(request, params),
     },
     {
       name: "git-integration-repository-candidates-list",
@@ -97,13 +81,13 @@ export function createGitIntegrationFeatures(
         pathname: "/v1/integrations/git/repositories/:projectName/candidates",
       }),
       handle: (request, params) =>
-        handleListRepoWorkflowCandidates(repositories, request, params),
+        handlers.handleListRepoWorkflowCandidates(request, params),
     },
     {
       name: "git-integration-tags-list",
       method: "GET",
       pattern: new URLPattern({ pathname: "/v1/integrations/git/tags" }),
-      handle: (request) => handleListRemoteGitTags(repositories, request),
+      handle: (request) => handlers.handleListRemoteTags(request),
     },
   ];
 }

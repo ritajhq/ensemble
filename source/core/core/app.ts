@@ -2,7 +2,7 @@ import { join } from "@std/path";
 import { exists } from "@std/fs";
 import { $ } from "@david/dax";
 import { findRepoRoot } from "./repo.ts";
-import { setAppBuildKit } from "./config.ts";
+import { EnsembleConfigStore } from "./config.ts";
 import { resolveDenoExecutable } from "./deno-exe.ts";
 
 const APP_NAME_PATTERN = /^[a-zA-Z0-9](?:[a-zA-Z0-9._\-/]*[a-zA-Z0-9])?$/;
@@ -15,8 +15,8 @@ export interface RunAppCreateOptions {
 /**
  * Scaffolds a new app at source/apps/<name> by running its chosen kit's
  * scaffold.ts (the same CLI contract build/pack kits use, see
- * @ensemble/kit-sdk's getScaffoldKitContext), then registers
- * build.<name>.kit in .ensemble/config.yaml via setAppBuildKit — so the app
+ * @ensemble/kit-sdk's Scaffold.getContext), then registers
+ * build.<name>.kit in .ensemble/config.yaml via EnsembleConfigStore.setAppBuildKit — so the app
  * is immediately buildable with `ens build <name>`.
  */
 export async function runAppCreate(options: RunAppCreateOptions): Promise<void> {
@@ -42,7 +42,7 @@ export async function runAppCreate(options: RunAppCreateOptions): Promise<void> 
 
   const denoExe = await resolveDenoExecutable();
   // --minimum-dependency-age 0: see the identical flag in build.ts — kits
-  // depend on first-party @ensemble/*/@ritaj/* packages that a fresh
+  // depend on first-party @ensemble/*/@duesabati/* packages that a fresh
   // release can otherwise trip Deno's default 24h supply-chain guard on.
   const result =
     await $`${denoExe} run -A -q --minimum-dependency-age 0 ${scaffoldEntry} --dest ${sourceDir} --name ${name}`
@@ -52,5 +52,6 @@ export async function runAppCreate(options: RunAppCreateOptions): Promise<void> 
     throw new Error(`Scaffolding "${name}" with kit "${options.kit}" failed.`);
   }
 
-  await setAppBuildKit(repoRoot, name, options.kit);
+  const config = new EnsembleConfigStore(repoRoot);
+  await config.setAppBuildKit(name, options.kit);
 }

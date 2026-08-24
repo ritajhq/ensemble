@@ -2,10 +2,10 @@ import { dirname, isAbsolute, join } from "@std/path";
 import { ensureDir, exists } from "@std/fs";
 import { parse as parseYaml } from "@std/yaml";
 import { $ } from "@david/dax";
-import { getPackKitContext } from "@ensemble/kit-sdk";
+import * as KitSdk from "@ensemble/kit-sdk";
 import { resolveDenoExecutable } from "@ensemble/core";
 
-const ctx = getPackKitContext();
+const ctx = KitSdk.Pack.getContext();
 
 interface CompilePermissions {
   "allow-all"?: boolean;

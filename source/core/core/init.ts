@@ -2,12 +2,7 @@ import { join } from "@std/path";
 import { copy, ensureDir, exists } from "@std/fs";
 import { stringify as stringifyYaml } from "@std/yaml";
 import { $ } from "@david/dax";
-import {
-  encryptValue,
-  generateKeypair,
-  SECRETS_PRIVATE_KEY_PATH,
-  SECRETS_PUBLIC_KEY_PATH,
-} from "@ensemble/workflow";
+import * as Workflow from "@ensemble/workflow";
 
 const ENSEMBLE_REPO_URL = "https://github.com/ritajhq/ensemble.git";
 
@@ -33,7 +28,7 @@ const SKELETON_DIRS = [
 
 const GITIGNORE_TEMPLATE = `.ensemble/kits/**/.bin/
 .ensemble/platform/tokens.json
-${SECRETS_PRIVATE_KEY_PATH}
+${Workflow.SecretsCrypto.SECRETS_PRIVATE_KEY_PATH}
 source/artifacts/
 node_modules/
 `;
@@ -95,7 +90,7 @@ async function fetchKits(destDir: string): Promise<void> {
  * ensemble's own workflows/demo) with an encrypted secret so
  * context.secrets works out of the box, and generates this project's own
  * X25519 keypair for encrypting context.secrets (see @ensemble/workflow's
- * context-loaders/secrets-crypto.ts) — the private key at
+ * SecretsCrypto namespace) — the private key at
  * .ensemble/secrets.key (gitignored, never leaves this machine except when
  * explicitly supplied while registering this repo with a platform server),
  * the public key at .ensemble/secrets.key.pub (meant to be committed — it
@@ -117,13 +112,13 @@ export async function runInit(options: RunInitOptions): Promise<void> {
     await ensureDir(join(projectDir, dir));
   }
 
-  const keypair = await generateKeypair();
+  const keypair = await Workflow.SecretsCrypto.generateKeypair();
   await Deno.writeTextFile(
-    join(projectDir, SECRETS_PRIVATE_KEY_PATH),
+    join(projectDir, Workflow.SecretsCrypto.SECRETS_PRIVATE_KEY_PATH),
     keypair.privateKey + "\n",
   );
   await Deno.writeTextFile(
-    join(projectDir, SECRETS_PUBLIC_KEY_PATH),
+    join(projectDir, Workflow.SecretsCrypto.SECRETS_PUBLIC_KEY_PATH),
     keypair.publicKey + "\n",
   );
 
@@ -138,7 +133,7 @@ export async function runInit(options: RunInitOptions): Promise<void> {
     join(testWorkflowDir, "workflow.yml"),
     TEST_WORKFLOW_TEMPLATE,
   );
-  const encryptedTestSecret = await encryptValue(
+  const encryptedTestSecret = await Workflow.SecretsCrypto.encryptValue(
     keypair.publicKey,
     "hello from ens init",
   );

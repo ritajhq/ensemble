@@ -1,33 +1,10 @@
 import { Command, ValidationError } from "@cliffy/command";
 import { Input, Secret, Select } from "@cliffy/prompt";
-import {
-  createWorkflowArchive,
-  findRepoRoot,
-  getRemoteProfile,
-  getWorkflowByName,
-  listWorkflowContexts,
-  runWorkflowByName,
-  setRemoteProfile,
-} from "@ensemble/core";
-import {
-  emitWorkflowEvent,
-  encryptFile,
-  encryptValue,
-  generateKeypair,
-  isEncryptedMarker,
-  parseWorkflowFile,
-  SECRETS_PRIVATE_KEY_PATH,
-  SECRETS_PUBLIC_KEY_PATH,
-  type WorkflowEvent,
-} from "@ensemble/workflow";
-import { Delegate } from "@ritaj/event";
-import {
-  extractManualInputs,
-  ManualInputError,
-  manualTriggerClient,
-  resolveJobInput,
-  workflowRegistryClient,
-} from "@ensemble/platform";
+import * as Core from "@ensemble/core";
+import * as Workflow from "@ensemble/workflow";
+import { type WorkflowEvent } from "@ensemble/workflow";
+import { Delegate } from "@duesabati/evento";
+import * as Platform from "@ensemble/platform";
 import { load as loadEnv } from "@std/dotenv";
 import { exists } from "@std/fs";
 import { join } from "@std/path";
@@ -56,7 +33,7 @@ const remoteConfigureCommand = new Command()
         "Bearer token for this remote (used for both --remote and upload — must be granted the relevant permission(s) in the server's .ensemble/platform/tokens.json):",
       validate: (value) => value.trim().length > 0 || "Token can't be empty.",
     });
-    await setRemoteProfile(profile, { url, secret });
+    await new Core.Remote.RemoteProfileStore().set(profile, { url, secret });
     console.log(`Saved remote profile "${profile}".`);
   });
 
@@ -71,10 +48,10 @@ const remoteUploadCommand = new Command()
     { required: true },
   )
   .action(async ({ remote }, name) => {
-    const { workflowDir } = await getWorkflowByName(name);
-    const profile = await getRemoteProfile(remote);
-    const archive = await createWorkflowArchive(workflowDir);
-    const client = workflowRegistryClient({
+    const { workflowDir } = await Core.Workflows.getWorkflowByName(name);
+    const profile = await new Core.Remote.RemoteProfileStore().get(remote);
+    const archive = await Core.Workflows.createWorkflowArchive(workflowDir);
+    const client = Platform.Registry.client({
       baseUrl: profile.url,
       token: profile.secret,
     });
@@ -168,8 +145,8 @@ const runCommand = new Command()
       const inputOverrides = CliUtil.parseInputOverrides(inputs ?? []);
       const jobs = job?.flatMap((j) => j.split(","));
       if (remote) {
-        const profile = await getRemoteProfile(remote);
-        const client = manualTriggerClient({
+        const profile = await new Core.Remote.RemoteProfileStore().get(remote);
+        const client = Platform.ManualTrigger.client({
           baseUrl: profile.url,
           token: profile.secret,
         });
@@ -189,18 +166,18 @@ const runCommand = new Command()
       if (triggerJson !== undefined) {
         trigger = JSON.parse(triggerJson);
       } else {
-        const { workflow } = await getWorkflowByName(name);
+        const { workflow } = await Core.Workflows.getWorkflowByName(name);
         const manualTrigger = workflow.on?.find((t) => t.manual)?.manual;
         if (manualTrigger) {
           const declaredInputs = manualTrigger.inputs ?? [];
           try {
-            trigger = extractManualInputs(
+            trigger = Platform.ManualTrigger.extractManualInputs(
               inputOverrides,
               declaredInputs,
               Object.keys(workflow.jobs),
             );
           } catch (error) {
-            if (error instanceof ManualInputError) {
+            if (error instanceof Platform.ManualTrigger.ManualInputError) {
               throw new ValidationError(
                 error.message,
               );
@@ -208,14 +185,14 @@ const runCommand = new Command()
             throw error;
           }
           trigger.type = "manual";
-          resolvedJob ??= resolveJobInput(declaredInputs, trigger);
+          resolvedJob ??= Platform.ManualTrigger.resolveJobInput(declaredInputs, trigger);
         }
       }
 
       const events = emitEvents ? new Delegate<[WorkflowEvent]>() : undefined;
-      events?.Do((event) => emitWorkflowEvent(event));
+      events?.Do((event: WorkflowEvent) => Workflow.emitWorkflowEvent(event));
 
-      const { success } = await runWorkflowByName(name, {
+      const { success } = await Core.Workflows.runWorkflowByName(name, {
         job: resolvedJob,
         concurrency,
         context,
@@ -238,25 +215,25 @@ const secretsInitCommand = new Command()
     "Overwrite an existing keypair. Dangerous: every secret encrypted with the old public key becomes permanently undecryptable.",
   )
   .action(async ({ force }) => {
-    const repoRoot = await findRepoRoot();
-    const privateKeyPath = join(repoRoot, SECRETS_PRIVATE_KEY_PATH);
-    const publicKeyPath = join(repoRoot, SECRETS_PUBLIC_KEY_PATH);
+    const repoRoot = await Core.findRepoRoot();
+    const privateKeyPath = join(repoRoot, Workflow.SecretsCrypto.SECRETS_PRIVATE_KEY_PATH);
+    const publicKeyPath = join(repoRoot, Workflow.SecretsCrypto.SECRETS_PUBLIC_KEY_PATH);
 
     if (!force && await exists(privateKeyPath, { isFile: true })) {
       throw new ValidationError(
-        `${SECRETS_PRIVATE_KEY_PATH} already exists. Re-run with --force to overwrite it — this will permanently break decryption of every secret encrypted with the current key.`,
+        `${Workflow.SecretsCrypto.SECRETS_PRIVATE_KEY_PATH} already exists. Re-run with --force to overwrite it — this will permanently break decryption of every secret encrypted with the current key.`,
       );
     }
 
-    const keypair = await generateKeypair();
+    const keypair = await Workflow.SecretsCrypto.generateKeypair();
     await Deno.mkdir(join(repoRoot, ".ensemble"), { recursive: true });
     await Deno.writeTextFile(privateKeyPath, keypair.privateKey + "\n");
     await Deno.writeTextFile(publicKeyPath, keypair.publicKey + "\n");
 
-    await ensureGitignored(repoRoot, SECRETS_PRIVATE_KEY_PATH);
+    await ensureGitignored(repoRoot, Workflow.SecretsCrypto.SECRETS_PRIVATE_KEY_PATH);
 
     console.log(
-      `Generated ${SECRETS_PRIVATE_KEY_PATH} (gitignored) and ${SECRETS_PUBLIC_KEY_PATH} (safe to commit).`,
+      `Generated ${Workflow.SecretsCrypto.SECRETS_PRIVATE_KEY_PATH} (gitignored) and ${Workflow.SecretsCrypto.SECRETS_PUBLIC_KEY_PATH} (safe to commit).`,
     );
   });
 
@@ -285,8 +262,8 @@ async function resolveContextName(
   provided: string | undefined,
 ): Promise<string> {
   if (provided) return provided;
-  const { workflowDir } = await getWorkflowByName(workflowName);
-  const knownContexts = await listWorkflowContexts(workflowDir);
+  const { workflowDir } = await Core.Workflows.getWorkflowByName(workflowName);
+  const knownContexts = await Core.Workflows.listWorkflowContexts(workflowDir);
   if (knownContexts.length === 0) {
     return await Input.prompt({
       message: "Context name (no existing contexts/ subdirectories found):",
@@ -354,7 +331,7 @@ async function editSecretVariable(
     // Never pre-fills or echoes back an existing value — same principle
     // as the dashboard never round-tripping a stored secret.
   });
-  current[key] = await encryptValue(publicKey, value);
+  current[key] = await Workflow.SecretsCrypto.encryptValue(publicKey, value);
 
   await Deno.mkdir(contextDir, { recursive: true });
   await Deno.writeTextFile(secretsPath, stringifyYaml(current));
@@ -370,7 +347,7 @@ async function editSecretFile(
   publicKey: string,
   workflowDir: string,
 ): Promise<void> {
-  const workflow = await parseWorkflowFile(join(workflowDir, "workflow.yml"));
+  const workflow = await Workflow.Parse.parseWorkflowFile(join(workflowDir, "workflow.yml"));
   const declared = workflow.context?.secrets?.files ?? [];
   if (declared.length === 0) {
     console.log(
@@ -429,7 +406,7 @@ async function editSecretFile(
     validate: (value) => value.trim().length > 0 || "Path can't be empty.",
   });
   const plaintext = await Deno.readFile(localPath.trim());
-  const encrypted = await encryptFile(publicKey, plaintext);
+  const encrypted = await Workflow.SecretsCrypto.encryptFile(publicKey, plaintext);
 
   await Deno.mkdir(secretsDir, { recursive: true });
   await Deno.writeFile(encPath, encrypted);
@@ -444,15 +421,15 @@ const secretsEditCommand = new Command()
   )
   .arguments("<name:string> [context:string]")
   .action(async (_options, name, context) => {
-    const { workflowDir } = await getWorkflowByName(name);
-    const repoRoot = await findRepoRoot();
+    const { workflowDir } = await Core.Workflows.getWorkflowByName(name);
+    const repoRoot = await Core.findRepoRoot();
     const contextName = await resolveContextName(name, context);
     const contextDir = join(workflowDir, "contexts", contextName);
 
-    const publicKeyPath = join(repoRoot, SECRETS_PUBLIC_KEY_PATH);
+    const publicKeyPath = join(repoRoot, Workflow.SecretsCrypto.SECRETS_PUBLIC_KEY_PATH);
     if (!await exists(publicKeyPath, { isFile: true })) {
       throw new ValidationError(
-        `No ${SECRETS_PUBLIC_KEY_PATH} found. Run "ens workflow secrets init" first.`,
+        `No ${Workflow.SecretsCrypto.SECRETS_PUBLIC_KEY_PATH} found. Run "ens workflow secrets init" first.`,
       );
     }
     const publicKey = (await Deno.readTextFile(publicKeyPath)).trim();
@@ -477,7 +454,7 @@ export async function findUnencryptedKeys(
   secretsPath: string,
 ): Promise<string[]> {
   const parsed = await readSecretsFile(secretsPath);
-  return Object.entries(parsed).filter(([, value]) => !isEncryptedMarker(value))
+  return Object.entries(parsed).filter(([, value]) => !Workflow.SecretsCrypto.isEncryptedMarker(value))
     .map(([key]) => key);
 }
 

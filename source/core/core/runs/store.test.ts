@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { RunStore } from "./runs.ts";
+import { RunStore } from "./store.ts";
 
 async function withRunStore(fn: (store: RunStore) => Promise<void>): Promise<void> {
   const kv = await Deno.openKv(":memory:");

@@ -1,13 +1,6 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { join } from "@std/path";
-import {
-  listRepoWorkflowCandidates,
-  registerGitRepository,
-  removeGitRepository,
-  setRepositoryAuth,
-  setRepositorySecretsKey,
-  syncWorkflowFromGit,
-} from "./git-integration.ts";
+import { GitIntegrationService } from "./git-integration.ts";
 import {
   GitRepositoryStore,
   WorkflowGitLinkStore,
@@ -40,6 +33,7 @@ interface TestContext {
   fixtureDir: string;
   repositories: GitRepositoryStore;
   links: WorkflowGitLinkStore;
+  gitIntegration: GitIntegrationService;
 }
 
 /**
@@ -66,11 +60,14 @@ async function withContext(
     await Deno.mkdir(join(repoRoot, "workflows"), { recursive: true });
     await makeFixtureRepo(fixtureDir, files);
     Deno.chdir(repoRoot);
+    const repositories = new GitRepositoryStore(repositoriesKv);
+    const links = new WorkflowGitLinkStore(linksKv);
     await fn({
       repoRoot,
       fixtureDir,
-      repositories: new GitRepositoryStore(repositoriesKv),
-      links: new WorkflowGitLinkStore(linksKv),
+      repositories,
+      links,
+      gitIntegration: new GitIntegrationService(repositories, links),
     });
   } finally {
     Deno.chdir(previousCwd);
@@ -92,7 +89,7 @@ Deno.test("registerGitRepository: validates access and persists a record without
   await withContext(
     { "workflows/deploy/workflow.yml": SIMPLE_WORKFLOW_YML },
     async (ctx) => {
-      const record = await registerGitRepository(ctx.repositories, {
+      const record = await ctx.gitIntegration.register({
         repoUrl: ctx.fixtureDir,
         projectName: "acme",
       });
@@ -112,7 +109,7 @@ Deno.test("registerGitRepository: derives the project name from the repo URL whe
   await withContext(
     { "workflows/deploy/workflow.yml": SIMPLE_WORKFLOW_YML },
     async (ctx) => {
-      const record = await registerGitRepository(ctx.repositories, {
+      const record = await ctx.gitIntegration.register({
         repoUrl: `${ctx.fixtureDir}/`,
       });
       const expectedName = ctx.fixtureDir.split("/").pop();
@@ -125,7 +122,7 @@ Deno.test("registerGitRepository: persists an optional secretsKey", async () => 
   await withContext(
     { "workflows/deploy/workflow.yml": SIMPLE_WORKFLOW_YML },
     async (ctx) => {
-      const record = await registerGitRepository(ctx.repositories, {
+      const record = await ctx.gitIntegration.register({
         repoUrl: ctx.fixtureDir,
         projectName: "acme",
         secretsKey: "the-private-key",
@@ -143,7 +140,7 @@ Deno.test("registerGitRepository: secretsKey is absent when omitted", async () =
   await withContext(
     { "workflows/deploy/workflow.yml": SIMPLE_WORKFLOW_YML },
     async (ctx) => {
-      const record = await registerGitRepository(ctx.repositories, {
+      const record = await ctx.gitIntegration.register({
         repoUrl: ctx.fixtureDir,
         projectName: "acme",
       });
@@ -156,12 +153,11 @@ Deno.test("setRepositorySecretsKey: sets a key on an already-registered reposito
   await withContext(
     { "workflows/deploy/workflow.yml": SIMPLE_WORKFLOW_YML },
     async (ctx) => {
-      const original = await registerGitRepository(ctx.repositories, {
+      const original = await ctx.gitIntegration.register({
         repoUrl: ctx.fixtureDir,
         projectName: "acme",
       });
-      const updated = await setRepositorySecretsKey(
-        ctx.repositories,
+      const updated = await ctx.gitIntegration.setRepositorySecretsKey(
         "acme",
         "rotated-key",
       );
@@ -175,7 +171,7 @@ Deno.test("setRepositorySecretsKey: sets a key on an already-registered reposito
 Deno.test("setRepositorySecretsKey: throws for an unregistered project", async () => {
   await withContext({ "README.md": "unused" }, async (ctx) => {
     await assertRejects(
-      () => setRepositorySecretsKey(ctx.repositories, "nonexistent", "key"),
+      () => ctx.gitIntegration.setRepositorySecretsKey("nonexistent", "key"),
       Error,
       "not registered",
     );
@@ -186,13 +182,12 @@ Deno.test("setRepositoryAuth: updates auth on an already-registered repository w
   await withContext(
     { "workflows/deploy/workflow.yml": SIMPLE_WORKFLOW_YML },
     async (ctx) => {
-      const original = await registerGitRepository(ctx.repositories, {
+      const original = await ctx.gitIntegration.register({
         repoUrl: ctx.fixtureDir,
         projectName: "acme",
         secretsKey: "existing-key",
       });
-      const updated = await setRepositoryAuth(
-        ctx.repositories,
+      const updated = await ctx.gitIntegration.setRepositoryAuth(
         "acme",
         { type: "pat", token: "ghp_rotated" },
       );
@@ -207,7 +202,7 @@ Deno.test("setRepositoryAuth: updates auth on an already-registered repository w
 Deno.test("setRepositoryAuth: throws for an unregistered project", async () => {
   await withContext({ "README.md": "unused" }, async (ctx) => {
     await assertRejects(
-      () => setRepositoryAuth(ctx.repositories, "nonexistent", { type: "none" }),
+      () => ctx.gitIntegration.setRepositoryAuth("nonexistent", { type: "none" }),
       Error,
       "not registered",
     );
@@ -218,7 +213,7 @@ Deno.test("setRepositoryAuth: re-validates access, throwing (and not persisting)
   await withContext(
     { "workflows/deploy/workflow.yml": SIMPLE_WORKFLOW_YML },
     async (ctx) => {
-      const original = await registerGitRepository(ctx.repositories, {
+      const original = await ctx.gitIntegration.register({
         repoUrl: ctx.fixtureDir,
         projectName: "acme",
       });
@@ -228,7 +223,7 @@ Deno.test("setRepositoryAuth: re-validates access, throwing (and not persisting)
       // registration itself does.
       await Deno.remove(ctx.fixtureDir, { recursive: true });
       await assertRejects(
-        () => setRepositoryAuth(ctx.repositories, "acme", { type: "none" }),
+        () => ctx.gitIntegration.setRepositoryAuth("acme", { type: "none" }),
         Error,
       );
       const stillOriginal = await ctx.repositories.get("acme");
@@ -251,7 +246,7 @@ Deno.test("registerGitRepository: an invalid PAT against a real HTTPS remote sur
   await withContext({ "README.md": "unused" }, async (ctx) => {
     const error = await assertRejects(
       () =>
-        registerGitRepository(ctx.repositories, {
+        ctx.gitIntegration.register({
           repoUrl: "https://github.com/octocat/Spoon-Knife",
           projectName: "spoon-knife",
           auth: { type: "pat", token: "ghp_definitely_invalid_test_token" },
@@ -269,7 +264,7 @@ Deno.test("registerGitRepository: throws when the repo has no workflows/ folder"
   await withContext({ "README.md": "hi" }, async (ctx) => {
     await assertRejects(
       () =>
-        registerGitRepository(ctx.repositories, {
+        ctx.gitIntegration.register({
           repoUrl: ctx.fixtureDir,
           projectName: "acme",
         }),
@@ -291,12 +286,11 @@ jobs:
 `,
     "workflows/local-only/workflow.yml": SIMPLE_WORKFLOW_YML,
   }, async (ctx) => {
-    await registerGitRepository(ctx.repositories, {
+    await ctx.gitIntegration.register({
       repoUrl: ctx.fixtureDir,
       projectName: "acme",
     });
-    const candidates = await listRepoWorkflowCandidates(
-      ctx.repositories,
+    const candidates = await ctx.gitIntegration.listRepoWorkflowCandidates(
       "acme",
     );
     const byPath = Object.fromEntries(
@@ -309,7 +303,7 @@ jobs:
 Deno.test("listRepoWorkflowCandidates: throws for an unregistered project", async () => {
   await withContext({ "README.md": "unused" }, async (ctx) => {
     await assertRejects(
-      () => listRepoWorkflowCandidates(ctx.repositories, "nonexistent"),
+      () => ctx.gitIntegration.listRepoWorkflowCandidates("nonexistent"),
       Error,
       "not registered",
     );
@@ -320,17 +314,11 @@ Deno.test("syncWorkflowFromGit: copies content into workflows/<name> and records
   await withContext(
     { "workflows/deploy/workflow.yml": SIMPLE_WORKFLOW_YML },
     async (ctx) => {
-      await registerGitRepository(ctx.repositories, {
+      await ctx.gitIntegration.register({
         repoUrl: ctx.fixtureDir,
         projectName: "acme",
       });
-      await syncWorkflowFromGit(
-        ctx.repositories,
-        ctx.links,
-        "my-workflow",
-        "acme",
-        "deploy",
-      );
+      await ctx.gitIntegration.sync("my-workflow", "acme", "deploy");
 
       const content = await Deno.readTextFile(
         join(ctx.repoRoot, "workflows", "my-workflow", "workflow.yml"),
@@ -348,19 +336,13 @@ Deno.test("syncWorkflowFromGit: throws (and doesn't touch the live dir) when the
   await withContext(
     { "workflows/deploy/workflow.yml": SIMPLE_WORKFLOW_YML },
     async (ctx) => {
-      await registerGitRepository(ctx.repositories, {
+      await ctx.gitIntegration.register({
         repoUrl: ctx.fixtureDir,
         projectName: "acme",
       });
       await assertRejects(
         () =>
-          syncWorkflowFromGit(
-            ctx.repositories,
-            ctx.links,
-            "my-workflow",
-            "acme",
-            "nonexistent",
-          ),
+          ctx.gitIntegration.sync("my-workflow", "acme", "nonexistent"),
         Error,
         "workflow.yml",
       );
@@ -377,18 +359,12 @@ Deno.test("syncWorkflowFromGit: throws for an invalid workflow.yml without touch
   await withContext(
     { "workflows/broken/workflow.yml": "not: [valid" },
     async (ctx) => {
-      await registerGitRepository(ctx.repositories, {
+      await ctx.gitIntegration.register({
         repoUrl: ctx.fixtureDir,
         projectName: "acme",
       });
       await assertRejects(() =>
-        syncWorkflowFromGit(
-          ctx.repositories,
-          ctx.links,
-          "my-workflow",
-          "acme",
-          "broken",
-        )
+        ctx.gitIntegration.sync("my-workflow", "acme", "broken")
       );
 
       const exists = await Deno.stat(
@@ -403,17 +379,11 @@ Deno.test("syncWorkflowFromGit: a second sync with the remote unchanged skips re
   await withContext(
     { "workflows/deploy/workflow.yml": SIMPLE_WORKFLOW_YML },
     async (ctx) => {
-      await registerGitRepository(ctx.repositories, {
+      await ctx.gitIntegration.register({
         repoUrl: ctx.fixtureDir,
         projectName: "acme",
       });
-      await syncWorkflowFromGit(
-        ctx.repositories,
-        ctx.links,
-        "my-workflow",
-        "acme",
-        "deploy",
-      );
+      await ctx.gitIntegration.sync("my-workflow", "acme", "deploy");
       const recordAfterFirstSync = await ctx.repositories.get("acme");
       assertEquals(typeof recordAfterFirstSync?.lastFetchedSha, "string");
 
@@ -426,13 +396,7 @@ Deno.test("syncWorkflowFromGit: a second sync with the remote unchanged skips re
       );
       const mtimeBefore = (await Deno.stat(cacheDir)).mtime;
 
-      await syncWorkflowFromGit(
-        ctx.repositories,
-        ctx.links,
-        "my-workflow",
-        "acme",
-        "deploy",
-      );
+      await ctx.gitIntegration.sync("my-workflow", "acme", "deploy");
 
       // A real re-clone deletes and recreates this directory (see
       // refreshRepoCache), which would bump its mtime — unchanged mtime
@@ -452,17 +416,11 @@ Deno.test("syncWorkflowFromGit: picks up new content once the remote SHA actuall
   await withContext(
     { "workflows/deploy/workflow.yml": SIMPLE_WORKFLOW_YML },
     async (ctx) => {
-      await registerGitRepository(ctx.repositories, {
+      await ctx.gitIntegration.register({
         repoUrl: ctx.fixtureDir,
         projectName: "acme",
       });
-      await syncWorkflowFromGit(
-        ctx.repositories,
-        ctx.links,
-        "my-workflow",
-        "acme",
-        "deploy",
-      );
+      await ctx.gitIntegration.sync("my-workflow", "acme", "deploy");
 
       const updatedContent = SIMPLE_WORKFLOW_YML + "\n# updated\n";
       await Deno.writeTextFile(
@@ -478,13 +436,7 @@ Deno.test("syncWorkflowFromGit: picks up new content once the remote SHA actuall
       };
       await run(["commit", "-aqm", "update workflow"]);
 
-      await syncWorkflowFromGit(
-        ctx.repositories,
-        ctx.links,
-        "my-workflow",
-        "acme",
-        "deploy",
-      );
+      await ctx.gitIntegration.sync("my-workflow", "acme", "deploy");
 
       const content = await Deno.readTextFile(
         join(ctx.repoRoot, "workflows", "my-workflow", "workflow.yml"),
@@ -498,19 +450,13 @@ Deno.test("removeGitRepository: deletes the record but leaves workflows/ untouch
   await withContext(
     { "workflows/deploy/workflow.yml": SIMPLE_WORKFLOW_YML },
     async (ctx) => {
-      await registerGitRepository(ctx.repositories, {
+      await ctx.gitIntegration.register({
         repoUrl: ctx.fixtureDir,
         projectName: "acme",
       });
-      await syncWorkflowFromGit(
-        ctx.repositories,
-        ctx.links,
-        "my-workflow",
-        "acme",
-        "deploy",
-      );
+      await ctx.gitIntegration.sync("my-workflow", "acme", "deploy");
 
-      await removeGitRepository(ctx.repositories, "acme");
+      await ctx.gitIntegration.remove("acme");
 
       assertEquals(await ctx.repositories.get("acme"), undefined);
       const content = await Deno.readTextFile(

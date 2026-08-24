@@ -1,8 +1,4 @@
-import type {
-  GitRepositoryStore,
-  RunStore,
-  WorkflowGitLinkStore,
-} from "@ensemble/core";
+import * as Core from "@ensemble/core";
 import { createGithubTriggerFeatures } from "./workflow/triggers/github/index.ts";
 import { createManualTriggerFeature } from "./workflow/triggers/manual/index.ts";
 import { workflowRegistryFeature } from "./workflow/registry/index.ts";
@@ -14,14 +10,20 @@ import { createDebugFeature } from "./debug/index.ts";
 import type { Feature } from "./features.ts";
 
 export { type Feature, isFeatureEnabled } from "./features.ts";
-export * from "./workflow/index.ts";
-export * from "./workflow/secrets/index.ts";
-export * from "./workflow/context-values/index.ts";
+
+export * as ManualTrigger from "./workflow/triggers/manual/index.ts";
+export * as GithubTrigger from "./workflow/triggers/github/index.ts";
+export * as Registry from "./workflow/registry/index.ts";
+export * as Dashboard from "./workflow/dashboard/index.ts";
+export * as GitIntegration from "./workflow/integrations/git/index.ts";
+export * as Secrets from "./workflow/secrets/index.ts";
+export * as ContextValues from "./workflow/context-values/index.ts";
+export * as Debug from "./debug/index.ts";
 
 export interface PlatformStores {
-  repositories: GitRepositoryStore;
-  links: WorkflowGitLinkStore;
-  runs: RunStore;
+  repositories: Core.GitRepositories.GitRepositoryStore;
+  links: Core.GitRepositories.WorkflowGitLinkStore;
+  runs: Core.Runs.RunStore;
 }
 
 /**

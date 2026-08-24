@@ -1,13 +1,9 @@
-import {
-  decodeWorkflowId,
-  type GitRepositoryStore,
-  type GitWriteProvider,
-  type WorkflowGitLinkStore,
-} from "@ensemble/core";
-import { type Context, parseWorkflowText } from "@ensemble/workflow";
+import * as Core from "@ensemble/core";
+import * as Workflow from "@ensemble/workflow";
+import type { Context } from "@ensemble/workflow";
 import { parse as parseYaml } from "@std/yaml";
 import { isAuthorizedFor } from "../../auth/tokens.ts";
-import type { ContextValuesSummaryResponse } from "./contract.ts";
+import type { SummaryResponse } from "./contract.ts";
 
 /** Reads/validates the common :workflowId/:context route params, decoding the base64url workflow id to its real name. */
 function resolveParams(
@@ -23,7 +19,7 @@ function resolveParams(
     };
   }
   try {
-    return { workflowName: decodeWorkflowId(id), context };
+    return { workflowName: Core.Workflows.decodeWorkflowId(id), context };
   } catch (error) {
     return {
       errorResponse: Response.json({
@@ -35,14 +31,14 @@ function resolveParams(
 
 /** Same git target resolution as the secrets editor (see secrets/handler.ts's resolveGitTarget) — only workflows with a WorkflowGitLink expose this dashboard view. */
 async function resolveGitTarget(
-  repositories: GitRepositoryStore,
-  links: WorkflowGitLinkStore,
+  repositories: Core.GitRepositories.GitRepositoryStore,
+  links: Core.GitRepositories.WorkflowGitLinkStore,
   workflowName: string,
   context: string,
 ): Promise<
   {
     repoUrl: string;
-    auth: import("@ensemble/core").GitAuthStrategy;
+    auth: Core.GitRepositories.GitAuthStrategy;
     variablesPath: string;
     workflowYmlPath: string;
   } | { errorResponse: Response }
@@ -74,15 +70,15 @@ async function resolveGitTarget(
 
 /** Fetches and parses this workflow's own workflow.yml, or undefined if it can't be found/parsed. */
 async function readWorkflow(
-  git: GitWriteProvider,
+  git: Core.GitWrite.GitWriteProvider,
   repoUrl: string,
-  auth: import("@ensemble/core").GitAuthStrategy,
+  auth: Core.GitRepositories.GitAuthStrategy,
   workflowYmlPath: string,
 ): Promise<Context | undefined> {
   try {
     const bytes = await git.getFile(repoUrl, auth, workflowYmlPath);
     if (bytes === undefined) return undefined;
-    const workflow = parseWorkflowText(
+    const workflow = Workflow.Parse.parseWorkflowText(
       workflowYmlPath,
       new TextDecoder().decode(bytes),
     );
@@ -94,9 +90,9 @@ async function readWorkflow(
 
 /** Reads `contexts/<context>/variables.yml` — a plaintext `KEY: value` map, same convention as context-loaders/local.ts's createLocalLoader, just fetched from git instead of disk. */
 async function readVariablesMap(
-  git: GitWriteProvider,
+  git: Core.GitWrite.GitWriteProvider,
   repoUrl: string,
-  auth: import("@ensemble/core").GitAuthStrategy,
+  auth: Core.GitRepositories.GitAuthStrategy,
   path: string,
 ): Promise<Record<string, string>> {
   const content = await git.getFile(repoUrl, auth, path);
@@ -108,9 +104,9 @@ async function readVariablesMap(
 
 /** GET /v1/context-values/:workflowId/:context — resolved variable values (variables.yml, falling back to workflow.yml's own inline value/default) and declared file paths. Read-only, plaintext by design — never used for secrets. */
 export async function handleGetContextValues(
-  repositories: GitRepositoryStore,
-  links: WorkflowGitLinkStore,
-  git: GitWriteProvider,
+  repositories: Core.GitRepositories.GitRepositoryStore,
+  links: Core.GitRepositories.WorkflowGitLinkStore,
+  git: Core.GitWrite.GitWriteProvider,
   request: Request,
   params: Record<string, string | undefined>,
 ): Promise<Response> {
@@ -157,7 +153,7 @@ export async function handleGetContextValues(
     }));
 
     return Response.json(
-      { variables, files } satisfies ContextValuesSummaryResponse,
+      { variables, files } satisfies SummaryResponse,
     );
   } catch (error) {
     return Response.json({

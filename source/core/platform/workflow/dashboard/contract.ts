@@ -1,4 +1,4 @@
-import type { JobStatus, RunRecord, RunStatus, StepLog, StepRecord, WorkflowFileNode } from "@ensemble/core";
+import type * as Core from "@ensemble/core";
 import type { ManualInput } from "@ensemble/workflow";
 
 export interface WorkflowManualTriggerSummary {
@@ -23,7 +23,7 @@ export interface WorkflowSummary {
   /** URL-safe id — use this (not `name`) when building a route/API path for this workflow. */
   id: string;
   name: string;
-  lastStatus?: RunStatus;
+  lastStatus?: Core.Runs.RunStatus;
   lastRunAt?: string;
   /** This workflow's declared `on:` triggers, if any — empty when it only runs via direct invocation. */
   triggers: WorkflowTriggerSummary[];
@@ -89,11 +89,11 @@ export interface RenameWorkflowResponse {
 }
 
 export interface ListRunsResponse {
-  runs: RunRecord[];
+  runs: Core.Runs.RunRecord[];
 }
 
 export interface ListWorkflowFilesResponse {
-  files: WorkflowFileNode[];
+  files: Core.Workflows.WorkflowFileNode[];
 }
 
 export interface ReadWorkflowFileResponse {
@@ -119,7 +119,7 @@ export interface RunJobNode {
 }
 
 export interface ListRunStepsResponse {
-  steps: StepRecord[];
+  steps: Core.Runs.StepRecord[];
   /** Every job the workflow declares (not just ones this run happened to touch), for rendering its dependency graph regardless of run outcome. */
   jobs: RunJobNode[];
 }
@@ -130,4 +130,3 @@ export interface GetStepLogResponse {
   truncated: boolean;
 }
 
-export type { JobStatus, RunRecord, RunStatus, StepLog, StepRecord, WorkflowFileNode };

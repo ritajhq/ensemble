@@ -1,5 +1,5 @@
 import { Command } from "@cliffy/command";
-import { getInstalledVersion } from "@ensemble/core";
+import * as Core from "@ensemble/core";
 import { appCommand } from "./commands/app.ts";
 import { buildCommand } from "./commands/build.ts";
 import { configCommand } from "./commands/config.ts";
@@ -10,7 +10,7 @@ import { formatVersion, versionCommand } from "./commands/version.ts";
 import { workflowCommand } from "./commands/workflow.ts";
 
 try {
-  const installed = await getInstalledVersion();
+  const installed = await new Core.Version.SelfUpdateService().getInstalledVersion();
   const version = installed ? formatVersion(installed) : "unknown (no install marker found)";
 
   await new Command()

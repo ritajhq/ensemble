@@ -1,7 +1,7 @@
 import { Command } from "@cliffy/command";
 import { Input } from "@cliffy/prompt";
 import { runInit } from "@ensemble/core";
-import { SECRETS_PUBLIC_KEY_PATH } from "@ensemble/workflow";
+import * as Workflow from "@ensemble/workflow";
 
 export const initCommand = new Command()
   .name("init")
@@ -15,7 +15,7 @@ export const initCommand = new Command()
     await runInit({ name });
     console.log(`\nGenerated a secrets keypair for this project.`);
     console.log(
-      `Commit ${name}/${SECRETS_PUBLIC_KEY_PATH} — it lets encrypted context.secrets be added later.`,
+      `Commit ${name}/${Workflow.SecretsCrypto.SECRETS_PUBLIC_KEY_PATH} — it lets encrypted context.secrets be added later.`,
     );
     console.log(
       `Never commit ${name}/.ensemble/secrets.key (already in .gitignore).`,

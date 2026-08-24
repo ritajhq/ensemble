@@ -1,7 +1,7 @@
 import { dirname, fromFileUrl, join } from "@std/path";
 import { ensureDir, exists, expandGlob } from "@std/fs";
 import { $ } from "@david/dax";
-import { getKitContext, type KitContext } from "@ensemble/kit-sdk";
+import * as KitSdk from "@ensemble/kit-sdk";
 import { resolveDenoExecutable } from "@ensemble/core";
 
 const TAILWIND_RELEASE_BASE =
@@ -77,7 +77,7 @@ function buildEnvScript(vars: Record<string, string>): string {
  * (used for asset URLs) and the `{{ensemble:env}}` placeholder (replaced with
  * the globalThis.env script tag) via plain text substitution.
  */
-async function writeIndexHtml(ctx: KitContext): Promise<void> {
+async function writeIndexHtml(ctx: KitSdk.Build.Context): Promise<void> {
   const templatePath = join(ctx.source, "public", "index.html");
   const base = ctx.vars.BASE ?? "/";
 
@@ -94,7 +94,7 @@ async function writeIndexHtml(ctx: KitContext): Promise<void> {
  * without this, editing public/index.html while `ens build web --watch` is
  * running would silently keep serving whatever was rendered at startup.
  */
-async function watchIndexHtml(ctx: KitContext): Promise<void> {
+async function watchIndexHtml(ctx: KitSdk.Build.Context): Promise<void> {
   const templatePath = join(ctx.source, "public", "index.html");
   const watcher = Deno.watchFs(templatePath);
   for await (const event of watcher) {
@@ -145,7 +145,7 @@ async function touchCssOutOnChange(cssEntry: string, cssOut: string): Promise<vo
   }
 }
 
-const ctx = getKitContext();
+const ctx = KitSdk.Build.getContext();
 const kitDir = dirname(fromFileUrl(import.meta.url));
 
 await writeIndexHtml(ctx);

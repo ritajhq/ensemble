@@ -1,7 +1,7 @@
 import { createHandleDebugInfo } from "./handler.ts";
 import type { Feature } from "../features.ts";
 
-export { type DebugInfoResponse } from "./handler.ts";
+export { type InfoResponse } from "./handler.ts";
 
 /**
  * `mountedFeatures` should be every other feature's `name` (i.e. what

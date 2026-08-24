@@ -1,11 +1,7 @@
-import { Delegate } from "@ritaj/event";
-import type {
-  JobResult,
-  RunWorkflowResult,
-  StepResult,
-  WorkflowEvent,
-} from "@ensemble/workflow";
-import { publishRunUpdate } from "./runs-broadcast.ts";
+import { Delegate } from "@duesabati/evento";
+import type { WorkflowEvent } from "@ensemble/workflow";
+import type * as Workflow from "@ensemble/workflow";
+import { RunUpdateBroadcaster } from "./broadcaster.ts";
 
 export type RunStatus = "pending" | "in_progress" | "succeeded" | "failed";
 export type JobStatus =
@@ -53,13 +49,13 @@ export interface StepLog {
   truncated: boolean;
 }
 
-function mapJobResult(result: JobResult): JobStatus {
+function mapJobResult(result: Workflow.RunContext.JobResult): JobStatus {
   if (result === "success") return "succeeded";
   if (result === "failure") return "failed";
   return result;
 }
 
-function mapStepResult(result: StepResult): StepStatus {
+function mapStepResult(result: Workflow.RunContext.StepResult): StepStatus {
   if (result === "success") return "succeeded";
   if (result === "failure") return "failed";
   return result;
@@ -110,7 +106,15 @@ export class RunStore {
    */
   private readonly deletedWhileInProgress = new Set<string>();
 
-  constructor(private readonly kv: Deno.Kv) {}
+  constructor(
+    private readonly kv: Deno.Kv,
+    private readonly broadcaster: RunUpdateBroadcaster = new RunUpdateBroadcaster(),
+  ) {}
+
+  /** Subscribes to every live update published for `runId`. Returns a function that unsubscribes. */
+  subscribe(runId: string, callback: (record: RunRecord) => void): () => void {
+    return this.broadcaster.subscribe(runId, callback);
+  }
 
   /** Writes `record`, unless its runId was deleted while still in_progress — in that case the write is silently dropped. */
   private async putRun(record: RunRecord): Promise<void> {
@@ -135,7 +139,7 @@ export class RunStore {
    * called on every event during a run, so it must never throw.
    */
   private persistAndPublish(record: RunRecord): void {
-    publishRunUpdate(record.runId, record);
+    this.broadcaster.publish(record.runId, record);
     this.putRun(record).catch((error) => {
       console.error(`Failed to persist run ${record.runId}:`, error);
     });
@@ -330,7 +334,7 @@ export class RunStore {
   async trackedRunWorkflow(
     workflowName: string,
     meta: { trigger?: Record<string, unknown>; context?: string } | undefined,
-    run: (events: Delegate<[WorkflowEvent]>) => Promise<RunWorkflowResult>,
+    run: (events: Delegate<[WorkflowEvent]>) => Promise<Workflow.RunWorkflow.Result>,
   ): Promise<boolean> {
     const runId = crypto.randomUUID();
     const startedAt = new Date().toISOString();
@@ -407,7 +411,7 @@ export class RunStore {
       trigger,
       context,
     });
-    publishRunUpdate(runId, {
+    this.broadcaster.publish(runId, {
       runId,
       workflowName,
       status: "in_progress",
@@ -432,7 +436,7 @@ export class RunStore {
         context,
       };
       await this.putRun(record);
-      publishRunUpdate(runId, record);
+      this.broadcaster.publish(runId, record);
       return success;
     } catch (error) {
       const record: RunRecord = {
@@ -447,7 +451,7 @@ export class RunStore {
         context,
       };
       await this.putRun(record);
-      publishRunUpdate(runId, record);
+      this.broadcaster.publish(runId, record);
       throw error;
     } finally {
       // No more writes for this runId will happen after this point, so the

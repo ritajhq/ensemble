@@ -1,5 +1,5 @@
 import { Command, EnumType } from "@cliffy/command";
-import { getInstalledVersion, installNext, installSet } from "@ensemble/core";
+import * as Core from "@ensemble/core";
 
 export function formatVersion(v: { major: number; minor: number; patch: number; preRelease?: string }): string {
   return `${v.major}.${v.minor}.${v.patch}${v.preRelease ? `-${v.preRelease}` : ""}`;
@@ -9,7 +9,8 @@ export const versionCommand = new Command()
   .name("version")
   .description("Show or change the installed ens version.")
   .action(async () => {
-    const current = await getInstalledVersion();
+    const selfUpdate = new Core.Version.SelfUpdateService();
+    const current = await selfUpdate.getInstalledVersion();
     console.log(current ? formatVersion(current) : "unknown (no install marker found)");
   })
   .command(
@@ -19,7 +20,8 @@ export const versionCommand = new Command()
       .type("bump", new EnumType(["patch", "minor", "major"]))
       .arguments("<bump:bump>")
       .action(async (_options, bump) => {
-        const result = await installNext(bump);
+        const selfUpdate = new Core.Version.SelfUpdateService();
+        const result = await selfUpdate.installNext(bump);
         console.log(
           result.previous
             ? `Updated ens ${formatVersion(result.previous)} -> ${result.tag}`
@@ -33,7 +35,8 @@ export const versionCommand = new Command()
       .description("Install a specific released version, if it exists.")
       .arguments("<version:string>")
       .action(async (_options, version) => {
-        const result = await installSet(version);
+        const selfUpdate = new Core.Version.SelfUpdateService();
+        const result = await selfUpdate.installSet(version);
         console.log(
           result.previous
             ? `Updated ens ${formatVersion(result.previous)} -> ${result.tag}`

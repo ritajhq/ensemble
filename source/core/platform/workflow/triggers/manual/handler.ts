@@ -1,13 +1,4 @@
-import {
-  assertSelfResolvable,
-  decodeWorkflowId,
-  getWorkflowByName,
-  type GitRepositoryStore,
-  type RunStore,
-  syncWorkflowFromGitLinkIfPresent,
-  trackedRunWorkflowByName,
-  type WorkflowGitLinkStore,
-} from "@ensemble/core";
+import * as Core from "@ensemble/core";
 import { isAuthorizedFor } from "../../../auth/tokens.ts";
 import {
   extractManualInputs,
@@ -15,14 +6,14 @@ import {
   resolveJobInput,
 } from "./extract.ts";
 import {
-  isManualTriggerRequest,
-  type ManualTriggerResponse,
+  isTriggerRequest,
+  type TriggerResponse,
 } from "./contract.ts";
 
-export async function handleManualTrigger(
-  repositories: GitRepositoryStore,
-  links: WorkflowGitLinkStore,
-  runs: RunStore,
+export async function handle(
+  repositories: Core.GitRepositories.GitRepositoryStore,
+  links: Core.GitRepositories.WorkflowGitLinkStore,
+  runs: Core.Runs.RunStore,
   request: Request,
   params: Record<string, string | undefined>,
 ): Promise<Response> {
@@ -40,7 +31,7 @@ export async function handleManualTrigger(
   }
   let name: string;
   try {
-    name = decodeWorkflowId(id);
+    name = Core.Workflows.decodeWorkflowId(id);
   } catch (error) {
     return Response.json({
       error: error instanceof Error ? error.message : String(error),
@@ -58,7 +49,7 @@ export async function handleManualTrigger(
       });
     }
   }
-  if (!isManualTriggerRequest(body)) {
+  if (!isTriggerRequest(body)) {
     return Response.json({
       error:
         "Expected { job?: string | string[], concurrency?: number, variables?: Record<string,string>, context?: string, inputs?: Record<string,unknown> }.",
@@ -67,9 +58,9 @@ export async function handleManualTrigger(
 
   let workflow;
   try {
-    await syncWorkflowFromGitLinkIfPresent(repositories, links, name);
-    ({ workflow } = await getWorkflowByName(name));
-    await assertSelfResolvable(workflow, name, repositories, links);
+    await Core.Workflows.syncWorkflowFromGitLinkIfPresent(repositories, links, name);
+    ({ workflow } = await Core.Workflows.getWorkflowByName(name));
+    await Core.Workflows.assertSelfResolvable(workflow, name, repositories, links);
   } catch (error) {
     return Response.json({
       error: error instanceof Error ? error.message : String(error),
@@ -104,7 +95,7 @@ export async function handleManualTrigger(
   trigger.type = "manual";
 
   try {
-    const success = await trackedRunWorkflowByName(runs, name, {
+    const success = await Core.Workflows.trackedRunWorkflowByName(runs, name, {
       job: body.job ?? resolveJobInput(declaredInputs, trigger),
       concurrency: body.concurrency,
       variables: body.variables,
@@ -113,7 +104,7 @@ export async function handleManualTrigger(
       repositories,
       links,
     });
-    return Response.json({ success } satisfies ManualTriggerResponse);
+    return Response.json({ success } satisfies TriggerResponse);
   } catch (error) {
     return Response.json({
       error: error instanceof Error ? error.message : String(error),

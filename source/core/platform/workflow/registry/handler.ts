@@ -1,7 +1,8 @@
 import { dirname, join } from "@std/path";
 import { ensureDir, exists } from "@std/fs";
-import { decodeWorkflowId, findRepoRoot } from "@ensemble/core";
-import { parseWorkflowFile } from "@ensemble/workflow";
+import * as Core from "@ensemble/core";
+import { findRepoRoot } from "@ensemble/core";
+import * as Workflow from "@ensemble/workflow";
 import { isAuthorizedFor } from "../../auth/tokens.ts";
 import { extractTarGz } from "./extract.ts";
 
@@ -34,7 +35,7 @@ export async function handleUploadWorkflow(
   }
   let name: string;
   try {
-    name = decodeWorkflowId(id);
+    name = Core.Workflows.decodeWorkflowId(id);
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 });
   }
@@ -58,7 +59,7 @@ export async function handleUploadWorkflow(
   }
 
   try {
-    await parseWorkflowFile(join(stagingDir, "workflow.yml"));
+    await Workflow.Parse.parseWorkflowFile(join(stagingDir, "workflow.yml"));
   } catch (error) {
     await removeIfExists(stagingDir);
     return Response.json(

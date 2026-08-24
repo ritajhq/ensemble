@@ -1,4 +1,4 @@
-export interface DebugInfoResponse {
+export interface InfoResponse {
   imageTag: string;
   mountedFeatures: string[];
 }
@@ -13,7 +13,7 @@ export interface DebugInfoResponse {
  */
 export function createHandleDebugInfo(mountedFeatures: string[]) {
   return function handleDebugInfo(): Response {
-    const body: DebugInfoResponse = {
+    const body: InfoResponse = {
       imageTag: Deno.env.get("ENSEMBLE_IMAGE_TAG") ?? "unknown",
       mountedFeatures,
     };

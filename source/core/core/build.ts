@@ -3,12 +3,12 @@ import { ensureDir, exists } from "@std/fs";
 import { load as loadEnv } from "@std/dotenv";
 import { $ } from "@david/dax";
 import { findRepoRoot } from "./repo.ts";
-import { getAppBuildConfig, getLocalVars, loadConfig, loadLocalConfig } from "./config.ts";
+import { EnsembleConfigStore } from "./config.ts";
 import { resolveDenoExecutable } from "./deno-exe.ts";
-import type { BuildMode } from "@ensemble/kit-sdk";
+import type * as KitSdk from "@ensemble/kit-sdk";
 
 export interface RunBuildOptions {
-  mode: BuildMode;
+  mode: KitSdk.Build.Mode;
   watch: boolean;
   varOverrides?: Record<string, string>;
 }
@@ -18,8 +18,9 @@ export async function runBuild(name: string, options: RunBuildOptions): Promise<
   const repoRoot = await findRepoRoot();
   const workspace = join(repoRoot, "source");
 
-  const config = await loadConfig(repoRoot);
-  const appConfig = getAppBuildConfig(config, name);
+  const configStore = new EnsembleConfigStore(repoRoot);
+  const config = await configStore.load();
+  const appConfig = configStore.getAppBuildConfig(config, name);
 
   const kitDir = join(repoRoot, ".ensemble", "kits", "build", appConfig.kit);
   const kitEntry = join(kitDir, "main.ts");
@@ -37,15 +38,15 @@ export async function runBuild(name: string, options: RunBuildOptions): Promise<
 
   const envFile = join(workspace, "envs", "build", `${name}.env`);
   const fileVars = await loadEnv({ envPath: envFile, export: false });
-  const localConfig = await loadLocalConfig(repoRoot);
-  const localVars = getLocalVars(localConfig, "build", name);
+  const localConfig = await configStore.loadLocal();
+  const localVars = configStore.getVars(localConfig, "build", name);
   const buildVars = { ...fileVars, ...localVars, ...options.varOverrides };
 
   const watchArgs = options.watch ? ["--watch"] : [];
   const denoExe = await resolveDenoExecutable();
 
   // --minimum-dependency-age 0: this project's own kits depend on
-  // @ensemble/*/@ritaj/* first-party packages, which Deno's default 24h
+  // @ensemble/*/@duesabati/* first-party packages, which Deno's default 24h
   // minimum dependency age (a supply-chain mitigation aimed at unfamiliar
   // third-party deps) would otherwise block from resolving right after a
   // fresh release — scoped to just this invocation, not the user's own

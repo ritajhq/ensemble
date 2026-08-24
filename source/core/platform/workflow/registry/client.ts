@@ -1,27 +1,27 @@
-import { encodeWorkflowId } from "@ensemble/core";
+import * as Core from "@ensemble/core";
 
-export interface WorkflowRegistryClientOptions {
+export interface ClientOptions {
   baseUrl: string;
   /** Sent as `Authorization: Bearer <token>` — must be a token granted "upload" in the server's .ensemble/platform/tokens.json. */
   token: string;
 }
 
-export interface WorkflowUploadResponse {
+export interface UploadResponse {
   success: boolean;
 }
 
-export interface WorkflowRegistryClient {
+export interface Client {
   actions: {
     /** Uploads a .tar.gz of a workflow's whole directory tree, replacing workflows/<name>. */
-    upload(name: string, tarGz: BodyInit): Promise<WorkflowUploadResponse>;
+    upload(name: string, tarGz: BodyInit): Promise<UploadResponse>;
   };
 }
 
-export function workflowRegistryClient(options: WorkflowRegistryClientOptions): WorkflowRegistryClient {
+export function client(options: ClientOptions): Client {
   return {
     actions: {
-      async upload(name: string, tarGz: BodyInit): Promise<WorkflowUploadResponse> {
-        const response = await fetch(new URL(`/v1/workflows/${encodeWorkflowId(name)}`, options.baseUrl), {
+      async upload(name: string, tarGz: BodyInit): Promise<UploadResponse> {
+        const response = await fetch(new URL(`/v1/workflows/${Core.Workflows.encodeWorkflowId(name)}`, options.baseUrl), {
           method: "PUT",
           headers: {
             "content-type": "application/gzip",
@@ -33,7 +33,7 @@ export function workflowRegistryClient(options: WorkflowRegistryClientOptions): 
         if (!response.ok) {
           throw new Error(body.error ?? `workflow upload failed with status ${response.status}`);
         }
-        return body as WorkflowUploadResponse;
+        return body as UploadResponse;
       },
     },
   };

@@ -22,51 +22,17 @@ export type {
   Trigger,
   Workflow,
 } from "./schema.ts";
-export {
-  parseWorkflowFile,
-  parseWorkflowText,
-  WorkflowParseError,
-} from "./parse.ts";
-export { buildBatches, transitiveDeps, WorkflowCycleError } from "./graph.ts";
 export { WorkflowExpressionError } from "./expressions.ts";
-export type {
-  JobContext,
-  JobOutcome,
-  JobResult,
-  MatrixNeedsResult,
-  NeedsResult,
-  RepositoryContext,
-  RootContext,
-  SimpleNeedsResult,
-  StepContext,
-  StepResult,
-} from "./context.ts";
 export { expandMatrix } from "./matrix.ts";
 export { type RepositoryAuth } from "./checkout.ts";
-export {
-  type ContextLoader,
-  ContextResolutionError,
-  resolveContext,
-} from "./context-loaders/resolve.ts";
-export {
-  decryptFile,
-  decryptValue,
-  encryptFile,
-  encryptValue,
-  generateKeypair,
-  isEncryptedMarker,
-  resolvePrivateKey,
-  SECRETS_PRIVATE_KEY_PATH,
-  SECRETS_PUBLIC_KEY_PATH,
-  type SecretsKeypair,
-} from "./context-loaders/secrets-crypto.ts";
 export { type StepEvent } from "./run-job.ts";
 export { type StepLogCapture, StepRunError } from "./run-step.ts";
-export {
-  referencesSelf,
-  runWorkflow,
-  type RunWorkflowOptions,
-  type RunWorkflowResult,
-  type WorkflowEvent,
-} from "./run-workflow.ts";
 export { emitWorkflowEvent, isEventLine, parseEventLine } from "./event-log.ts";
+export { type WorkflowEvent } from "./run-workflow.ts";
+
+export * as Parse from "./parse.ts";
+export * as Graph from "./graph.ts";
+export * as RunContext from "./run-context-namespace.ts";
+export * as RunWorkflow from "./run-workflow-namespace.ts";
+export * as ContextLoaders from "./context-loaders/resolve.ts";
+export * as SecretsCrypto from "./context-loaders/secrets-crypto.ts";

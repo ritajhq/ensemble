@@ -1,10 +1,7 @@
 import { assertEquals } from "@std/assert";
 import { join } from "@std/path";
-import {
-  GitRepositoryStore,
-  registerGitRepository,
-} from "@ensemble/core";
-import { handleSetRepositoryAuth } from "./handler.ts";
+import * as Core from "@ensemble/core";
+import { GitIntegrationHandlers } from "./handler.ts";
 
 async function makeFixtureRepo(
   dir: string,
@@ -31,7 +28,7 @@ async function makeFixtureRepo(
 interface TestContext {
   repoRoot: string;
   fixtureDir: string;
-  repositories: GitRepositoryStore;
+  repositories: Core.GitRepositories.GitRepositoryStore;
 }
 
 const TOKEN = "test-token";
@@ -62,7 +59,7 @@ async function withContext(
     await fn({
       repoRoot,
       fixtureDir,
-      repositories: new GitRepositoryStore(repositoriesKv),
+      repositories: new Core.GitRepositories.GitRepositoryStore(repositoriesKv),
     });
   } finally {
     Deno.chdir(previousCwd);
@@ -94,17 +91,18 @@ Deno.test("handleSetRepositoryAuth: updates auth and reports the new authType", 
   await withContext(
     { "workflows/deploy/workflow.yml": SIMPLE_WORKFLOW_YML },
     async (ctx) => {
-      await registerGitRepository(ctx.repositories, {
+      await new Core.GitIntegration.GitIntegrationService(ctx.repositories).register({
         repoUrl: ctx.fixtureDir,
         projectName: "acme",
       });
-      const response = await handleSetRepositoryAuth(
-        ctx.repositories,
-        authedRequest("http://x/v1/integrations/git/repositories/acme/auth", {
-          auth: { type: "pat", token: "ghp_x" },
-        }),
-        { projectName: "acme" },
-      );
+      const response = await new GitIntegrationHandlers(ctx.repositories)
+        .handleSetRepositoryAuth(
+          authedRequest(
+            "http://x/v1/integrations/git/repositories/acme/auth",
+            { auth: { type: "pat", token: "ghp_x" } },
+          ),
+          { projectName: "acme" },
+        );
       assertEquals(response.status, 200);
       const body = await response.json();
       assertEquals(body, { projectName: "acme", authType: "pat" });
@@ -117,14 +115,14 @@ Deno.test("handleSetRepositoryAuth: updates auth and reports the new authType", 
 
 Deno.test("handleSetRepositoryAuth: 400 for an unregistered project", async () => {
   await withContext({ "README.md": "unused" }, async (ctx) => {
-    const response = await handleSetRepositoryAuth(
-      ctx.repositories,
-      authedRequest(
-        "http://x/v1/integrations/git/repositories/nonexistent/auth",
-        { auth: { type: "none" } },
-      ),
-      { projectName: "nonexistent" },
-    );
+    const response = await new GitIntegrationHandlers(ctx.repositories)
+      .handleSetRepositoryAuth(
+        authedRequest(
+          "http://x/v1/integrations/git/repositories/nonexistent/auth",
+          { auth: { type: "none" } },
+        ),
+        { projectName: "nonexistent" },
+      );
     assertEquals(response.status, 400);
   });
 });
@@ -133,17 +131,18 @@ Deno.test("handleSetRepositoryAuth: 400 on a malformed request body", async () =
   await withContext(
     { "workflows/deploy/workflow.yml": SIMPLE_WORKFLOW_YML },
     async (ctx) => {
-      await registerGitRepository(ctx.repositories, {
+      await new Core.GitIntegration.GitIntegrationService(ctx.repositories).register({
         repoUrl: ctx.fixtureDir,
         projectName: "acme",
       });
-      const response = await handleSetRepositoryAuth(
-        ctx.repositories,
-        authedRequest("http://x/v1/integrations/git/repositories/acme/auth", {
-          auth: { type: "pat" },
-        }),
-        { projectName: "acme" },
-      );
+      const response = await new GitIntegrationHandlers(ctx.repositories)
+        .handleSetRepositoryAuth(
+          authedRequest(
+            "http://x/v1/integrations/git/repositories/acme/auth",
+            { auth: { type: "pat" } },
+          ),
+          { projectName: "acme" },
+        );
       assertEquals(response.status, 400);
     },
   );
@@ -151,15 +150,15 @@ Deno.test("handleSetRepositoryAuth: 400 on a malformed request body", async () =
 
 Deno.test("handleSetRepositoryAuth: 401 without a bearer token", async () => {
   await withContext({ "README.md": "unused" }, async (ctx) => {
-    const response = await handleSetRepositoryAuth(
-      ctx.repositories,
-      new Request("http://x/v1/integrations/git/repositories/acme/auth", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ auth: { type: "none" } }),
-      }),
-      { projectName: "acme" },
-    );
+    const response = await new GitIntegrationHandlers(ctx.repositories)
+      .handleSetRepositoryAuth(
+        new Request("http://x/v1/integrations/git/repositories/acme/auth", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ auth: { type: "none" } }),
+        }),
+        { projectName: "acme" },
+      );
     assertEquals(response.status, 401);
   });
 });

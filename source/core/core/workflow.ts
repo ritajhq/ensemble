@@ -1,22 +1,13 @@
 import { dirname, join, normalize, relative } from "@std/path";
 import { exists, walk } from "@std/fs";
 import { TarStream, type TarStreamInput } from "@std/tar";
-import type { Delegate } from "@ritaj/event";
+import type { Delegate } from "@duesabati/evento";
 import { findRepoRoot } from "./repo.ts";
-import {
-  parseWorkflowFile,
-  referencesSelf,
-  runWorkflow,
-  type RunWorkflowResult,
-  type Workflow,
-  type WorkflowEvent,
-} from "@ensemble/workflow";
-import { RunStore } from "./runs.ts";
+import * as WorkflowPkg from "@ensemble/workflow";
+import type { Workflow, WorkflowEvent } from "@ensemble/workflow";
+import { RunStore } from "./runs/index.ts";
 import { runWorkflowInContainer } from "./run-workflow-in-container.ts";
-import {
-  syncWorkflowFromGit,
-  unlinkWorkflowFromGit,
-} from "./git-integration.ts";
+import { GitIntegrationService } from "./git-integration.ts";
 import {
   type GitAuthStrategy,
   GitRepositoryStore,
@@ -102,7 +93,7 @@ export async function getWorkflowByName(
     throw new Error(`Workflow "${name}" not found (expected ${workflowFile})`);
   }
 
-  const workflow = await parseWorkflowFile(workflowFile);
+  const workflow = await WorkflowPkg.Parse.parseWorkflowFile(workflowFile);
   return { name, workflow, workflowDir };
 }
 
@@ -307,13 +298,8 @@ export async function createWorkflow(
   }
 
   if (source) {
-    await syncWorkflowFromGit(
-      repositories,
-      links,
-      trimmed,
-      source.projectName,
-      source.pathInRepo,
-    );
+    const gitIntegration = new GitIntegrationService(repositories, links);
+    await gitIntegration.sync(trimmed, source.projectName, source.pathInRepo);
     return await getWorkflowByName(trimmed);
   }
 
@@ -335,6 +321,7 @@ export async function createWorkflow(
  * history already was before this function tracked it.
  */
 export async function deleteWorkflow(
+  repositories: GitRepositoryStore,
   links: WorkflowGitLinkStore,
   runs: RunStore,
   name: string,
@@ -344,7 +331,8 @@ export async function deleteWorkflow(
   await Deno.remove(workflowDir, { recursive: true }).catch((error) => {
     if (!(error instanceof Deno.errors.NotFound)) throw error;
   });
-  await unlinkWorkflowFromGit(links, name);
+  const gitIntegration = new GitIntegrationService(repositories, links);
+  await gitIntegration.unlink(name);
   await runs.deleteAllRunsForWorkflow(name);
 }
 
@@ -412,13 +400,8 @@ export async function syncWorkflowFromGitLinkIfPresent(
 ): Promise<void> {
   const link = await links.get(name);
   if (!link) return;
-  await syncWorkflowFromGit(
-    repositories,
-    links,
-    link.workflowName,
-    link.projectName,
-    link.pathInRepo,
-  );
+  const gitIntegration = new GitIntegrationService(repositories, links);
+  await gitIntegration.sync(link.workflowName, link.projectName, link.pathInRepo);
 }
 
 /**
@@ -432,16 +415,11 @@ export async function syncAllWorkflowGitLinks(
   repositories: GitRepositoryStore,
   links: WorkflowGitLinkStore,
 ): Promise<void> {
+  const gitIntegration = new GitIntegrationService(repositories, links);
   const allLinks = await links.listAll();
   await Promise.all(
     allLinks.map((link) =>
-      syncWorkflowFromGit(
-        repositories,
-        links,
-        link.workflowName,
-        link.projectName,
-        link.pathInRepo,
-      )
+      gitIntegration.sync(link.workflowName, link.projectName, link.pathInRepo)
     ),
   );
 }
@@ -518,7 +496,7 @@ export async function assertSelfResolvable(
   repositories: GitRepositoryStore | undefined,
   links: WorkflowGitLinkStore | undefined,
 ): Promise<void> {
-  if (!referencesSelf(workflow)) return;
+  if (!WorkflowPkg.RunWorkflow.referencesSelf(workflow)) return;
   await resolveSelfRepoUrl(name, repositories, links);
 }
 
@@ -536,10 +514,10 @@ export async function assertSelfResolvable(
 export async function runWorkflowByName(
   name: string,
   options: RunWorkflowByNameOptions,
-): Promise<RunWorkflowResult> {
+): Promise<WorkflowPkg.RunWorkflow.Result> {
   if (options.containerized) {
     const { workflow } = await getWorkflowByName(name);
-    const selfRepo = referencesSelf(workflow)
+    const selfRepo = WorkflowPkg.RunWorkflow.referencesSelf(workflow)
       ? await resolveSelfRepoUrl(name, options.repositories, options.links)
       : undefined;
     const secretsKey = await resolveContainerizedSecretsKey(
@@ -561,7 +539,7 @@ export async function runWorkflowByName(
 
   const repoRoot = await findRepoRoot();
   const { workflow, workflowDir } = await getWorkflowByName(name);
-  return await runWorkflow(workflow, {
+  return await WorkflowPkg.RunWorkflow.run(workflow, {
     workflowDir,
     job: options.job,
     concurrency: options.concurrency,
