@@ -5,6 +5,8 @@ export interface ClientOptions {
   baseUrl: string;
   /** Sent as `Authorization: Bearer <token>` — must be a token granted "read" in the server's .ensemble/platform/tokens.json. */
   token: string;
+  /** The remote server's own /v1/workflows base path — must match its PlatformRoutePrefixes.workflowsBasePath. Defaults to "/v1/workflows". */
+  workflowsBasePath?: string;
 }
 
 export interface Client {
@@ -26,24 +28,25 @@ async function getJson<T>(url: URL, token: string): Promise<T> {
 }
 
 export function client(options: ClientOptions): Client {
+  const basePath = options.workflowsBasePath ?? "/v1/workflows";
   return {
     queries: {
       listWorkflows(): Promise<ListWorkflowsResponse> {
-        return getJson(new URL("/v1/workflows", options.baseUrl), options.token);
+        return getJson(new URL(basePath, options.baseUrl), options.token);
       },
       listRuns(name: string): Promise<ListRunsResponse> {
-        return getJson(new URL(`/v1/workflows/${Core.Workflows.encodeWorkflowId(name)}/runs`, options.baseUrl), options.token);
+        return getJson(new URL(`${basePath}/${Core.Workflows.encodeWorkflowId(name)}/runs`, options.baseUrl), options.token);
       },
       listRunSteps(name: string, runId: string): Promise<ListRunStepsResponse> {
         return getJson(
-          new URL(`/v1/workflows/${Core.Workflows.encodeWorkflowId(name)}/runs/${runId}/steps`, options.baseUrl),
+          new URL(`${basePath}/${Core.Workflows.encodeWorkflowId(name)}/runs/${runId}/steps`, options.baseUrl),
           options.token,
         );
       },
       getStepLog(name: string, runId: string, jobId: string, index: number): Promise<GetStepLogResponse> {
         return getJson(
           new URL(
-            `/v1/workflows/${Core.Workflows.encodeWorkflowId(name)}/runs/${runId}/steps/${encodeURIComponent(jobId)}/${index}/log`,
+            `${basePath}/${Core.Workflows.encodeWorkflowId(name)}/runs/${runId}/steps/${encodeURIComponent(jobId)}/${index}/log`,
             options.baseUrl,
           ),
           options.token,

@@ -1,6 +1,7 @@
 import * as Core from "@ensemble/core";
 import { setCookie } from "@std/http/cookie";
-import { isAuthorizedFor, WS_TOKEN_COOKIE } from "../../auth/tokens.ts";
+import { WS_TOKEN_COOKIE } from "../../auth/tokens.ts";
+import { parseJsonBody, requireAuth } from "../../features.ts";
 import type {
   CreateWorkflowResponse,
   DeleteRunResponse,
@@ -77,38 +78,14 @@ export class DashboardHandlers {
   private readonly repositories: Core.GitRepositories.GitRepositoryStore;
   private readonly links: Core.GitRepositories.WorkflowGitLinkStore;
   private readonly runs: Core.Runs.RunStore;
+  /** Scope of the `ws_token` cookie minted by handleMintWsToken — the workflows route family's own base path, so the cookie is sent back on the WebSocket request it authenticates (see handleRunEvents). */
+  private readonly workflowsBasePath: string;
 
-  constructor(stores: DashboardStores) {
+  constructor(stores: DashboardStores, workflowsBasePath: string) {
     this.repositories = stores.repositories;
     this.links = stores.links;
     this.runs = stores.runs;
-  }
-
-  /** Responds 401 if `request` isn't authorized for `scope`, otherwise undefined. */
-  private async requireAuth(
-    request: Request,
-    scope: "read" | "upload" | "trigger",
-  ): Promise<Response | undefined> {
-    if (await isAuthorizedFor(request, scope)) return undefined;
-    return Response.json({ error: "Missing or invalid bearer token." }, {
-      status: 401,
-    });
-  }
-
-  /** Parses `request`'s body as JSON, or an error Response if it isn't valid JSON. */
-  private async parseJsonBody(
-    request: Request,
-  ): Promise<{ body: unknown } | { errorResponse: Response }> {
-    const text = await request.text();
-    try {
-      return { body: JSON.parse(text) };
-    } catch {
-      return {
-        errorResponse: Response.json({
-          error: "Request body must be valid JSON.",
-        }, { status: 400 }),
-      };
-    }
+    this.workflowsBasePath = workflowsBasePath;
   }
 
   private async summarizeWorkflow(
@@ -133,7 +110,7 @@ export class DashboardHandlers {
   }
 
   async handleListWorkflows(request: Request): Promise<Response> {
-    const authError = await this.requireAuth(request, "read");
+    const authError = await requireAuth(request, "read");
     if (authError) return authError;
 
     const resolved = await Core.Workflows.listWorkflows();
@@ -159,7 +136,7 @@ export class DashboardHandlers {
     request: Request,
     params: Record<string, string | undefined>,
   ): Promise<Response> {
-    const authError = await this.requireAuth(request, "read");
+    const authError = await requireAuth(request, "read");
     if (authError) return authError;
 
     const resolved = resolveWorkflowNameParam(params);
@@ -192,10 +169,10 @@ export class DashboardHandlers {
    * link so it auto-resyncs from there on future triggers.
    */
   async handleCreateWorkflow(request: Request): Promise<Response> {
-    const authError = await this.requireAuth(request, "upload");
+    const authError = await requireAuth(request, "upload");
     if (authError) return authError;
 
-    const parsed = await this.parseJsonBody(request);
+    const parsed = await parseJsonBody(request);
     if ("errorResponse" in parsed) return parsed.errorResponse;
     if (!isCreateWorkflowRequest(parsed.body)) {
       return Response.json({
@@ -228,7 +205,7 @@ export class DashboardHandlers {
     request: Request,
     params: Record<string, string | undefined>,
   ): Promise<Response> {
-    const authError = await this.requireAuth(request, "upload");
+    const authError = await requireAuth(request, "upload");
     if (authError) return authError;
 
     const resolved = resolveWorkflowNameParam(params);
@@ -254,13 +231,13 @@ export class DashboardHandlers {
     request: Request,
     params: Record<string, string | undefined>,
   ): Promise<Response> {
-    const authError = await this.requireAuth(request, "upload");
+    const authError = await requireAuth(request, "upload");
     if (authError) return authError;
 
     const resolved = resolveWorkflowNameParam(params);
     if ("errorResponse" in resolved) return resolved.errorResponse;
 
-    const parsed = await this.parseJsonBody(request);
+    const parsed = await parseJsonBody(request);
     if ("errorResponse" in parsed) return parsed.errorResponse;
     if (!isRenameWorkflowRequest(parsed.body)) {
       return Response.json({ error: "Expected { name: string }." }, {
@@ -287,7 +264,7 @@ export class DashboardHandlers {
     request: Request,
     params: Record<string, string | undefined>,
   ): Promise<Response> {
-    const authError = await this.requireAuth(request, "read");
+    const authError = await requireAuth(request, "read");
     if (authError) return authError;
 
     const resolved = resolveWorkflowNameParam(params);
@@ -301,7 +278,7 @@ export class DashboardHandlers {
     request: Request,
     params: Record<string, string | undefined>,
   ): Promise<Response> {
-    const authError = await this.requireAuth(request, "read");
+    const authError = await requireAuth(request, "read");
     if (authError) return authError;
 
     const resolved = resolveWorkflowNameParam(params);
@@ -334,7 +311,7 @@ export class DashboardHandlers {
     request: Request,
     params: Record<string, string | undefined>,
   ): Promise<Response> {
-    const authError = await this.requireAuth(request, "read");
+    const authError = await requireAuth(request, "read");
     if (authError) return authError;
 
     const resolved = resolveWorkflowNameParam(params);
@@ -364,7 +341,7 @@ export class DashboardHandlers {
     request: Request,
     params: Record<string, string | undefined>,
   ): Promise<Response> {
-    const authError = await this.requireAuth(request, "read");
+    const authError = await requireAuth(request, "read");
     if (authError) return authError;
 
     const resolved = resolveWorkflowNameParam(params);
@@ -384,7 +361,7 @@ export class DashboardHandlers {
     request: Request,
     params: Record<string, string | undefined>,
   ): Promise<Response> {
-    const authError = await this.requireAuth(request, "trigger");
+    const authError = await requireAuth(request, "trigger");
     if (authError) return authError;
 
     const resolved = resolveWorkflowNameParam(params);
@@ -428,7 +405,7 @@ export class DashboardHandlers {
     request: Request,
     params: Record<string, string | undefined>,
   ): Promise<Response> {
-    const authError = await this.requireAuth(request, "trigger");
+    const authError = await requireAuth(request, "trigger");
     if (authError) return authError;
 
     const resolved = resolveWorkflowNameParam(params);
@@ -452,7 +429,7 @@ export class DashboardHandlers {
     request: Request,
     params: Record<string, string | undefined>,
   ): Promise<Response> {
-    const authError = await this.requireAuth(request, "read");
+    const authError = await requireAuth(request, "read");
     if (authError) return authError;
 
     const resolved = resolveWorkflowNameParam(params);
@@ -494,14 +471,14 @@ export class DashboardHandlers {
       });
     }
     const token = header.slice("Bearer ".length);
-    const authError = await this.requireAuth(request, "read");
+    const authError = await requireAuth(request, "read");
     if (authError) return authError;
 
     const response = Response.json({ ok: true } satisfies MintWsTokenResponse);
     setCookie(response.headers, {
       name: WS_TOKEN_COOKIE,
       value: token,
-      path: "/v1/workflows",
+      path: this.workflowsBasePath,
       maxAge: 60,
       httpOnly: true,
       sameSite: "Strict",
@@ -522,7 +499,7 @@ export class DashboardHandlers {
     request: Request,
     params: Record<string, string | undefined>,
   ): Promise<Response> {
-    const authError = await this.requireAuth(request, "read");
+    const authError = await requireAuth(request, "read");
     if (authError) return authError;
 
     const resolved = resolveWorkflowNameParam(params);

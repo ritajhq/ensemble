@@ -1,3 +1,10 @@
+// The route path literals used throughout this file (e.g. "/v1/workflows",
+// "/v1/secrets") must match apps/server/main.ts's PlatformRoutePrefixes
+// config — see source/core/platform/index.ts. This frontend package can't
+// import @ensemble/platform's Deno-only route-building APIs directly, so the
+// paths are duplicated here by convention rather than shared, the same as
+// git.ts's deriveProjectName mirrors core/git-integration.ts's version.
+
 export type ManualInputType =
   | "string"
   | "number"

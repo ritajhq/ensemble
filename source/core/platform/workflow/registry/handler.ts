@@ -3,7 +3,7 @@ import { ensureDir, exists } from "@std/fs";
 import * as Core from "@ensemble/core";
 import { findRepoRoot } from "@ensemble/core";
 import * as Workflow from "@ensemble/workflow";
-import { isAuthorizedFor } from "../../auth/tokens.ts";
+import { requireAuth } from "../../features.ts";
 import { extractTarGz } from "./extract.ts";
 
 async function removeIfExists(path: string): Promise<void> {
@@ -25,9 +25,8 @@ export async function handleUploadWorkflow(
   request: Request,
   params: Record<string, string | undefined>,
 ): Promise<Response> {
-  if (!await isAuthorizedFor(request, "upload")) {
-    return Response.json({ error: "Missing or invalid bearer token." }, { status: 401 });
-  }
+  const authError = await requireAuth(request, "upload");
+  if (authError) return authError;
 
   const id = params.id;
   if (!id) {

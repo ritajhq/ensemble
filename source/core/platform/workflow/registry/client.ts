@@ -4,6 +4,8 @@ export interface ClientOptions {
   baseUrl: string;
   /** Sent as `Authorization: Bearer <token>` — must be a token granted "upload" in the server's .ensemble/platform/tokens.json. */
   token: string;
+  /** The remote server's own /v1/workflows base path — must match its PlatformRoutePrefixes.workflowsBasePath. Defaults to "/v1/workflows". */
+  workflowsBasePath?: string;
 }
 
 export interface UploadResponse {
@@ -18,10 +20,11 @@ export interface Client {
 }
 
 export function client(options: ClientOptions): Client {
+  const basePath = options.workflowsBasePath ?? "/v1/workflows";
   return {
     actions: {
       async upload(name: string, tarGz: BodyInit): Promise<UploadResponse> {
-        const response = await fetch(new URL(`/v1/workflows/${Core.Workflows.encodeWorkflowId(name)}`, options.baseUrl), {
+        const response = await fetch(new URL(`${basePath}/${Core.Workflows.encodeWorkflowId(name)}`, options.baseUrl), {
           method: "PUT",
           headers: {
             "content-type": "application/gzip",

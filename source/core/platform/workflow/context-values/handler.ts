@@ -2,71 +2,9 @@ import * as Core from "@ensemble/core";
 import * as Workflow from "@ensemble/workflow";
 import type { Context } from "@ensemble/workflow";
 import { parse as parseYaml } from "@std/yaml";
-import { isAuthorizedFor } from "../../auth/tokens.ts";
+import { requireAuth } from "../../features.ts";
+import { resolveContextParams, resolveWorkflowGitTarget } from "../git-target.ts";
 import type { SummaryResponse } from "./contract.ts";
-
-/** Reads/validates the common :workflowId/:context route params, decoding the base64url workflow id to its real name. */
-function resolveParams(
-  params: Record<string, string | undefined>,
-): { workflowName: string; context: string } | { errorResponse: Response } {
-  const id = params.workflowId;
-  const context = params.context;
-  if (!id || !context) {
-    return {
-      errorResponse: Response.json({
-        error: "Missing workflowId or context in URL.",
-      }, { status: 400 }),
-    };
-  }
-  try {
-    return { workflowName: Core.Workflows.decodeWorkflowId(id), context };
-  } catch (error) {
-    return {
-      errorResponse: Response.json({
-        error: error instanceof Error ? error.message : String(error),
-      }, { status: 400 }),
-    };
-  }
-}
-
-/** Same git target resolution as the secrets editor (see secrets/handler.ts's resolveGitTarget) — only workflows with a WorkflowGitLink expose this dashboard view. */
-async function resolveGitTarget(
-  repositories: Core.GitRepositories.GitRepositoryStore,
-  links: Core.GitRepositories.WorkflowGitLinkStore,
-  workflowName: string,
-  context: string,
-): Promise<
-  {
-    repoUrl: string;
-    auth: Core.GitRepositories.GitAuthStrategy;
-    variablesPath: string;
-    workflowYmlPath: string;
-  } | { errorResponse: Response }
-> {
-  const link = await links.get(workflowName);
-  if (!link) {
-    return {
-      errorResponse: Response.json({
-        error: `Workflow "${workflowName}" isn't linked to a git repository.`,
-      }, { status: 404 }),
-    };
-  }
-  const record = await repositories.get(link.projectName);
-  if (!record) {
-    return {
-      errorResponse: Response.json({
-        error: `Registered repository "${link.projectName}" not found.`,
-      }, { status: 404 }),
-    };
-  }
-  const workflowRoot = `workflows/${link.pathInRepo}`;
-  return {
-    repoUrl: record.repoUrl,
-    auth: record.auth,
-    variablesPath: `${workflowRoot}/contexts/${context}/variables.yml`,
-    workflowYmlPath: `${workflowRoot}/workflow.yml`,
-  };
-}
 
 /** Fetches and parses this workflow's own workflow.yml, or undefined if it can't be found/parsed. */
 async function readWorkflow(
@@ -110,21 +48,15 @@ export async function handleGetContextValues(
   request: Request,
   params: Record<string, string | undefined>,
 ): Promise<Response> {
-  if (!await isAuthorizedFor(request, "read")) {
-    return Response.json({ error: "Missing or invalid bearer token." }, {
-      status: 401,
-    });
-  }
-  const resolved = resolveParams(params);
+  const authError = await requireAuth(request, "read");
+  if (authError) return authError;
+  const resolved = resolveContextParams(params);
   if ("errorResponse" in resolved) return resolved.errorResponse;
 
-  const target = await resolveGitTarget(
-    repositories,
-    links,
-    resolved.workflowName,
-    resolved.context,
-  );
+  const target = await resolveWorkflowGitTarget(repositories, links, resolved.workflowName);
   if ("errorResponse" in target) return target.errorResponse;
+
+  const variablesPath = `${target.workflowRoot}/contexts/${resolved.context}/variables.yml`;
 
   try {
     const context = await readWorkflow(
@@ -138,7 +70,7 @@ export async function handleGetContextValues(
       git,
       target.repoUrl,
       target.auth,
-      target.variablesPath,
+      variablesPath,
     );
 
     const variables = (context?.variables ?? []).map((declared) => ({

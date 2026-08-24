@@ -1,6 +1,6 @@
 import type * as Core from "@ensemble/core";
 import { GitIntegrationHandlers } from "./handler.ts";
-import type { Feature } from "../../../features.ts";
+import { route, type Feature } from "../../../features.ts";
 
 export { GitIntegrationHandlers } from "./handler.ts";
 export type {
@@ -20,74 +20,18 @@ export type {
 /** Builds this module's routes, bound to `repositories` — call once at startup with the process's own GitRepositoryStore instance. */
 export function createGitIntegrationFeatures(
   repositories: Core.GitRepositories.GitRepositoryStore,
+  basePath: string,
 ): Feature[] {
   const handlers = new GitIntegrationHandlers(repositories);
 
   return [
-    {
-      name: "git-integration-register",
-      method: "POST",
-      pattern: new URLPattern({ pathname: "/v1/integrations/git/register" }),
-      handle: (request) => handlers.handleRegisterRepository(request),
-    },
-    {
-      name: "git-integration-repositories-list",
-      method: "GET",
-      pattern: new URLPattern({
-        pathname: "/v1/integrations/git/repositories",
-      }),
-      handle: (request) => handlers.handleListRepositories(request),
-    },
-    {
-      name: "git-integration-repository-refresh",
-      method: "POST",
-      pattern: new URLPattern({
-        pathname: "/v1/integrations/git/repositories/:projectName/refresh",
-      }),
-      handle: (request, params) =>
-        handlers.handleRefreshRepository(request, params),
-    },
-    {
-      name: "git-integration-repository-remove",
-      method: "POST",
-      pattern: new URLPattern({
-        pathname: "/v1/integrations/git/repositories/:projectName/remove",
-      }),
-      handle: (request, params) =>
-        handlers.handleRemoveRepository(request, params),
-    },
-    {
-      name: "git-integration-repository-secrets-key-set",
-      method: "POST",
-      pattern: new URLPattern({
-        pathname: "/v1/integrations/git/repositories/:projectName/secrets-key",
-      }),
-      handle: (request, params) =>
-        handlers.handleSetRepositorySecretsKey(request, params),
-    },
-    {
-      name: "git-integration-repository-auth-set",
-      method: "POST",
-      pattern: new URLPattern({
-        pathname: "/v1/integrations/git/repositories/:projectName/auth",
-      }),
-      handle: (request, params) =>
-        handlers.handleSetRepositoryAuth(request, params),
-    },
-    {
-      name: "git-integration-repository-candidates-list",
-      method: "GET",
-      pattern: new URLPattern({
-        pathname: "/v1/integrations/git/repositories/:projectName/candidates",
-      }),
-      handle: (request, params) =>
-        handlers.handleListRepoWorkflowCandidates(request, params),
-    },
-    {
-      name: "git-integration-tags-list",
-      method: "GET",
-      pattern: new URLPattern({ pathname: "/v1/integrations/git/tags" }),
-      handle: (request) => handlers.handleListRemoteTags(request),
-    },
+    route("git-integration-register", "POST", `${basePath}/register`, (request) => handlers.handleRegisterRepository(request)),
+    route("git-integration-repositories-list", "GET", `${basePath}/repositories`, (request) => handlers.handleListRepositories(request)),
+    route("git-integration-repository-refresh", "POST", `${basePath}/repositories/:projectName/refresh`, (request, params) => handlers.handleRefreshRepository(request, params)),
+    route("git-integration-repository-remove", "POST", `${basePath}/repositories/:projectName/remove`, (request, params) => handlers.handleRemoveRepository(request, params)),
+    route("git-integration-repository-secrets-key-set", "POST", `${basePath}/repositories/:projectName/secrets-key`, (request, params) => handlers.handleSetRepositorySecretsKey(request, params)),
+    route("git-integration-repository-auth-set", "POST", `${basePath}/repositories/:projectName/auth`, (request, params) => handlers.handleSetRepositoryAuth(request, params)),
+    route("git-integration-repository-candidates-list", "GET", `${basePath}/repositories/:projectName/candidates`, (request, params) => handlers.handleListRepoWorkflowCandidates(request, params)),
+    route("git-integration-tags-list", "GET", `${basePath}/tags`, (request) => handlers.handleListRemoteTags(request)),
   ];
 }

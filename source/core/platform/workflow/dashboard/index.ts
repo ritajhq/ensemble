@@ -1,5 +1,5 @@
 import { DashboardHandlers, type DashboardStores } from "./handler.ts";
-import type { Feature } from "../../features.ts";
+import { route, type Feature } from "../../features.ts";
 
 export {
   type CreateWorkflowGitSourceRequest,
@@ -22,99 +22,32 @@ export {
 export { DashboardHandlers, type DashboardStores } from "./handler.ts";
 export { client, type Client, type ClientOptions } from "./client.ts";
 
+export interface DashboardRoutePaths {
+  /** Base path for the /v1/workflows resource family (also the ws_token cookie's scope — see DashboardHandlers). */
+  basePath: string;
+  /** Path for the auth/ws-token exchange endpoint. */
+  authPath: string;
+}
+
 /** Builds this module's routes, bound to `stores` — call once at startup with the process's own store instances. */
-export function createDashboardFeatures(stores: DashboardStores): Feature[] {
-  const handlers = new DashboardHandlers(stores);
+export function createDashboardFeatures(stores: DashboardStores, paths: DashboardRoutePaths): Feature[] {
+  const handlers = new DashboardHandlers(stores, paths.basePath);
+  const { basePath } = paths;
 
   return [
-    {
-      name: "workflow-list",
-      method: "GET",
-      pattern: new URLPattern({ pathname: "/v1/workflows" }),
-      handle: (request) => handlers.handleListWorkflows(request),
-    },
-    {
-      name: "workflow-get",
-      method: "GET",
-      pattern: new URLPattern({ pathname: "/v1/workflows/:id" }),
-      handle: (request, params) => handlers.handleGetWorkflow(request, params),
-    },
-    {
-      name: "workflow-create",
-      method: "POST",
-      pattern: new URLPattern({ pathname: "/v1/workflows" }),
-      handle: (request) => handlers.handleCreateWorkflow(request),
-    },
-    {
-      name: "workflow-delete",
-      method: "DELETE",
-      pattern: new URLPattern({ pathname: "/v1/workflows/:id" }),
-      handle: (request, params) =>
-        handlers.handleDeleteWorkflow(request, params),
-    },
-    {
-      name: "workflow-rename",
-      method: "PATCH",
-      pattern: new URLPattern({ pathname: "/v1/workflows/:id" }),
-      handle: (request, params) =>
-        handlers.handleRenameWorkflow(request, params),
-    },
-    {
-      name: "workflow-runs",
-      method: "GET",
-      pattern: new URLPattern({ pathname: "/v1/workflows/:id/runs" }),
-      handle: (request, params) => handlers.handleListRuns(request, params),
-    },
-    {
-      name: "workflow-run",
-      method: "POST",
-      pattern: new URLPattern({ pathname: "/v1/workflows/:id/run" }),
-      handle: (request, params) => handlers.handleRunWorkflow(request, params),
-    },
-    {
-      name: "workflow-run-steps",
-      method: "GET",
-      pattern: new URLPattern({ pathname: "/v1/workflows/:id/runs/:runId/steps" }),
-      handle: (request, params) =>
-        handlers.handleListRunSteps(request, params),
-    },
-    {
-      name: "workflow-run-step-log",
-      method: "GET",
-      pattern: new URLPattern({ pathname: "/v1/workflows/:id/runs/:runId/steps/:jobId/:index/log" }),
-      handle: (request, params) => handlers.handleGetStepLog(request, params),
-    },
-    {
-      name: "workflow-run-delete",
-      method: "DELETE",
-      pattern: new URLPattern({ pathname: "/v1/workflows/:id/runs/:runId" }),
-      handle: (request, params) => handlers.handleDeleteRun(request, params),
-    },
-    {
-      name: "workflow-files-list",
-      method: "GET",
-      pattern: new URLPattern({ pathname: "/v1/workflows/:id/files" }),
-      handle: (request, params) =>
-        handlers.handleListWorkflowFiles(request, params),
-    },
-    {
-      name: "auth-ws-token",
-      method: "POST",
-      pattern: new URLPattern({ pathname: "/v1/auth/ws-token" }),
-      handle: (request) => handlers.handleMintWsToken(request),
-    },
-    {
-      name: "workflow-run-events",
-      method: "GET",
-      pattern: new URLPattern({ pathname: "/v1/workflows/:id/runs/:runId/events" }),
-      handle: (request, params) => handlers.handleRunEvents(request, params),
-    },
-    {
-      name: "workflow-files-read",
-      method: "GET",
-      pattern: new URLPattern({ pathname: "/v1/workflows/:id/files/*" }),
-      handle: (request, params) =>
-        handlers.handleReadWorkflowFile(request, params),
-    },
+    route("workflow-list", "GET", basePath, (request) => handlers.handleListWorkflows(request)),
+    route("workflow-get", "GET", `${basePath}/:id`, (request, params) => handlers.handleGetWorkflow(request, params)),
+    route("workflow-create", "POST", basePath, (request) => handlers.handleCreateWorkflow(request)),
+    route("workflow-delete", "DELETE", `${basePath}/:id`, (request, params) => handlers.handleDeleteWorkflow(request, params)),
+    route("workflow-rename", "PATCH", `${basePath}/:id`, (request, params) => handlers.handleRenameWorkflow(request, params)),
+    route("workflow-runs", "GET", `${basePath}/:id/runs`, (request, params) => handlers.handleListRuns(request, params)),
+    route("workflow-run", "POST", `${basePath}/:id/run`, (request, params) => handlers.handleRunWorkflow(request, params)),
+    route("workflow-run-steps", "GET", `${basePath}/:id/runs/:runId/steps`, (request, params) => handlers.handleListRunSteps(request, params)),
+    route("workflow-run-step-log", "GET", `${basePath}/:id/runs/:runId/steps/:jobId/:index/log`, (request, params) => handlers.handleGetStepLog(request, params)),
+    route("workflow-run-delete", "DELETE", `${basePath}/:id/runs/:runId`, (request, params) => handlers.handleDeleteRun(request, params)),
+    route("workflow-files-list", "GET", `${basePath}/:id/files`, (request, params) => handlers.handleListWorkflowFiles(request, params)),
+    route("auth-ws-token", "POST", paths.authPath, (request) => handlers.handleMintWsToken(request)),
+    route("workflow-run-events", "GET", `${basePath}/:id/runs/:runId/events`, (request, params) => handlers.handleRunEvents(request, params)),
+    route("workflow-files-read", "GET", `${basePath}/:id/files/*`, (request, params) => handlers.handleReadWorkflowFile(request, params)),
   ];
 }

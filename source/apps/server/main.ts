@@ -1,5 +1,5 @@
 import * as Core from "@ensemble/core";
-import { createAllFeatures, isFeatureEnabled } from "@ensemble/platform";
+import { createAllFeatures, isFeatureEnabled, type PlatformRoutePrefixes } from "@ensemble/platform";
 
 const repoRoot = await Core.findRepoRoot();
 const stores = {
@@ -12,7 +12,17 @@ const stores = {
   runs: new Core.Runs.RunStore(await Deno.openKv(`${repoRoot}/${Core.Runs.RUN_STORE_KV_PATH}`)),
 };
 
-const allFeatures = createAllFeatures(stores);
+const routes: PlatformRoutePrefixes = {
+  workflowsBasePath: "/v1/workflows",
+  authPath: "/v1/auth/ws-token",
+  secretsBasePath: "/v1/secrets",
+  contextValuesBasePath: "/v1/context-values",
+  gitIntegrationBasePath: "/v1/integrations/git",
+  githubWebhookPath: "/v1/webhooks/github",
+  debugPath: "/v1/debug",
+};
+
+const allFeatures = createAllFeatures(stores, routes);
 const enabled = allFeatures.filter((feature) => isFeatureEnabled(feature.name));
 const disabled = allFeatures.filter((feature) =>
   !isFeatureEnabled(feature.name)

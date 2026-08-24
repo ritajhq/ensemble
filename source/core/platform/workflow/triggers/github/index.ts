@@ -1,38 +1,26 @@
-import type * as Core from "@ensemble/core";
-import { handle } from "./handler.ts";
-import { handleManual } from "./manual-handler.ts";
-import type { Feature } from "../../../features.ts";
+import { GithubTriggerHandlers, type GithubTriggerStores } from "./handler.ts";
+import { route, type Feature } from "../../../features.ts";
 
-export { handle } from "./handler.ts";
-export { handleManual } from "./manual-handler.ts";
+export { GithubTriggerHandlers, type GithubTriggerStores } from "./handler.ts";
 export {
   isManualTriggerRequest,
   type ManualTriggerRequest,
   type ManualTriggerResponse,
 } from "./manual-contract.ts";
 
-export interface GithubTriggerStores {
-  repositories: Core.GitRepositories.GitRepositoryStore;
-  links: Core.GitRepositories.WorkflowGitLinkStore;
-  runs: Core.Runs.RunStore;
+export interface GithubTriggerRoutePaths {
+  /** Fixed, global URL GitHub itself posts push events to — not workflow-scoped. */
+  webhookPath: string;
+  /** Base path for the /v1/workflows resource family, under which the dashboard-simulated manual trigger route lives. */
+  workflowsBasePath: string;
 }
 
 /** Builds this module's routes, bound to `stores` — call once at startup with the process's own store instances. */
-export function createGithubTriggerFeatures(stores: GithubTriggerStores): Feature[] {
-  const { repositories, links, runs } = stores;
+export function createGithubTriggerFeatures(stores: GithubTriggerStores, paths: GithubTriggerRoutePaths): Feature[] {
+  const handlers = new GithubTriggerHandlers(stores);
 
   return [
-    {
-      name: "github-trigger",
-      method: "POST",
-      pattern: new URLPattern({ pathname: "/v1/webhooks/github" }),
-      handle: (request) => handle(repositories, links, runs, request),
-    },
-    {
-      name: "manual-github-trigger",
-      method: "POST",
-      pattern: new URLPattern({ pathname: "/v1/workflows/:id/trigger/github" }),
-      handle: (request, params) => handleManual(repositories, links, runs, request, params),
-    },
+    route("github-trigger", "POST", paths.webhookPath, (request) => handlers.handleWebhook(request)),
+    route("manual-github-trigger", "POST", `${paths.workflowsBasePath}/:id/trigger/github`, (request, params) => handlers.handleManual(request, params)),
   ];
 }

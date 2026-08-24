@@ -1,6 +1,6 @@
 import * as Core from "@ensemble/core";
 import { SecretsHandlers } from "./handler.ts";
-import type { Feature } from "../../features.ts";
+import { route, type Feature } from "../../features.ts";
 
 export { SecretsHandlers, type SecretsStores } from "./handler.ts";
 export {
@@ -26,49 +26,16 @@ export {
 export function createSecretsFeatures(
   repositories: Core.GitRepositories.GitRepositoryStore,
   links: Core.GitRepositories.WorkflowGitLinkStore,
+  basePath: string,
 ): Feature[] {
   const git = Core.GitWrite.createGithubContentsProvider();
   const handlers = new SecretsHandlers({ repositories, links, git });
 
   return [
-    {
-      name: "secrets-context-get",
-      method: "GET",
-      pattern: new URLPattern({ pathname: "/v1/secrets/:workflowId/:context" }),
-      handle: (request, params) => handlers.handleGetContext(request, params),
-    },
-    {
-      name: "secrets-set",
-      method: "POST",
-      pattern: new URLPattern({
-        pathname: "/v1/secrets/:workflowId/:context/:key/set",
-      }),
-      handle: (request, params) => handlers.handleSetSecret(request, params),
-    },
-    {
-      name: "secrets-delete",
-      method: "POST",
-      pattern: new URLPattern({
-        pathname: "/v1/secrets/:workflowId/:context/:key/delete",
-      }),
-      handle: (request, params) => handlers.handleDelete(request, params),
-    },
-    {
-      name: "secrets-set-file",
-      method: "POST",
-      pattern: new URLPattern({
-        pathname: "/v1/secrets/:workflowId/:context/:name/set-file",
-      }),
-      handle: (request, params) =>
-        handlers.handleSetSecretFile(request, params),
-    },
-    {
-      name: "secrets-delete-file",
-      method: "POST",
-      pattern: new URLPattern({
-        pathname: "/v1/secrets/:workflowId/:context/:name/delete-file",
-      }),
-      handle: (request, params) => handlers.handleDeleteFile(request, params),
-    },
+    route("secrets-context-get", "GET", `${basePath}/:workflowId/:context`, (request, params) => handlers.handleGetContext(request, params)),
+    route("secrets-set", "POST", `${basePath}/:workflowId/:context/:key/set`, (request, params) => handlers.handleSetSecret(request, params)),
+    route("secrets-delete", "POST", `${basePath}/:workflowId/:context/:key/delete`, (request, params) => handlers.handleDelete(request, params)),
+    route("secrets-set-file", "POST", `${basePath}/:workflowId/:context/:name/set-file`, (request, params) => handlers.handleSetSecretFile(request, params)),
+    route("secrets-delete-file", "POST", `${basePath}/:workflowId/:context/:name/delete-file`, (request, params) => handlers.handleDeleteFile(request, params)),
   ];
 }

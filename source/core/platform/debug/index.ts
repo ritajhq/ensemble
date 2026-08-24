@@ -1,5 +1,5 @@
 import { createHandleDebugInfo } from "./handler.ts";
-import type { Feature } from "../features.ts";
+import { route, type Feature } from "../features.ts";
 
 export { type InfoResponse } from "./handler.ts";
 
@@ -9,11 +9,6 @@ export { type InfoResponse } from "./handler.ts";
  * caller passes it in rather than this feature discovering it, since
  * `createAllFeatures` doesn't know its own output until it's built it.
  */
-export function createDebugFeature(mountedFeatures: string[]): Feature {
-  return {
-    name: "debug",
-    method: "GET",
-    pattern: new URLPattern({ pathname: "/v1/debug" }),
-    handle: createHandleDebugInfo(mountedFeatures),
-  };
+export function createDebugFeature(mountedFeatures: string[], basePath = "/v1/debug"): Feature {
+  return route("debug", "GET", basePath, createHandleDebugInfo(mountedFeatures));
 }

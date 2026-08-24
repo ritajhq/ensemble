@@ -1,5 +1,5 @@
 import * as Core from "@ensemble/core";
-import { isAuthorizedFor } from "../../../auth/tokens.ts";
+import { parseJsonBody, requireAuth } from "../../../features.ts";
 import {
   type GitRepositorySummary,
   isRegisterGitRepositoryRequest,
@@ -30,33 +30,12 @@ function resolveProjectNameParam(
 
 /** HTTP handlers for /v1/integrations/git/*, constructor-injected with the registered-repository store they operate on. */
 export class GitIntegrationHandlers {
-  constructor(private readonly repositories: Core.GitRepositories.GitRepositoryStore) {}
+  private readonly repositories: Core.GitRepositories.GitRepositoryStore;
+  private readonly gitIntegration: Core.GitIntegration.GitIntegrationService;
 
-  /** Responds 401 if `request` isn't authorized for `scope`, otherwise undefined. */
-  private async requireAuth(
-    request: Request,
-    scope: "read" | "upload",
-  ): Promise<Response | undefined> {
-    if (await isAuthorizedFor(request, scope)) return undefined;
-    return Response.json({ error: "Missing or invalid bearer token." }, {
-      status: 401,
-    });
-  }
-
-  /** Parses `request`'s body as JSON, or an error Response if it isn't valid JSON. */
-  private async parseJsonBody(
-    request: Request,
-  ): Promise<{ body: unknown } | { errorResponse: Response }> {
-    const text = await request.text();
-    try {
-      return { body: JSON.parse(text) };
-    } catch {
-      return {
-        errorResponse: Response.json({
-          error: "Request body must be valid JSON.",
-        }, { status: 400 }),
-      };
-    }
+  constructor(repositories: Core.GitRepositories.GitRepositoryStore) {
+    this.repositories = repositories;
+    this.gitIntegration = new Core.GitIntegration.GitIntegrationService(repositories);
   }
 
   /**
@@ -69,10 +48,10 @@ export class GitIntegrationHandlers {
    * (see core/workflow.ts's syncWorkflowFromGitLinkIfPresent).
    */
   async handleRegisterRepository(request: Request): Promise<Response> {
-    const authError = await this.requireAuth(request, "upload");
+    const authError = await requireAuth(request, "upload");
     if (authError) return authError;
 
-    const parsed = await this.parseJsonBody(request);
+    const parsed = await parseJsonBody(request);
     if ("errorResponse" in parsed) return parsed.errorResponse;
     if (!isRegisterGitRepositoryRequest(parsed.body)) {
       return Response.json({
@@ -85,13 +64,12 @@ export class GitIntegrationHandlers {
     const auth: Core.GitRepositories.GitAuthStrategy = body.auth ?? { type: "none" };
 
     try {
-      const { projectName } = await new Core.GitIntegration.GitIntegrationService(this.repositories)
-        .register({
-          repoUrl: body.repoUrl,
-          projectName: body.projectName,
-          auth,
-          secretsKey: body.secretsKey,
-        });
+      const { projectName } = await this.gitIntegration.register({
+        repoUrl: body.repoUrl,
+        projectName: body.projectName,
+        auth,
+        secretsKey: body.secretsKey,
+      });
       return Response.json(
         { projectName } satisfies RegisterGitRepositoryResponse,
       );
@@ -104,7 +82,7 @@ export class GitIntegrationHandlers {
 
   /** GET /v1/integrations/git/repositories — every registered repository. */
   async handleListRepositories(request: Request): Promise<Response> {
-    const authError = await this.requireAuth(request, "read");
+    const authError = await requireAuth(request, "read");
     if (authError) return authError;
 
     const records = await this.repositories.list();
@@ -127,13 +105,13 @@ export class GitIntegrationHandlers {
     request: Request,
     params: Record<string, string | undefined>,
   ): Promise<Response> {
-    const authError = await this.requireAuth(request, "upload");
+    const authError = await requireAuth(request, "upload");
     if (authError) return authError;
 
     const resolved = resolveProjectNameParam(params);
     if ("errorResponse" in resolved) return resolved.errorResponse;
 
-    const parsed = await this.parseJsonBody(request);
+    const parsed = await parseJsonBody(request);
     if ("errorResponse" in parsed) return parsed.errorResponse;
     if (!isSetRepositorySecretsKeyRequest(parsed.body)) {
       return Response.json({ error: "Expected { secretsKey: string }." }, {
@@ -142,8 +120,7 @@ export class GitIntegrationHandlers {
     }
 
     try {
-      await new Core.GitIntegration.GitIntegrationService(this.repositories)
-        .setRepositorySecretsKey(resolved.projectName, parsed.body.secretsKey);
+      await this.gitIntegration.setRepositorySecretsKey(resolved.projectName, parsed.body.secretsKey);
       return Response.json({});
     } catch (error) {
       return Response.json({
@@ -157,13 +134,13 @@ export class GitIntegrationHandlers {
     request: Request,
     params: Record<string, string | undefined>,
   ): Promise<Response> {
-    const authError = await this.requireAuth(request, "upload");
+    const authError = await requireAuth(request, "upload");
     if (authError) return authError;
 
     const resolved = resolveProjectNameParam(params);
     if ("errorResponse" in resolved) return resolved.errorResponse;
 
-    const parsed = await this.parseJsonBody(request);
+    const parsed = await parseJsonBody(request);
     if ("errorResponse" in parsed) return parsed.errorResponse;
     if (!isSetRepositoryAuthRequest(parsed.body)) {
       return Response.json({
@@ -175,8 +152,7 @@ export class GitIntegrationHandlers {
     const auth: Core.GitRepositories.GitAuthStrategy = parsed.body.auth;
 
     try {
-      const updated = await new Core.GitIntegration.GitIntegrationService(this.repositories)
-        .setRepositoryAuth(resolved.projectName, auth);
+      const updated = await this.gitIntegration.setRepositoryAuth(resolved.projectName, auth);
       return Response.json({
         projectName: updated.projectName,
         authType: updated.auth.type,
@@ -193,16 +169,14 @@ export class GitIntegrationHandlers {
     request: Request,
     params: Record<string, string | undefined>,
   ): Promise<Response> {
-    const authError = await this.requireAuth(request, "upload");
+    const authError = await requireAuth(request, "upload");
     if (authError) return authError;
 
     const resolved = resolveProjectNameParam(params);
     if ("errorResponse" in resolved) return resolved.errorResponse;
 
     try {
-      const { projectName, lastFetchedAt } = await new Core.GitIntegration.GitIntegrationService(
-        this.repositories,
-      ).refresh(resolved.projectName);
+      const { projectName, lastFetchedAt } = await this.gitIntegration.refresh(resolved.projectName);
       return Response.json(
         { projectName, lastFetchedAt } satisfies RefreshGitRepositoryResponse,
       );
@@ -218,16 +192,14 @@ export class GitIntegrationHandlers {
     request: Request,
     params: Record<string, string | undefined>,
   ): Promise<Response> {
-    const authError = await this.requireAuth(request, "upload");
+    const authError = await requireAuth(request, "upload");
     if (authError) return authError;
 
     const resolved = resolveProjectNameParam(params);
     if ("errorResponse" in resolved) return resolved.errorResponse;
 
     try {
-      await new Core.GitIntegration.GitIntegrationService(this.repositories).remove(
-        resolved.projectName,
-      );
+      await this.gitIntegration.remove(resolved.projectName);
       return Response.json({});
     } catch (error) {
       return Response.json({
@@ -241,15 +213,14 @@ export class GitIntegrationHandlers {
     request: Request,
     params: Record<string, string | undefined>,
   ): Promise<Response> {
-    const authError = await this.requireAuth(request, "read");
+    const authError = await requireAuth(request, "read");
     if (authError) return authError;
 
     const resolved = resolveProjectNameParam(params);
     if ("errorResponse" in resolved) return resolved.errorResponse;
 
     try {
-      const candidates = await new Core.GitIntegration.GitIntegrationService(this.repositories)
-        .listRepoWorkflowCandidates(resolved.projectName);
+      const candidates = await this.gitIntegration.listRepoWorkflowCandidates(resolved.projectName);
       return Response.json(
         { candidates } satisfies ListRepoWorkflowCandidatesResponse,
       );
@@ -268,7 +239,7 @@ export class GitIntegrationHandlers {
    * match one, otherwise fetches unauthenticated.
    */
   async handleListRemoteTags(request: Request): Promise<Response> {
-    const authError = await this.requireAuth(request, "read");
+    const authError = await requireAuth(request, "read");
     if (authError) return authError;
 
     const repoUrl = new URL(request.url).searchParams.get("repoUrl");
@@ -278,8 +249,7 @@ export class GitIntegrationHandlers {
       });
     }
 
-    const tags = await new Core.GitIntegration.GitIntegrationService(this.repositories)
-      .listRemoteGitTags(repoUrl);
+    const tags = await this.gitIntegration.listRemoteGitTags(repoUrl);
     return Response.json({ tags } satisfies ListRemoteGitTagsResponse);
   }
 }

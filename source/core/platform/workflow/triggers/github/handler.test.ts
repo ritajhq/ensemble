@@ -1,7 +1,7 @@
 import { assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import * as Core from "@ensemble/core";
-import { handle as handleGithubTrigger } from "./handler.ts";
+import { GithubTriggerHandlers } from "./handler.ts";
 
 interface TestContext {
   repoRoot: string;
@@ -130,10 +130,7 @@ Deno.test("handleGithubTrigger: triggers the one workflow linked to the reposito
     });
 
     const body = pushPayload("acme/widgets", "1.2.3");
-    const response = await handleGithubTrigger(
-      ctx.repositories,
-      ctx.links,
-      ctx.runs,
+    const response = await new GithubTriggerHandlers({ repositories: ctx.repositories, links: ctx.links, runs: ctx.runs }).handleWebhook(
       await signedRequest("shh", body),
     );
 
@@ -145,10 +142,7 @@ Deno.test("handleGithubTrigger: triggers the one workflow linked to the reposito
 Deno.test("handleGithubTrigger: rejects an unregistered repository with 401, same as an invalid signature", async () => {
   await withContext(async (ctx) => {
     const body = pushPayload("acme/nonexistent", "1.2.3");
-    const response = await handleGithubTrigger(
-      ctx.repositories,
-      ctx.links,
-      ctx.runs,
+    const response = await new GithubTriggerHandlers({ repositories: ctx.repositories, links: ctx.links, runs: ctx.runs }).handleWebhook(
       await signedRequest("whatever-secret", body),
     );
     assertEquals(response.status, 401);
@@ -165,10 +159,7 @@ Deno.test("handleGithubTrigger: rejects a registered repository with no webhookS
     });
 
     const body = pushPayload("acme/widgets", "1.2.3");
-    const response = await handleGithubTrigger(
-      ctx.repositories,
-      ctx.links,
-      ctx.runs,
+    const response = await new GithubTriggerHandlers({ repositories: ctx.repositories, links: ctx.links, runs: ctx.runs }).handleWebhook(
       await signedRequest("some-guess", body),
     );
     assertEquals(response.status, 401);
@@ -192,10 +183,7 @@ Deno.test("handleGithubTrigger: rejects a signature computed with a different re
 
     // Payload claims to be from "widgets", but is signed with "gadgets"'s secret.
     const body = pushPayload("acme/widgets", "1.2.3");
-    const response = await handleGithubTrigger(
-      ctx.repositories,
-      ctx.links,
-      ctx.runs,
+    const response = await new GithubTriggerHandlers({ repositories: ctx.repositories, links: ctx.links, runs: ctx.runs }).handleWebhook(
       await signedRequest("gadgets-secret", body),
     );
     assertEquals(response.status, 401);
@@ -218,10 +206,7 @@ Deno.test("handleGithubTrigger: a push for one registered repo never triggers a 
     });
 
     const body = pushPayload("acme/widgets", "1.2.3");
-    const response = await handleGithubTrigger(
-      ctx.repositories,
-      ctx.links,
-      ctx.runs,
+    const response = await new GithubTriggerHandlers({ repositories: ctx.repositories, links: ctx.links, runs: ctx.runs }).handleWebhook(
       await signedRequest("widgets-secret", body),
     );
 
@@ -240,10 +225,7 @@ Deno.test("handleGithubTrigger: a non-push event is a 204 no-op even for a fully
     });
 
     const body = pushPayload("acme/widgets", "1.2.3");
-    const response = await handleGithubTrigger(
-      ctx.repositories,
-      ctx.links,
-      ctx.runs,
+    const response = await new GithubTriggerHandlers({ repositories: ctx.repositories, links: ctx.links, runs: ctx.runs }).handleWebhook(
       await signedRequest("shh", body, "ping"),
     );
     assertEquals(response.status, 204);
@@ -264,10 +246,7 @@ Deno.test("handleGithubTrigger: a branch push (not a tag) is a 204 no-op", async
       after: "deadbeef",
       repository: { full_name: "acme/widgets" },
     });
-    const response = await handleGithubTrigger(
-      ctx.repositories,
-      ctx.links,
-      ctx.runs,
+    const response = await new GithubTriggerHandlers({ repositories: ctx.repositories, links: ctx.links, runs: ctx.runs }).handleWebhook(
       await signedRequest("shh", body),
     );
     assertEquals(response.status, 204);
@@ -294,10 +273,7 @@ jobs:
     });
 
     const body = pushPayload("acme/widgets", "1.2.3");
-    const response = await handleGithubTrigger(
-      ctx.repositories,
-      ctx.links,
-      ctx.runs,
+    const response = await new GithubTriggerHandlers({ repositories: ctx.repositories, links: ctx.links, runs: ctx.runs }).handleWebhook(
       await signedRequest("shh", body),
     );
 
@@ -316,10 +292,7 @@ Deno.test("handleGithubTrigger: matches a registered repository regardless of a 
     });
 
     const body = pushPayload("acme/widgets", "1.2.3");
-    const response = await handleGithubTrigger(
-      ctx.repositories,
-      ctx.links,
-      ctx.runs,
+    const response = await new GithubTriggerHandlers({ repositories: ctx.repositories, links: ctx.links, runs: ctx.runs }).handleWebhook(
       await signedRequest("shh", body),
     );
 

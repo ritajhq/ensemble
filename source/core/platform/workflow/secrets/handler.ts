@@ -2,7 +2,8 @@ import * as Core from "@ensemble/core";
 import * as Workflow from "@ensemble/workflow";
 import type { ContextSecretFile } from "@ensemble/workflow";
 import { parse as parseYaml, stringify as stringifyYaml } from "@std/yaml";
-import { isAuthorizedFor } from "../../auth/tokens.ts";
+import { parseJsonBody, requireAuth } from "../../features.ts";
+import { resolveContextParams, resolveWorkflowGitTarget } from "../git-target.ts";
 import {
   isSetSecretFileRequest,
   isSetSecretRequest,
@@ -11,30 +12,6 @@ import {
   type ContextSummaryResponse,
   type SetSecretResponse,
 } from "./contract.ts";
-
-/** Reads/validates the common :workflowId/:context route params, decoding the base64url workflow id to its real name. */
-function resolveParams(
-  params: Record<string, string | undefined>,
-): { workflowName: string; context: string } | { errorResponse: Response } {
-  const id = params.workflowId;
-  const context = params.context;
-  if (!id || !context) {
-    return {
-      errorResponse: Response.json({
-        error: "Missing workflowId or context in URL.",
-      }, { status: 400 }),
-    };
-  }
-  try {
-    return { workflowName: Core.Workflows.decodeWorkflowId(id), context };
-  } catch (error) {
-    return {
-      errorResponse: Response.json({
-        error: error instanceof Error ? error.message : String(error),
-      }, { status: 400 }),
-    };
-  }
-}
 
 /** The store/provider instances the secrets editor's handlers are constructed with. */
 export interface SecretsStores {
@@ -64,33 +41,6 @@ export class SecretsHandlers {
     this.git = stores.git;
   }
 
-  /** Responds 401 if `request` isn't authorized for `scope`, otherwise undefined. */
-  private async requireAuth(
-    request: Request,
-    scope: "read" | "upload",
-  ): Promise<Response | undefined> {
-    if (await isAuthorizedFor(request, scope)) return undefined;
-    return Response.json({ error: "Missing or invalid bearer token." }, {
-      status: 401,
-    });
-  }
-
-  /** Parses `request`'s body as JSON, or an error Response if it isn't valid JSON. */
-  private async parseJsonBody(
-    request: Request,
-  ): Promise<{ body: unknown } | { errorResponse: Response }> {
-    const text = await request.text();
-    try {
-      return { body: JSON.parse(text) };
-    } catch {
-      return {
-        errorResponse: Response.json({
-          error: "Request body must be valid JSON.",
-        }, { status: 400 }),
-      };
-    }
-  }
-
   /**
    * Resolves the git repo + secrets.yml path a workflow's secrets live at, or
    * an error Response if the workflow has no WorkflowGitLink — only
@@ -110,30 +60,14 @@ export class SecretsHandlers {
       workflowYmlPath: string;
     } | { errorResponse: Response }
   > {
-    const link = await this.links.get(workflowName);
-    if (!link) {
-      return {
-        errorResponse: Response.json({
-          error:
-            `Workflow "${workflowName}" isn't linked to a git repository — edit its secrets locally via "ens workflow secrets edit".`,
-        }, { status: 404 }),
-      };
-    }
-    const record = await this.repositories.get(link.projectName);
-    if (!record) {
-      return {
-        errorResponse: Response.json({
-          error: `Registered repository "${link.projectName}" not found.`,
-        }, { status: 404 }),
-      };
-    }
-    const workflowRoot = `workflows/${link.pathInRepo}`;
+    const target = await resolveWorkflowGitTarget(this.repositories, this.links, workflowName);
+    if ("errorResponse" in target) return target;
     return {
-      repoUrl: record.repoUrl,
-      auth: record.auth,
-      secretsPath: `${workflowRoot}/contexts/${context}/secrets.yml`,
-      secretsDir: `${workflowRoot}/contexts/${context}/secrets`,
-      workflowYmlPath: `${workflowRoot}/workflow.yml`,
+      repoUrl: target.repoUrl,
+      auth: target.auth,
+      secretsPath: `${target.workflowRoot}/contexts/${context}/secrets.yml`,
+      secretsDir: `${target.workflowRoot}/contexts/${context}/secrets`,
+      workflowYmlPath: target.workflowYmlPath,
     };
   }
 
@@ -205,9 +139,9 @@ export class SecretsHandlers {
     request: Request,
     params: Record<string, string | undefined>,
   ): Promise<Response> {
-    const authError = await this.requireAuth(request, "read");
+    const authError = await requireAuth(request, "read");
     if (authError) return authError;
-    const resolved = resolveParams(params);
+    const resolved = resolveContextParams(params);
     if ("errorResponse" in resolved) return resolved.errorResponse;
 
     const target = await this.resolveGitTarget(
@@ -266,16 +200,16 @@ export class SecretsHandlers {
     request: Request,
     params: Record<string, string | undefined>,
   ): Promise<Response> {
-    const authError = await this.requireAuth(request, "upload");
+    const authError = await requireAuth(request, "upload");
     if (authError) return authError;
-    const resolved = resolveParams(params);
+    const resolved = resolveContextParams(params);
     if ("errorResponse" in resolved) return resolved.errorResponse;
     const key = params.key;
     if (!key) {
       return Response.json({ error: "Missing key in URL." }, { status: 400 });
     }
 
-    const parsed = await this.parseJsonBody(request);
+    const parsed = await parseJsonBody(request);
     if ("errorResponse" in parsed) return parsed.errorResponse;
     if (!isSetSecretRequest(parsed.body)) {
       return Response.json({ error: "Expected { value: string }." }, {
@@ -338,9 +272,9 @@ export class SecretsHandlers {
     request: Request,
     params: Record<string, string | undefined>,
   ): Promise<Response> {
-    const authError = await this.requireAuth(request, "upload");
+    const authError = await requireAuth(request, "upload");
     if (authError) return authError;
-    const resolved = resolveParams(params);
+    const resolved = resolveContextParams(params);
     if ("errorResponse" in resolved) return resolved.errorResponse;
     const key = params.key;
     if (!key) {
@@ -398,16 +332,16 @@ export class SecretsHandlers {
     request: Request,
     params: Record<string, string | undefined>,
   ): Promise<Response> {
-    const authError = await this.requireAuth(request, "upload");
+    const authError = await requireAuth(request, "upload");
     if (authError) return authError;
-    const resolved = resolveParams(params);
+    const resolved = resolveContextParams(params);
     if ("errorResponse" in resolved) return resolved.errorResponse;
     const name = params.name;
     if (!name) {
       return Response.json({ error: "Missing name in URL." }, { status: 400 });
     }
 
-    const parsed = await this.parseJsonBody(request);
+    const parsed = await parseJsonBody(request);
     if ("errorResponse" in parsed) return parsed.errorResponse;
     if (!isSetSecretFileRequest(parsed.body)) {
       return Response.json({ error: "Expected { contentBase64: string }." }, {
@@ -476,9 +410,9 @@ export class SecretsHandlers {
     request: Request,
     params: Record<string, string | undefined>,
   ): Promise<Response> {
-    const authError = await this.requireAuth(request, "upload");
+    const authError = await requireAuth(request, "upload");
     if (authError) return authError;
-    const resolved = resolveParams(params);
+    const resolved = resolveContextParams(params);
     if ("errorResponse" in resolved) return resolved.errorResponse;
     const name = params.name;
     if (!name) {

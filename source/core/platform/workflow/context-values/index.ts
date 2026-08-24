@@ -1,6 +1,6 @@
 import * as Core from "@ensemble/core";
 import { handleGetContextValues } from "./handler.ts";
-import type { Feature } from "../../features.ts";
+import { route, type Feature } from "../../features.ts";
 
 export { handleGetContextValues } from "./handler.ts";
 export type {
@@ -20,18 +20,11 @@ export type {
 export function createContextValuesFeatures(
   repositories: Core.GitRepositories.GitRepositoryStore,
   links: Core.GitRepositories.WorkflowGitLinkStore,
+  basePath: string,
 ): Feature[] {
   const git = Core.GitWrite.createGithubContentsProvider();
 
   return [
-    {
-      name: "context-values-get",
-      method: "GET",
-      pattern: new URLPattern({
-        pathname: "/v1/context-values/:workflowId/:context",
-      }),
-      handle: (request, params) =>
-        handleGetContextValues(repositories, links, git, request, params),
-    },
+    route("context-values-get", "GET", `${basePath}/:workflowId/:context`, (request, params) => handleGetContextValues(repositories, links, git, request, params)),
   ];
 }

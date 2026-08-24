@@ -1,5 +1,5 @@
 import { handleUploadWorkflow } from "./handler.ts";
-import type { Feature } from "../../features.ts";
+import { route, type Feature } from "../../features.ts";
 
 export { handleUploadWorkflow } from "./handler.ts";
 export {
@@ -9,9 +9,6 @@ export {
   type UploadResponse,
 } from "./client.ts";
 
-export const workflowRegistryFeature: Feature = {
-  name: "workflow-registry",
-  method: "PUT",
-  pattern: new URLPattern({ pathname: "/v1/workflows/:id" }),
-  handle: handleUploadWorkflow,
-};
+export function createWorkflowRegistryFeature(basePath: string): Feature {
+  return route("workflow-registry", "PUT", `${basePath}/:id`, handleUploadWorkflow);
+}
