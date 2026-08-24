@@ -5,6 +5,7 @@ import {
   isRegisterGitRepositoryRequest,
   isSetRepositoryAuthRequest,
   isSetRepositorySecretsKeyRequest,
+  isSetWebhookSecretRequest,
   type ListGitRepositoriesResponse,
   type ListRemoteGitTagsResponse,
   type ListRepoWorkflowCandidatesResponse,
@@ -69,6 +70,7 @@ export class GitIntegrationHandlers {
         projectName: body.projectName,
         auth,
         secretsKey: body.secretsKey,
+        webhookSecret: body.webhookSecret,
       });
       return Response.json(
         { projectName } satisfies RegisterGitRepositoryResponse,
@@ -93,6 +95,7 @@ export class GitIntegrationHandlers {
       registeredAt: record.registeredAt,
       lastFetchedAt: record.lastFetchedAt,
       hasSecretsKey: record.secretsKey !== undefined,
+      hasWebhookSecret: record.webhookSecret !== undefined,
     }));
 
     return Response.json(
@@ -121,6 +124,35 @@ export class GitIntegrationHandlers {
 
     try {
       await this.gitIntegration.setRepositorySecretsKey(resolved.projectName, parsed.body.secretsKey);
+      return Response.json({});
+    } catch (error) {
+      return Response.json({
+        error: error instanceof Error ? error.message : String(error),
+      }, { status: 400 });
+    }
+  }
+
+  /** POST /v1/integrations/git/repositories/:projectName/webhook-secret — sets or rotates a registered repository's GitHub webhook secret, without re-registering. */
+  async handleSetWebhookSecret(
+    request: Request,
+    params: Record<string, string | undefined>,
+  ): Promise<Response> {
+    const authError = await requireAuth(request, "upload");
+    if (authError) return authError;
+
+    const resolved = resolveProjectNameParam(params);
+    if ("errorResponse" in resolved) return resolved.errorResponse;
+
+    const parsed = await parseJsonBody(request);
+    if ("errorResponse" in parsed) return parsed.errorResponse;
+    if (!isSetWebhookSecretRequest(parsed.body)) {
+      return Response.json({ error: "Expected { webhookSecret: string }." }, {
+        status: 400,
+      });
+    }
+
+    try {
+      await this.gitIntegration.setWebhookSecret(resolved.projectName, parsed.body.webhookSecret);
       return Response.json({});
     } catch (error) {
       return Response.json({

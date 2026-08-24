@@ -45,16 +45,24 @@ permission, both reject the request.
 ### `github-trigger` — `POST /v1/webhooks/github`
 
 A single global endpoint (this is how GitHub webhooks work — one
-configured URL per repo, not one per workflow). Fans out: on a `push`
-event, scans every workflow under `workflows/` for an `on: - github:`
-entry whose `push.tags` glob-matches the pushed tag, and triggers
-every match, with `trigger.ref`/`trigger.tag`/`trigger.sha` populated
-from GitHub's own payload fields.
+configured URL per repo, not one per workflow). Identifies which
+registered repository sent the push from the payload's own
+`repository.full_name` ("owner/repo"), then fans out only to
+workflows linked to that project: on a `push` event, scans them for
+an `on: - github:` entry whose `push.tags` glob-matches the pushed
+tag, and triggers every match, with
+`trigger.ref`/`trigger.tag`/`trigger.sha` populated from GitHub's own
+payload fields.
 
 **Auth**: requires a valid `X-Hub-Signature-256` header (GitHub's own
-HMAC-SHA256 request signing), verified against `GITHUB_WEBHOOK_SECRET`.
-Fails closed — if that env var isn't set, every push is rejected with
-401, not silently accepted unsigned.
+HMAC-SHA256 request signing), verified against that specific
+repository's own `webhookSecret` — set per registered repository via
+the git integration's `POST
+/v1/integrations/git/repositories/:projectName/webhook-secret`
+endpoint (or at registration time), not a single shared secret.
+Fails closed — a payload naming an unregistered repository, or one
+registered with no `webhookSecret` set, is rejected with 401 the same
+as an invalid signature.
 
 ### `workflow-registry` — `PUT /v1/workflows/:name`
 
@@ -202,9 +210,10 @@ which stored token (if any) is closest to a guess. The file is cached in
 memory and only re-read when its mtime changes, so rotating a token
 doesn't require a server restart.
 
-`github-trigger`'s `GITHUB_WEBHOOK_SECRET` is unrelated to this — it
-verifies an inbound webhook's HMAC signature, not a caller-presented
-token, so it stays its own env var.
+`github-trigger`'s per-repository `webhookSecret` is unrelated to this
+— it verifies an inbound webhook's HMAC signature, not a
+caller-presented token, so it stays part of each `GitRepositoryRecord`
+rather than `tokens.json`.
 
 **This is a deliberately temporary bridge**, not the intended long-term
 design — a real authorization layer (named credentials, finer-grained

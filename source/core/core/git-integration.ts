@@ -19,6 +19,22 @@ export function deriveProjectName(repoUrl: string): string {
   return lastSegment;
 }
 
+/**
+ * Whether `repoUrl` refers to the same GitHub repository as `fullName`
+ * (GitHub's own "owner/repo" identifier, e.g. "acme/widgets" — the
+ * `repository.full_name` field on every webhook payload). Compares the
+ * URL's last two path segments against `fullName`, ignoring a trailing
+ * `.git` and case (GitHub repo names/owners are case-insensitive) — so
+ * "https://github.com/acme/widgets.git" and "https://github.com/acme/widgets"
+ * both match "acme/widgets".
+ */
+export function matchesGithubFullName(repoUrl: string, fullName: string): boolean {
+  const trimmed = repoUrl.trim().replace(/\/+$/, "").replace(/\.git$/, "");
+  const segments = trimmed.split(/[/:]/);
+  const ownerAndRepo = segments.slice(-2).join("/");
+  return ownerAndRepo.toLowerCase() === fullName.trim().toLowerCase();
+}
+
 function assertValidProjectName(projectName: string): void {
   if (!PROJECT_NAME_PATTERN.test(projectName)) {
     throw new Error(
@@ -180,6 +196,8 @@ export interface RegisterGitRepositoryOptions {
   auth?: GitAuthStrategy;
   /** This repo's X25519 private key, so workflows linked to it can decrypt context.secrets when triggered here. Optional — a repo with no encrypted secrets doesn't need one. */
   secretsKey?: string;
+  /** The secret this repo's GitHub webhook is configured with. Optional — a repo whose workflows don't use a GitHub push trigger doesn't need one. */
+  webhookSecret?: string;
 }
 
 /**
@@ -311,6 +329,7 @@ export class GitIntegrationService {
       lastFetchedAt: now,
       lastFetchedSha: sha,
       secretsKey: options.secretsKey,
+      webhookSecret: options.webhookSecret,
     };
     await this.repositories.put(record);
     return record;
@@ -323,6 +342,17 @@ export class GitIntegrationService {
       throw new Error(`Repository "${projectName}" is not registered.`);
     }
     const updated: GitRepositoryRecord = { ...record, secretsKey };
+    await this.repositories.put(updated);
+    return updated;
+  }
+
+  /** Sets or rotates an already-registered repository's GitHub webhook secret, without re-registering. */
+  async setWebhookSecret(projectName: string, webhookSecret: string): Promise<GitRepositoryRecord> {
+    const record = await this.repositories.get(projectName);
+    if (!record) {
+      throw new Error(`Repository "${projectName}" is not registered.`);
+    }
+    const updated: GitRepositoryRecord = { ...record, webhookSecret };
     await this.repositories.put(updated);
     return updated;
   }

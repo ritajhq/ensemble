@@ -405,20 +405,24 @@ export async function syncWorkflowFromGitLinkIfPresent(
 }
 
 /**
- * Re-syncs every git-linked workflow, in parallel. For the real GitHub
- * webhook path (github/handler.ts), which doesn't know in advance which
- * workflow(s) a pushed tag might match — it scans every workflow via
- * listWorkflows() first — so it can't target syncWorkflowFromGitLinkIfPresent
- * at just one workflow the way the other trigger paths can.
+ * Re-syncs every workflow linked to `projectName`, in parallel. For the real
+ * GitHub webhook path (github/handler.ts), which identifies the one
+ * registered repository a delivery came from (via its payload's
+ * `repository.full_name`) but not in advance which of that project's linked
+ * workflow(s) a pushed tag might actually match — so it can't target
+ * syncWorkflowFromGitLinkIfPresent at just one workflow the way the other
+ * trigger paths can, but doesn't need to touch every *other* registered
+ * project's links either.
  */
-export async function syncAllWorkflowGitLinks(
+export async function syncWorkflowGitLinksForProject(
   repositories: GitRepositoryStore,
   links: WorkflowGitLinkStore,
+  projectName: string,
 ): Promise<void> {
   const gitIntegration = new GitIntegrationService(repositories, links);
-  const allLinks = await links.listAll();
+  const projectLinks = await links.listForProject(projectName);
   await Promise.all(
-    allLinks.map((link) =>
+    projectLinks.map((link) =>
       gitIntegration.sync(link.workflowName, link.projectName, link.pathInRepo)
     ),
   );

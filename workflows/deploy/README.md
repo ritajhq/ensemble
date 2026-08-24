@@ -35,36 +35,26 @@ plain env var (`$IMAGE_REGISTRY`, `$IMAGE_TAG`, ...) in every step's shell,
 so `docker compose` picks them up straight from its own invoking process —
 no `--env-file` needed for those.
 
-A handful of values are host facts or secrets instead, and are resolved by
+A handful of values are host facts instead, and are resolved by
 `workflow.yml`'s `deploy` job itself at run time into a generated,
 uncommitted env file merged in via `--env-file` (later `--env-file` wins on
 overlapping keys, though there's only ever one here): the docker group GID,
-the resolved absolute `SERVER_HOST_WORKFLOWS_PATH`, `GITHUB_WEBHOOK_SECRET`,
+the resolved absolute `SERVER_HOST_WORKFLOWS_PATH`,
 and (watch mode only) `CADDY_CONFIG` plus the live artifact paths.
 `development` additionally declares a `context.files` entry for its
 `Caddyfile` (`context.files.caddy_config.path`) — `production` doesn't need
 one at all, since `caddy` never starts there (no `dev` profile) and that
 step (the only place `caddy_config` is referenced) never runs for it.
 
-**Secrets**: `GITHUB_WEBHOOK_SECRET` is declared under `workflow.yml`'s
-`context.secrets.variables` and stored encrypted, values-only, in
-`contexts/<name>/secrets.yml` (keys stay cleartext for readable diffs —
-see `@ensemble/workflow`'s README). Set or change it with:
-
-```sh
-ens workflow secrets edit deploy <context>
-```
-
-The `deploy` job's `context.secrets` declaration fails the run with a clear
-message if that value can't be resolved, rather than silently deploying
-with no secret.
-
-Rotating the repo's keypair itself (rather than just a secret's value) is
-`ens workflow secrets init --force`, followed by re-running `secrets edit`
-for every existing secret — the old ciphertext becomes permanently
-undecryptable once the keypair changes. Any server with this repo
-registered as a git integration also needs the new private key handed to
-it again (`POST /v1/integrations/git/repositories/<projectName>/secrets-key`).
+**Secrets**: the GitHub webhook secret used to be here (`GITHUB_WEBHOOK_SECRET`,
+declared under `workflow.yml`'s `context.secrets.variables`), but it's now
+per-repository instead of shared — set via `POST
+/v1/integrations/git/repositories/:projectName/webhook-secret` (or at
+registration time) on each registered git repository, not a deploy-time
+secret. `deploy`'s `workflow.yml` currently declares no
+`context.secrets.variables` of its own; if one is ever added, set or change
+it with `ens workflow secrets edit deploy <context>` (see `@ensemble/workflow`'s
+README for how that encryption model works).
 
 ## Running it
 

@@ -24,13 +24,11 @@ openssl rand -hex 32
 }
 ```
 
-Also pick a `GITHUB_WEBHOOK_SECRET` (a separate concern — it verifies
-GitHub's own webhook signature, not a caller token) if you're using the
-github-trigger feature:
-
-```sh
-openssl rand -hex 32
-```
+The GitHub push trigger's webhook signature is verified with a separate,
+per-repository secret rather than a caller token — set (or rotate) it via
+`POST /v1/integrations/git/repositories/:projectName/webhook-secret` (or at
+registration time) for each registered git repository that needs
+`github-trigger` to work, not as a container env var here.
 
 1. Pull/build the `runner` image too (`source/ship/runner/`) and tag it
    `runner:latest`, or whatever name you'll pass as `ENSEMBLE_RUNNER_IMAGE`
@@ -56,7 +54,6 @@ docker run -d \
   -v /var/run/docker.sock:/var/run/docker.sock \
   --group-add <docker GID from the previous step> \
   -p 127.0.0.1:8787:8787 \
-  -e GITHUB_WEBHOOK_SECRET='<generated-secret>' \
   -e ENSEMBLE_RUNNER_IMAGE=runner:latest \
   -e ENSEMBLE_HOST_WORKFLOWS_PATH=~/.local/share/ensemble/workflows \
   server:latest

@@ -23,6 +23,8 @@ export interface RegisterGitRepositoryRequest {
   auth?: GitAuthStrategyRequest;
   /** This repo's X25519 private key (base64 pkcs8 — the content of its .ensemble/secrets.key), so a workflow linked to this repo can decrypt its context.secrets when triggered here. Optional — omit for a repo with no encrypted secrets. Can also be set/rotated later via the dedicated secrets-key endpoint without re-registering. */
   secretsKey?: string;
+  /** The secret this repo's GitHub webhook is configured with. Optional — omit for a repo whose workflows don't use a GitHub push trigger. Can also be set/rotated later via the dedicated webhook-secret endpoint without re-registering. */
+  webhookSecret?: string;
 }
 
 export function isRegisterGitRepositoryRequest(
@@ -42,6 +44,9 @@ export function isRegisterGitRepositoryRequest(
   if (
     record.secretsKey !== undefined && typeof record.secretsKey !== "string"
   ) return false;
+  if (
+    record.webhookSecret !== undefined && typeof record.webhookSecret !== "string"
+  ) return false;
   return true;
 }
 
@@ -59,6 +64,18 @@ export function isSetRepositorySecretsKeyRequest(
   if (typeof value !== "object" || value === null) return false;
   const record = value as Record<string, unknown>;
   return typeof record.secretsKey === "string" && record.secretsKey.length > 0;
+}
+
+export interface SetWebhookSecretRequest {
+  webhookSecret: string;
+}
+
+export function isSetWebhookSecretRequest(
+  value: unknown,
+): value is SetWebhookSecretRequest {
+  if (typeof value !== "object" || value === null) return false;
+  const record = value as Record<string, unknown>;
+  return typeof record.webhookSecret === "string" && record.webhookSecret.length > 0;
 }
 
 export interface SetRepositoryAuthRequest {
@@ -87,6 +104,8 @@ export interface GitRepositorySummary {
   lastFetchedAt?: string;
   /** Whether a secrets private key is currently set — never the key itself. */
   hasSecretsKey: boolean;
+  /** Whether a GitHub webhook secret is currently set — never the secret itself. */
+  hasWebhookSecret: boolean;
 }
 
 export interface ListGitRepositoriesResponse {

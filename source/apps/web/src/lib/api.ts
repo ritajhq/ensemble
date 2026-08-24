@@ -298,16 +298,17 @@ export type GitAuthStrategy =
   | { type: "none" }
   | { type: "pat"; token: string };
 
-/** Registers a git repository: validates access by cloning it into a server-side cache — never creates or touches any workflow directory. `secretsKey` (this repo's X25519 private key, the content of its .ensemble/secrets.key) is optional — lets workflows linked to this repo decrypt their context.secrets when triggered here. */
+/** Registers a git repository: validates access by cloning it into a server-side cache — never creates or touches any workflow directory. `secretsKey` (this repo's X25519 private key, the content of its .ensemble/secrets.key) is optional — lets workflows linked to this repo decrypt their context.secrets when triggered here. `webhookSecret` is optional — lets this repo's GitHub push trigger work; without it, a push to this repo can't trigger anything. */
 export async function registerGitRepository(
   repoUrl: string,
   projectName?: string,
   auth?: GitAuthStrategy,
   secretsKey?: string,
+  webhookSecret?: string,
 ): Promise<{ projectName: string }> {
   return await postJson<{ projectName: string }>(
     "/v1/integrations/git/register",
-    { repoUrl, projectName, auth, secretsKey },
+    { repoUrl, projectName, auth, secretsKey, webhookSecret },
   );
 }
 
@@ -320,6 +321,8 @@ export interface GitRepositorySummary {
   lastFetchedAt?: string;
   /** Whether a secrets private key is currently set — never the key itself. */
   hasSecretsKey: boolean;
+  /** Whether a GitHub webhook secret is currently set — never the secret itself. */
+  hasWebhookSecret: boolean;
 }
 
 export async function fetchGitRepositories(): Promise<GitRepositorySummary[]> {
@@ -339,6 +342,19 @@ export async function setRepositorySecretsKey(
       encodeURIComponent(projectName)
     }/secrets-key`,
     { secretsKey },
+  );
+}
+
+/** Sets or rotates an already-registered repository's GitHub webhook secret, without re-registering. */
+export async function setWebhookSecret(
+  projectName: string,
+  webhookSecret: string,
+): Promise<void> {
+  await postJson(
+    `/v1/integrations/git/repositories/${
+      encodeURIComponent(projectName)
+    }/webhook-secret`,
+    { webhookSecret },
   );
 }
 

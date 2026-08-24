@@ -35,6 +35,18 @@ export interface GitRepositoryRecord {
    * PAT — never returned by any list/summary endpoint.
    */
   secretsKey?: string;
+  /**
+   * The secret this repo's GitHub webhook is configured with (the same value
+   * pasted into GitHub's "Secret" field when setting up the push webhook) —
+   * used to verify an incoming webhook's `X-Hub-Signature-256` actually came
+   * from this repo (see triggers/github/handler.ts's handleWebhook), so a
+   * push claiming to be from one repo can't be signed with another's secret.
+   * Optional: a repo registered before this field existed, or that never
+   * configured a GitHub webhook, has none — its GitHub push trigger simply
+   * can't be used until one is set. Same trust tier as `auth`'s PAT and
+   * `secretsKey` — never returned by any list/summary endpoint.
+   */
+  webhookSecret?: string;
 }
 
 /** Links one workflow's on-disk content to where it was last synced from in a registered repo, so a later "sync now" knows what to re-fetch. */

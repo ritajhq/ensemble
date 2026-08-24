@@ -8,6 +8,7 @@ import {
   removeGitRepository,
   setRepositoryAuth,
   setRepositorySecretsKey,
+  setWebhookSecret,
 } from "../lib/api.ts";
 import { formatRelativeTime } from "../lib/status.ts";
 import {
@@ -254,6 +255,84 @@ function SecretsKeySection(
   );
 }
 
+function WebhookSecretSection(
+  { repository, onChanged }: {
+    repository: GitRepositorySummary;
+    onChanged: () => void;
+  },
+) {
+  const [webhookSecret, setWebhookSecretValue] = useState("");
+  const [status, setStatus] = useState<
+    { state: "idle" } | { state: "loading" } | {
+      state: "error";
+      message: string;
+    }
+  >({ state: "idle" });
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    setStatus({ state: "loading" });
+    try {
+      await setWebhookSecret(repository.projectName, webhookSecret.trim());
+      setWebhookSecretValue("");
+      setStatus({ state: "idle" });
+      onChanged();
+    } catch (error) {
+      setStatus({
+        state: "error",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  return (
+    <Section
+      title="Webhook secret"
+      description="Lets GitHub push events trigger this repository's linked workflows."
+    >
+      <div className="flex flex-col gap-3">
+        <p className="text-sm">
+          {repository.hasWebhookSecret
+            ? "A webhook secret is set."
+            : "No webhook secret set."}
+        </p>
+        <form className="flex flex-col gap-3" onSubmit={handleSubmit}>
+          <div className="flex flex-col gap-1">
+            <label
+              className="text-xs text-muted-foreground"
+              htmlFor="git-webhook-secret"
+            >
+              {repository.hasWebhookSecret
+                ? "Rotate webhook secret"
+                : "Set webhook secret"}
+            </label>
+            <Input
+              id="git-webhook-secret"
+              type="password"
+              placeholder="Same secret configured on this repo's GitHub webhook"
+              value={webhookSecret}
+              onChange={(event) => setWebhookSecretValue(event.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <Button
+              type="submit"
+              disabled={status.state === "loading" ||
+                webhookSecret.trim().length === 0}
+            >
+              {status.state === "loading" ? "Saving…" : "Save"}
+            </Button>
+          </div>
+          {status.state === "error" && (
+            <p className="text-sm text-destructive">{status.message}</p>
+          )}
+        </form>
+      </div>
+    </Section>
+  );
+}
+
 function DangerZoneSection(
   { repository }: { repository: GitRepositorySummary },
 ) {
@@ -398,6 +477,7 @@ export function GitIntegrationDetailView() {
 
             <AccessSection repository={repository} onChanged={refetch} />
             <SecretsKeySection repository={repository} onChanged={refetch} />
+            <WebhookSecretSection repository={repository} onChanged={refetch} />
             <DangerZoneSection repository={repository} />
           </>
         )}

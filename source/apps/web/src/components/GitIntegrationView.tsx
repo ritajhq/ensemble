@@ -136,6 +136,7 @@ function AddRepositoryForm({ onAdded }: { onAdded: () => void }) {
   const [authType, setAuthType] = useState<"none" | "pat">("none");
   const [token, setToken] = useState("");
   const [secretsKey, setSecretsKey] = useState("");
+  const [webhookSecret, setWebhookSecret] = useState("");
   const [status, setStatus] = useState<
     { state: "idle" } | { state: "loading" } | {
       state: "error";
@@ -162,6 +163,7 @@ function AddRepositoryForm({ onAdded }: { onAdded: () => void }) {
         projectName.trim() || undefined,
         auth,
         secretsKey.trim() || undefined,
+        webhookSecret.trim() || undefined,
       );
       setRepoUrl("");
       setProjectName("");
@@ -169,6 +171,7 @@ function AddRepositoryForm({ onAdded }: { onAdded: () => void }) {
       setAuthType("none");
       setToken("");
       setSecretsKey("");
+      setWebhookSecret("");
       setStatus({ state: "idle" });
       onAdded();
     } catch (error) {
@@ -283,6 +286,27 @@ function AddRepositoryForm({ onAdded }: { onAdded: () => void }) {
           Lets workflows from this repo decrypt their context.secrets when
           triggered here. Leave blank if this repo has no encrypted secrets —
           you can set this later too.
+        </p>
+      </div>
+      <div className="flex flex-col gap-1">
+        <label
+          className="text-xs text-muted-foreground"
+          htmlFor="git-webhook-secret"
+        >
+          Webhook secret{" "}
+          <span className="text-muted-foreground">(optional)</span>
+        </label>
+        <Input
+          id="git-webhook-secret"
+          type="password"
+          placeholder="Same secret configured on this repo's GitHub webhook"
+          value={webhookSecret}
+          onChange={(event) => setWebhookSecret(event.target.value)}
+        />
+        <p className="text-xs text-muted-foreground">
+          Required for this repo's GitHub push trigger to work — leave blank
+          if its workflows are only ever triggered manually. You can set this
+          later too.
         </p>
       </div>
       <div>

@@ -11,6 +11,7 @@ import {
 interface GithubPushPayload {
   ref?: string;
   after?: string;
+  repository?: { full_name?: string };
 }
 
 function isGithubPushPayload(value: unknown): value is GithubPushPayload {
@@ -38,37 +39,18 @@ export class GithubTriggerHandlers {
 
   /**
    * A single global endpoint, since that's how GitHub webhooks work — one
-   * configured URL per repo, not one per ensemble workflow. Fans out: scans
-   * every workflow under workflows/ for an `on: - github:` entry whose
+   * configured URL per repo, not one per ensemble workflow. Identifies which
+   * registered repository sent the push (via the payload's own
+   * `repository.full_name`) and verifies the signature against that
+   * specific repo's own webhookSecret before trusting anything else in the
+   * payload — see GitRepositoryRecord.webhookSecret. Fans out: scans every
+   * workflow under workflows/ for an `on: - github:` entry whose
    * `push.tags` matches the pushed tag, and triggers all matches.
    */
   async handleWebhook(request: Request): Promise<Response> {
     const rawBody = await request.text();
 
-    const secret = Deno.env.get("GITHUB_WEBHOOK_SECRET");
-
-    if (!secret) {
-      console.error(
-        "github-trigger: rejecting request — GITHUB_WEBHOOK_SECRET is not configured.",
-      );
-
-      return new Response("github trigger is not configured", { status: 401 });
-    }
-
-    const valid = await verifyGithubSignature(
-      secret,
-      rawBody,
-      request.headers.get("x-hub-signature-256"),
-    );
-
-    if (!valid) return new Response("invalid signature", { status: 401 });
-
-    if (request.headers.get("x-github-event") !== "push") {
-      return new Response(null, { status: 204 });
-    }
-
     let payload: unknown;
-
     try {
       payload = JSON.parse(rawBody);
     } catch {
@@ -83,27 +65,67 @@ export class GithubTriggerHandlers {
       });
     }
 
+    // Resolve which registered repository this claims to be from, and
+    // verify the signature against THAT repo's own webhookSecret — never a
+    // shared/global one. A repo not found, or found but with no
+    // webhookSecret configured, gets the same 401 as a bad signature: don't
+    // let the response distinguish "unknown repo" from "wrong secret".
+    const fullName = payload.repository?.full_name;
+    const record = fullName
+      ? (await this.repositories.list()).find((r) => Core.GitIntegration.matchesGithubFullName(r.repoUrl, fullName))
+      : undefined;
+
+    if (!record?.webhookSecret) {
+      return new Response("invalid signature", { status: 401 });
+    }
+
+    const valid = await verifyGithubSignature(
+      record.webhookSecret,
+      rawBody,
+      request.headers.get("x-hub-signature-256"),
+    );
+
+    if (!valid) return new Response("invalid signature", { status: 401 });
+
+    if (request.headers.get("x-github-event") !== "push") {
+      return new Response(null, { status: 204 });
+    }
+
     const tag = payload.ref ? extractTagFromRef(payload.ref) : undefined;
 
     if (!tag) {
       return new Response(null, { status: 204 }); // not a tag push
     }
 
-    await Core.Workflows.syncAllWorkflowGitLinks(this.repositories, this.links);
+    // Best-effort: a resync hiccup (remote unreachable, revoked PAT, ...)
+    // shouldn't turn an otherwise-valid, signature-verified push into a 500 —
+    // fall through and evaluate against whatever's already on disk from the
+    // last successful sync, same as this project's workflows would've been
+    // found before this push arrived.
+    await Core.Workflows.syncWorkflowGitLinksForProject(this.repositories, this.links, record.projectName)
+      .catch((error) => {
+        console.error(
+          `github-trigger: resync failed for project "${record.projectName}", proceeding with its last-synced content:`,
+          error,
+        );
+      });
 
-    const workflows = await Core.Workflows.listWorkflows();
+    const linkedWorkflows = await this.links.listForProject(record.projectName);
 
-    const matches = workflows
-      .map(({ name, workflow }) => ({
-        name,
-        workflow,
-        trigger: findMatchingGithubTrigger(workflow.on, tag),
-      }))
-      .filter((
-        m,
-      ): m is { name: string; workflow: Workflow; trigger: NonNullable<typeof m.trigger> } =>
-        m.trigger !== undefined
-      );
+    const matches = (await Promise.all(
+      linkedWorkflows.map(async ({ workflowName }) => {
+        const { workflow } = await Core.Workflows.getWorkflowByName(workflowName);
+        return {
+          name: workflowName,
+          workflow,
+          trigger: findMatchingGithubTrigger(workflow.on, tag),
+        };
+      }),
+    )).filter((
+      m,
+    ): m is { name: string; workflow: Workflow; trigger: NonNullable<typeof m.trigger> } =>
+      m.trigger !== undefined
+    );
 
     try {
       for (const { name, workflow } of matches) {
