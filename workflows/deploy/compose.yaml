@@ -1,3 +1,5 @@
+name: ensemble
+
 networks:
   edge:
     name: edge
