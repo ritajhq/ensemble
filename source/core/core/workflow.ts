@@ -379,6 +379,22 @@ export async function renameWorkflow(
   return await getWorkflowByName(trimmed);
 }
 
+export interface SyncWorkflowFromGitLinkOptions {
+  /**
+   * Skip the resync entirely when the linked repository's cache was already
+   * refreshed within this many milliseconds — a cheap local KV read instead
+   * of the `git ls-remote` network round-trip `GitIntegrationService.sync`
+   * would otherwise pay on every call. Only the plain page-load GET
+   * (dashboard/handler.ts's handleGetWorkflow) should set this: a git push
+   * followed by opening the workflow page within the window is rare and
+   * self-corrects on the very next load. Omit (the default) to always sync
+   * — required before validating-then-running a workflow, where freshness
+   * actually matters (handleRunWorkflow and the manual/github-manual trigger
+   * handlers).
+   */
+  skipIfRecentlyFetchedMs?: number;
+}
+
 /**
  * If `name` has a WorkflowGitLink (i.e. it was previously synced from a
  * registered git repo — see syncWorkflowFromGit), re-syncs it so whatever
@@ -397,9 +413,19 @@ export async function syncWorkflowFromGitLinkIfPresent(
   repositories: GitRepositoryStore,
   links: WorkflowGitLinkStore,
   name: string,
+  options: SyncWorkflowFromGitLinkOptions = {},
 ): Promise<void> {
   const link = await links.get(name);
   if (!link) return;
+
+  if (options.skipIfRecentlyFetchedMs !== undefined) {
+    const record = await repositories.get(link.projectName);
+    if (record?.lastFetchedAt !== undefined) {
+      const age = Date.now() - new Date(record.lastFetchedAt).getTime();
+      if (age < options.skipIfRecentlyFetchedMs) return;
+    }
+  }
+
   const gitIntegration = new GitIntegrationService(repositories, links);
   await gitIntegration.sync(link.workflowName, link.projectName, link.pathInRepo);
 }

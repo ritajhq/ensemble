@@ -43,6 +43,9 @@ function summarizeTrigger(
   return undefined;
 }
 
+/** How recently a linked repo's cache must have been refreshed for handleGetWorkflow to skip resyncing it — see syncWorkflowFromGitLinkIfPresent's skipIfRecentlyFetchedMs. */
+const GET_WORKFLOW_RESYNC_STALENESS_MS = 30_000;
+
 /** Decodes the ":id" route param back into a workflow name, or responds 400 if missing/invalid. */
 function resolveWorkflowNameParam(
   params: Record<string, string | undefined>,
@@ -130,7 +133,11 @@ export class DashboardHandlers {
    * this one workflow rather than the list endpoint syncing every linked
    * workflow up front: cheaper when there are many workflows, and avoids two
    * workflows that share a repo racing on that repo's cache dir (see
-   * syncWorkflowFromGit's doc comment).
+   * syncWorkflowFromGit's doc comment). Skips the resync when the repo was
+   * already refreshed within GET_WORKFLOW_RESYNC_STALENESS_MS — this is the
+   * one caller of syncWorkflowFromGitLinkIfPresent that isn't immediately
+   * followed by running the workflow, so trading a little staleness for not
+   * paying a `git ls-remote` round-trip on every page load is worth it.
    */
   async handleGetWorkflow(
     request: Request,
@@ -147,6 +154,7 @@ export class DashboardHandlers {
         this.repositories,
         this.links,
         resolved.name,
+        { skipIfRecentlyFetchedMs: GET_WORKFLOW_RESYNC_STALENESS_MS },
       );
       const { workflow, workflowDir } = await Core.Workflows.getWorkflowByName(resolved.name);
       const summary = await this.summarizeWorkflow(

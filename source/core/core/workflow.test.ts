@@ -9,6 +9,7 @@ import {
   resolveContainerizedSecretsKey,
   resolveSelfRepoUrl,
   runWorkflowByName,
+  syncWorkflowFromGitLinkIfPresent,
 } from "./workflow.ts";
 import { GitIntegrationService } from "./git-integration.ts";
 import {
@@ -554,5 +555,145 @@ Deno.test("assertSelfResolvable: resolves without throwing for a self-referencin
       jobs: { build: { in: { repository: "self" }, steps: [{ run: "echo hi" }] } },
     };
     await assertSelfResolvable(workflow, "self-ref", ctx.repositories, ctx.links);
+  });
+});
+
+async function commitFixtureChange(
+  dir: string,
+  rel: string,
+  content: string,
+): Promise<void> {
+  await Deno.writeTextFile(join(dir, rel), content);
+  const run = async (args: string[]) => {
+    const { success } = await new Deno.Command("git", { args, cwd: dir })
+      .output();
+    if (!success) throw new Error(`git ${args.join(" ")} failed`);
+  };
+  await run(["add", "."]);
+  await run(["commit", "-q", "-m", "update"]);
+}
+
+Deno.test("syncWorkflowFromGitLinkIfPresent: no-op for a workflow with no git link", async () => {
+  await withContext(async (ctx) => {
+    // No links.put() for "local-only" — must not throw despite no registered repository either.
+    await syncWorkflowFromGitLinkIfPresent(
+      ctx.repositories,
+      ctx.links,
+      "local-only",
+    );
+  });
+});
+
+Deno.test("syncWorkflowFromGitLinkIfPresent: skipIfRecentlyFetchedMs omitted always resyncs", async () => {
+  await withContext(async (ctx) => {
+    const fixtureDir = await Deno.makeTempDir({
+      prefix: "workflow-test-fixture-",
+    });
+    try {
+      await makeFixtureRepo(fixtureDir, {
+        "workflows/deploy/workflow.yml": "jobs:\n  build:\n    steps:\n      - run: echo v1\n",
+      });
+      const gitIntegration = new GitIntegrationService(ctx.repositories, ctx.links);
+      await gitIntegration.register({ repoUrl: fixtureDir, projectName: "acme" });
+      await gitIntegration.sync("my-workflow", "acme", "deploy");
+
+      await commitFixtureChange(
+        fixtureDir,
+        "workflows/deploy/workflow.yml",
+        "jobs:\n  build:\n    steps:\n      - run: echo v2\n",
+      );
+
+      await syncWorkflowFromGitLinkIfPresent(
+        ctx.repositories,
+        ctx.links,
+        "my-workflow",
+      );
+
+      const content = await Deno.readTextFile(
+        join(ctx.repoRoot, "workflows", "my-workflow", "workflow.yml"),
+      );
+      assertEquals(content.includes("echo v2"), true);
+    } finally {
+      await Deno.remove(fixtureDir, { recursive: true }).catch(() => {});
+    }
+  });
+});
+
+Deno.test("syncWorkflowFromGitLinkIfPresent: skips the resync when the repo was refreshed within the staleness window", async () => {
+  await withContext(async (ctx) => {
+    const fixtureDir = await Deno.makeTempDir({
+      prefix: "workflow-test-fixture-",
+    });
+    try {
+      await makeFixtureRepo(fixtureDir, {
+        "workflows/deploy/workflow.yml": "jobs:\n  build:\n    steps:\n      - run: echo v1\n",
+      });
+      const gitIntegration = new GitIntegrationService(ctx.repositories, ctx.links);
+      await gitIntegration.register({ repoUrl: fixtureDir, projectName: "acme" });
+      await gitIntegration.sync("my-workflow", "acme", "deploy");
+
+      await commitFixtureChange(
+        fixtureDir,
+        "workflows/deploy/workflow.yml",
+        "jobs:\n  build:\n    steps:\n      - run: echo v2\n",
+      );
+
+      await syncWorkflowFromGitLinkIfPresent(
+        ctx.repositories,
+        ctx.links,
+        "my-workflow",
+        { skipIfRecentlyFetchedMs: 60_000 },
+      );
+
+      const content = await Deno.readTextFile(
+        join(ctx.repoRoot, "workflows", "my-workflow", "workflow.yml"),
+      );
+      assertEquals(content.includes("echo v1"), true);
+    } finally {
+      await Deno.remove(fixtureDir, { recursive: true }).catch(() => {});
+    }
+  });
+});
+
+Deno.test("syncWorkflowFromGitLinkIfPresent: still resyncs once the staleness window has elapsed", async () => {
+  await withContext(async (ctx) => {
+    const fixtureDir = await Deno.makeTempDir({
+      prefix: "workflow-test-fixture-",
+    });
+    try {
+      await makeFixtureRepo(fixtureDir, {
+        "workflows/deploy/workflow.yml": "jobs:\n  build:\n    steps:\n      - run: echo v1\n",
+      });
+      const gitIntegration = new GitIntegrationService(ctx.repositories, ctx.links);
+      await gitIntegration.register({ repoUrl: fixtureDir, projectName: "acme" });
+      await gitIntegration.sync("my-workflow", "acme", "deploy");
+
+      // Backdate lastFetchedAt past the window instead of sleeping in the test.
+      const record = await ctx.repositories.get("acme");
+      await ctx.repositories.put({
+        ...record!,
+        lastFetchedAt: new Date(Date.now() - 120_000).toISOString(),
+      });
+
+      await commitFixtureChange(
+        fixtureDir,
+        "workflows/deploy/workflow.yml",
+        "jobs:\n  build:\n    steps:\n      - run: echo v2\n",
+      );
+
+      await syncWorkflowFromGitLinkIfPresent(
+        ctx.repositories,
+        ctx.links,
+        "my-workflow",
+        { skipIfRecentlyFetchedMs: 60_000 },
+      );
+
+      const content = await Deno.readTextFile(
+        join(ctx.repoRoot, "workflows", "my-workflow", "workflow.yml"),
+      );
+      assertEquals(content.includes("echo v2"), true);
+    } finally {
+      await Deno.remove(fixtureDir, { recursive: true }).catch(() => {});
+    }
   });
 });
