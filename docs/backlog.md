@@ -2,3 +2,4 @@
 - [ ] Currently docker-compose in workflows have to refer to the content in source folder (e.g. artifacts) using relative paths. 
 - [ ] Create an ensemble vscode plugin to enable shell syntax highlighting in workflows
 - [ ] Rename `secrets` to `secret` in workflows.
+- [ ] The trigger should contain the input variables but not directly, it should be inside the *manual* key i.e. `trigger.manual.<input_key>`
