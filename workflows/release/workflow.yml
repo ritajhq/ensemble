@@ -23,6 +23,10 @@ on:
           type: string
           default: latest
           display: "Version tag (production only — local always uses latest)"
+        - name: images_only
+          type: boolean
+          default: false
+          display: "Skip versioning, changelog update and github release."
 
 context:
   secrets:
@@ -56,7 +60,7 @@ jobs:
           docker login registry.ritaj.app -u "$REGISTRY_USERNAME" -p "$REGISTRY_PASSWORD"
 
       - name: publish_jsr_packages
-        if: "${{ context.name == 'production' }}"
+        if: "${{ context.name == 'production' && trigger.images_only == false }}"
         run: |
           VERSION="${{ steps.resolve_version.outputs.version }}"
 
@@ -166,7 +170,7 @@ jobs:
           docker image tag ensemble/runner:latest runner:latest
 
       - name: update_changelog
-        if: "${{ context.name == 'production' }}"
+        if: "${{ context.name == 'production' && trigger.images_only == false }}"
         run: |
           tag="${{ steps.resolve_version.outputs.version }}"
           cliff_version="2.13.1"
@@ -203,7 +207,7 @@ jobs:
           fi
 
       - name: create_github_release
-        if: "${{ context.name == 'production' }}"
+        if: "${{ context.name == 'production' && trigger.images_only == false }}"
         run: |
           tag="${{ steps.resolve_version.outputs.version }}"
           gh release create "$tag" \
