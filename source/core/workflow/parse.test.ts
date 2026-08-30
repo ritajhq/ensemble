@@ -391,7 +391,7 @@ jobs:
   );
 });
 
-Deno.test("parseWorkflowFile: github trigger missing push.tags fails", async () => {
+Deno.test("parseWorkflowFile: github trigger with neither push.tags nor push.branches fails", async () => {
   await withFixture(
     "github-missing-tags.yml",
     `
@@ -407,8 +407,29 @@ jobs:
       await assertRejects(
         () => parseWorkflowFile(path),
         WorkflowParseError,
-        'must declare a non-empty "push.tags"',
+        'must declare a non-empty "tags" and/or "branches"',
       );
+    },
+  );
+});
+
+Deno.test("parseWorkflowFile: github trigger with push.branches only succeeds", async () => {
+  await withFixture(
+    "github-branches-only.yml",
+    `
+on:
+  - github:
+      push:
+        branches: ["main"]
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    async (path) => {
+      const workflow = await parseWorkflowFile(path);
+      assertEquals(workflow.on?.[0]?.github?.push.branches, ["main"]);
+      assertEquals(workflow.on?.[0]?.github?.push.tags, undefined);
     },
   );
 });

@@ -32,9 +32,11 @@ export interface WorkflowManualTriggerSummary {
 
 export interface WorkflowGithubTriggerSummary {
   type: "github";
-  /** Glob patterns a pushed tag must match, from this trigger's `push.tags`. */
+  /** Glob patterns a pushed tag must match, from this trigger's `push.tags`. Empty when this entry only declares `push.branches`. */
   tagPatterns: string[];
-  /** Deploy context a matching tag push resolves to, if this entry declares one. */
+  /** Glob patterns a pushed branch must match, from this trigger's `push.branches`. Empty when this entry only declares `push.tags`. */
+  branchPatterns: string[];
+  /** Deploy context a matching push resolves to, if this entry declares one. */
   context?: string;
 }
 
@@ -209,13 +211,17 @@ export async function triggerManualWorkflow(
   await postJson(`/v1/workflows/${workflowId}/trigger`, { inputs, context });
 }
 
-/** Runs a workflow's declared github trigger, simulating a tag push with hand-entered data. */
+/**
+ * Runs a workflow's declared github trigger, simulating a tag or branch push
+ * with hand-entered data. Exactly one of `tag`/`branch` should be supplied,
+ * mirroring the server's `ManualTriggerRequest` contract.
+ */
 export async function triggerGithubWorkflow(
   workflowId: string,
-  tag: string,
+  ref: { tag: string; branch?: undefined } | { tag?: undefined; branch: string },
   sha?: string,
 ): Promise<void> {
-  await postJson(`/v1/workflows/${workflowId}/trigger/github`, { tag, sha });
+  await postJson(`/v1/workflows/${workflowId}/trigger/github`, { ...ref, sha });
 }
 
 export interface RunSteps {

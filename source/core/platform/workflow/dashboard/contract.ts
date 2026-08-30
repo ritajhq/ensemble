@@ -10,9 +10,11 @@ export interface WorkflowManualTriggerSummary {
 
 export interface WorkflowGithubTriggerSummary {
   type: "github";
-  /** Glob patterns a pushed tag must match, from this trigger's `push.tags`. */
+  /** Glob patterns a pushed tag must match, from this trigger's `push.tags`. Empty when this entry only declares `push.branches`. */
   tagPatterns: string[];
-  /** Deploy context a matching tag push resolves to, if this entry declares one. */
+  /** Glob patterns a pushed branch must match, from this trigger's `push.branches`. Empty when this entry only declares `push.tags`. */
+  branchPatterns: string[];
+  /** Deploy context a matching push resolves to, if this entry declares one. */
   context?: string;
 }
 

@@ -1,7 +1,12 @@
 import * as Core from "@ensemble/core";
 import type { Workflow } from "@ensemble/workflow";
 import { requireAuth } from "../../../features.ts";
-import { extractTagFromRef, findMatchingGithubTrigger } from "./match.ts";
+import {
+  extractBranchFromRef,
+  extractTagFromRef,
+  findMatchingGithubTrigger,
+  type PushRef,
+} from "./match.ts";
 import { verifyGithubSignature } from "./signature.ts";
 import {
   isManualTriggerRequest,
@@ -45,7 +50,8 @@ export class GithubTriggerHandlers {
    * specific repo's own webhookSecret before trusting anything else in the
    * payload — see GitRepositoryRecord.webhookSecret. Fans out: scans every
    * workflow under workflows/ for an `on: - github:` entry whose
-   * `push.tags` matches the pushed tag, and triggers all matches.
+   * `push.tags` (tag push) or `push.branches` (branch push) matches the
+   * pushed ref, and triggers all matches.
    */
   async handleWebhook(request: Request): Promise<Response> {
     const rawBody = await request.text();
@@ -92,9 +98,16 @@ export class GithubTriggerHandlers {
     }
 
     const tag = payload.ref ? extractTagFromRef(payload.ref) : undefined;
+    const branch = payload.ref ? extractBranchFromRef(payload.ref) : undefined;
 
-    if (!tag) {
-      return new Response(null, { status: 204 }); // not a tag push
+    const pushRef: PushRef | undefined = tag !== undefined
+      ? { kind: "tag", name: tag }
+      : branch !== undefined
+      ? { kind: "branch", name: branch }
+      : undefined;
+
+    if (!pushRef) {
+      return new Response(null, { status: 204 }); // neither a tag nor a branch push
     }
 
     // Best-effort: a resync hiccup (remote unreachable, revoked PAT, ...)
@@ -118,7 +131,7 @@ export class GithubTriggerHandlers {
         return {
           name: workflowName,
           workflow,
-          trigger: findMatchingGithubTrigger(workflow.on, tag),
+          trigger: findMatchingGithubTrigger(workflow.on, pushRef),
         };
       }),
     )).filter((
@@ -139,7 +152,7 @@ export class GithubTriggerHandlers {
 
     for (const { name, trigger } of matches) {
       Core.Workflows.trackedRunWorkflowByName(this.runs, name, {
-        trigger: { type: "github", ref: payload.ref, tag, sha: payload.after },
+        trigger: { type: "github", ref: payload.ref, tag, branch, sha: payload.after },
         context: trigger.context,
         repositories: this.repositories,
         links: this.links,
@@ -158,9 +171,9 @@ export class GithubTriggerHandlers {
 
   /**
    * Lets the dashboard simulate a GitHub push for a workflow's `on: - github:`
-   * trigger, supplying by hand the data a real push webhook would carry (tag,
-   * optionally a sha) — for workflows that only care about being pushed to,
-   * not about any particular commit actually existing.
+   * trigger, supplying by hand the data a real push webhook would carry (a
+   * tag or a branch, optionally a sha) — for workflows that only care about
+   * being pushed to, not about any particular commit actually existing.
    */
   async handleManual(
     request: Request,
@@ -196,7 +209,9 @@ export class GithubTriggerHandlers {
       }
     }
     if (!isManualTriggerRequest(body)) {
-      return Response.json({ error: "Expected { tag: string, sha?: string }." }, {
+      return Response.json({
+        error: "Expected { tag: string, sha?: string } or { branch: string, sha?: string }.",
+      }, {
         status: 400,
       });
     }
@@ -225,13 +240,20 @@ export class GithubTriggerHandlers {
       );
     }
 
-    const matchedTrigger = findMatchingGithubTrigger(workflow.on, body.tag);
+    const pushRef: PushRef = body.tag !== undefined
+      ? { kind: "tag", name: body.tag }
+      : { kind: "branch", name: body.branch! };
+
+    const matchedTrigger = findMatchingGithubTrigger(workflow.on, pushRef);
     if (!matchedTrigger) {
-      const patterns = githubTriggers.flatMap((g) => g.push.tags);
+      const key = pushRef.kind === "tag" ? "push.tags" : "push.branches";
+      const patterns = githubTriggers.flatMap((g) =>
+        pushRef.kind === "tag" ? (g.push.tags ?? []) : (g.push.branches ?? [])
+      );
       return Response.json(
         {
           error:
-            `Tag "${body.tag}" doesn't match any "github" trigger's push.tags patterns (${
+            `${pushRef.kind === "tag" ? "Tag" : "Branch"} "${pushRef.name}" doesn't match any "github" trigger's ${key} patterns (${
               patterns.join(", ")
             }).`,
         },
@@ -241,12 +263,19 @@ export class GithubTriggerHandlers {
 
     try {
       const success = await Core.Workflows.trackedRunWorkflowByName(this.runs, name, {
-        trigger: {
-          type: "github",
-          ref: `refs/tags/${body.tag}`,
-          tag: body.tag,
-          sha: body.sha,
-        },
+        trigger: pushRef.kind === "tag"
+          ? {
+            type: "github",
+            ref: `refs/tags/${pushRef.name}`,
+            tag: pushRef.name,
+            sha: body.sha,
+          }
+          : {
+            type: "github",
+            ref: `refs/heads/${pushRef.name}`,
+            branch: pushRef.name,
+            sha: body.sha,
+          },
         context: matchedTrigger.context,
         repositories: this.repositories,
         links: this.links,

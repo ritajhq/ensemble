@@ -259,27 +259,55 @@ function validateManualTrigger(
   return { inputs };
 }
 
+/** Validates an optional `push.tags`/`push.branches` list: undefined is fine (the other one may carry it), but if present it must be a non-empty array of strings. */
+function validateGithubRefPatterns(
+  file: string,
+  index: number,
+  push: Record<string, unknown>,
+  key: "tags" | "branches",
+): string[] | undefined {
+  const value = push[key];
+  if (value === undefined) return undefined;
+  if (
+    !Array.isArray(value) || value.length === 0 ||
+    value.some((v) => typeof v !== "string")
+  ) {
+    fail(
+      file,
+      `on[${index}].github.push.${key} must be a non-empty list of strings.`,
+    );
+  }
+  return value as string[];
+}
+
 function validateGithubTrigger(
   file: string,
   index: number,
   raw: Record<string, unknown>,
 ): GithubTrigger {
   const push = raw.push;
-  const tags = isRecord(push) ? push.tags : undefined;
-  if (
-    !isRecord(push) || !Array.isArray(tags) || tags.length === 0 ||
-    tags.some((t) => typeof t !== "string")
-  ) {
+  if (!isRecord(push)) {
     fail(
       file,
-      `on[${index}].github must declare a non-empty "push.tags" list of strings.`,
+      `on[${index}].github must declare a "push" mapping with a non-empty "tags" and/or "branches" list of strings.`,
+    );
+  }
+  const tags = validateGithubRefPatterns(file, index, push, "tags");
+  const branches = validateGithubRefPatterns(file, index, push, "branches");
+  if (tags === undefined && branches === undefined) {
+    fail(
+      file,
+      `on[${index}].github.push must declare a non-empty "tags" and/or "branches" list of strings.`,
     );
   }
   if (raw.context !== undefined && typeof raw.context !== "string") {
     fail(file, `on[${index}].github.context must be a string.`);
   }
   return {
-    push: { tags: tags as string[] },
+    push: {
+      ...(tags !== undefined ? { tags } : {}),
+      ...(branches !== undefined ? { branches } : {}),
+    },
     ...(raw.context !== undefined ? { context: raw.context as string } : {}),
   };
 }

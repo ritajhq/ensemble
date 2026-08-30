@@ -347,24 +347,38 @@ function ManualTriggerForm(
 }
 
 function GithubTriggerForm(
-  { workflowId, tagPatterns, context, onTriggered }: {
+  { workflowId, tagPatterns, branchPatterns, context, onTriggered }: {
     workflowId: string;
     tagPatterns: string[];
+    branchPatterns: string[];
     context?: string;
     onTriggered: () => void;
   },
 ) {
-  const [tag, setTag] = useState("");
+  // Default to whichever kind this trigger actually declares; if it declares
+  // both, default to tag (matches the pre-existing tag-only behavior).
+  const [kind, setKind] = useState<"tag" | "branch">(
+    tagPatterns.length > 0 || branchPatterns.length === 0 ? "tag" : "branch",
+  );
+  const [ref, setRef] = useState("");
   const [sha, setSha] = useState("");
   const [status, setStatus] = useState<
     { state: "idle" } | { state: "loading" } | { state: "error"; message: string }
   >({ state: "idle" });
 
+  const showKindPicker = tagPatterns.length > 0 && branchPatterns.length > 0;
+  const patterns = kind === "tag" ? tagPatterns : branchPatterns;
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setStatus({ state: "loading" });
     try {
-      await triggerGithubWorkflow(workflowId, tag.trim(), sha.trim() || undefined);
+      const trimmed = ref.trim();
+      await triggerGithubWorkflow(
+        workflowId,
+        kind === "tag" ? { tag: trimmed } : { branch: trimmed },
+        sha.trim() || undefined,
+      );
       setStatus({ state: "idle" });
       onTriggered();
     } catch (error) {
@@ -374,19 +388,41 @@ function GithubTriggerForm(
 
   return (
     <form className="flex flex-col gap-3 p-4 pt-0" onSubmit={handleSubmit}>
+      {showKindPicker && (
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className={kind === "tag" ? "underline" : undefined}
+            onClick={() => setKind("tag")}
+          >
+            Tag
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className={kind === "branch" ? "underline" : undefined}
+            onClick={() => setKind("branch")}
+          >
+            Branch
+          </Button>
+        </div>
+      )}
       <div className="flex flex-col gap-1">
-        <label className="text-xs text-muted-foreground" htmlFor="github-trigger-tag">
-          Tag
+        <label className="text-xs text-muted-foreground" htmlFor="github-trigger-ref">
+          {kind === "tag" ? "Tag" : "Branch"}
         </label>
         <Input
-          id="github-trigger-tag"
-          placeholder="1.2.3"
-          value={tag}
-          onChange={(event) => setTag(event.target.value)}
+          id="github-trigger-ref"
+          placeholder={kind === "tag" ? "1.2.3" : "main"}
+          value={ref}
+          onChange={(event) => setRef(event.target.value)}
           required
         />
         <p className="text-xs text-muted-foreground">
-          Must match: {tagPatterns.join(", ")}
+          Must match: {patterns.join(", ")}
         </p>
         <p className="text-xs text-muted-foreground">
           Runs under context: {context ?? "none"}
@@ -405,7 +441,7 @@ function GithubTriggerForm(
         />
       </div>
       <div>
-        <Button type="submit" disabled={status.state === "loading" || tag.trim().length === 0}>
+        <Button type="submit" disabled={status.state === "loading" || ref.trim().length === 0}>
           {status.state === "loading" ? "Running…" : "Run"}
         </Button>
       </div>
@@ -440,7 +476,7 @@ export function TriggerRunSheet(
           <SheetDescription>
             {trigger.type === "manual"
               ? "Provide values for this trigger's declared inputs, then run."
-              : "Simulate a tag push for this trigger by hand."}
+              : "Simulate a tag or branch push for this trigger by hand."}
           </SheetDescription>
         </SheetHeader>
         {trigger.type === "manual"
@@ -460,6 +496,7 @@ export function TriggerRunSheet(
             <GithubTriggerForm
               workflowId={workflowId}
               tagPatterns={trigger.tagPatterns}
+              branchPatterns={trigger.branchPatterns}
               context={trigger.context}
               onTriggered={() => {
                 setOpen(false);

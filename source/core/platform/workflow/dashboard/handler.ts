@@ -36,7 +36,8 @@ function summarizeTrigger(
   if (trigger.github) {
     return {
       type: "github",
-      tagPatterns: trigger.github.push.tags,
+      tagPatterns: trigger.github.push.tags ?? [],
+      branchPatterns: trigger.github.push.branches ?? [],
       context: trigger.github.context,
     };
   }

@@ -232,7 +232,7 @@ Deno.test("handleGithubTrigger: a non-push event is a 204 no-op even for a fully
   });
 });
 
-Deno.test("handleGithubTrigger: a branch push (not a tag) is a 204 no-op", async () => {
+Deno.test("handleGithubTrigger: a branch push against a tags-only trigger matches nothing (202, empty)", async () => {
   await withContext(async (ctx) => {
     await registerRepoWithLinkedWorkflow(ctx, {
       projectName: "widgets",
@@ -249,7 +249,89 @@ Deno.test("handleGithubTrigger: a branch push (not a tag) is a 204 no-op", async
     const response = await new GithubTriggerHandlers({ repositories: ctx.repositories, links: ctx.links, runs: ctx.runs }).handleWebhook(
       await signedRequest("shh", body),
     );
+    assertEquals(response.status, 202);
+    assertEquals(await response.json(), { triggered: [] });
+  });
+});
+
+Deno.test("handleGithubTrigger: a ref that's neither a tag nor a branch push (e.g. a tracking ref) is a 204 no-op", async () => {
+  await withContext(async (ctx) => {
+    await registerRepoWithLinkedWorkflow(ctx, {
+      projectName: "widgets",
+      repoUrl: "https://github.com/acme/widgets.git",
+      webhookSecret: "shh",
+      workflowName: "deploy",
+    });
+
+    const body = JSON.stringify({
+      ref: "refs/notes/commits",
+      after: "deadbeef",
+      repository: { full_name: "acme/widgets" },
+    });
+    const response = await new GithubTriggerHandlers({ repositories: ctx.repositories, links: ctx.links, runs: ctx.runs }).handleWebhook(
+      await signedRequest("shh", body),
+    );
     assertEquals(response.status, 204);
+  });
+});
+
+Deno.test("handleGithubTrigger: a branch push matches a workflow's push.branches trigger", async () => {
+  await withContext(async (ctx) => {
+    await registerRepoWithLinkedWorkflow(ctx, {
+      projectName: "widgets",
+      repoUrl: "https://github.com/acme/widgets.git",
+      webhookSecret: "shh",
+      workflowName: "deploy",
+      workflowYml: `
+on:
+  - github:
+      push:
+        branches: ["main"]
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    });
+
+    const body = JSON.stringify({
+      ref: "refs/heads/main",
+      after: "deadbeef",
+      repository: { full_name: "acme/widgets" },
+    });
+    const response = await new GithubTriggerHandlers({ repositories: ctx.repositories, links: ctx.links, runs: ctx.runs }).handleWebhook(
+      await signedRequest("shh", body),
+    );
+    assertEquals(response.status, 202);
+    assertEquals(await response.json(), { triggered: ["deploy"] });
+  });
+});
+
+Deno.test("handleGithubTrigger: a tag push never matches a workflow's push.branches-only trigger", async () => {
+  await withContext(async (ctx) => {
+    await registerRepoWithLinkedWorkflow(ctx, {
+      projectName: "widgets",
+      repoUrl: "https://github.com/acme/widgets.git",
+      webhookSecret: "shh",
+      workflowName: "deploy",
+      workflowYml: `
+on:
+  - github:
+      push:
+        branches: ["main"]
+jobs:
+  build:
+    steps:
+      - run: echo hi
+`,
+    });
+
+    const body = pushPayload("acme/widgets", "1.2.3");
+    const response = await new GithubTriggerHandlers({ repositories: ctx.repositories, links: ctx.links, runs: ctx.runs }).handleWebhook(
+      await signedRequest("shh", body),
+    );
+    assertEquals(response.status, 202);
+    assertEquals(await response.json(), { triggered: [] });
   });
 });
 
