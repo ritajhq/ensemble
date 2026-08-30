@@ -64,15 +64,6 @@ jobs:
         run: |
           VERSION="${{ steps.resolve_version.outputs.version }}"
 
-          # JSR requires every jsr: import specifier a published package uses
-          # to carry an explicit version constraint. @ritaj/event is a
-          # stable lib published independently of this release, so
-          # workflow/core's deno.json pin it to a real, hand-maintained
-          # version directly (bump it there when event actually changes).
-          # @ensemble/workflow and @ensemble/kit-sdk are different: they're
-          # released in lockstep with core under this same $VERSION every
-          # time, so pin_workspace_dep rewrites core's own deno.json to the
-          # exact version they just got, right before core is published.
           pin_workspace_dep() {
             pkg_dir="$1"
             dep_name="$2"
@@ -83,10 +74,7 @@ jobs:
             mv "$tmp" "$pkg_dir/deno.json"
           }
 
-          (cd source/libs/event && deno publish --set-version "$VERSION" --allow-slow-types --allow-dirty --token "$JSR_TOKEN")
-
           (cd source/core/workflow && deno publish --set-version "$VERSION" --allow-slow-types --allow-dirty --token "$JSR_TOKEN")
-
           (cd source/core/kit-sdk && deno publish --set-version "$VERSION" --allow-slow-types --allow-dirty --token "$JSR_TOKEN")
 
           pin_workspace_dep source/core/core @ensemble/workflow
