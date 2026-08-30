@@ -1,8 +1,45 @@
-## [0.0.8] - 2026-08-21
+## [0.0.10] - 2026-08-30
+
+### 🐛 Bug Fixes
+
+- *(release)* Remove deno publishing of event lib
+## [0.0.10] - 2026-08-30
+
+### 🚀 Features
+
+- *(release)* Add images_only input to control versioning and release updates
+- *(github-trigger)* Support push.branches alongside push.tags
+
+### 🐛 Bug Fixes
+
+- *(kits/pack/docker)* Restore build cache
+
+### ⚙️ Miscellaneous Tasks
+
+- Update backlog
+## [0.0.9] - 2026-08-25
+
+### 🚀 Features
+
+- *(git-integration)* Add per-repository GitHub webhook secrets
 
 ### 🐛 Bug Fixes
 
 - *(runner)* Alias deno run to ens so workflow steps can shell out to it
+- *(deploy)* Derive SERVER_HOST_WORKFLOWS_PATH from SERVER_WORKSPACE_PATH instead of a separately declared context.variable
+
+### 🚜 Refactor
+
+- *(core)* Namespace package barrels and convert resource-threading functions to classes
+- *(platform)* Move route paths to app-layer config, dedupe handler boilerplate
+
+### ⚡ Performance
+
+- *(dashboard)* Skip redundant git ls-remote when a workflow's page was resynced recently
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.0.8
 ## [0.0.8] - 2026-08-21
 
 ### 🚀 Features
