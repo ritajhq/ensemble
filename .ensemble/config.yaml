@@ -7,3 +7,17 @@ build:
     kit: react.spa
   web:
     kit: react.spa
+meta:
+  ship:
+    server:
+      artifacts:
+        - server
+    runner:
+      artifacts:
+        - cli
+    web:
+      artifacts:
+        - web
+    demo/spa:
+      artifacts:
+        - demo/spa

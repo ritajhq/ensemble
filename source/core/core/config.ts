@@ -6,8 +6,14 @@ export interface BuildAppConfig {
   kit: string;
 }
 
+export interface ShipMeta {
+  /** App names (from `build:`) whose artifacts this ship's pack kit was found to depend on. */
+  artifacts?: string[];
+}
+
 export interface EnsembleConfig {
   build?: Record<string, BuildAppConfig>;
+  meta?: { ship?: Record<string, ShipMeta> };
 }
 
 export type VarKind = "build" | "pack";
@@ -117,6 +123,28 @@ export class EnsembleConfigStore {
     const config: EnsembleConfig = {
       ...existingConfig,
       build: { ...existingConfig.build, [appName]: { kit } },
+    };
+    await Deno.writeTextFile(path, stringifyYaml(config as unknown as Record<string, unknown>));
+  }
+
+  /**
+   * Sets meta.ship.<shipName>.artifacts in .ensemble/config.yaml, creating the
+   * file if it doesn't exist yet and preserving any other existing entries.
+   * This is a plain parse-modify-rewrite of the YAML, so any hand-written
+   * comments in an existing config.yaml are not preserved across this call.
+   */
+  async setShipArtifacts(shipName: string, artifacts: string[]): Promise<void> {
+    const path = this.configPath;
+    const existingConfig: EnsembleConfig = await exists(path, { isFile: true })
+      ? ((parseYaml(await Deno.readTextFile(path)) ?? {}) as EnsembleConfig)
+      : {};
+
+    const config: EnsembleConfig = {
+      ...existingConfig,
+      meta: {
+        ...existingConfig.meta,
+        ship: { ...existingConfig.meta?.ship, [shipName]: { artifacts } },
+      },
     };
     await Deno.writeTextFile(path, stringifyYaml(config as unknown as Record<string, unknown>));
   }

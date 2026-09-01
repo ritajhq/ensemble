@@ -6,6 +6,29 @@ import * as KitSdk from "@ensemble/kit-sdk";
 const kitDir = dirname(fromFileUrl(import.meta.url));
 const ctx = KitSdk.Pack.getContext();
 
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// Only apps this ship's Dockerfile actually references (via `COPY
+// --from=<app>`) get registered as build contexts — an app declared in
+// .ensemble/config.yaml but unused by this Dockerfile is left alone. Each
+// referenced app is required to have build output under artifacts/, so a
+// stale/unrelated same-named image can never be silently substituted (see
+// ArtifactDependencyTracker in @ensemble/core, which enforces this from the
+// reported result).
+const dockerfileText = await Deno.readTextFile(join(ctx.ship, "Dockerfile"));
+const referencedApps = ctx.apps.filter((app) => {
+  const fromPattern = new RegExp(`--from=${escapeRegExp(app)}(?=\\s)`);
+  return fromPattern.test(dockerfileText);
+});
+
+const artifactContextArgs: string[] = [];
+for (const app of referencedApps) {
+  artifactContextArgs.push("--build-context", `${app}=${join(ctx.artifacts, app)}`);
+}
+await KitSdk.Pack.writeResult(ctx, { artifacts: referencedApps });
+
 const modes = await KitSdk.Pack.loadModes(kitDir);
 const format = modes[ctx.mode];
 if (!format) {
@@ -40,7 +63,7 @@ if (format.startsWith("image")) {
 const result = await $`docker buildx build
   --tag ${ctx.outputName}
   --build-context packages=${ctx.packages}
-  --build-context artifacts=${ctx.artifacts}
+  ${artifactContextArgs}
   --output ${output}
   ${allowArgs}
   ${ctx.ship}`

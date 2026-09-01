@@ -6,6 +6,7 @@ import { findRepoRoot } from "./repo.ts";
 import { resolveDenoExecutable } from "./deno-exe.ts";
 import * as KitSdk from "@ensemble/kit-sdk";
 import { EnsembleConfigStore } from "./config.ts";
+import { ArtifactDependencyTracker } from "./artifact-dependencies.ts";
 
 export interface RunPackOptions {
   /** Defaults to the first mode declared in the kit's kit.yml, or "default" if it has none. */
@@ -70,19 +71,55 @@ export async function runPack(
   const localVars = config.getVars(localConfig, "pack", shipName);
   const packVars = { ...fileVars, ...localVars, ...options.varOverrides };
 
-  // --minimum-dependency-age 0: see the identical flag in build.ts.
-  const result = await $`${denoExe} run -A -q --minimum-dependency-age 0 ${kitEntry}
-    --artifacts ${artifactsDir}
-    --packages ${packagesDir}
-    --name ${shipName}
-    --mode ${mode}
-    --vars ${JSON.stringify(packVars)}
-    ${outputNameArgs}
-    ${watchArgs}
-    ${shipDir}`
-    .cwd(kitDir)
-    .env(packVars)
-    .noThrow();
+  const ensembleConfig = await config.load();
+  const apps = Object.keys(ensembleConfig.build ?? {});
 
-  return result.code;
+  const resultFile = await Deno.makeTempFile({
+    prefix: "ensemble-pack-result-",
+  });
+  try {
+    // --minimum-dependency-age 0: see the identical flag in build.ts.
+    const result = await $`${denoExe} run -A -q --minimum-dependency-age 0 ${kitEntry}
+      --artifacts ${artifactsDir}
+      --packages ${packagesDir}
+      --name ${shipName}
+      --mode ${mode}
+      --vars ${JSON.stringify(packVars)}
+      --apps ${JSON.stringify(apps)}
+      --result-file ${resultFile}
+      ${outputNameArgs}
+      ${watchArgs}
+      ${shipDir}`
+      .cwd(kitDir)
+      .env(packVars)
+      .noThrow();
+
+    if (result.code !== 0) {
+      return result.code;
+    }
+
+    const reported = await readKitResult(resultFile);
+    if (reported) {
+      const tracker = new ArtifactDependencyTracker(artifactsDir, config);
+      await tracker.Resolve(shipName, reported.artifacts);
+    }
+
+    return result.code;
+  } finally {
+    await Deno.remove(resultFile).catch(() => {});
+  }
+}
+
+/** Reads a kit's Result from its --result-file, or undefined if the kit didn't write one. */
+async function readKitResult(
+  resultFile: string,
+): Promise<KitSdk.Pack.Result | undefined> {
+  let text: string;
+  try {
+    text = await Deno.readTextFile(resultFile);
+  } catch {
+    return undefined;
+  }
+  if (text.length === 0) return undefined;
+  return JSON.parse(text) as KitSdk.Pack.Result;
 }

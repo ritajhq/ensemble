@@ -17,12 +17,27 @@ export interface Context {
   artifacts: string;
   /** Absolute path to the `artifacts/packages/` folder. */
   packages: string;
+  /** Names of every app declared under `build:` in `.ensemble/config.yaml` (e.g. "server", "demo/spa"). */
+  apps: string[];
   /** Mode name, validated against the kit's own `kit.yml`. */
   mode: string;
   /** Resolved pack vars (envs/pack/<name>.env, name being the ship name). */
   vars: Record<string, string>;
   /** True when --watch was passed. Kits that don't support watch mode can ignore this. */
   watch: boolean;
+  /** Path a kit may write a `Result` to (via `writeResult`) before exiting, reporting back which of `apps` it actually depended on. Optional to write — a kit with nothing to report can leave it untouched. */
+  resultFile: string;
+}
+
+/** What a pack kit reports back to `ens` about its own run, written to `Context.resultFile`. */
+export interface Result {
+  /** The subset of `Context.apps` this kit's run actually depended on (e.g. Dockerfile `COPY --from=<app>` references it found). */
+  artifacts: string[];
+}
+
+/** Writes a kit's `Result` to `Context.resultFile`. Call this from a pack kit's entry point before exiting, if it has artifacts to report. */
+export async function writeResult(ctx: Context, result: Result): Promise<void> {
+  await Deno.writeTextFile(ctx.resultFile, JSON.stringify(result));
 }
 
 function parseVars(raw: string): Record<string, string> {
@@ -38,12 +53,25 @@ function parseVars(raw: string): Record<string, string> {
   return parsed as Record<string, string>;
 }
 
+function parseApps(raw: string): string[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error(`Invalid --apps JSON payload: ${raw}`);
+  }
+  if (!Array.isArray(parsed) || parsed.some((entry) => typeof entry !== "string")) {
+    throw new Error(`Invalid --apps JSON payload: expected an array of strings, got ${raw}`);
+  }
+  return parsed as string[];
+}
+
 /** Parses the standard pack kit CLI contract. Call this from a pack kit's entry point. */
 export function getContext(args: string[] = Deno.args): Context {
   const flags = parseArgs(args, {
-    string: ["name", "output-name", "artifacts", "packages", "mode", "vars"],
+    string: ["name", "output-name", "artifacts", "packages", "mode", "vars", "apps", "result-file"],
     boolean: ["watch"],
-    default: { vars: "{}", watch: false },
+    default: { vars: "{}", apps: "[]", watch: false },
   });
 
   const ship = String(flags._[0] ?? "");
@@ -64,7 +92,9 @@ export function getContext(args: string[] = Deno.args): Context {
     packages: requireFlag(flags, "packages"),
     mode: requireFlag(flags, "mode"),
     vars: parseVars(flags.vars),
+    apps: parseApps(flags.apps),
     watch: flags.watch,
+    resultFile: requireFlag(flags, "result-file"),
   };
 }
 

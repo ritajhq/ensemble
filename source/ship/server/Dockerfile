@@ -4,7 +4,7 @@ RUN apk add --no-cache docker-cli git curl
 
 WORKDIR /app
 
-COPY --from=artifacts server/main.js ./server/main.js
+COPY --from=server main.js ./server/main.js
 
 WORKDIR /workspace
 

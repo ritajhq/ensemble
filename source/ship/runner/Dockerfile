@@ -7,7 +7,7 @@ RUN ln -s /usr/bin/mcli /usr/bin/mc
 
 WORKDIR /app
 
-COPY --from=artifacts cli/main.js ./cli/main.js
+COPY --from=cli main.js ./cli/main.js
 
 # So a workflow step's `run:` can shell out to bare `ens ...` (e.g.
 # workflows/release's `ens pack cli deno.compile`) the same way it would on a
