@@ -7,15 +7,10 @@ import { findRepoRoot } from "@ensemble/core";
 
 const ctx = KitSdk.Pack.getPublishContext();
 
-// `options` is a comma-separated key=value string, the same raw convention
-// this kit's `modes`/`publish` values use. Only `repo` is understood; when
-// absent, gh infers the repository from the working tree's git remote.
-const options = Object.fromEntries(
-  ctx.options.split(",").filter(Boolean).map((pair) => {
-    const [key, value] = pair.split("=");
-    return [key, value];
-  }),
-);
+// Publish options come from the release's `publish:` block (every property
+// other than target/name). Only `repo` is understood; when absent, gh infers
+// the repository from the working tree's git remote.
+const options = ctx.options;
 
 // deno.compile is config-file-driven: the packed binary's filename comes from
 // the ship's own compile.yml `output:` (falling back to `<outputName>.exe`,

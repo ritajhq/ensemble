@@ -4,4 +4,5 @@ modes:
   oci: oci
   local: local,mode=delete
 publish:
-  push: registry=registry.ritaj.app
+  # Option values (registry, …) come from each release's publish: block.
+  push: "Tag and push the image to a container registry. Options: registry."

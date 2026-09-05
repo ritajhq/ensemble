@@ -3,19 +3,12 @@ import { $ } from "@david/dax";
 
 const ctx = KitSdk.Pack.getPublishContext();
 
-// `options` is a comma-separated key=value string, the same raw convention
-// this kit's `modes` values use in main.ts.
-const options = Object.fromEntries(
-  ctx.options.split(",").filter(Boolean).map((pair) => {
-    const [key, value] = pair.split("=");
-    return [key, value];
-  }),
-);
-
-const registry = options.registry;
+// Publish options come from the release's `publish:` block (every property
+// other than target/name) — this kit reads `registry`.
+const registry = ctx.options.registry;
 if (!registry) {
   throw new Error(
-    `docker kit's publish options must include "registry=<host>/<path>", got "${ctx.options}".`,
+    `docker kit's publish requires a "registry" option (the release's publish: block must set registry: <host>/<path>).`,
   );
 }
 

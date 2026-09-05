@@ -128,7 +128,7 @@ export async function loadModes(kitDir: string): Promise<Record<string, string>>
   return await loadKitManifestMap(kitDir, "modes");
 }
 
-/** Reads the `publish` map declared in a pack kit's own `kit.yml` manifest — same shape/convention as `modes` (a named target to a raw, kit-owned option string), but for publish targets a kit's `publish.ts` entry point understands. Empty if the kit declares none. */
+/** Reads the `publish` map declared in a pack kit's own `kit.yml` manifest — the set of publish targets the kit's `publish.ts` supports (keys), each mapped to a short human description (values, for `ens` to list). Option *values* come per-release from the delivery manifest's `publish:` block, not from here. Empty if the kit declares none. */
 export async function loadPublishModes(kitDir: string): Promise<Record<string, string>> {
   return await loadKitManifestMap(kitDir, "publish");
 }
@@ -143,9 +143,9 @@ export interface PublishContext {
   packageName: string;
   /** Version to publish this artifact under. */
   version: string;
-  /** The raw option string declared for this target in the kit's own `kit.yml` `publish` map (e.g. "registry=registry.example.com/org") — entirely kit-owned, same convention as `modes`. */
-  options: string;
-  /** Resolved publish vars (currently just `--var` overrides — no env-file tier yet, since publish targets typically rely on credentials already present in the environment, e.g. via a prior `docker login`). */
+  /** The publish options for this target — every `publish:` property other than `target`/`name` from the release's delivery manifest (e.g. `{ registry: "registry.example.com/org" }`). Entirely kit-owned: each kit reads the keys it understands. */
+  options: Record<string, string>;
+  /** Resolved publish vars (currently just `--var` overrides — no env-file tier yet, since publish credentials come from the process environment, see @ensemble/core's PUBLISH_ENV_PATH). */
   vars: Record<string, string>;
 }
 
@@ -153,7 +153,7 @@ export interface PublishContext {
 export function getPublishContext(args: string[] = Deno.args): PublishContext {
   const flags = parseArgs(args, {
     string: ["name", "output-name", "package-name", "version", "options", "vars"],
-    default: { vars: "{}" },
+    default: { vars: "{}", options: "{}" },
   });
 
   return {
@@ -161,9 +161,7 @@ export function getPublishContext(args: string[] = Deno.args): PublishContext {
     outputName: requireFlag(flags, "output-name"),
     packageName: requireFlag(flags, "package-name"),
     version: requireFlag(flags, "version"),
-    // Optional: a publish target may declare no options (e.g. the github
-    // target); kits validate whatever options they actually require.
-    options: typeof flags.options === "string" ? flags.options : "",
+    options: parseVars(flags.options),
     vars: parseVars(flags.vars),
   };
 }

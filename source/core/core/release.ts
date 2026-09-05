@@ -189,7 +189,18 @@ function releaseEntriesEqual(
   return a.kit === b.kit && a.mode === b.mode &&
     a.outputName === b.outputName &&
     a.publish?.target === b.publish?.target &&
-    a.publish?.name === b.publish?.name;
+    a.publish?.name === b.publish?.name &&
+    publishOptionsEqual(a.publish?.options, b.publish?.options);
+}
+
+function publishOptionsEqual(
+  a: Record<string, string> | undefined,
+  b: Record<string, string> | undefined,
+): boolean {
+  const aKeys = Object.keys(a ?? {});
+  const bKeys = Object.keys(b ?? {});
+  if (aKeys.length !== bKeys.length) return false;
+  return aKeys.every((key) => a![key] === b?.[key]);
 }
 
 /**
@@ -282,6 +293,7 @@ export class ReleaseCeremony {
       const publishCode = await runPublish(ship.name, ship.kit, {
         target: ship.publish.target,
         packageName: ship.publish.name,
+        options: ship.publish.options,
         outputName: ship.outputName,
         version,
       });

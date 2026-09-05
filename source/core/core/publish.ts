@@ -14,6 +14,8 @@ export interface RunPublishOptions {
   target: string;
   /** The name to publish the artifact under (kit-owned meaning — image name, release asset name, …). Defaults to `outputName`, then the ship name. */
   packageName?: string;
+  /** Publish options handed to the kit's `publish.ts` (the delivery `publish:` block's properties other than target/name, e.g. `{ registry }`). */
+  options?: Record<string, string>;
   /** Name of the local packed artifact the kit resolves its input from. Defaults to the ship name. */
   outputName?: string;
   /** Version to publish this artifact under. Defaults to "latest". */
@@ -55,6 +57,7 @@ export async function runPublish(
   const outputName = options.outputName ?? shipName;
   const packageName = options.packageName ?? outputName;
   const version = options.version ?? "latest";
+  const publishOptions = options.options ?? {};
   const varOverrides = options.varOverrides ?? {};
 
   // Credentials for publish targets (registry passwords, GH_TOKEN, …) live in
@@ -73,7 +76,7 @@ export async function runPublish(
     --output-name ${outputName}
     --package-name ${packageName}
     --version ${version}
-    --options ${publishTargets[options.target]}
+    --options ${JSON.stringify(publishOptions)}
     --vars ${JSON.stringify(varOverrides)}`
     .cwd(kitDir)
     .env(env)

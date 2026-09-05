@@ -810,9 +810,21 @@ function validatePublish(
 ): PublishSpec | undefined {
   if (raw === undefined) return undefined;
   if (!isRecord(raw)) fail(file, `${where} must be a mapping.`);
+  const options: Record<string, string> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (key === "target" || key === "name") continue;
+    if (typeof value === "string") {
+      options[key] = value;
+    } else if (typeof value === "number" || typeof value === "boolean") {
+      options[key] = String(value);
+    } else {
+      fail(file, `${where}.${key} must be a string, number, or boolean.`);
+    }
+  }
   return {
     target: requireString(file, `${where}.target`, raw.target),
     name: optionalString(file, `${where}.name`, raw.name),
+    options,
   };
 }
 

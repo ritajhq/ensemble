@@ -14,7 +14,13 @@
  * second real shape shows up — see compute.ts's Port lesson on not
  * pre-building for a hypothetical future.
  */
-/** Where and under what name a released ship is published. */
+/**
+ * Where and under what name a released ship is published. `target` and `name`
+ * are the only reserved keys; every other property in the `publish:` block is
+ * a publish option collected into `options` and handed to the pack kit's
+ * `publish.ts`, which defines what each option means (e.g. the docker kit
+ * reads `registry`, the github kit reads `repo`).
+ */
 export interface PublishSpec {
   /** Which of the pack kit's declared publish targets (its `kit.yml` `publish:` map) to push through, e.g. "github" or "push". */
   target: string;
@@ -26,6 +32,8 @@ export interface PublishSpec {
    * `outputName`, then its name.
    */
   name?: string;
+  /** Every `publish:` property other than `target`/`name`, passed through to the kit's `publish.ts` (e.g. `registry`, `repo`). */
+  options: Record<string, string>;
 }
 
 export interface Release {
