@@ -1,7 +1,0 @@
-IMAGE_REGISTRY: ""
-
-SERVER_RUNNER_IMAGE: runner:latest
-SERVER_WORKSPACE_PATH: ./contexts/development/workspace
-
-WEB_LIVE_RELOAD: "true"
-WEB_API_ENDPOINT: http://localhost:8080/api

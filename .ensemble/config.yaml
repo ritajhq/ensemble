@@ -1,23 +1,10 @@
 build:
   cli:
     kit: deno.bundle
-  server:
-    kit: deno.bundle
   demo/spa:
-    kit: react.spa
-  web:
     kit: react.spa
 meta:
   ship:
-    server:
-      artifacts:
-        - server
-    runner:
-      artifacts:
-        - cli
-    web:
-      artifacts:
-        - web
     demo/spa:
       artifacts:
         - demo/spa

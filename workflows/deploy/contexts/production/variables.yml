@@ -1,7 +1,0 @@
-IMAGE_REGISTRY: registry.ritaj.app/
-
-SERVER_RUNNER_IMAGE: registry.ritaj.app/ensemble/runner:latest
-SERVER_WORKSPACE_PATH: /srv/ensemble/server-workspace
-
-WEB_LIVE_RELOAD: "false"
-WEB_API_ENDPOINT: https://ensemble.ritaj.app/api

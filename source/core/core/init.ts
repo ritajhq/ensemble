@@ -1,8 +1,6 @@
 import { join } from "@std/path";
 import { copy, ensureDir, exists } from "@std/fs";
-import { stringify as stringifyYaml } from "@std/yaml";
 import { $ } from "@david/dax";
-import * as Workflow from "@ensemble/workflow";
 
 const ENSEMBLE_REPO_URL = "https://github.com/ritajhq/ensemble.git";
 
@@ -27,39 +25,8 @@ const SKELETON_DIRS = [
 ];
 
 const GITIGNORE_TEMPLATE = `.ensemble/kits/**/.bin/
-.ensemble/platform/tokens.json
-${Workflow.SecretsCrypto.SECRETS_PRIVATE_KEY_PATH}
 source/artifacts/
 node_modules/
-`;
-
-const TEST_WORKFLOW_TEMPLATE = `# yaml-language-server: $schema=https://raw.githubusercontent.com/ritajhq/ensemble/main/.ensemble/schemas/workflow.schema.json
-
-on:
-  - manual:
-      inputs:
-        - name: message
-          display: Message
-          type: string
-
-context:
-  secrets:
-    variables:
-      - name: TEST_SECRET
-
-jobs:
-  test:
-    steps:
-      - name: print_message
-        run: |
-          echo "\${{ trigger.message }}"
-
-      - name: print_secret
-        run: |
-          echo "TEST_SECRET (decrypted from contexts/\${{ context.name }}/secrets.yml): $TEST_SECRET"
-
-      - name: confirm_success
-        run: echo "Test workflow completed successfully."
 `;
 
 /**
@@ -83,18 +50,10 @@ async function fetchKits(destDir: string): Promise<void> {
 }
 
 /**
- * Scaffolds a new Ensemble project: lays out the source/workflows skeleton
- * a new project needs to use build/pack/workflow, fetches ensemble's
- * built-in kits into .ensemble/kits (via a throwaway sparse checkout, not a
- * vendored clone), adds an example workflows/test workflow (mirroring
- * ensemble's own workflows/demo) with an encrypted secret so
- * context.secrets works out of the box, and generates this project's own
- * X25519 keypair for encrypting context.secrets (see @ensemble/workflow's
- * SecretsCrypto namespace) — the private key at
- * .ensemble/secrets.key (gitignored, never leaves this machine except when
- * explicitly supplied while registering this repo with a platform server),
- * the public key at .ensemble/secrets.key.pub (meant to be committed — it
- * can only encrypt, never decrypt).
+ * Scaffolds a new Ensemble project: lays out the source skeleton a new
+ * project needs to use build/pack/deploy, and fetches ensemble's built-in
+ * kits into .ensemble/kits (via a throwaway sparse checkout, not a vendored
+ * clone).
  */
 export async function runInit(options: RunInitOptions): Promise<void> {
   const projectDir = join(Deno.cwd(), options.name);
@@ -111,36 +70,6 @@ export async function runInit(options: RunInitOptions): Promise<void> {
   for (const dir of SKELETON_DIRS) {
     await ensureDir(join(projectDir, dir));
   }
-
-  const keypair = await Workflow.SecretsCrypto.generateKeypair();
-  await Deno.writeTextFile(
-    join(projectDir, Workflow.SecretsCrypto.SECRETS_PRIVATE_KEY_PATH),
-    keypair.privateKey + "\n",
-  );
-  await Deno.writeTextFile(
-    join(projectDir, Workflow.SecretsCrypto.SECRETS_PUBLIC_KEY_PATH),
-    keypair.publicKey + "\n",
-  );
-
-  const testWorkflowDir = join(projectDir, "workflows", "test");
-  const testWorkflowContextDir = join(
-    testWorkflowDir,
-    "contexts",
-    "development",
-  );
-  await ensureDir(testWorkflowContextDir);
-  await Deno.writeTextFile(
-    join(testWorkflowDir, "workflow.yml"),
-    TEST_WORKFLOW_TEMPLATE,
-  );
-  const encryptedTestSecret = await Workflow.SecretsCrypto.encryptValue(
-    keypair.publicKey,
-    "hello from ens init",
-  );
-  await Deno.writeTextFile(
-    join(testWorkflowContextDir, "secrets.yml"),
-    stringifyYaml({ TEST_SECRET: encryptedTestSecret }),
-  );
 
   await Deno.writeTextFile(
     join(projectDir, "deno.json"),

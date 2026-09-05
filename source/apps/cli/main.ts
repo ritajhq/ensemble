@@ -10,7 +10,6 @@ import { packCommand } from "./commands/pack.ts";
 import { publishCommand } from "./commands/publish.ts";
 import { releaseCommand } from "./commands/release.ts";
 import { formatVersion, versionCommand } from "./commands/version.ts";
-import { workflowCommand } from "./commands/workflow.ts";
 
 try {
   const installed = await new Core.Version.SelfUpdateService().getInstalledVersion();
@@ -27,7 +26,6 @@ try {
     .command("publish", publishCommand)
     .command("deploy", deployCommand)
     .command("develop", developCommand)
-    .command("workflow", workflowCommand)
     .command("config", configCommand)
     .command("release", releaseCommand)
     .command("version", versionCommand)

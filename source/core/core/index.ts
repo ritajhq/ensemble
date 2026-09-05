@@ -13,11 +13,5 @@ export {
 } from "./deploy.ts";
 
 export * as Config from "./config.ts";
-export * as GitRepositories from "./git-repositories.ts";
-export * as GitIntegration from "./git-integration.ts";
-export * as GitWrite from "./git-write.ts";
-export * as Workflows from "./workflow.ts";
-export * as Runs from "./runs/index.ts";
 export * as Release from "./release.ts";
 export * as Version from "./version.ts";
-export * as Remote from "./remote.ts";
