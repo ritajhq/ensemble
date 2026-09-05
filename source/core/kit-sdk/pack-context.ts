@@ -98,8 +98,10 @@ export function getContext(args: string[] = Deno.args): Context {
   };
 }
 
-/** Reads the `modes` map declared in a pack kit's own `kit.yml` manifest. */
-export async function loadModes(kitDir: string): Promise<Record<string, string>> {
+async function loadKitManifestMap(
+  kitDir: string,
+  key: "modes" | "publish",
+): Promise<Record<string, string>> {
   const path = join(kitDir, "kit.yml");
   let text: string;
   try {
@@ -108,10 +110,50 @@ export async function loadModes(kitDir: string): Promise<Record<string, string>>
     throw new Error(`Kit manifest not found at ${path}`);
   }
 
-  const parsed = parseYaml(text) as { modes?: unknown } | null;
-  const modes = parsed?.modes;
-  if (typeof modes !== "object" || modes === null || Array.isArray(modes)) {
-    throw new Error(`Kit manifest at ${path} is missing a "modes" map.`);
+  const parsed = parseYaml(text) as Record<string, unknown> | null;
+  const value = parsed?.[key];
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`Kit manifest at ${path} is missing a "${key}" map.`);
   }
-  return modes as Record<string, string>;
+  return value as Record<string, string>;
+}
+
+/** Reads the `modes` map declared in a pack kit's own `kit.yml` manifest. */
+export async function loadModes(kitDir: string): Promise<Record<string, string>> {
+  return await loadKitManifestMap(kitDir, "modes");
+}
+
+/** Reads the `publish` map declared in a pack kit's own `kit.yml` manifest — same shape/convention as `modes` (a named target to a raw, kit-owned option string), but for publish targets a kit's `publish.ts` entry point understands. */
+export async function loadPublishModes(kitDir: string): Promise<Record<string, string>> {
+  return await loadKitManifestMap(kitDir, "publish");
+}
+
+/** The parameters `ens` passes to a pack kit's `publish.ts` invocation. */
+export interface PublishContext {
+  /** Ship name, i.e. its path inside `ship/` (e.g. "web/spa"). */
+  name: string;
+  /** Name of the local packed artifact to publish (e.g. an image tag) — matches whatever `ens pack` tagged it as. Defaults to `name`. */
+  outputName: string;
+  /** Version to publish this artifact under, alongside its `outputName:latest`. */
+  version: string;
+  /** The raw option string declared for this target in the kit's own `kit.yml` `publish` map (e.g. "registry=registry.example.com/org") — entirely kit-owned, same convention as `modes`. */
+  options: string;
+  /** Resolved publish vars (currently just `--var` overrides — no env-file tier yet, since publish targets typically rely on credentials already present in the environment, e.g. via a prior `docker login`). */
+  vars: Record<string, string>;
+}
+
+/** Parses the standard pack kit publish CLI contract. Call this from a pack kit's `publish.ts` entry point. */
+export function getPublishContext(args: string[] = Deno.args): PublishContext {
+  const flags = parseArgs(args, {
+    string: ["name", "output-name", "version", "options", "vars"],
+    default: { vars: "{}" },
+  });
+
+  return {
+    name: requireFlag(flags, "name"),
+    outputName: requireFlag(flags, "output-name"),
+    version: requireFlag(flags, "version"),
+    options: requireFlag(flags, "options"),
+    vars: parseVars(flags.vars),
+  };
 }

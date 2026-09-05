@@ -28,6 +28,46 @@ async function createAndMaybePushRelease(
   console.log(`  pushed to: ${remote}`);
 }
 
+/**
+ * The part of the ceremony beyond git tagging: collects every ship declared
+ * across every workload's `release:` section (deduplicated — see
+ * `ReleaseCeremony.collectShipReleases`), and — only if the caller confirms —
+ * builds, packs, and publishes each one under `tag`, then updates and
+ * (optionally, on its own confirmation) pushes `CHANGELOG.md`. A no-op if no
+ * workload declares any `release:` entries.
+ */
+async function maybeRunReleaseCeremony(
+  repoRoot: string,
+  tag: string,
+  remote: string,
+): Promise<void> {
+  const ceremony = new Core.Release.ReleaseCeremony(repoRoot);
+  const ships = await ceremony.collectShipReleases();
+  if (ships.length === 0) return;
+
+  const names = ships.map((s) => s.name).join(", ");
+  const proceed = await Confirm.prompt({
+    message: `Build, pack, and publish ${ships.length} ship(s) (${names}) for ${tag}, then update the changelog?`,
+    default: false,
+  });
+  if (!proceed) return;
+
+  await ceremony.releaseShips(ships, tag);
+  console.log(`Released: ${names}`);
+
+  const changed = await ceremony.updateChangelog(tag);
+  if (!changed) return;
+  console.log("Updated CHANGELOG.md");
+
+  const push = await Confirm.prompt({
+    message: `Push the changelog commit to "${remote}"?`,
+    default: false,
+  });
+  if (!push) return;
+  await new Core.Release.ReleaseService(repoRoot).pushCommits(remote);
+  console.log(`  pushed to: ${remote}`);
+}
+
 export const releaseCommand = new Command()
   .name("release")
   .description("Create or undo a semver release tag.")
@@ -46,6 +86,7 @@ export const releaseCommand = new Command()
     printPreview(dryRun ? "Would create" : "Will create", preview);
     if (dryRun) return;
     await createAndMaybePushRelease(release, preview, remote);
+    await maybeRunReleaseCeremony(repoRoot, preview.tag, remote);
   })
   .reset()
   .command("set", "Set an arbitrary version (shape x.y.z) and create a new release.")
@@ -58,6 +99,7 @@ export const releaseCommand = new Command()
     printPreview(dryRun ? "Would create" : "Will create", preview);
     if (dryRun) return;
     await createAndMaybePushRelease(release, preview, remote);
+    await maybeRunReleaseCeremony(repoRoot, preview.tag, remote);
   })
   .reset()
   .command("undo", "Deletes the last tag. Does not touch any commit.")

@@ -3,8 +3,11 @@ import * as Core from "@ensemble/core";
 import { appCommand } from "./commands/app.ts";
 import { buildCommand } from "./commands/build.ts";
 import { configCommand } from "./commands/config.ts";
+import { deployCommand } from "./commands/deploy.ts";
+import { developCommand } from "./commands/develop.ts";
 import { initCommand } from "./commands/init.ts";
 import { packCommand } from "./commands/pack.ts";
+import { publishCommand } from "./commands/publish.ts";
 import { releaseCommand } from "./commands/release.ts";
 import { formatVersion, versionCommand } from "./commands/version.ts";
 import { workflowCommand } from "./commands/workflow.ts";
@@ -21,6 +24,9 @@ try {
     .command("app", appCommand)
     .command("build", buildCommand)
     .command("pack", packCommand)
+    .command("publish", publishCommand)
+    .command("deploy", deployCommand)
+    .command("develop", developCommand)
     .command("workflow", workflowCommand)
     .command("config", configCommand)
     .command("release", releaseCommand)

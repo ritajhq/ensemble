@@ -3,3 +3,5 @@ modes:
   tar: tar
   oci: oci
   local: local,mode=delete
+publish:
+  push: registry=registry.ritaj.app

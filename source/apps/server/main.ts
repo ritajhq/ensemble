@@ -1,15 +1,25 @@
+import { dirname } from "@std/path";
+import { ensureDir } from "@std/fs";
 import * as Core from "@ensemble/core";
 import { createAllFeatures, isFeatureEnabled, type PlatformRoutePrefixes } from "@ensemble/platform";
 
 const repoRoot = await Core.findRepoRoot();
+
+/** Deno.openKv doesn't create its file's parent directory — the repo's own .ensemble/platform/ has always existed by the time this runs locally, masking that a fresh workspace (e.g. a deploy target's empty volume) needs it created explicitly. */
+async function openKv(relativePath: string): Promise<Deno.Kv> {
+  const path = `${repoRoot}/${relativePath}`;
+  await ensureDir(dirname(path));
+  return await Deno.openKv(path);
+}
+
 const stores = {
   repositories: new Core.GitRepositories.GitRepositoryStore(
-    await Deno.openKv(`${repoRoot}/${Core.GitRepositories.GIT_REPOSITORY_STORE_KV_PATH}`),
+    await openKv(Core.GitRepositories.GIT_REPOSITORY_STORE_KV_PATH),
   ),
   links: new Core.GitRepositories.WorkflowGitLinkStore(
-    await Deno.openKv(`${repoRoot}/${Core.GitRepositories.WORKFLOW_GIT_LINK_STORE_KV_PATH}`),
+    await openKv(Core.GitRepositories.WORKFLOW_GIT_LINK_STORE_KV_PATH),
   ),
-  runs: new Core.Runs.RunStore(await Deno.openKv(`${repoRoot}/${Core.Runs.RUN_STORE_KV_PATH}`)),
+  runs: new Core.Runs.RunStore(await openKv(Core.Runs.RUN_STORE_KV_PATH)),
 };
 
 const routes: PlatformRoutePrefixes = {

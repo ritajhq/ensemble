@@ -1,4 +1,11 @@
+import { join } from "@std/path";
+import { exists } from "@std/fs";
 import { $ } from "@david/dax";
+import * as KitSdk from "@ensemble/kit-sdk";
+import { EnsembleConfigStore } from "./config.ts";
+import { runBuild } from "./build.ts";
+import { runPack } from "./pack.ts";
+import { runPublish } from "./publish.ts";
 
 export interface SemVer {
   major: number;
@@ -163,5 +170,148 @@ export class ReleaseService {
     }
     await $`git tag -d ${last.tag}`.cwd(this.repoRoot);
     return { tag: last.tag };
+  }
+}
+
+/** One ship's release recipe, collected from a workload's `release:` section — `declaredIn` names every workload that declares it identically (see `ReleaseCeremony.collectShipReleases`). */
+export interface ShipRelease extends KitSdk.Deploy.Release {
+  name: string;
+  declaredIn: string[];
+}
+
+/** Thrown when the same ship name is declared with conflicting options across more than one workload's `release:` section. */
+export class ReleaseConflictError extends Error {}
+
+function releaseEntriesEqual(
+  a: KitSdk.Deploy.Release,
+  b: KitSdk.Deploy.Release,
+): boolean {
+  return a.kit === b.kit && a.mode === b.mode &&
+    a.outputName === b.outputName && a.publish === b.publish;
+}
+
+/**
+ * Cycles through every workload's `release:` section to actually build, pack,
+ * publish, and changelog a version — the part of the release ceremony
+ * `ReleaseService` doesn't do (it only handles the git-tag half). Kept as a
+ * separate class from `ReleaseService`: tagging is pure git-plumbing, this is
+ * cross-cutting orchestration over workloads/build/pack/publish — different
+ * reasons to change.
+ */
+export class ReleaseCeremony {
+  constructor(private readonly repoRoot: string) {}
+
+  /**
+   * Globs every `source/deploy/<name>/workload.yml`, collects each one's
+   * `release:` section, and deduplicates by ship name: identical
+   * declarations (same kit/mode/outputName/publish) across workloads
+   * collapse into one `ShipRelease`; the same name declared with
+   * *conflicting* options throws `ReleaseConflictError` rather than silently
+   * picking one.
+   */
+  async collectShipReleases(): Promise<ShipRelease[]> {
+    const deployDir = join(this.repoRoot, "source", "deploy");
+    const byName = new Map<string, ShipRelease>();
+
+    for await (const dirEntry of Deno.readDir(deployDir)) {
+      if (!dirEntry.isDirectory) continue;
+      const workloadPath = join(deployDir, dirEntry.name, "workload.yml");
+      if (!await exists(workloadPath, { isFile: true })) continue;
+
+      const workload = await KitSdk.Deploy.parseWorkloadFile(workloadPath);
+      for (const [shipName, release] of Object.entries(workload.release ?? {})) {
+        const existing = byName.get(shipName);
+        if (!existing) {
+          byName.set(shipName, {
+            ...release,
+            name: shipName,
+            declaredIn: [dirEntry.name],
+          });
+          continue;
+        }
+        if (!releaseEntriesEqual(existing, release)) {
+          throw new ReleaseConflictError(
+            `release "${shipName}" is declared differently in ${
+              existing.declaredIn.join(", ")
+            } and ${dirEntry.name} — reconcile them before releasing.`,
+          );
+        }
+        existing.declaredIn.push(dirEntry.name);
+      }
+    }
+
+    return [...byName.values()];
+  }
+
+  /**
+   * Builds every app each ship's pack kit is known to depend on (from
+   * `.ensemble/config.yaml`'s `meta.ship.<name>.artifacts`, populated by a
+   * prior `ens pack` run — if a ship has never been packed before, this is
+   * empty and the build step is skipped, exactly as `workflows/release`'s
+   * own hand-written steps assume a first pack has already happened once),
+   * packs each ship, then publishes it if it declares a `publish` target.
+   * Stops at the first failure rather than partially releasing.
+   */
+  async releaseShips(ships: ShipRelease[], version: string): Promise<void> {
+    const config = new EnsembleConfigStore(this.repoRoot);
+    const ensembleConfig = await config.load();
+
+    for (const ship of ships) {
+      const artifacts = ensembleConfig.meta?.ship?.[ship.name]?.artifacts ?? [];
+      for (const app of artifacts) {
+        const code = await runBuild(app, { mode: "production", watch: false });
+        if (code !== 0) {
+          throw new Error(
+            `Building "${app}" (a dependency of ship "${ship.name}") failed with code ${code}.`,
+          );
+        }
+      }
+
+      const packCode = await runPack(ship.name, ship.kit, {
+        mode: ship.mode,
+        outputName: ship.outputName,
+      });
+      if (packCode !== 0) {
+        throw new Error(`Packing ship "${ship.name}" failed with code ${packCode}.`);
+      }
+
+      if (!ship.publish) continue;
+      const publishCode = await runPublish(ship.name, ship.kit, {
+        target: ship.publish,
+        outputName: ship.outputName,
+        version,
+      });
+      if (publishCode !== 0) {
+        throw new Error(`Publishing ship "${ship.name}" failed with code ${publishCode}.`);
+      }
+    }
+  }
+
+  /**
+   * Regenerates `CHANGELOG.md` for `tag` via `git-cliff` (must already be on
+   * PATH — deliberately not auto-installed here, since the download this
+   * repo's own `workflows/release/workflow.yml` uses is a Linux-only
+   * binary, not something safe to assume for every `ens` install) and
+   * commits it if it changed, using whatever git identity is already
+   * configured locally — never overridden, unlike the CI workflow's bot
+   * identity, since a human runs this command as themselves. Pushing is a
+   * separate, explicit step — see `ReleaseService.pushCommits`.
+   */
+  async updateChangelog(tag: string): Promise<boolean> {
+    const check = await $`git-cliff --version`.cwd(this.repoRoot).quiet().noThrow();
+    if (check.code !== 0) {
+      throw new Error(
+        "git-cliff is required to update the changelog but isn't on PATH — install it from https://git-cliff.org first.",
+      );
+    }
+
+    await $`git-cliff --tag ${tag} -o CHANGELOG.md`.cwd(this.repoRoot);
+
+    const status = await $`git status --porcelain -- CHANGELOG.md`.cwd(this.repoRoot).text();
+    if (status.trim().length === 0) return false;
+
+    await $`git add CHANGELOG.md`.cwd(this.repoRoot);
+    await $`git commit -m ${`chore(changelog): update for ${tag}`}`.cwd(this.repoRoot);
+    return true;
   }
 }

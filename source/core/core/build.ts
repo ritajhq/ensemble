@@ -1,7 +1,7 @@
 import { join } from "@std/path";
 import { ensureDir, exists } from "@std/fs";
 import { load as loadEnv } from "@std/dotenv";
-import { $ } from "@david/dax";
+import { $, KillSignalController } from "@david/dax";
 import { findRepoRoot } from "./repo.ts";
 import { EnsembleConfigStore } from "./config.ts";
 import { resolveDenoExecutable } from "./deno-exe.ts";
@@ -12,6 +12,8 @@ export interface RunBuildOptions {
   mode: KitSdk.Build.Mode;
   watch: boolean;
   varOverrides?: Record<string, string>;
+  /** Aborting this stops the spawned build kit process — meaningful mainly with `watch: true`, which otherwise runs until killed. Used by `runDeploy`'s development-mode build-watcher orchestration to shut every watcher down once the deploy itself ends. */
+  signal?: AbortSignal;
 }
 
 /** Resolves an app's configured kit and spawns it with the standard kit CLI contract. */
@@ -52,6 +54,12 @@ export async function runBuild(name: string, options: RunBuildOptions): Promise<
   const watchArgs = options.watch ? ["--watch"] : [];
   const denoExe = await resolveDenoExecutable();
 
+  const killSignal = new KillSignalController();
+  if (options.signal) {
+    if (options.signal.aborted) killSignal.kill();
+    else options.signal.addEventListener("abort", () => killSignal.kill());
+  }
+
   // --minimum-dependency-age 0: this project's own kits depend on
   // @ensemble/*/@duesabati/* first-party packages, which Deno's default 24h
   // minimum dependency age (a supply-chain mitigation aimed at unfamiliar
@@ -68,6 +76,7 @@ export async function runBuild(name: string, options: RunBuildOptions): Promise<
     ${watchArgs}`
     .cwd(kitDir)
     .env(buildVars)
+    .signal(killSignal.signal)
     .noThrow();
 
   if (result.code === 0 && !options.watch) {
