@@ -40,9 +40,9 @@ export async function runDeploy(
   const repoRoot = await findRepoRoot();
   const workspace = join(repoRoot, "source");
 
-  const manifestPath = join(workspace, "deploy", name, "workload.yml");
+  const manifestPath = join(repoRoot, "ci", name, "delivery.yml");
   if (!await exists(manifestPath, { isFile: true })) {
-    throw new Error(`Deploy workload not found at ${manifestPath}`);
+    throw new Error(`Delivery manifest not found at ${manifestPath}`);
   }
 
   const kitEntry = join(

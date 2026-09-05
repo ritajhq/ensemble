@@ -202,20 +202,21 @@ export class ReleaseCeremony {
   constructor(private readonly repoRoot: string) {}
 
   /**
-   * Globs every `source/deploy/<name>/workload.yml`, collects each one's
-   * `release:` section, and deduplicates by ship name: identical
-   * declarations (same kit/mode/outputName/publish) across workloads
-   * collapse into one `ShipRelease`; the same name declared with
-   * *conflicting* options throws `ReleaseConflictError` rather than silently
-   * picking one.
+   * Globs every `ci/<name>/delivery.yml`, collects each one's `release:`
+   * section, and deduplicates by ship name: identical declarations (same
+   * kit/mode/outputName/publish) across manifests collapse into one
+   * `ShipRelease`; the same name declared with *conflicting* options throws
+   * `ReleaseConflictError` rather than silently picking one.
    */
   async collectShipReleases(): Promise<ShipRelease[]> {
-    const deployDir = join(this.repoRoot, "source", "deploy");
+    const ciDir = join(this.repoRoot, "ci");
     const byName = new Map<string, ShipRelease>();
 
-    for await (const dirEntry of Deno.readDir(deployDir)) {
+    if (!await exists(ciDir, { isDirectory: true })) return [];
+
+    for await (const dirEntry of Deno.readDir(ciDir)) {
       if (!dirEntry.isDirectory) continue;
-      const workloadPath = join(deployDir, dirEntry.name, "workload.yml");
+      const workloadPath = join(ciDir, dirEntry.name, "delivery.yml");
       if (!await exists(workloadPath, { isFile: true })) continue;
 
       const workload = await KitSdk.Deploy.parseWorkloadFile(workloadPath);
