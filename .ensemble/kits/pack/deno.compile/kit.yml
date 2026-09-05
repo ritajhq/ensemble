@@ -1,0 +1,6 @@
+publish:
+  # Uploads the compiled binary to a GitHub release for the version being
+  # released (see publish.ts). No options are required — the repository is
+  # inferred from the working tree's git remote; pass `repo=<owner>/<name>`
+  # to target a different one.
+  github: ""

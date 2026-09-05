@@ -112,18 +112,23 @@ async function loadKitManifestMap(
 
   const parsed = parseYaml(text) as Record<string, unknown> | null;
   const value = parsed?.[key];
+  // A kit may legitimately declare only one of `modes`/`publish` (e.g. the
+  // deno.compile kit is config-file-driven and has no modes, only a publish
+  // target) — an absent key is an empty map, not an error. A present-but-
+  // malformed value still is.
+  if (value === undefined) return {};
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new Error(`Kit manifest at ${path} is missing a "${key}" map.`);
+    throw new Error(`Kit manifest at ${path} has a "${key}" that isn't a map.`);
   }
   return value as Record<string, string>;
 }
 
-/** Reads the `modes` map declared in a pack kit's own `kit.yml` manifest. */
+/** Reads the `modes` map declared in a pack kit's own `kit.yml` manifest — an empty map if the kit declares none. */
 export async function loadModes(kitDir: string): Promise<Record<string, string>> {
   return await loadKitManifestMap(kitDir, "modes");
 }
 
-/** Reads the `publish` map declared in a pack kit's own `kit.yml` manifest — same shape/convention as `modes` (a named target to a raw, kit-owned option string), but for publish targets a kit's `publish.ts` entry point understands. */
+/** Reads the `publish` map declared in a pack kit's own `kit.yml` manifest — same shape/convention as `modes` (a named target to a raw, kit-owned option string), but for publish targets a kit's `publish.ts` entry point understands. Empty if the kit declares none. */
 export async function loadPublishModes(kitDir: string): Promise<Record<string, string>> {
   return await loadKitManifestMap(kitDir, "publish");
 }

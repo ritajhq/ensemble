@@ -1,0 +1,6 @@
+# The ens CLI is released as a compiled binary and published to a GitHub
+# release — no deploy: section, since it's distributed, not deployed.
+release:
+  cli:
+    kit: deno.compile
+    publish: github

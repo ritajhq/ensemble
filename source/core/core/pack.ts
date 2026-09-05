@@ -40,18 +40,18 @@ export async function runPack(
 
   let mode = options.mode;
   const kitManifest = join(kitDir, "kit.yml");
-  if (await exists(kitManifest, { isFile: true })) {
-    const modes = await KitSdk.Pack.loadModes(kitDir);
-    const [firstMode] = Object.keys(modes);
-    if (!firstMode) {
-      throw new Error(`Kit manifest at ${kitManifest} declares an empty "modes" map.`);
-    }
-    mode ??= firstMode;
+  const modes = await exists(kitManifest, { isFile: true })
+    ? await KitSdk.Pack.loadModes(kitDir)
+    : {};
+  const declaredModes = Object.keys(modes);
+  if (declaredModes.length > 0) {
+    // A kit that declares modes: default to the first and validate against them.
+    mode ??= declaredModes[0];
     if (!Object.hasOwn(modes, mode)) {
-      const available = Object.keys(modes).join(", ");
-      throw new Error(`Unknown mode "${mode}" for pack kit "${kit}". Available modes: ${available}`);
+      throw new Error(`Unknown mode "${mode}" for pack kit "${kit}". Available modes: ${declaredModes.join(", ")}`);
     }
   } else {
+    // A kit with no modes (e.g. deno.compile, driven by the ship's own config).
     mode ??= "default";
   }
 
