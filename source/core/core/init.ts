@@ -25,6 +25,7 @@ const SKELETON_DIRS = [
 ];
 
 const GITIGNORE_TEMPLATE = `.ensemble/kits/**/.bin/
+.ensemble/publish.env
 source/artifacts/
 node_modules/
 `;

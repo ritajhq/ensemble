@@ -1,16 +1,22 @@
 import { join } from "@std/path";
 import { exists } from "@std/fs";
+import { load as loadEnv } from "@std/dotenv";
 import { $ } from "@david/dax";
 import { findRepoRoot } from "./repo.ts";
 import { resolveDenoExecutable } from "./deno-exe.ts";
 import * as KitSdk from "@ensemble/kit-sdk";
 
+/** Untracked env file holding publish-target credentials (registry passwords, GH_TOKEN, …). Loaded into the publish kit's process environment, never onto its argv. */
+export const PUBLISH_ENV_PATH = ".ensemble/publish.env";
+
 export interface RunPublishOptions {
   /** Which named publish target to run, declared in the pack kit's own `kit.yml` "publish" map. */
   target: string;
-  /** Name of the local packed artifact to publish. Defaults to the ship name. */
+  /** The name to publish the artifact under (kit-owned meaning — image name, release asset name, …). Defaults to `outputName`, then the ship name. */
+  packageName?: string;
+  /** Name of the local packed artifact the kit resolves its input from. Defaults to the ship name. */
   outputName?: string;
-  /** Version to publish this artifact under, alongside its `outputName:latest`. Defaults to "latest". */
+  /** Version to publish this artifact under. Defaults to "latest". */
   version?: string;
   varOverrides?: Record<string, string>;
 }
@@ -47,18 +53,30 @@ export async function runPublish(
 
   const denoExe = await resolveDenoExecutable();
   const outputName = options.outputName ?? shipName;
+  const packageName = options.packageName ?? outputName;
   const version = options.version ?? "latest";
-  const vars = options.varOverrides ?? {};
+  const varOverrides = options.varOverrides ?? {};
+
+  // Credentials for publish targets (registry passwords, GH_TOKEN, …) live in
+  // an untracked .ensemble/publish.env and are handed to the kit through its
+  // process environment — never via --vars/argv, which would leak them into
+  // `ps` and any logging of the spawned command line.
+  const credentials = await loadEnv({
+    envPath: join(repoRoot, PUBLISH_ENV_PATH),
+    export: false,
+  });
+  const env = { ...credentials, ...varOverrides };
 
   // --minimum-dependency-age 0: see the identical flag in pack.ts.
   const result = await $`${denoExe} run -A -q --minimum-dependency-age 0 ${kitEntry}
     --name ${shipName}
     --output-name ${outputName}
+    --package-name ${packageName}
     --version ${version}
     --options ${publishTargets[options.target]}
-    --vars ${JSON.stringify(vars)}`
+    --vars ${JSON.stringify(varOverrides)}`
     .cwd(kitDir)
-    .env(vars)
+    .env(env)
     .noThrow();
 
   return result.code;

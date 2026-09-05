@@ -137,9 +137,11 @@ export async function loadPublishModes(kitDir: string): Promise<Record<string, s
 export interface PublishContext {
   /** Ship name, i.e. its path inside `ship/` (e.g. "web/spa"). */
   name: string;
-  /** Name of the local packed artifact to publish (e.g. an image tag) — matches whatever `ens pack` tagged it as. Defaults to `name`. */
+  /** Name of the local packed artifact the kit resolves its input from (e.g. the local image tag `ens pack` produced). Defaults to `name`. */
   outputName: string;
-  /** Version to publish this artifact under, alongside its `outputName:latest`. */
+  /** The name to publish the artifact under — kit-owned meaning (remote image name, uploaded release asset name, …). Defaults to `outputName`. Kits decide whether to fold `version` into it. */
+  packageName: string;
+  /** Version to publish this artifact under. */
   version: string;
   /** The raw option string declared for this target in the kit's own `kit.yml` `publish` map (e.g. "registry=registry.example.com/org") — entirely kit-owned, same convention as `modes`. */
   options: string;
@@ -150,15 +152,18 @@ export interface PublishContext {
 /** Parses the standard pack kit publish CLI contract. Call this from a pack kit's `publish.ts` entry point. */
 export function getPublishContext(args: string[] = Deno.args): PublishContext {
   const flags = parseArgs(args, {
-    string: ["name", "output-name", "version", "options", "vars"],
+    string: ["name", "output-name", "package-name", "version", "options", "vars"],
     default: { vars: "{}" },
   });
 
   return {
     name: requireFlag(flags, "name"),
     outputName: requireFlag(flags, "output-name"),
+    packageName: requireFlag(flags, "package-name"),
     version: requireFlag(flags, "version"),
-    options: requireFlag(flags, "options"),
+    // Optional: a publish target may declare no options (e.g. the github
+    // target); kits validate whatever options they actually require.
+    options: typeof flags.options === "string" ? flags.options : "",
     vars: parseVars(flags.vars),
   };
 }

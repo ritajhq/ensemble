@@ -14,10 +14,24 @@
  * second real shape shows up — see compute.ts's Port lesson on not
  * pre-building for a hypothetical future.
  */
+/** Where and under what name a released ship is published. */
+export interface PublishSpec {
+  /** Which of the pack kit's declared publish targets (its `kit.yml` `publish:` map) to push through, e.g. "github" or "push". */
+  target: string;
+  /**
+   * The name to publish the artifact under — how each kit uses it is
+   * kit-owned: the docker kit treats it as the remote image name (appending
+   * the release version as a tag), the deno.compile/github kit as the
+   * uploaded release asset's filename. Omitted falls back to the ship's
+   * `outputName`, then its name.
+   */
+  name?: string;
+}
+
 export interface Release {
   kit: string;
   mode?: string;
   outputName?: string;
-  /** Which of the pack kit's declared publish targets (its `kit.yml` `publish:` map) `ens release` should push this ship through. Omitted means this ship is packed as part of a release but never published anywhere. */
-  publish?: string;
+  /** How to publish this ship during `ens release`. Omitted means it's packed as part of a release but never published anywhere. */
+  publish?: PublishSpec;
 }

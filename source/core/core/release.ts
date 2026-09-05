@@ -187,7 +187,9 @@ function releaseEntriesEqual(
   b: KitSdk.Deploy.Release,
 ): boolean {
   return a.kit === b.kit && a.mode === b.mode &&
-    a.outputName === b.outputName && a.publish === b.publish;
+    a.outputName === b.outputName &&
+    a.publish?.target === b.publish?.target &&
+    a.publish?.name === b.publish?.name;
 }
 
 /**
@@ -278,7 +280,8 @@ export class ReleaseCeremony {
 
       if (!ship.publish) continue;
       const publishCode = await runPublish(ship.name, ship.kit, {
-        target: ship.publish,
+        target: ship.publish.target,
+        packageName: ship.publish.name,
         outputName: ship.outputName,
         version,
       });

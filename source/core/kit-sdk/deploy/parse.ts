@@ -31,7 +31,7 @@ import type { Messaging } from "./messaging.ts";
 import type { Secret } from "./secrets.ts";
 import type { Storage } from "./storage.ts";
 import type { External, Network } from "./external.ts";
-import type { Release } from "./release.ts";
+import type { PublishSpec, Release } from "./release.ts";
 import type { Workload } from "./workload.ts";
 
 export class WorkloadParseError extends Error {}
@@ -803,6 +803,19 @@ function validateExternal(
   return external;
 }
 
+function validatePublish(
+  file: string,
+  where: string,
+  raw: unknown,
+): PublishSpec | undefined {
+  if (raw === undefined) return undefined;
+  if (!isRecord(raw)) fail(file, `${where} must be a mapping.`);
+  return {
+    target: requireString(file, `${where}.target`, raw.target),
+    name: optionalString(file, `${where}.name`, raw.name),
+  };
+}
+
 function validateReleaseEntry(
   file: string,
   where: string,
@@ -813,7 +826,7 @@ function validateReleaseEntry(
     kit: requireString(file, `${where}.kit`, raw.kit),
     mode: optionalString(file, `${where}.mode`, raw.mode),
     outputName: optionalString(file, `${where}.outputName`, raw.outputName),
-    publish: optionalString(file, `${where}.publish`, raw.publish),
+    publish: validatePublish(file, `${where}.publish`, raw.publish),
   };
 }
 

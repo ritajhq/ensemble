@@ -3,4 +3,6 @@
 release:
   cli:
     kit: deno.compile
-    publish: github
+    publish:
+      target: github
+      name: ensemble-linux-x64

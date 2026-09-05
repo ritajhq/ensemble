@@ -5,7 +5,7 @@ export { runBuild, type RunBuildOptions } from "./build.ts";
 export { BuildCache } from "./build-cache.ts";
 export { runInit, type RunInitOptions } from "./init.ts";
 export { runPack, type RunPackOptions } from "./pack.ts";
-export { runPublish, type RunPublishOptions } from "./publish.ts";
+export { PUBLISH_ENV_PATH, runPublish, type RunPublishOptions } from "./publish.ts";
 export {
   type DeployAction,
   runDeploy,

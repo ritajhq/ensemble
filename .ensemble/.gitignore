@@ -4,3 +4,4 @@ tokens.json
 platform/
 config.local.yaml
 secrets.key
+publish.env
