@@ -28,6 +28,23 @@ async function createAndMaybePushRelease(
   console.log(`  pushed to: ${remote}`);
 }
 
+/** How a ship would be packed and (if declared) published, for the confirm prompt and the dry-run preview. */
+function describeShipRelease(ship: Core.Release.ShipRelease, tag: string): string {
+  if (!ship.publish) return `${ship.name} — pack via ${ship.kit} (not published)`;
+  const name = ship.publish.name ?? ship.outputName ?? ship.name;
+  return `${ship.name} — pack via ${ship.kit}, publish to ${ship.publish.target} as "${name}" @ ${tag}`;
+}
+
+/** Dry-run counterpart to `maybeRunReleaseCeremony`: reports what building/packing/publishing the tag would trigger, without doing any of it. */
+async function printReleaseCeremonyPreview(repoRoot: string, tag: string): Promise<void> {
+  const ships = await new Core.Release.ReleaseCeremony(repoRoot).collectShipReleases();
+  if (ships.length === 0) return;
+  console.log(`Would then build, pack, and publish ${ships.length} ship(s):`);
+  for (const ship of ships) {
+    console.log(`  ${describeShipRelease(ship, tag)}`);
+  }
+}
+
 /**
  * The part of the ceremony beyond git tagging: collects every ship declared
  * across every workload's `release:` section (deduplicated — see
@@ -46,8 +63,12 @@ async function maybeRunReleaseCeremony(
   if (ships.length === 0) return;
 
   const names = ships.map((s) => s.name).join(", ");
+  console.log(`Will build, pack, and publish ${ships.length} ship(s):`);
+  for (const ship of ships) {
+    console.log(`  ${describeShipRelease(ship, tag)}`);
+  }
   const proceed = await Confirm.prompt({
-    message: `Build, pack, and publish ${ships.length} ship(s) (${names}) for ${tag}, then update the changelog?`,
+    message: `Proceed for ${tag}, then update the changelog?`,
     default: false,
   });
   if (!proceed) return;
@@ -84,7 +105,10 @@ export const releaseCommand = new Command()
     if (!dryRun && !await confirmUncommittedChanges(release)) return;
     const preview = await release.next(bump, { dryRun, preRelease, meta });
     printPreview(dryRun ? "Would create" : "Will create", preview);
-    if (dryRun) return;
+    if (dryRun) {
+      await printReleaseCeremonyPreview(repoRoot, preview.tag);
+      return;
+    }
     await createAndMaybePushRelease(release, preview, remote);
     await maybeRunReleaseCeremony(repoRoot, preview.tag, remote);
   })
@@ -97,7 +121,10 @@ export const releaseCommand = new Command()
     if (!dryRun && !await confirmUncommittedChanges(release)) return;
     const preview = await release.set(version, { dryRun, preRelease, meta });
     printPreview(dryRun ? "Would create" : "Will create", preview);
-    if (dryRun) return;
+    if (dryRun) {
+      await printReleaseCeremonyPreview(repoRoot, preview.tag);
+      return;
+    }
     await createAndMaybePushRelease(release, preview, remote);
     await maybeRunReleaseCeremony(repoRoot, preview.tag, remote);
   })

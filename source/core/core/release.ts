@@ -99,11 +99,19 @@ export class ReleaseService {
     return tags.reduce((max, t) => (compareSemVer(t.version, max.version) > 0 ? t : max));
   }
 
-  private async buildPreview(base: SemVer, flags: ReleaseFlags): Promise<ReleasePreview> {
-    const last = await this.findLastTag();
+  private async buildPreview(
+    base: SemVer,
+    flags: ReleaseFlags,
+    last?: { tag: string; version: SemVer },
+  ): Promise<ReleasePreview> {
+    // "from" must be the tag this release is based on — the last tag on the
+    // *same* pre-release line as the one being created — not the overall
+    // highest tag. Otherwise bumping the stable line past a higher pre-release
+    // tag (e.g. 0.0.11 while 1.0.10-alpha exists) reports a misleading "from".
+    const resolvedLast = last ?? await this.findLastTagOnLine(flags.preRelease);
     const version: SemVer = { ...base, preRelease: flags.preRelease, meta: flags.meta };
     const tag = formatTag(version);
-    return { tag, lastTag: last?.tag };
+    return { tag, lastTag: resolvedLast?.tag };
   }
 
   /** True if the working tree has uncommitted changes (staged, unstaged, or untracked). */
@@ -142,7 +150,7 @@ export class ReleaseService {
       ? { major: base.major, minor: base.minor + 1, patch: 0 }
       : { major: base.major, minor: base.minor, patch: base.patch + 1 };
 
-    return await this.buildPreview(bumped, flags);
+    return await this.buildPreview(bumped, flags, last);
   }
 
   /** Previews an arbitrary version. Must be exactly "x.y.z" — use preRelease/meta flags for those suffixes. Does not create the tag — call createReleaseTag separately once confirmed. */
