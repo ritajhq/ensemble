@@ -29,6 +29,7 @@ import type {
 } from "./networking.ts";
 import type { Messaging } from "./messaging.ts";
 import type { Secret } from "./secrets.ts";
+import type { Variable } from "./variables.ts";
 import type { Storage } from "./storage.ts";
 import type { External, Network } from "./external.ts";
 import type { PublishSpec, Release } from "./release.ts";
@@ -761,6 +762,40 @@ function validateSecrets(
   return secrets;
 }
 
+function validateVariableEntry(
+  file: string,
+  where: string,
+  raw: unknown,
+): Variable {
+  if (!isRecord(raw)) fail(file, `${where} must be a mapping.`);
+  if (raw.type !== "variable") {
+    fail(
+      file,
+      `${where}.type must be "variable", got ${JSON.stringify(raw.type)}.`,
+    );
+  }
+  return {
+    type: "variable",
+    class: optionalString(file, `${where}.class`, raw.class),
+    overrides: validateOverrides(file, `${where}.overrides`, raw.overrides),
+  };
+}
+
+function validateVariables(
+  file: string,
+  raw: unknown,
+): Record<string, Variable> | undefined {
+  if (raw === undefined) return undefined;
+  if (!isRecord(raw) || Object.keys(raw).length === 0) {
+    fail(file, `"variables" must be a non-empty mapping.`);
+  }
+  const variables: Record<string, Variable> = {};
+  for (const [name, entry] of Object.entries(raw)) {
+    variables[name] = validateVariableEntry(file, `variables.${name}`, entry);
+  }
+  return variables;
+}
+
 function validateExternalNetwork(
   file: string,
   where: string,
@@ -873,7 +908,7 @@ export async function parseWorkloadFile(file: string): Promise<Workload> {
  * run as a separate pass once the whole Workload is parsed.
  *
  * `compute`/`storage`/`databases`/`messaging`/`networking`/`secrets`/
- * `external` are read from a `deploy:` wrapper — a pure YAML-authoring
+ * `variables`/`external` are read from a `deploy:` wrapper — a pure YAML-authoring
  * convenience that separates them from `release:`, which stays a top-level
  * sibling of `deploy:` rather than nested under it. The wrapper is stripped
  * here; it has no effect on the in-memory `Workload` shape or on
@@ -904,6 +939,7 @@ export function parseWorkloadText(file: string, text: string): Workload {
     messaging: validateMessaging(file, deploy.messaging),
     networking: validateNetworking(file, deploy.networking),
     secrets: validateSecrets(file, deploy.secrets),
+    variables: validateVariables(file, deploy.variables),
     external: validateExternal(file, deploy.external),
     release: validateRelease(file, raw.release),
   };

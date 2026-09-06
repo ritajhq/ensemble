@@ -4,6 +4,7 @@ import type { DatabaseKind } from "./databases.ts";
 import type { MessagingKind } from "./messaging.ts";
 import type { NetworkingKind } from "./networking.ts";
 import type { SecretKind } from "./secrets.ts";
+import type { VariableKind } from "./variables.ts";
 import type { ExternalKind } from "./external.ts";
 
 /**
@@ -23,6 +24,7 @@ export type Kind =
   | MessagingKind
   | NetworkingKind
   | SecretKind
+  | VariableKind
   | ExternalKind;
 
 /**
@@ -40,6 +42,7 @@ export const CATEGORIES = [
   "messaging",
   "networking",
   "secrets",
+  "variables",
   "external",
   "release",
 ] as const;

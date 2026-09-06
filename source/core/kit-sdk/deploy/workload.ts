@@ -4,6 +4,7 @@ import type { Database } from "./databases.ts";
 import type { Messaging } from "./messaging.ts";
 import type { Networking } from "./networking.ts";
 import type { Secret } from "./secrets.ts";
+import type { Variable } from "./variables.ts";
 import type { External } from "./external.ts";
 import type { Release } from "./release.ts";
 
@@ -27,6 +28,8 @@ export interface Workload {
   messaging?: Record<string, Messaging>;
   networking?: Record<string, Networking>;
   secrets?: Record<string, Secret>;
+  /** Non-sensitive config inputs, declared valueless and supplied at deploy time — see variables.ts. Referenced via `${variables.<name>.value}`. */
+  variables?: Record<string, Variable>;
   external?: Record<string, External>;
   /** How to pack each ship this workload's compute entries reference via `${release.<name>.image}` — see release.ts. */
   release?: Record<string, Release>;

@@ -6,6 +6,7 @@ export * from "./databases.ts";
 export * from "./messaging.ts";
 export * from "./networking.ts";
 export * from "./secrets.ts";
+export * from "./variables.ts";
 export * from "./external.ts";
 export * from "./kind.ts";
 export * from "./reference.ts";

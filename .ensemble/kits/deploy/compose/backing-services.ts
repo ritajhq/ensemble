@@ -185,6 +185,13 @@ export function translateSecret(
   return { output: { path: `/run/secrets/${name}` } };
 }
 
+/** Translates one `variables` entry into its referenceable `value` output — the plain config value the deploy process's environment supplies (see main.ts's `requireVariables`). Produces no service; wired into a container only where a compute's `env` references `${variables.<name>.value}`. */
+export function translateVariable(
+  value: string,
+): { output: Record<string, string> } {
+  return { output: { value } };
+}
+
 /** Translates one `external` entry. Produces no service — nothing to run, it's a lookup, not a provision (see external.ts) — just the `name` output every `network:` reference resolves to. For compose, `external.<name>.name` is taken directly as the real Docker network name to declare `external: true` and attach to (see ensureExternalNetworkDeclared). */
 export function translateExternal(
   spec: KitSdk.Deploy.External,

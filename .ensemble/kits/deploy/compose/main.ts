@@ -12,6 +12,7 @@ import {
   translateNetworking,
   translateSecret,
   translateStorage,
+  translateVariable,
 } from "./backing-services.ts";
 import {
   type ComposeDocument,
@@ -293,6 +294,12 @@ function buildComposeDocument(
         outputs.set(`secrets.${entry.name}`, output);
       }
 
+      if (entry.category === "variables") {
+        // Value presence is guaranteed by requireVariables, run before this walk.
+        const { output } = translateVariable(Deno.env.get(entry.name)!);
+        outputs.set(`variables.${entry.name}`, output);
+      }
+
       if (entry.category === "release") {
         const spec = workload.release![entry.name];
         outputs.set(`release.${entry.name}`, {
@@ -303,6 +310,26 @@ function buildComposeDocument(
   }
 
   return { doc, caddyfiles };
+}
+
+/**
+ * Fails clearly (rather than silently proceeding, or emitting an empty env
+ * value) if any declared `variables` entry has no value in the deploy
+ * process's environment. Placing each declared variable there — by exporting
+ * it or loading an env file before invoking `ens deploy` — is the job of
+ * whatever pipeline runs the deploy.
+ */
+function requireVariables(workload: KitSdk.Deploy.Workload): void {
+  const missing = Object.keys(workload.variables ?? {}).filter(
+    (name) => Deno.env.get(name) === undefined,
+  );
+  if (missing.length > 0) {
+    throw new Error(
+      `Variable(s) declared but not set in the environment: ${
+        missing.join(", ")
+      } — export them (or load an env file) before running ens deploy.`,
+    );
+  }
 }
 
 /** Fails clearly (rather than silently proceeding) if any declared `secrets` entry has no corresponding file under `<volumePath>/secrets/`. */
@@ -364,6 +391,7 @@ const kit = new KitSdk.Deploy.Kit();
 
 kit.Configure(
   async (workload, batches, options, ctx) => {
+    requireVariables(workload);
     await requireSecretFiles(workload, ctx.volumePath);
     await requireReleaseImages(workload, options.version);
 

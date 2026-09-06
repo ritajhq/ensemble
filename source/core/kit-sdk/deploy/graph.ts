@@ -36,6 +36,7 @@ function declaredEntries(workload: Workload): EntryId[] {
   addAll("messaging", workload.messaging);
   addAll("networking", workload.networking);
   addAll("secrets", workload.secrets);
+  addAll("variables", workload.variables);
   addAll("external", workload.external);
   addAll("release", workload.release);
   return entries;
