@@ -1,8 +1,18 @@
-## [0.0.10] - 2026-08-30
+## [0.0.11] - 2026-09-06
+
+### 🚀 Features
+
+- *(core)* Skip ens build when source is unchanged
+- *(kits/pack/docker)* Register per-app build contexts by Dockerfile reference
 
 ### 🐛 Bug Fixes
 
 - *(release)* Remove deno publishing of event lib
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.0.10
+- Remove unused files
 ## [0.0.10] - 2026-08-30
 
 ### 🚀 Features
@@ -28,14 +38,14 @@
 - *(runner)* Alias deno run to ens so workflow steps can shell out to it
 - *(deploy)* Derive SERVER_HOST_WORKFLOWS_PATH from SERVER_WORKSPACE_PATH instead of a separately declared context.variable
 
+### ⚡ Performance
+
+- *(dashboard)* Skip redundant git ls-remote when a workflow's page was resynced recently
+
 ### 🚜 Refactor
 
 - *(core)* Namespace package barrels and convert resource-threading functions to classes
 - *(platform)* Move route paths to app-layer config, dedupe handler boilerplate
-
-### ⚡ Performance
-
-- *(dashboard)* Skip redundant git ls-remote when a workflow's page was resynced recently
 
 ### ⚙️ Miscellaneous Tasks
 
@@ -65,17 +75,22 @@
 
 - *(git-integration)* Skip re-cloning a workflow's git link when the remote SHA hasn't moved
 
-### 🚜 Refactor
-
-- *(deploy)* Matrix-ify watch_build jobs and ship runner/server from cli bundle instead of compiled binary
-
 ### 📚 Documentation
 
 - *(agent-context)* Add AI/contributor onboarding doc
 
+### 🚜 Refactor
+
+- *(deploy)* Matrix-ify watch_build jobs and ship runner/server from cli bundle instead of compiled binary
+
 ### ⚙️ Miscellaneous Tasks
 
 - *(changelog)* Update for 0.0.5
+## [0.0.5] - 2026-08-21
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.0.4
 ## [0.0.4] - 2026-08-20
 
 ### 🚀 Features
@@ -91,7 +106,6 @@
 ### ⚙️ Miscellaneous Tasks
 
 - *(changelog)* Update for 0.0.3
-- *(changelog)* Update for 0.0.4
 ## [0.0.3] - 2026-08-20
 
 ### 🚀 Features
@@ -238,15 +252,15 @@
 - *(platform,web)* Handle missing git write access for secrets, fix Select showing raw values
 - *(docs)* Update backlog
 
+### 📚 Documentation
+
+- *(deploy)* Add a production deploy guide
+
 ### 🚜 Refactor
 
 - *(deploy)* Replace Terraform with plain Docker Compose and structured context.variables
 - *(workflows)* Migrate demo and release to context.secrets.variables/files
 - *(workflow)* Standardize context variables/secrets storage on .yml
-
-### 📚 Documentation
-
-- *(deploy)* Add a production deploy guide
 
 ### ⚙️ Miscellaneous Tasks
 
@@ -381,13 +395,13 @@
 - *(core)* Mount docker socket into spawned runner containers
 - *(core)* Forward server's env into spawned runner containers
 
-### 🚜 Refactor
-
-- *(core/config)* Namespace local repository overrides under workflows:
-
 ### 📚 Documentation
 
 - Document resources.repositories, in:, and container-per-run deployment
+
+### 🚜 Refactor
+
+- *(core/config)* Namespace local repository overrides under workflows:
 ## [0.0.22-test] - 2026-08-05
 
 ### 🐛 Bug Fixes
