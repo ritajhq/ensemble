@@ -1,4 +1,4 @@
-name: workload
+name: website
 services:
   server:
     image: 'website:latest'
