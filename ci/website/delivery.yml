@@ -1,0 +1,22 @@
+# Deploy-only workload for the marketing site: packs website/server +
+# website/content into one image and runs it as a single compute entry — no
+# publish: block, since this is for `ens develop`/`ens deploy` (local testing
+# and, later, real deploys), not a GitHub/registry release.
+release:
+  website:
+    kit: docker
+
+deploy:
+  compute:
+    server:
+      type: container-orchestrated
+      image: ${release.website.image}
+      replicas: 1
+      ports:
+        http: 8000
+      development:
+        sync:
+          - app: website/server
+            path: /app/server
+          - app: website/content
+            path: /app/content

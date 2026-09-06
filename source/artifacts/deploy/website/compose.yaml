@@ -1,0 +1,20 @@
+name: workload
+services:
+  server:
+    image: 'website:latest'
+    environment:
+      HTTP_PORT: '8000'
+      PORT: '8000'
+    ports:
+      - '8000:8000'
+    develop:
+      watch:
+        - path: /home/duesabati/ritaj/ensemble/source/artifacts/website/server
+          action: sync+restart
+          target: /app/server
+        - path: /home/duesabati/ritaj/ensemble/source/artifacts/website/content
+          action: sync+restart
+          target: /app/content
+volumes: {}
+secrets: {}
+networks: {}
