@@ -11,9 +11,18 @@ export interface ShipMeta {
   artifacts?: string[];
 }
 
+/** Shell commands `ens` runs at defined points in its own lifecycle, configured under the top-level `hooks:` key. */
+export interface HooksConfig {
+  release?: {
+    /** Runs at the repo root right after a release completes (see @ensemble/core's Hooks) — e.g. to regenerate a changelog. Gets the released tag in `$ENSEMBLE_RELEASE_TAG`. */
+    after?: string;
+  };
+}
+
 export interface EnsembleConfig {
   build?: Record<string, BuildAppConfig>;
   meta?: { ship?: Record<string, ShipMeta> };
+  hooks?: HooksConfig;
 }
 
 export type VarKind = "build" | "pack";

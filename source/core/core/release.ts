@@ -310,32 +310,4 @@ export class ReleaseCeremony {
       }
     }
   }
-
-  /**
-   * Regenerates `CHANGELOG.md` for `tag` via `git-cliff` (must already be on
-   * PATH — deliberately not auto-installed here, since the download this
-   * repo's own `workflows/release/workflow.yml` uses is a Linux-only
-   * binary, not something safe to assume for every `ens` install) and
-   * commits it if it changed, using whatever git identity is already
-   * configured locally — never overridden, unlike the CI workflow's bot
-   * identity, since a human runs this command as themselves. Pushing is a
-   * separate, explicit step — see `ReleaseService.pushCommits`.
-   */
-  async updateChangelog(tag: string): Promise<boolean> {
-    const check = await $`git-cliff --version`.cwd(this.repoRoot).quiet().noThrow();
-    if (check.code !== 0) {
-      throw new Error(
-        "git-cliff is required to update the changelog but isn't on PATH — install it from https://git-cliff.org first.",
-      );
-    }
-
-    await $`git-cliff --tag ${tag} -o CHANGELOG.md`.cwd(this.repoRoot);
-
-    const status = await $`git status --porcelain -- CHANGELOG.md`.cwd(this.repoRoot).text();
-    if (status.trim().length === 0) return false;
-
-    await $`git add CHANGELOG.md`.cwd(this.repoRoot);
-    await $`git commit -m ${`chore(changelog): update for ${tag}`}`.cwd(this.repoRoot);
-    return true;
-  }
 }

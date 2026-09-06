@@ -49,44 +49,39 @@ async function printReleaseCeremonyPreview(repoRoot: string, tag: string): Promi
  * The part of the ceremony beyond git tagging: collects every ship declared
  * across every workload's `release:` section (deduplicated — see
  * `ReleaseCeremony.collectShipReleases`), and — only if the caller confirms —
- * builds, packs, and publishes each one under `tag`, then updates and
- * (optionally, on its own confirmation) pushes `CHANGELOG.md`. A no-op if no
- * workload declares any `release:` entries.
+ * builds, packs, and publishes each one under `tag`. A no-op if no workload
+ * declares any `release:` entries. Anything to run afterwards (e.g. a
+ * changelog update) is a configured `hooks.release.after`, run separately.
  */
-async function maybeRunReleaseCeremony(
-  repoRoot: string,
-  tag: string,
-  remote: string,
-): Promise<void> {
+async function maybeRunReleaseCeremony(repoRoot: string, tag: string): Promise<void> {
   const ceremony = new Core.Release.ReleaseCeremony(repoRoot);
   const ships = await ceremony.collectShipReleases();
   if (ships.length === 0) return;
 
-  const names = ships.map((s) => s.name).join(", ");
   console.log(`Will build, pack, and publish ${ships.length} ship(s):`);
   for (const ship of ships) {
     console.log(`  ${describeShipRelease(ship, tag)}`);
   }
-  const proceed = await Confirm.prompt({
-    message: `Proceed for ${tag}, then update the changelog?`,
-    default: false,
-  });
+  const proceed = await Confirm.prompt({ message: `Proceed for ${tag}?`, default: false });
   if (!proceed) return;
 
   await ceremony.releaseShips(ships, tag);
-  console.log(`Released: ${names}`);
+  console.log(`Released: ${ships.map((s) => s.name).join(", ")}`);
+}
 
-  const changed = await ceremony.updateChangelog(tag);
-  if (!changed) return;
-  console.log("Updated CHANGELOG.md");
+/** Runs the configured `hooks.release.after` command once a release has completed, if any is set. */
+async function runReleaseHook(repoRoot: string, tag: string): Promise<void> {
+  const hooks = new Core.Hooks.Hooks(repoRoot);
+  const command = await hooks.releaseAfter();
+  if (!command) return;
+  console.log(`Running release.after hook: ${command}`);
+  await hooks.run(command, tag);
+}
 
-  const push = await Confirm.prompt({
-    message: `Push the changelog commit to "${remote}"?`,
-    default: false,
-  });
-  if (!push) return;
-  await new Core.Release.ReleaseService(repoRoot).pushCommits(remote);
-  console.log(`  pushed to: ${remote}`);
+/** Dry-run counterpart to `runReleaseHook`: reports the `hooks.release.after` command that would run, without running it. */
+async function printReleaseHookPreview(repoRoot: string): Promise<void> {
+  const command = await new Core.Hooks.Hooks(repoRoot).releaseAfter();
+  if (command) console.log(`Would then run release.after hook: ${command}`);
 }
 
 export const releaseCommand = new Command()
@@ -107,10 +102,12 @@ export const releaseCommand = new Command()
     printPreview(dryRun ? "Would create" : "Will create", preview);
     if (dryRun) {
       await printReleaseCeremonyPreview(repoRoot, preview.tag);
+      await printReleaseHookPreview(repoRoot);
       return;
     }
     await createAndMaybePushRelease(release, preview, remote);
-    await maybeRunReleaseCeremony(repoRoot, preview.tag, remote);
+    await maybeRunReleaseCeremony(repoRoot, preview.tag);
+    await runReleaseHook(repoRoot, preview.tag);
   })
   .reset()
   .command("set", "Set an arbitrary version (shape x.y.z) and create a new release.")
@@ -123,10 +120,12 @@ export const releaseCommand = new Command()
     printPreview(dryRun ? "Would create" : "Will create", preview);
     if (dryRun) {
       await printReleaseCeremonyPreview(repoRoot, preview.tag);
+      await printReleaseHookPreview(repoRoot);
       return;
     }
     await createAndMaybePushRelease(release, preview, remote);
-    await maybeRunReleaseCeremony(repoRoot, preview.tag, remote);
+    await maybeRunReleaseCeremony(repoRoot, preview.tag);
+    await runReleaseHook(repoRoot, preview.tag);
   })
   .reset()
   .command("undo", "Deletes the last tag. Does not touch any commit.")

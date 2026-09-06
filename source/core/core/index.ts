@@ -13,5 +13,6 @@ export {
 } from "./deploy.ts";
 
 export * as Config from "./config.ts";
+export * as Hooks from "./hooks.ts";
 export * as Release from "./release.ts";
 export * as Version from "./version.ts";
