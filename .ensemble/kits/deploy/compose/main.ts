@@ -177,12 +177,12 @@ function translateContainerCompute(
 function buildComposeDocument(
   workload: KitSdk.Deploy.Workload,
   batches: KitSdk.Deploy.BatchEntry[][],
-  workloadName: string,
+  projectName: string,
   artifactsPath: string,
   version: string,
   development: boolean,
 ): { doc: ComposeDocument; caddyfiles: Map<string, string> } {
-  const doc = newComposeDocument(workloadName);
+  const doc = newComposeDocument(projectName);
   const outputs = new Map<string, Record<string, string>>();
   const caddyfiles = new Map<string, string>();
 
@@ -398,7 +398,7 @@ kit.Configure(
     const { doc, caddyfiles } = buildComposeDocument(
       workload,
       batches,
-      "workload",
+      ctx.name,
       ctx.artifactsPath,
       options.version,
       options.development,

@@ -78,6 +78,7 @@ export async function runDeploy(
     version: options.version ?? "latest",
   };
   const ctx: KitSdk.Deploy.KitContext = {
+    name,
     volumePath: resolveDeployVolume(volumePath),
     artifactsPath: join(workspace, "artifacts"),
   };

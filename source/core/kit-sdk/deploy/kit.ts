@@ -34,6 +34,8 @@ export interface KitRunOptions {
  * name to that app's actual build output directory on disk.
  */
 export interface KitContext {
+  /** The deployment's name — the `ci/<name>/` folder `ens deploy <name>` resolved this run from. A kit uses it to name whatever its target scopes by deployment (e.g. the compose kit's project name), instead of a generic hardcoded label. */
+  name: string;
   volumePath: string;
   artifactsPath: string;
 }
