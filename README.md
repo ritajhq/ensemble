@@ -4,12 +4,7 @@
 
 <h1 align="center">Ensemble</h1>
 
-Most TypeScript projects trade tidiness for speed of change as they grow: the
-longer one survives, the more its structure crystallizes and the slower it
-gets to change. Ensemble is a bet that this is a tooling failure, not a law
-of nature — that the right workspace layout and a single coherent CLI can
-give you tidiness and speed at once, indefinitely, instead of forcing that
-trade as the project grows.
+Ensemble is best defined as a protocol: It sets the stage and the contracts betw
 
 ## What is it
 
@@ -202,7 +197,7 @@ Manages two files: `.ensemble/config.yaml` (shared, git-tracked) and
 `.ensemble/config.local.yaml` (gitignored, per-developer).
 
 ```sh
-ens config set-build-kit web react.spa
+ens config set-build-kit web react
 ens config set-build-var web API_URL=http://localhost:4000
 ens config set-pack-var web TAG=dev
 ```

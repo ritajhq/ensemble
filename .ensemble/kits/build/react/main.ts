@@ -148,8 +148,12 @@ async function touchCssOutOnChange(cssEntry: string, cssOut: string): Promise<vo
 const ctx = KitSdk.Build.getContext();
 const kitDir = dirname(fromFileUrl(import.meta.url));
 
-await writeIndexHtml(ctx);
-if (ctx.watch) watchIndexHtml(ctx);
+// target "ssr" produces a hydration bundle (main.js + index.css) for a page
+// a server renders itself — there is no standalone page for this kit to own.
+if (ctx.target !== "ssr") {
+  await writeIndexHtml(ctx);
+  if (ctx.watch) watchIndexHtml(ctx);
+}
 
 const [denoExe, tailwindBin] = await Promise.all([
   resolveDenoExecutable(),

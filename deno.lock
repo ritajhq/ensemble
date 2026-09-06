@@ -2127,7 +2127,7 @@
           "jsr:@std/path@1.1.6"
         ]
       },
-      ".ensemble/kits/build/react.spa": {
+      ".ensemble/kits/build/react": {
         "dependencies": [
           "jsr:@david/dax@0.42.0",
           "jsr:@ensemble/core@*",
@@ -2177,6 +2177,23 @@
       },
       "source/apps/demo/spa": {
         "dependencies": [
+          "npm:@types/react-dom@19",
+          "npm:@types/react@19",
+          "npm:react-dom@19.2.8",
+          "npm:react@19.2.8"
+        ]
+      },
+      "source/apps/website/content": {
+        "dependencies": [
+          "npm:@types/react-dom@19",
+          "npm:@types/react@19",
+          "npm:react-dom@19.2.8",
+          "npm:react@19.2.8"
+        ]
+      },
+      "source/apps/website/server": {
+        "dependencies": [
+          "jsr:@std/path@1.1.6",
           "npm:@types/react-dom@19",
           "npm:@types/react@19",
           "npm:react-dom@19.2.8",

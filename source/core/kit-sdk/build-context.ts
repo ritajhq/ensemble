@@ -17,6 +17,8 @@ export interface Context {
   workspace: string;
   /** Resolved build vars (envs/build/<name>.env merged with --var overrides). */
   vars: Record<string, string>;
+  /** Static build variant from `config.yaml`'s `build.<name>.target`, for kits that support more than one shape of output (e.g. the `react` kit's "ssr"). Absent for apps that don't set one. */
+  target?: string;
 }
 
 const REQUIRED_STRING_FLAGS = ["source", "name", "out", "mode", "workspace"] as const;
@@ -37,7 +39,7 @@ function parseVars(raw: string): Record<string, string> {
 /** Parses the standard build kit CLI contract. Call this from a build kit's entry point. */
 export function getContext(args: string[] = Deno.args): Context {
   const flags = parseArgs(args, {
-    string: [...REQUIRED_STRING_FLAGS, "vars"],
+    string: [...REQUIRED_STRING_FLAGS, "vars", "target"],
     boolean: ["watch"],
     default: { watch: false, vars: "{}" },
   });
@@ -59,5 +61,6 @@ export function getContext(args: string[] = Deno.args): Context {
     watch: flags.watch,
     workspace,
     vars: parseVars(flags.vars),
+    target: flags.target,
   };
 }

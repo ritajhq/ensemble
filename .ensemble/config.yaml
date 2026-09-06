@@ -2,16 +2,24 @@ build:
   cli:
     kit: deno.bundle
   demo/spa:
-    kit: react.spa
+    kit: react
+  website/content:
+    kit: react
+    target: ssr
+  website/server:
+    kit: deno.bundle
 meta:
   ship:
     demo/spa:
       artifacts:
         - demo/spa
+    website:
+      artifacts:
+        - website/content
+        - website/server
 hooks:
   release:
-    # Runs at the repo root after a release completes, with the released tag in
-    # $ENSEMBLE_RELEASE_TAG. Regenerates the changelog and commits it if it changed.
     after: >-
-      git-cliff --tag "$ENSEMBLE_RELEASE_TAG" -o CHANGELOG.md &&
-      { git diff --quiet -- CHANGELOG.md || git commit CHANGELOG.md -m "chore(changelog): update for $ENSEMBLE_RELEASE_TAG"; }
+      git-cliff --tag "$ENSEMBLE_RELEASE_TAG" -o CHANGELOG.md && { git diff
+      --quiet -- CHANGELOG.md || git commit CHANGELOG.md -m "chore(changelog):
+      update for $ENSEMBLE_RELEASE_TAG"; }

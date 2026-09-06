@@ -52,6 +52,7 @@ export async function runBuild(name: string, options: RunBuildOptions): Promise<
   }
 
   const watchArgs = options.watch ? ["--watch"] : [];
+  const targetArgs = appConfig.target ? ["--target", appConfig.target] : [];
   const denoExe = await resolveDenoExecutable();
 
   const killSignal = new KillSignalController();
@@ -73,7 +74,8 @@ export async function runBuild(name: string, options: RunBuildOptions): Promise<
     --mode ${options.mode}
     --workspace ${workspace}
     --vars ${JSON.stringify(buildVars)}
-    ${watchArgs}`
+    ${watchArgs}
+    ${targetArgs}`
     .cwd(kitDir)
     .env(buildVars)
     .signal(killSignal.signal)

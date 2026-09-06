@@ -4,6 +4,8 @@ import { parse as parseYaml, stringify as stringifyYaml } from "@std/yaml";
 
 export interface BuildAppConfig {
   kit: string;
+  /** Static, kit-interpreted build variant (e.g. "ssr" for the `react` kit) — a fact about what the app is, not a per-run override, so it lives here rather than as a `-v` var. */
+  target?: string;
 }
 
 export interface ShipMeta {

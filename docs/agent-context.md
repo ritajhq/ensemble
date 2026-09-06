@@ -102,7 +102,7 @@ adding a new app type means adding a new kit directory, never touching
   for the shape — mode name → kit-internal flags).
 
 Existing kits to look at as reference implementations:
-`.ensemble/kits/build/{deno.bundle,react.spa}`,
+`.ensemble/kits/build/{deno.bundle,react}`,
 `.ensemble/kits/pack/{docker,deno.compile}`.
 
 ## Workflows: the orchestration model
