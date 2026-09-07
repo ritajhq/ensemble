@@ -107,6 +107,7 @@ function translateContainerCompute(
   artifactsPath: string,
   doc: ComposeDocument,
   development: boolean,
+  publishPorts: boolean,
 ): ComposeService {
   const service: ComposeService = {
     image: resolveReferenceable(spec.image, outputs)!,
@@ -119,8 +120,12 @@ function translateContainerCompute(
   const networks = resolveServiceNetworks(spec.network, outputs, doc, development);
   if (networks) service.networks = networks;
 
+  // A compute fronted by a gateway is reached through it over the internal
+  // network, so it isn't host-published — its ports stay listen-only (still
+  // driving PORT env and its `${compute.<name>.http}` target). Only the
+  // gateway (and any un-fronted service) is a host entry point.
   const portValues = Object.values(spec.ports ?? {});
-  if (portValues.length > 0) {
+  if (publishPorts && portValues.length > 0) {
     service.ports = portValues.map((port) => `${port}:${port}`);
   }
   if (spec.health) {
@@ -173,7 +178,26 @@ function translateContainerCompute(
   return service;
 }
 
-/** Walks `batches`, translating every entry into the shared `ComposeDocument`, threading each entry's output into `outputs` for downstream entries/compute to consume. Returns the Caddyfiles keyed by service name for any `cdn`/`load-balancer` entries. */
+/** Every compute entry named as a gateway route's target — i.e. reached through the gateway, so it isn't host-published (see translateContainerCompute's `publishPorts`). */
+function gatewayTargetComputeNames(
+  workload: KitSdk.Deploy.Workload,
+): Set<string> {
+  const names = new Set<string>();
+  for (const net of Object.values(workload.networking ?? {})) {
+    if (net.type !== "gateway") continue;
+    for (const route of net.routes) {
+      if (
+        KitSdk.Deploy.isReference(route.target) &&
+        route.target.category === "compute"
+      ) {
+        names.add(route.target.name);
+      }
+    }
+  }
+  return names;
+}
+
+/** Walks `batches`, translating every entry into the shared `ComposeDocument`, threading each entry's output into `outputs` for downstream entries/compute to consume. Returns the config files (Caddyfiles, garage.toml) keyed by volume-relative path. */
 function buildComposeDocument(
   workload: KitSdk.Deploy.Workload,
   batches: KitSdk.Deploy.BatchEntry[][],
@@ -186,6 +210,7 @@ function buildComposeDocument(
   const doc = newComposeDocument(projectName);
   const outputs = new Map<string, Record<string, string>>();
   const configFiles = new Map<string, string>();
+  const gatewayTargets = gatewayTargetComputeNames(workload);
 
   for (const batch of batches) {
     for (const entry of batch) {
@@ -206,6 +231,7 @@ function buildComposeDocument(
           artifactsPath,
           doc,
           development,
+          !gatewayTargets.has(entry.name),
         );
         outputs.set(
           `compute.${entry.name}`,
