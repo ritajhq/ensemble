@@ -17,28 +17,65 @@ const DEFAULT_OBJECT_STORAGE_IMAGE = "chrislusf/seaweedfs:latest";
 const DEFAULT_MESSAGING_IMAGE = "nats:2-alpine";
 const DEFAULT_CADDY_IMAGE = "caddy:alpine";
 
+/** A relational entry's already-resolved provisioning inputs — creds resolved from any `${...}` reference, the password secret's name (if any), and init files resolved to absolute `host:container:ro` bind-mount strings. Assembled by main.ts, which alone has the `outputs` map and repo root. */
+export interface RelationalInputs {
+  user: string;
+  database: string;
+  passwordSecret?: string;
+  initMounts: string[];
+}
+
 function relationalService(
   name: string,
   spec: KitSdk.Deploy.Relational,
-): { service: ComposeService; connectionString: string } {
+  inputs: RelationalInputs,
+): { service: ComposeService; output: Record<string, string> } {
   const image = spec.engine
     ? (RELATIONAL_IMAGES[spec.engine] ?? spec.engine)
     : RELATIONAL_IMAGES.postgres;
   const isMysql = image.startsWith("mysql") || image.startsWith("mariadb");
-  const service: ComposeService = {
-    image,
-    environment: isMysql
-      ? { MYSQL_ROOT_PASSWORD: "ensemble", MYSQL_DATABASE: name }
-      : {
-        POSTGRES_USER: "ensemble",
-        POSTGRES_PASSWORD: "ensemble",
-        POSTGRES_DB: name,
-      },
+  const port = isMysql ? 3306 : 5432;
+  // A password secret is delivered via the image's *_PASSWORD_FILE
+  // convention (a mounted file), never a plain env var; absent one, a fixed
+  // local dev password.
+  const secretPath = inputs.passwordSecret
+    ? `/run/secrets/${inputs.passwordSecret}`
+    : undefined;
+
+  const environment: Record<string, string> = isMysql
+    ? {
+      MYSQL_DATABASE: inputs.database,
+      ...(secretPath
+        ? { MYSQL_ROOT_PASSWORD_FILE: secretPath }
+        : { MYSQL_ROOT_PASSWORD: "ensemble" }),
+    }
+    : {
+      POSTGRES_USER: inputs.user,
+      POSTGRES_DB: inputs.database,
+      ...(secretPath
+        ? { POSTGRES_PASSWORD_FILE: secretPath }
+        : { POSTGRES_PASSWORD: "ensemble" }),
+    };
+
+  const service: ComposeService = { image, environment };
+  if (inputs.initMounts.length > 0) service.volumes = inputs.initMounts;
+  if (inputs.passwordSecret) service.secrets = [inputs.passwordSecret];
+
+  const user = isMysql ? "root" : inputs.user;
+  const output: Record<string, string> = {
+    host: name,
+    port: `${port}`,
+    user,
+    database: inputs.database,
   };
-  const connectionString = isMysql
-    ? `mysql://root:ensemble@${name}:3306/${name}`
-    : `postgres://ensemble:ensemble@${name}:5432/${name}`;
-  return { service, connectionString };
+  // Only build a connectionString when the password is a plain value — a
+  // secret one must never be baked into a referenceable plaintext output.
+  if (!secretPath) {
+    const scheme = isMysql ? "mysql" : "postgres";
+    output.connectionString =
+      `${scheme}://${user}:ensemble@${name}:${port}/${inputs.database}`;
+  }
+  return { service, output };
 }
 
 function documentService(
@@ -73,12 +110,11 @@ function cacheOrKeyValueService(
 export function translateDatabase(
   name: string,
   spec: KitSdk.Deploy.Database,
+  relationalInputs?: RelationalInputs,
 ): { service: ComposeService; output: Record<string, string> } {
   switch (spec.type) {
-    case "relational": {
-      const { service, connectionString } = relationalService(name, spec);
-      return { service, output: { connectionString } };
-    }
+    case "relational":
+      return relationalService(name, spec, relationalInputs!);
     case "document": {
       const { service, connectionString } = documentService(name, spec);
       return { service, output: { connectionString } };

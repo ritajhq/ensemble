@@ -1,4 +1,5 @@
 import type { JsonValue } from "./json.ts";
+import type { Referenceable } from "./reference.ts";
 
 /** Every database kind this spec understands. Wide-column/analytical stores are a known, unmodeled gap — see taxonomy doc. */
 export type DatabaseKind = "relational" | "key-value" | "document" | "cache";
@@ -11,9 +12,26 @@ interface DatabaseBase {
   overrides?: Record<string, JsonValue>;
 }
 
-/** Engine + version + size/tier (RDS/Aurora, Cloud SQL, Azure Database for Postgres/MySQL). */
+/**
+ * Engine + version + size/tier (RDS/Aurora, Cloud SQL, Azure Database for
+ * Postgres/MySQL). Its credentials are inputs to provisioning it AND feed the
+ * outputs consumers read (`host`/`port`/`user`/`database`, plus
+ * `connectionString` when the password is a plain value). `user`/`database`
+ * are `Referenceable` so they can come from a `${variables.*.value}`;
+ * `passwordSecret` names a declared `secrets` entry, delivered to the engine
+ * via its `*_PASSWORD_FILE` convention (never a plain env var) — so a secret
+ * password is never surfaced in `connectionString`.
+ */
 export interface Relational extends DatabaseBase {
   type: "relational";
+  /** Superuser/owner name — engine's `POSTGRES_USER` / equivalent. Defaults to "ensemble". */
+  user?: Referenceable;
+  /** Initial database name. Defaults to the entry's own name. */
+  database?: Referenceable;
+  /** Name of a declared `secrets` entry holding the password, delivered via `*_PASSWORD_FILE`. Omitted → a fixed local dev password. */
+  passwordSecret?: string;
+  /** Repo-relative SQL/script files, mounted read-only into the engine's init dir (Postgres `/docker-entrypoint-initdb.d`) and run once on first initialization. */
+  init?: string[];
 }
 
 /**

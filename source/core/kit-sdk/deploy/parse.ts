@@ -529,10 +529,25 @@ function validateDatabaseEntry(
     version: optionalString(file, `${where}.version`, raw.version),
     overrides: validateOverrides(file, `${where}.overrides`, raw.overrides),
   };
-  if (
-    type === "relational" || type === "key-value" || type === "document" ||
-    type === "cache"
-  ) {
+  if (type === "relational") {
+    const init = raw.init;
+    if (init !== undefined && (!Array.isArray(init) || init.some((p) => typeof p !== "string"))) {
+      fail(file, `${where}.init must be a list of repo-relative file paths.`);
+    }
+    return {
+      ...base,
+      type,
+      user: optionalReferenceable(file, `${where}.user`, raw.user),
+      database: optionalReferenceable(file, `${where}.database`, raw.database),
+      passwordSecret: optionalString(
+        file,
+        `${where}.passwordSecret`,
+        raw.passwordSecret,
+      ),
+      init: init as string[] | undefined,
+    };
+  }
+  if (type === "key-value" || type === "document" || type === "cache") {
     return { ...base, type };
   }
   fail(

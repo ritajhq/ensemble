@@ -1,4 +1,4 @@
-import { join } from "@std/path";
+import { basename, join } from "@std/path";
 import { ensureDir, exists } from "@std/fs";
 import { stringify as stringifyYaml } from "@std/yaml";
 import { $ } from "@david/dax";
@@ -178,6 +178,7 @@ function buildComposeDocument(
   workload: KitSdk.Deploy.Workload,
   batches: KitSdk.Deploy.BatchEntry[][],
   projectName: string,
+  repoRoot: string,
   artifactsPath: string,
   version: string,
   development: boolean,
@@ -219,7 +220,26 @@ function buildComposeDocument(
 
       if (entry.category === "databases") {
         const spec = workload.databases![entry.name];
-        const { service, output } = translateDatabase(entry.name, spec);
+        const relationalInputs = spec.type === "relational"
+          ? {
+            user: resolveReferenceable(spec.user ?? "ensemble", outputs) ??
+              "ensemble",
+            database:
+              resolveReferenceable(spec.database ?? entry.name, outputs) ??
+                entry.name,
+            passwordSecret: spec.passwordSecret,
+            initMounts: (spec.init ?? []).map((path) =>
+              `${
+                join(repoRoot, path)
+              }:/docker-entrypoint-initdb.d/${basename(path)}:ro`
+            ),
+          }
+          : undefined;
+        const { service, output } = translateDatabase(
+          entry.name,
+          spec,
+          relationalInputs,
+        );
         doc.services[entry.name] = service;
         outputs.set(`databases.${entry.name}`, output);
       }
@@ -422,6 +442,7 @@ kit.Configure(
       workload,
       batches,
       ctx.name,
+      ctx.repoRoot,
       ctx.artifactsPath,
       options.version,
       options.development,
