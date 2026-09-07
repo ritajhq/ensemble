@@ -5,7 +5,6 @@ import { $, KillSignalController } from "@david/dax";
 import { findRepoRoot } from "./repo.ts";
 import { EnsembleConfigStore } from "./config.ts";
 import { resolveDenoExecutable } from "./deno-exe.ts";
-import { BuildCache } from "./build-cache.ts";
 import type * as KitSdk from "@ensemble/kit-sdk";
 
 export interface RunBuildOptions {
@@ -45,12 +44,6 @@ export async function runBuild(name: string, options: RunBuildOptions): Promise<
   const localVars = configStore.getVars(localConfig, "build", name);
   const buildVars = { ...fileVars, ...localVars, ...options.varOverrides };
 
-  const buildCache = new BuildCache();
-  if (!options.watch && await buildCache.isUpToDate(sourceDir, outDir, options.mode, buildVars)) {
-    console.log(`${name} is up to date, skipping build`);
-    return 0;
-  }
-
   const watchArgs = options.watch ? ["--watch"] : [];
   const targetArgs = appConfig.target ? ["--target", appConfig.target] : [];
   const denoExe = await resolveDenoExecutable();
@@ -80,10 +73,6 @@ export async function runBuild(name: string, options: RunBuildOptions): Promise<
     .env(buildVars)
     .signal(killSignal.signal)
     .noThrow();
-
-  if (result.code === 0 && !options.watch) {
-    await buildCache.recordBuilt(sourceDir, outDir, options.mode, buildVars);
-  }
 
   return result.code;
 }
