@@ -786,12 +786,14 @@ function validateSecretEntry(
   where: string,
   raw: unknown,
 ): Secret {
-  if (!isRecord(raw)) fail(file, `${where} must be a mapping.`);
-  if (raw.type !== "secret") {
-    fail(
-      file,
-      `${where}.type must be "secret", got ${JSON.stringify(raw.type)}.`,
-    );
+  // The `secrets` group already fixes the kind, so an entry needs no `type`
+  // and a file-sourced secret may be declared bare (`name:` with no fields).
+  if (raw === null || raw === undefined) return { type: "secret" };
+  if (!isRecord(raw)) {
+    fail(file, `${where} must be a mapping, or empty.`);
+  }
+  if (raw.type !== undefined && raw.type !== "secret") {
+    fail(file, `${where}.type, if given, must be "secret" — a "secrets" entry needs no type.`);
   }
   const source = raw.source;
   if (source !== undefined && source !== "file" && source !== "environment") {
@@ -828,12 +830,14 @@ function validateVariableEntry(
   where: string,
   raw: unknown,
 ): Variable {
-  if (!isRecord(raw)) fail(file, `${where} must be a mapping.`);
-  if (raw.type !== "variable") {
-    fail(
-      file,
-      `${where}.type must be "variable", got ${JSON.stringify(raw.type)}.`,
-    );
+  // The `variables` group already fixes the kind, so an entry needs no
+  // `type` and may be declared bare (`name:` with no fields at all).
+  if (raw === null || raw === undefined) return { type: "variable" };
+  if (!isRecord(raw)) {
+    fail(file, `${where} must be a mapping, or empty.`);
+  }
+  if (raw.type !== undefined && raw.type !== "variable") {
+    fail(file, `${where}.type, if given, must be "variable" — a "variables" entry needs no type.`);
   }
   return {
     type: "variable",
