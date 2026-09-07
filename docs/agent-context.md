@@ -9,10 +9,10 @@ it's the user-facing pitch and command reference.
 ## The one-sentence model
 
 Ensemble is a workspace layout + a CLI (`ens`) that takes a project from source
-→ build → pack → deploy, where "how" is always delegated to a pluggable **kit**
-and "when/where" is always delegated to a declarative **workflow**. The CLI
-itself never hardcodes app-specific logic; it dictates the _contract_ kits and
-workflows must speak.
+→ build → pack → publish → deploy, where "how" is always delegated to a
+pluggable **kit** (build kits, pack kits, deploy kits) and "what to bring up" is
+declared in a per-workload **delivery manifest**. The CLI itself never hardcodes
+app-specific logic; it dictates the _contract_ kits and manifests must speak.
 
 ## Workspace layout (what lives where)
 
@@ -26,13 +26,12 @@ source/
 .ensemble/
   kits/build/<kit>/   # build kit implementations
   kits/pack/<kit>/    # pack kit implementations
+  kits/deploy/<kit>/  # deploy kit implementations (e.g. compose)
   config.yaml         # shared, git-tracked: app -> kit associations
   config.local.yaml   # gitignored, per-developer: personal var defaults
-  schemas/            # JSON Schemas (e.g. workflow.schema.json) for editor validation
   bin/                # compiled `ens` binary lands here for this repo's own dogfooding
-workflows/<name>/
-  workflow.yml         # the DAG definition
-  contexts/<name>/     # per-deploy-context files/secrets (see Context below)
+ci/<name>/
+  delivery.yml         # the workload's delivery manifest (release + deploy)
 ```
 
 `apps/<name>` and `ship/<name>` both support nesting — a multi-process app made
@@ -45,18 +44,13 @@ both get packed). `<name>` throughout this doc and the CLI (`ens build <app>`,
 ### `source/core` — ens's own internals
 
 - `core/core/` — CLI command implementations (`build.ts`, `pack.ts`,
-  `workflow.ts`, `release.ts`, `config.ts`, `init.ts`, `version.ts`, ...). Thin:
-  mostly orchestration, arg validation, calling into `core/workflow`.
-- `core/workflow/` — the workflow engine: YAML parsing (`parse.ts`,
-  `schema.ts`), DAG construction (`graph.ts`), execution (`run-workflow.ts`,
-  `run-job.ts`, `run-step.ts`), matrix expansion (`matrix.ts`), the expression
-  language (`expressions.ts`, `context.ts`), and context/secret loaders
-  (`context-loaders/`).
-- `core/kit-sdk/` — the small helper library kits import to parse their own CLI
-  contract (`build-context.ts`, `pack-context.ts`, `scaffold-context.ts`). This
-  is the actual "contract" a kit implements — see below.
-- `core/platform/` — the remote server side: triggering workflows on a deployed
-  Ensemble server, dashboard/status APIs, auth.
+  `publish.ts`, `deploy.ts`, `release.ts`, `config.ts`, `init.ts`, `app.ts`,
+  `version.ts`, ...). Thin: mostly orchestration, arg validation, subprocessing
+  build/pack kits and in-process-loading deploy kits.
+- `core/kit-sdk/` — the helper library kits import to speak their contract. For
+  build/pack that's parsing their own CLI invocation (`build-context.ts`,
+  `pack-context.ts`, `scaffold-context.ts`); `deploy/` is a richer, in-process
+  SDK (the deploy domain model — see the Deploy section below).
 
 ## The CLI surface
 
@@ -72,9 +66,16 @@ it here, just the mental model per command:
   (`.ensemble/kits/pack/<kit>`) against `source/ship/<ship>`, producing a
   deployable artifact (Docker image, OCI tarball, compiled binary). A pack kit
   declares its own `modes` in its `kit.yml`.
-- **`ens workflow <name>`** — parses `workflows/<name>/workflow.yml`, builds a
-  job DAG, and runs it (locally, or remotely via `-r <profile>` against a
-  deployed Ensemble server).
+- **`ens publish <ship> <kit> <target>`** — publishes an already-packed ship to
+  a `target` the pack kit supports (e.g. `docker push`, which retags to the
+  configured registry and pushes).
+- **`ens deploy <name> <kit>`** — parses `ci/<name>/delivery.yml`, builds the
+  resolution batches, and hands the whole workload to the deploy kit
+  (`.ensemble/kits/deploy/<kit>`, loaded in-process) to bring up. `ens develop
+  <name>` is the same against a local dev stack (watch on, `external` entries
+  auto-created).
+- **`ens app create <kit> <name>`** — scaffolds `source/apps/<name>` from a
+  build kit's hello-world template.
 - **`ens config`** — edits `.ensemble/config.yaml` (shared) and
   `.ensemble/config.local.yaml` (personal, gitignored) — kit associations and
   default build/pack vars.
@@ -105,57 +106,53 @@ Existing kits to look at as reference implementations:
 `.ensemble/kits/build/{deno.bundle,react}`,
 `.ensemble/kits/pack/{docker,deno.compile}`.
 
-## Workflows: the orchestration model
+## Deploy: the delivery model
 
-A workflow ([schema.ts](../source/core/workflow/schema.ts) is the authoritative
-reference — it's heavily commented, read it directly for edge cases) is a YAML
-file with:
+A delivery manifest (`ci/<name>/delivery.yml`) is a YAML file with two
+top-level sections — `release` and `deploy`. The deploy domain model lives in
+[source/core/kit-sdk/deploy](../source/core/kit-sdk/deploy) (heavily commented —
+read it directly for edge cases), parsed by `parse.ts` into a `Workload`.
 
-- **`jobs`** — a DAG via `needs:`. Each job has `steps:` (shell `run:` or
-  `script:`, a Deno module), an optional `if:` condition, an optional `matrix:`
-  (Cartesian-product fan-out over `axes`, with `fail-fast` and `max-parallel`),
-  and an optional `in: { repository: <name> }` to run inside a checked-out
-  resource instead of run scratch space.
-- **`on`** — how this workflow can be triggered externally: `manual` (typed
-  `inputs:` — string/number/boolean/object/git-tags/context/job) or `github`
-  (tag-push patterns mapped to a deploy context).
-- **`resources.repositories`** — repos to auto-clone before jobs run,
-  addressable as `repositories.<name>.path`.
-- **`context`** — the deploy-context contract: named `variables`/`files` and
-  `secrets.variables`/`secrets.files` this workflow needs, resolved by name
-  rather than by location (a loader decides _where_ each comes from — see
-  `context-loaders/`). Every declared variable/secret becomes both an env var
-  (`NAME` / `NAME_FILE`) and an expression path
-  (`context.variables.<key>.{name,value,path}`). `--context <name>` itself is
-  `${{ context.name }}`, the standard way to branch dev/stage/prod behavior (see
-  `workflows/deploy/workflow.yml`'s `if: context.name == 'development'` jobs).
+- **`release`** — one entry per ship (`kit`, `mode`, optional `publish:`),
+  describing how the ship packs and (optionally) publishes. A compute references
+  its image as `${release.<ship>.image}`, resolved to the packed local tag; the
+  registry lives on the `publish:` side, never in the local tag.
+- **`deploy`** — the workload's resources, grouped into **categories**:
+  `compute`, `storage`, `databases`, `messaging`, `networking`, `secrets`,
+  `variables`, `external`. Each category holds named entries; a category that
+  has more than one shape uses a `type:` discriminant (its **kind** — e.g.
+  `databases` entries are `relational`/`key-value`/`document`/`cache`,
+  `networking` is `load-balancer`/`dns`/`cdn`/`gateway`), while single-kind
+  categories (`variables`, `secrets`) need no `type` — the group defines it.
 
-### Expression language (`${{ ... }}`)
+### References and batches
 
-GitHub-Actions-flavored expressions (same library family, same truthiness
-rules), evaluated against a context object built per job/step. Key context
-paths: `variables`, `needs.<job>.{result,outputs}` (matrix jobs index by
-Cartesian-product order — `.matrix[i]`/`.results[i]`), `matrix.<axis>`,
-`trigger.<input>`, `repositories.<name>.path`, `context.*` (above),
-`steps.<id>.outputs.<name>` (job-local only). Two custom functions beyond stock
-GitHub Actions syntax:
+Entries wire to each other by **reference**: `${category.name.output}` (e.g.
+`${databases.database.host}`, `${storage.s3.url}`, `${compute.auth.http}`).
+`graph.ts` validates every reference and topologically groups entries into
+dependency-ordered **batches** (`buildBatches`) so the kit can bring them up in
+the right order without re-deriving it. `variables` (value from the deploy's
+process env, referenced as `${variables.<name>.value}`) and `secrets` (same, but
+delivered as a mounted file / `_FILE` convention when `source: environment`) make
+per-environment values explicit: they're declared in the manifest but supplied by
+the surrounding pipeline. Environment selection is not an `ens` concept —
+`--mode` is a dev-loop-vs-not toggle, not an environment.
 
-- `ensemble.artifacts("<name>")` → `source/artifacts/<name>`
-- `ensemble.packages("<name>")` → `source/artifacts/packages/<name>`
+### The deploy kit contract
 
-both resolved relative to the calling step's cwd. See
-[workflows/deploy/workflow.yml](../workflows/deploy/workflow.yml) for these in
-real use (e.g. `${{ ensemble.packages('ensemble-linux-x64') }}`).
-
-### This repo's own workflow, as a worked example
-
-[workflows/deploy/workflow.yml](../workflows/deploy/workflow.yml) deploys `ens`
-itself. It's worth reading end to end once — it demonstrates: a `manual` trigger
-with a `git-tags`-typed input, `context`-gated dev-only jobs (hot-reload
-watchers for cli/server/web builds, running as backgrounded subprocesses tracked
-via PID files), a step outputting to `$WORKFLOW_OUTPUT` for a later step to
-consume, and `docker compose` driven with an env file assembled from context +
-step outputs.
+Unlike build/pack kits (subprocesses speaking a CLI contract), a deploy kit is
+loaded **in-process**: its `main.ts` default-exports a configured
+`KitSdk.Deploy.Kit` (see [kit.ts](../source/core/kit-sdk/deploy/kit.ts)),
+`Configure`d with `up`/`down` procedures. Each procedure receives the *whole*
+resolved `Workload` (not narrowed per-entry — only the kit knows how its target
+needs every entry assembled together, e.g. one compose.yaml with correct
+`depends_on`), the `batches`, run `options` (`watch`/`version`/`development`),
+and a `KitContext` (`name` — the deployment name, used e.g. as the compose
+project name; `volumePath`; `artifactsPath`). The `instanceof
+KitSdk.Deploy.Kit` check means a kit's `@ensemble/kit-sdk` must resolve to the
+same module the `ens` binary embeds — for a vendored kit, point it at the
+vendored source. The reference implementation is
+[.ensemble/kits/deploy/compose](../.ensemble/kits/deploy/compose).
 
 ## Commit scope conventions
 
@@ -166,14 +163,13 @@ workspace layout above:
 - **`source/apps/<name>`** — scope is `<name>`, the path under `apps/` (nesting
   included): `fix(web): ...`, `fix(my_app/server): ...`.
 - **`source/core`, `source/libs`** — scope is `core/<name>` or `libs/<name>`,
-  naming the subfolder touched: `fix(core/workflow): ...`,
+  naming the subfolder touched: `fix(core/deploy): ...`,
   `feat(libs/event): ...`.
 - **`source/ship/<name>`** — same `<name>` as the matching app, but always
   prefixed with `ship/`, even when that makes a 3-level scope:
   `fix(ship/web): ...`, `fix(ship/my_app/server): ...`.
-- **`workflows/<name>`** — just the workflow name, plus `/<context>` when the
-  change is specific to one deploy context: `feat(deploy): ...`,
-  `fix(deploy/production): ...`.
+- **`ci/<name>`** — the workload name for a change to its delivery manifest:
+  `feat(portal): ...`, `fix(website): ...`.
 - **`docs/`, `README.md`** — type is always `docs`, scope names what's
   documented: `docs(agent-context): ...`, `docs(readme): ...`.
 

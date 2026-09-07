@@ -4,12 +4,17 @@
 
 <h1 align="center">Ensemble</h1>
 
-Ensemble is best defined as a protocol: It sets the stage and the contracts betw
+Ensemble is best defined as a protocol: It sets the stage and the contracts for
+anything that acts on your source code. Instead of polluting your source with
+scripts, bundlers and other tooling details, Ensemble lets you keep a tidy and
+organized workspace, then orchestrates pluggable kits to build, package, and
+deploy through a single CLI.
 
 ## What is it
 
-One opinionated workspace layout, one CLI, covering a TypeScript project from
-source to deployment.
+One opinionated workspace layout that a single CLI take advantage of, to allow
+focusing on each concern in isolation, yet it clears the path for a smooth
+end-to-end flow from source to deployment.
 
 ### A workspace that scales by staying legible
 
@@ -20,34 +25,38 @@ own top-level home.
 
 See [Principles](#principles) below for the full shape.
 
-### Build and package through a common contract, not bespoke scripts
+### Build and package through a common contract
 
 Any app type — a plain TS service, a React SPA, whatever comes next — builds
 through a pluggable **build kit**, and any built app packages into a deployable
 artifact (a Docker image, an OCI tarball, a compiled binary) through a pluggable
-**pack kit**. An app folder states which kit it uses, never how that kit does
-its job, so adding a new app type never means inventing a new one-off script.
+**pack kit**.
 
-### Orchestrate with YAML workflows, not glue scripts
+An app folder states which kit it uses, never how that kit does its job, so
+adding a new app type never means inventing a new one-off script.
 
-Define jobs as a DAG — dependencies, conditionals, matrix strategies — and run
-them locally or trigger them on a remote Ensemble server. The same
-build/pack/workflow definitions behave differently per deploy context via
-variables, so environments are configuration, not forked code paths.
+### Deploy from a declarative manifest
+
+Describe a workload — its computes, databases, storage, networking, secrets and
+variables — as a single delivery manifest, and a pluggable **deploy kit** brings
+it up (or reconciles it to that declared state). Entries reference each other by
+output (`${databases.database.host}`, `${release.web.image}`), so the kit works
+out the dependency order; the same manifest runs against a local dev stack or a
+real target without forking into per-environment code paths.
 
 ### Release without hand-tagging
 
 Compute, create, or undo semver release tags in one command, with dry-run
 previews instead of eyeballing git history before you tag.
 
-### Deno underneath, not as the point
+### Powered by Deno
 
 Ensemble is built on Deno rather than Node/npm because Deno makes sounder, more
 coherent calls on the parts of JS tooling that are usually a mess — dependency
 resolution, bundling, compiling to a single binary. That's an implementation
-choice, not the pitch: `ens` itself installs as one native binary, and you're
-not meant to think about Deno day-to-day any more than you'd think about the
-compiler behind any other tool you trust.
+choice though: `ens` itself installs as one native binary, and you're not meant
+to think about Deno day-to-day any more than you'd think about the compiler
+behind any other tool you trust.
 
 ## Principles
 
@@ -80,7 +89,9 @@ without the details of other concerns leaking in.
   ever states _which_ kit it uses, never the implementation detail of _how_ that
   kit builds or packages it. (This is another low hanging fruit for future
   improvements: kits can be published, configurable and used for scaffolding new
-  apps).
+  apps). A similar contract exists for deploy kits, which take a declarative
+  manifest and bring it up on a target (e.g., docker compose, K8s, a cloud
+  provider).
 
 ## Installation
 
@@ -110,7 +121,18 @@ ens version set <version>
 ### `ens init`
 
 Scaffolds a new Ensemble project: prompts for a project name and lays down the
-`source/`, `.ensemble/`, and `workflows/` folders described above.
+`source/` and `.ensemble/` folders described above, fetches the built-in kits,
+and initializes a git repository.
+
+### `ens app create <kit> <name>`
+
+Scaffolds a new app under `source/apps/<name>` from a build kit's hello-world
+template, ready to `ens build`.
+
+```sh
+ens app create react web
+ens app create deno.bundle api
+```
 
 ### `ens build <app>`
 
@@ -148,48 +170,54 @@ ens pack web docker -v TAG=v1.2.3 -v REGISTRY=ghcr.io/me
   Same resolution order as `build`, via `ens config set-pack-var` and
   `source/envs/pack/<ship>.env`.
 
-### `ens workflow <name>`
+### `ens publish <ship> <kit> <target>`
 
-Runs a YAML workflow from `workflows/<name>/workflow.yml` as a local DAG of
-jobs, or triggers it on a remote Ensemble server. Full syntax (jobs, `needs`,
-`if:`, matrix strategies, expression contexts) is documented in
-[source/core/workflow](source/core/workflow).
-
-```sh
-ens workflow deploy
-ens workflow deploy -j build              # only that job + dependencies
-ens workflow deploy -j build -j runner    # union of both jobs + dependencies
-ens workflow deploy -j build,runner       # same, comma-separated in one flag
-ens workflow deploy -c 2                  # cap concurrency
-ens workflow deploy --context production
-ens workflow deploy -v GREETING=hi -v API_URL=https://staging.example.com
-ens workflow deploy -i sha=abc123 -i replicas=3
-ens workflow deploy -i job=build -i job=runner   # repeated NAME -> a list value
-```
-
-- `-j, --job <id>` — run only this job and its transitive dependencies.
-  Repeatable, and/or comma-separated (`-j a,b`), to run several jobs and the
-  union of their dependencies.
-- `-c, --concurrency <n>` — max number of jobs to run concurrently.
-- `--context <name>` — deploy context to run with, exposed to jobs/steps as
-  `context.name`/`context.path`.
-- `-v, --var <KEY=VALUE>` — override a workflow variable, repeatable.
-- `-i, --input <NAME=VALUE>` — set a manual trigger input (JSON-parsed when
-  possible), repeatable. Repeating the same NAME collects its values into a
-  list instead of the last one winning (e.g. `-i job=build -i job=runner`
-  sets `job` to `["build", "runner"]` — handy for a `type: job` input
-  without writing JSON).
-- `-r, --remote <profile>` — trigger on a remote server instead of running
-  locally (workflow must already be deployed there with a manual trigger).
-  Blocks until the remote run finishes; logs aren't streamed back.
-
-Remote profiles are managed separately, and the server side of this contract is
-documented in [source/core/platform](source/core/platform):
+Publishes a previously packed ship to a `target` supported by its pack kit (e.g.
+`push` for the `docker` kit, which retags the local image to its configured
+registry and pushes it).
 
 ```sh
-ens workflow remote configure staging     # prompts for URL + bearer token
-ens workflow remote upload deploy -r staging
+ens publish web docker push
+ens publish web docker push --version 1.2.3
 ```
+
+- `-o, --output-name <name>` — name of the local packed artifact to publish;
+  defaults to the ship name.
+- `--version <version>` — version to publish this artifact under, alongside its
+  `:latest` tag; defaults to `latest`.
+- `-v, --var <KEY=VALUE>` — override a publish var for this run only,
+  repeatable.
+
+### `ens deploy <name> <kit>`
+
+Brings up (or reconciles to its declared state) the workload described by the
+delivery manifest at `ci/<name>/delivery.yml`, using the given deploy kit
+(`.ensemble/kits/deploy/<kit>`). Tearing a workload down lives behind
+`ens destroy`.
+
+```sh
+ens deploy portal compose
+ens deploy portal compose --version 1.2.3
+```
+
+- `-m, --mode <development|production>` — deploy mode, defaults to `production`.
+  This is a dev-loop-vs-not toggle, not an environment: environment selection is
+  the surrounding pipeline's job (it loads the right values into process env
+  before `ens deploy`).
+- `--version <version>` — released version to resolve `${release.<name>.image}`
+  references to; defaults to `latest`.
+
+### `ens develop <name>`
+
+Deploys the same manifest locally for development: always watches for source
+changes, and treats `external` resources as auto-creatable local conveniences
+instead of requiring them to already exist.
+
+```sh
+ens develop portal
+```
+
+- `-k, --kit <kit>` — deploy kit to use, defaults to `compose`.
 
 ### `ens config`
 
@@ -242,3 +270,73 @@ ens version
 ens version update patch    # or minor / major
 ens version set 1.4.0
 ```
+
+## Local development
+
+Bringing a whole workload up on your machine is the same source → build → pack →
+deploy flow as a real deployment, pointed at a local target (the `compose` deploy
+kit). The steps below assume a project whose delivery manifest lives at
+`ci/<name>/delivery.yml` — `portal` is used as the concrete example.
+
+**1. Build every app.** `ens develop` runs the *packed images*, so each app has
+to be built first (output lands in `source/artifacts/<app>`):
+
+```sh
+for app in auth/server auth/client dashboard/api dashboard/web; do
+  ens build "$app" -m development
+done
+```
+
+**2. Pack each ship to a local image.** The compose kit resolves a compute's
+`${release.<ship>.image}` to the locally-packed `<ship>:latest` and refuses to
+start if it isn't in your image store, so pack them up front (including any base
+image a ship's Dockerfile builds `FROM`):
+
+```sh
+for ship in auth/server auth/client dashboard/api dashboard/web; do
+  ens pack "$ship" docker
+done
+```
+
+**3. Supply the manifest's variables and secrets.** A manifest declares the
+per-environment values it needs as `variables` and `secrets`; `ens deploy` reads
+them from its own process env (it selects no environment itself — that's the
+pipeline's job, and locally it's you). Export them before bringing the stack up:
+
+```sh
+export PGUSER=portal PGDATABASE=portal PGPASSWORD=devpassword
+# ...every variable/secret the manifest declares
+```
+
+**4. Bring the stack up in dev mode.** `ens develop` watches for source changes
+and auto-creates `external` resources (like a shared `edge` network) instead of
+requiring them to already exist:
+
+```sh
+ens develop <name>          # e.g. ens develop portal
+```
+
+That renders a `compose.yaml`, brings up every compute plus the databases,
+storage and gateway the manifest declares, and keeps watching. You reach the
+services through the gateway's hosts (e.g. `https://<name>.localhost:8443`, with
+a self-signed cert under `tls: internal`).
+
+**5. Run any one-off provisioning.** Some setup can't be declared in the
+manifest yet — provisioning an object-storage bucket, running an app's own schema
+migration. These live as scripts under `ci/scripts/` and run once after the stack
+is up (portal's, for example):
+
+```sh
+sh ci/scripts/garage-bootstrap.sh   # mint S3 credentials, feed them back as vars
+sh ci/scripts/auth-migrate.sh       # create the auth schema's tables
+```
+
+> **Note.** A large database seed loaded through `docker-entrypoint-initdb.d`
+> keeps Postgres on a local-only socket until it finishes, so a migration run too
+> early gets `connection refused` — wait for the DB log to go quiet first. A seed
+> written as bulk `COPY` rather than one-`INSERT`-per-row loads in seconds
+> instead of minutes.
+
+To change an app while the stack runs, just edit its source — `ens develop`
+rebuilds and syncs it into the running container. To tear everything down, stop
+`ens develop`; removing the containers/volumes lives behind `ens destroy`.
