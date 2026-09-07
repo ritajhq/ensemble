@@ -119,6 +119,62 @@ export function translateMessaging(
   };
 }
 
+/** A gateway route whose target reference has already been resolved to a concrete address (or undefined if it didn't resolve). */
+interface ResolvedGatewayRoute {
+  host?: string;
+  match: string;
+  target: string | undefined;
+  strip?: boolean;
+}
+
+/** One Caddy routing directive: `handle_path` strips the matched prefix before proxying, `handle` forwards it intact — Caddy's own two forms for exactly the `strip` distinction. */
+function gatewayRouteBlock(route: ResolvedGatewayRoute): string {
+  const directive = route.strip ? "handle_path" : "handle";
+  const body = route.target ? `reverse_proxy ${route.target}` : "respond 502";
+  return `\t${directive} ${route.match} {\n\t\t${body}\n\t}\n`;
+}
+
+/**
+ * The Caddy site address for one host group. A bare port (`:80`) for the
+ * hostless default group; the plain hostname when TLS is on (Caddy then
+ * serves it over HTTPS automatically); `http://<host>` when TLS is off, to
+ * suppress Caddy's automatic-HTTPS for a named host.
+ */
+function gatewaySiteAddress(
+  host: string | undefined,
+  tls: KitSdk.Deploy.GatewayTls | undefined,
+): string {
+  if (!host) return ":80";
+  return tls ? host : `http://${host}`;
+}
+
+/**
+ * Renders the whole Caddyfile: one site block per host (rules grouped by
+ * host, order preserved so the author's specific-before-catch-all ordering
+ * stands), with `tls internal` injected for a self-signed local run.
+ * `automatic` needs no directive — Caddy obtains real certs for a public
+ * hostname on its own.
+ */
+function buildGatewayCaddyfile(
+  routes: ResolvedGatewayRoute[],
+  tls: KitSdk.Deploy.GatewayTls | undefined,
+): string {
+  const groups = new Map<string, ResolvedGatewayRoute[]>();
+  for (const route of routes) {
+    const key = route.host ?? "";
+    (groups.get(key) ?? groups.set(key, []).get(key)!).push(route);
+  }
+  const blocks: string[] = [];
+  for (const [host, hostRoutes] of groups) {
+    const inner = host && tls === "internal" ? ["\ttls internal\n"] : [];
+    for (const route of hostRoutes) inner.push(gatewayRouteBlock(route));
+    blocks.push(
+      `${gatewaySiteAddress(host || undefined, tls)} {\n${inner.join("")}}\n`,
+    );
+  }
+  return blocks.join("\n");
+}
+
 /**
  * Translates one `networking` entry. `load-balancer`, `cdn`, and `gateway`
  * all run as a Caddy service (a real local reverse-proxy — the closest
@@ -131,7 +187,7 @@ export function translateNetworking(
   name: string,
   spec: KitSdk.Deploy.Networking,
   originUrl: string | undefined,
-  routeTargets?: { path: string; target: string | undefined }[],
+  routeTargets?: ResolvedGatewayRoute[],
 ): {
   service?: ComposeService;
   caddyfile?: string;
@@ -147,20 +203,16 @@ export function translateNetworking(
     };
   }
   if (spec.type === "gateway") {
-    // Path-based routing to each route's already-resolved target — mirrors
-    // Caddy's own @matcher/handle idiom (see workflows/deploy's own
-    // Caddyfile), the same shape ALB listener rules / GCP URL maps / K8s
-    // Gateway+HTTPRoute all express this as.
-    const blocks = (routeTargets ?? []).map(({ path, target }, i) =>
-      target
-        ? `\t@route${i} path ${path}\n\thandle @route${i} {\n\t\treverse_proxy ${target}\n\t}\n`
-        : `\t@route${i} path ${path}\n\thandle @route${i} {\n\t\trespond 502\n\t}\n`
-    );
-    const caddyfile = `:80 {\n${blocks.join("")}}\n`;
+    // Host-grouped, TLS-aware routing to each route's already-resolved
+    // target — the same shape ALB listener rules / GCP URL maps / K8s
+    // Gateway+HTTPRoute all express. TLS on → also publish 443 so a
+    // prod-like HTTPS run works locally.
+    const caddyfile = buildGatewayCaddyfile(routeTargets ?? [], spec.tls);
+    const ports = spec.tls ? ["8080:80", "8443:443"] : ["8080:80"];
     return {
-      service: { image: DEFAULT_CADDY_IMAGE, ports: ["8080:80"] },
+      service: { image: DEFAULT_CADDY_IMAGE, ports },
       caddyfile,
-      output: { url: `http://${name}` },
+      output: { url: `${spec.tls ? "https" : "http"}://${name}` },
     };
   }
   // cdn: passthrough reverse-proxy to its resolved origin, no real caching —

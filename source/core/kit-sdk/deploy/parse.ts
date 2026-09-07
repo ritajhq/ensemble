@@ -23,6 +23,7 @@ import type {
   Cdn,
   Dns,
   Gateway,
+  GatewayPath,
   GatewayRoute,
   LoadBalancer,
   Networking,
@@ -59,6 +60,16 @@ function optionalString(
 ): string | undefined {
   if (raw === undefined) return undefined;
   if (typeof raw !== "string") fail(file, `${where} must be a string.`);
+  return raw;
+}
+
+function optionalBoolean(
+  file: string,
+  where: string,
+  raw: unknown,
+): boolean | undefined {
+  if (raw === undefined) return undefined;
+  if (typeof raw !== "boolean") fail(file, `${where} must be a boolean.`);
   return raw;
 }
 
@@ -646,6 +657,24 @@ function validateCdn(
   };
 }
 
+/** `path` is either a bare match string (`/api/*`) or a `{ match, strip }` mapping — normalized here to the `GatewayPath` shape. */
+function validateGatewayPath(
+  file: string,
+  where: string,
+  raw: unknown,
+): GatewayPath {
+  if (typeof raw === "string") {
+    return { match: requireString(file, where, raw) };
+  }
+  if (!isRecord(raw)) {
+    fail(file, `${where} must be a match string or a { match, strip } mapping.`);
+  }
+  return {
+    match: requireString(file, `${where}.match`, raw.match),
+    strip: optionalBoolean(file, `${where}.strip`, raw.strip),
+  };
+}
+
 function validateGatewayRoutes(
   file: string,
   where: string,
@@ -658,7 +687,8 @@ function validateGatewayRoutes(
     const entryWhere = `${where}[${i}]`;
     if (!isRecord(entry)) fail(file, `${entryWhere} must be a mapping.`);
     return {
-      path: requireString(file, `${entryWhere}.path`, entry.path),
+      host: optionalString(file, `${entryWhere}.host`, entry.host),
+      path: validateGatewayPath(file, `${entryWhere}.path`, entry.path),
       target: validateReferenceable(file, `${entryWhere}.target`, entry.target),
     };
   });
@@ -670,11 +700,19 @@ function validateGateway(
   base: NetworkingEntryBase,
   raw: Record<string, unknown>,
 ): Gateway {
+  const tls = raw.tls;
+  if (tls !== undefined && tls !== "internal" && tls !== "automatic") {
+    fail(
+      file,
+      `${where}.tls must be "internal" or "automatic", got ${JSON.stringify(tls)}.`,
+    );
+  }
   return {
     class: base.cls,
     network: base.network,
     overrides: base.overrides,
     type: "gateway",
+    tls,
     routes: validateGatewayRoutes(file, `${where}.routes`, raw.routes),
   };
 }

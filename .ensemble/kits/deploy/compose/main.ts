@@ -249,8 +249,10 @@ function buildComposeDocument(
           : undefined;
         const routeTargets = spec.type === "gateway"
           ? spec.routes.map((route) => ({
-            path: route.path,
+            host: route.host,
+            match: route.path.match,
             target: resolveReferenceable(route.target, outputs),
+            strip: route.path.strip,
           }))
           : undefined;
         const { service, caddyfile, output } = translateNetworking(
