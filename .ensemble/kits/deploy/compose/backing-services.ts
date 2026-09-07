@@ -13,7 +13,13 @@ const DOCUMENT_IMAGES: Record<string, string> = {
 };
 
 const DEFAULT_CACHE_IMAGE = "valkey/valkey:8";
-const DEFAULT_OBJECT_STORAGE_IMAGE = "chrislusf/seaweedfs:latest";
+const DEFAULT_OBJECT_STORAGE_IMAGE = "dxflrs/garage:v2.3.0";
+// Fixed dev-only Garage secrets — the object-storage analogue of the fixed
+// "ensemble" dev DB password. Fine for a local mock; a real stack-owned
+// deployment overrides them (a `${secrets.*}`-fed config is a later add).
+const GARAGE_DEV_RPC_SECRET =
+  "440bd9dd20d2aff91757fff5e2f1ebdecc1d1c1beafadb1ae750be04541986d8";
+const GARAGE_DEV_ADMIN_TOKEN = "eQ9T88WhMOcMvJEvADZ46rszl53ptJ718zqKkPwfPKU=";
 const DEFAULT_MESSAGING_IMAGE = "nats:2-alpine";
 const DEFAULT_CADDY_IMAGE = "caddy:alpine";
 
@@ -127,20 +133,54 @@ export function translateDatabase(
   }
 }
 
-/** Translates one `storage` entry. `file-storage` produces no service (it's a named volume — see main.ts's volume wiring) and no referenceable output (consumed via `compute.mounts`, not `${...}`); `object-storage` runs a SeaweedFS-backed service and exposes a `url`. */
+/** A minimal single-node Garage config for a local object-storage mock — no replication, fixed dev secrets. The layout/bucket/key bootstrap that makes it usable is a one-off (a `ci/scripts` step), not part of this declarative config. */
+function garageConfig(name: string): string {
+  return `metadata_dir = "/var/lib/garage/meta"
+data_dir = "/var/lib/garage/data"
+db_engine = "lmdb"
+replication_factor = 1
+
+rpc_bind_addr = "[::]:3901"
+rpc_public_addr = "127.0.0.1:3901"
+rpc_secret = "${GARAGE_DEV_RPC_SECRET}"
+
+[s3_api]
+s3_region = "garage"
+api_bind_addr = "[::]:3900"
+root_domain = ".s3.${name}.local"
+
+[admin]
+api_bind_addr = "[::]:3903"
+admin_token = "${GARAGE_DEV_ADMIN_TOKEN}"
+`;
+}
+
+/**
+ * Translates one `storage` entry. `file-storage` produces no service (it's a
+ * named volume — see main.ts's volume wiring) and no referenceable output
+ * (consumed via `compute.mounts`, not `${...}`). `object-storage` runs a
+ * Garage-backed S3 service (config generated as `config`, its meta/data on
+ * named volumes wired by main.ts) and exposes `url` + `region`; its
+ * buckets/keys are provisioned by a `ci/scripts` bootstrap, not here.
+ */
 export function translateStorage(
   name: string,
   spec: KitSdk.Deploy.Storage,
-): { service?: ComposeService; output: Record<string, string> } {
+): { service?: ComposeService; output: Record<string, string>; config?: string } {
   if (spec.type === "file-storage") {
     return { output: {} };
   }
   return {
     service: {
       image: DEFAULT_OBJECT_STORAGE_IMAGE,
-      command: ["server", "-dir=/data", "-s3"],
+      volumes: [
+        `./garage/${name}.toml:/etc/garage.toml:ro`,
+        `${name}-meta:/var/lib/garage/meta`,
+        `${name}-data:/var/lib/garage/data`,
+      ],
     },
-    output: { url: `http://${name}:8333` },
+    output: { url: `http://${name}:3900`, region: "garage" },
+    config: garageConfig(name),
   };
 }
 

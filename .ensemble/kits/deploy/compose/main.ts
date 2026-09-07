@@ -1,4 +1,4 @@
-import { basename, join } from "@std/path";
+import { basename, dirname, join } from "@std/path";
 import { ensureDir, exists } from "@std/fs";
 import { stringify as stringifyYaml } from "@std/yaml";
 import { $ } from "@david/dax";
@@ -182,10 +182,10 @@ function buildComposeDocument(
   artifactsPath: string,
   version: string,
   development: boolean,
-): { doc: ComposeDocument; caddyfiles: Map<string, string> } {
+): { doc: ComposeDocument; configFiles: Map<string, string> } {
   const doc = newComposeDocument(projectName);
   const outputs = new Map<string, Record<string, string>>();
-  const caddyfiles = new Map<string, string>();
+  const configFiles = new Map<string, string>();
 
   for (const batch of batches) {
     for (const entry of batch) {
@@ -246,11 +246,16 @@ function buildComposeDocument(
 
       if (entry.category === "storage") {
         const spec = workload.storage![entry.name];
-        const { service, output } = translateStorage(entry.name, spec);
+        const { service, output, config } = translateStorage(entry.name, spec);
         if (spec.type === "file-storage") {
           ensureVolumeDeclared(doc, entry.name);
         } else if (service) {
           doc.services[entry.name] = service;
+          // object-storage (Garage) keeps its meta+data on named volumes so
+          // its one-off bootstrap (buckets/keys) survives `down`.
+          ensureVolumeDeclared(doc, `${entry.name}-meta`);
+          ensureVolumeDeclared(doc, `${entry.name}-data`);
+          if (config) configFiles.set(`garage/${entry.name}.toml`, config);
         }
         outputs.set(`storage.${entry.name}`, output);
       }
@@ -294,7 +299,7 @@ function buildComposeDocument(
           }
         }
         if (caddyfile) {
-          caddyfiles.set(entry.name, caddyfile);
+          configFiles.set(`caddy/${entry.name}.Caddyfile`, caddyfile);
           service!.volumes = [
             ...(service!.volumes ?? []),
             `./caddy/${entry.name}.Caddyfile:/etc/caddy/Caddyfile:ro`,
@@ -338,7 +343,7 @@ function buildComposeDocument(
     }
   }
 
-  return { doc, caddyfiles };
+  return { doc, configFiles };
 }
 
 /**
@@ -438,7 +443,7 @@ kit.Configure(
     await requireSecrets(workload, ctx.volumePath);
     await requireReleaseImages(workload, options.version);
 
-    const { doc, caddyfiles } = buildComposeDocument(
+    const { doc, configFiles } = buildComposeDocument(
       workload,
       batches,
       ctx.name,
@@ -453,14 +458,13 @@ kit.Configure(
       stringifyYaml(doc as unknown as Record<string, unknown>),
     );
 
-    if (caddyfiles.size > 0) {
-      await ensureDir(join(ctx.volumePath, "caddy"));
-      for (const [name, content] of caddyfiles) {
-        await Deno.writeTextFile(
-          join(ctx.volumePath, "caddy", `${name}.Caddyfile`),
-          content,
-        );
-      }
+    // Each key is a volume-relative path (e.g. "caddy/gw.Caddyfile",
+    // "garage/store.toml") a service bind-mounts — written here alongside the
+    // compose file.
+    for (const [relPath, content] of configFiles) {
+      const abs = join(ctx.volumePath, relPath);
+      await ensureDir(dirname(abs));
+      await Deno.writeTextFile(abs, content);
     }
 
     const watchArgs = options.watch ? ["--watch"] : ["-d"];
