@@ -290,7 +290,14 @@ function buildComposeDocument(
       if (entry.category === "secrets") {
         const spec = workload.secrets![entry.name];
         const { output } = translateSecret(entry.name, spec);
-        doc.secrets[entry.name] = { file: `./secrets/${entry.name}` };
+        // An env-sourced secret's value is read by Compose itself from the
+        // env var named after the secret (presence guaranteed by
+        // requireSecrets); a file-sourced one from a local file the pipeline
+        // placed. Either way it reaches a service only as a mounted file at
+        // ${secrets.<name>.path} — never as a plain container env var.
+        doc.secrets[entry.name] = spec.source === "environment"
+          ? { environment: entry.name }
+          : { file: `./secrets/${entry.name}` };
         outputs.set(`secrets.${entry.name}`, output);
       }
 
@@ -332,12 +339,26 @@ function requireVariables(workload: KitSdk.Deploy.Workload): void {
   }
 }
 
-/** Fails clearly (rather than silently proceeding) if any declared `secrets` entry has no corresponding file under `<volumePath>/secrets/`. */
-async function requireSecretFiles(
+/**
+ * Fails clearly (rather than silently proceeding) if any declared `secrets`
+ * entry has no value where its `source` says to find it: a file-sourced
+ * secret needs a file under `<volumePath>/secrets/`; an env-sourced one needs
+ * the env var named after it set in the deploy process's environment (which
+ * Compose itself reads at `up` time). Placing either is the pipeline's job.
+ */
+async function requireSecrets(
   workload: KitSdk.Deploy.Workload,
   volumePath: string,
 ): Promise<void> {
-  for (const name of Object.keys(workload.secrets ?? {})) {
+  for (const [name, spec] of Object.entries(workload.secrets ?? {})) {
+    if (spec.source === "environment") {
+      if (Deno.env.get(name) === undefined) {
+        throw new Error(
+          `Secret "${name}" is declared (source: environment) but env var "${name}" isn't set — export it before running ens deploy.`,
+        );
+      }
+      continue;
+    }
     const path = join(volumePath, "secrets", name);
     if (!await exists(path, { isFile: true })) {
       throw new Error(
@@ -392,7 +413,7 @@ const kit = new KitSdk.Deploy.Kit();
 kit.Configure(
   async (workload, batches, options, ctx) => {
     requireVariables(workload);
-    await requireSecretFiles(workload, ctx.volumePath);
+    await requireSecrets(workload, ctx.volumePath);
     await requireReleaseImages(workload, options.version);
 
     const { doc, caddyfiles } = buildComposeDocument(

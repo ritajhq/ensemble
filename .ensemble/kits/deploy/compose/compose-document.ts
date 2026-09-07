@@ -26,8 +26,10 @@ export interface ComposeService {
   networks?: string[];
 }
 
+/** A Compose secret sourced either from a local file (`file`) or from an env var of the compose process (`environment`) — exactly one is set. See Compose's secrets docs. */
 export interface ComposeSecret {
-  file: string;
+  file?: string;
+  environment?: string;
 }
 
 /**

@@ -740,9 +740,17 @@ function validateSecretEntry(
       `${where}.type must be "secret", got ${JSON.stringify(raw.type)}.`,
     );
   }
+  const source = raw.source;
+  if (source !== undefined && source !== "file" && source !== "environment") {
+    fail(
+      file,
+      `${where}.source must be "file" or "environment", got ${JSON.stringify(source)}.`,
+    );
+  }
   return {
     type: "secret",
     class: optionalString(file, `${where}.class`, raw.class),
+    source,
     overrides: validateOverrides(file, `${where}.overrides`, raw.overrides),
   };
 }
