@@ -1,7 +1,9 @@
 import { dirname, fromFileUrl, join } from "@std/path";
 import { createElement } from "react";
 import { renderToString } from "react-dom/server";
-import { Landing } from "../shared/index.ts";
+import * as Website from "@ensemble/website";
+import { ENSEMBLE_LOGO_PNG_BASE64 } from "./ensemble-logo.ts";
+import { GEIST_MONO_WOFF2_BASE64, GEIST_SANS_WOFF2_BASE64 } from "./fonts.ts";
 
 const PAGE_TITLE = "Ensemble — one workspace, one CLI, source to deployment";
 const PAGE_DESCRIPTION =
@@ -14,13 +16,39 @@ const PAGE_DESCRIPTION =
 // and serves that bundle's output as its only static assets.
 const contentDir = join(dirname(fromFileUrl(import.meta.url)), "..", "content");
 
-const STATIC_ASSETS: Record<string, { file: string; contentType: string }> = {
-  "/main.js": { file: "main.js", contentType: "text/javascript; charset=utf-8" },
-  "/index.css": { file: "index.css", contentType: "text/css; charset=utf-8" },
+function decodeBase64(base64: string): Uint8Array {
+  return Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+}
+
+const logoBytes = decodeBase64(ENSEMBLE_LOGO_PNG_BASE64);
+const geistSansBytes = decodeBase64(GEIST_SANS_WOFF2_BASE64);
+const geistMonoBytes = decodeBase64(GEIST_MONO_WOFF2_BASE64);
+
+const STATIC_ASSETS: Record<string, { contentType: string; body: () => Promise<Uint8Array> | Uint8Array }> = {
+  "/main.js": {
+    contentType: "text/javascript; charset=utf-8",
+    body: () => Deno.readFile(join(contentDir, "main.js")),
+  },
+  "/index.css": {
+    contentType: "text/css; charset=utf-8",
+    body: () => Deno.readFile(join(contentDir, "index.css")),
+  },
+  "/ensemble-logo.png": {
+    contentType: "image/png",
+    body: () => logoBytes,
+  },
+  "/fonts/geist-sans.woff2": {
+    contentType: "font/woff2",
+    body: () => geistSansBytes,
+  },
+  "/fonts/geist-mono.woff2": {
+    contentType: "font/woff2",
+    body: () => geistMonoBytes,
+  },
 };
 
 function renderPage(): string {
-  const body = renderToString(createElement(Landing));
+  const body = renderToString(createElement(Website.Landing));
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -34,6 +62,8 @@ function renderPage(): string {
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content="${PAGE_TITLE}" />
     <meta name="twitter:description" content="${PAGE_DESCRIPTION}" />
+    <link rel="icon" type="image/png" href="/ensemble-logo.png" />
+    <link rel="preload" href="/fonts/geist-sans.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
     <link rel="stylesheet" href="/index.css" />
   </head>
   <body>
@@ -49,7 +79,7 @@ async function serveStaticAsset(pathname: string): Promise<Response | undefined>
   if (!asset) return undefined;
 
   try {
-    const body = await Deno.readFile(join(contentDir, asset.file));
+    const body = await asset.body();
     return new Response(body, { headers: { "content-type": asset.contentType } });
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) return new Response("Not found", { status: 404 });

@@ -1,2 +1,31 @@
 @import "tailwindcss";
-@source "../shared";
+@source "../../../core/website";
+
+@font-face {
+  font-family: "Geist";
+  src: url("/fonts/geist-sans.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Geist Mono";
+  src: url("/fonts/geist-mono.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+
+  /* The exact blue sampled from docs/ensemble-logo.png (#0084D1) as blue-600,
+     with a small hand-picked ramp around it — this app's own accent palette,
+     not a project-wide Tailwind override. */
+  --color-blue-400: #2eaffa;
+  --color-blue-500: #009bf5;
+  --color-blue-600: #0084d1;
+  --color-blue-700: #006ba8;
+}

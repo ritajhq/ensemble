@@ -1,3 +1,5 @@
+import { Container } from "../Container.tsx";
+
 const PRINCIPLES = [
   {
     title: "Each app is self-contained",
@@ -20,7 +22,7 @@ const PRINCIPLES = [
 export function Principles() {
   return (
     <section className="bg-slate-50 py-20">
-      <div className="mx-auto max-w-4xl px-6">
+      <Container>
         <h2 className="text-center text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
           A workspace that stays tidy as it grows
         </h2>
@@ -33,7 +35,7 @@ export function Principles() {
             </div>
           ))}
         </dl>
-      </div>
+      </Container>
     </section>
   );
 }

@@ -1,10 +1,10 @@
 import { StrictMode } from "react";
 import { hydrateRoot } from "react-dom/client";
-import { Landing } from "../shared/index.ts";
+import * as Website from "@ensemble/website";
 
 hydrateRoot(
   document.getElementById("root")!,
   <StrictMode>
-    <Landing />
+    <Website.Landing />
   </StrictMode>,
 );

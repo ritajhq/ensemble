@@ -1,4 +1,7 @@
 {
+  "name": "@ensemble/website",
+  "license": "MIT",
+  "exports": "./index.ts",
   "compilerOptions": {
     "jsx": "react-jsx",
     "jsxImportSource": "react",
@@ -7,10 +10,6 @@
   },
   "imports": {
     "react": "npm:react@19.2.8",
-    "react-dom": "npm:react-dom@19.2.8",
-    "react-dom/client": "npm:react-dom@19.2.8/client",
-    "@types/react": "npm:@types/react@19",
-    "@types/react-dom": "npm:@types/react-dom@19",
-    "@ensemble/website": "jsr:@ensemble/website"
+    "@types/react": "npm:@types/react@19"
   }
 }

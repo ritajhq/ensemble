@@ -2185,6 +2185,7 @@
       },
       "source/apps/website/content": {
         "dependencies": [
+          "jsr:@ensemble/website@*",
           "npm:@types/react-dom@19",
           "npm:@types/react@19",
           "npm:react-dom@19.2.8",
@@ -2193,6 +2194,7 @@
       },
       "source/apps/website/server": {
         "dependencies": [
+          "jsr:@ensemble/website@*",
           "jsr:@std/path@1.1.6",
           "npm:@types/react-dom@19",
           "npm:@types/react@19",
@@ -2218,6 +2220,13 @@
           "jsr:@std/cli@1.0.32",
           "jsr:@std/path@1.1.6",
           "jsr:@std/yaml@1.1.2"
+        ]
+      },
+      "source/core/website": {
+        "dependencies": [
+          "npm:@types/react-dom@19",
+          "npm:@types/react@19",
+          "npm:react@19.2.8"
         ]
       }
     }
