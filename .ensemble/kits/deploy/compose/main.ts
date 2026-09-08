@@ -36,13 +36,32 @@ function resolveReferenceable(
   return outputs.get(`${value.category}.${value.name}`)?.[value.output];
 }
 
-/** The literal Docker image tag a `release` entry resolves to for `version` — `<outputName ?? name>:<version>`, matching `ens pack`'s own default tagging convention (name defaults to the ship name, see pack-context.ts's `outputName`). */
+/**
+ * The Docker image a `release` entry resolves to for `version`, by mode:
+ *
+ * - **development** (`ens develop`) — the LOCAL packed tag
+ *   `<outputName ?? name>:<version>`, matching `ens pack`'s own default tagging
+ *   convention. This is the image the dev loop just built.
+ * - **production** (a real `ens deploy`) — the PUBLISHED reference the workload
+ *   declared, `<publish.name>:<version>`, read verbatim: the deploy kit invents
+ *   no registry convention, since the author wires `publish.name` to the full
+ *   pushed reference (e.g. `registry.example.com/team/app`). A production entry
+ *   whose compute is referenced but which declares no `publish.name` is an
+ *   error — there's nothing to run — surfaced by the caller.
+ */
 function releaseImageTag(
   name: string,
   entry: KitSdk.Deploy.Release,
   version: string,
+  development: boolean,
 ): string {
-  return `${entry.outputName ?? name}:${version}`;
+  if (development) return `${entry.outputName ?? name}:${version}`;
+  if (!entry.publish?.name) {
+    throw new Error(
+      `release "${name}" is referenced by a production deploy but declares no publish.name — set publish.name to the full published image reference (the deploy resolves \`\${release.${name}.image}\` to it), or use \`ens develop\` to run the locally packed image.`,
+    );
+  }
+  return `${entry.publish.name}:${version}`;
 }
 
 /** Resolves `spec`'s `env` (each value a literal or a `${category.name.output}` Reference) into plain strings, using `outputs` from every already-resolved entry. */
@@ -363,7 +382,7 @@ function buildComposeDocument(
       if (entry.category === "release") {
         const spec = workload.release![entry.name];
         outputs.set(`release.${entry.name}`, {
-          image: releaseImageTag(entry.name, spec, version),
+          image: releaseImageTag(entry.name, spec, version, development),
         });
       }
     }
@@ -427,7 +446,9 @@ async function requireSecrets(
  * stale image under the same tag) if any container compute entry's `image`
  * is a `${release.<name>...}` reference whose resolved tag isn't present in
  * the local image store — i.e. `ens pack` hasn't been run yet for that
- * version.
+ * version. Development-only: a production deploy resolves computes to their
+ * published references and lets the target pull them, so there's no local
+ * image to require.
  */
 async function requireReleaseImages(
   workload: KitSdk.Deploy.Workload,
@@ -445,7 +466,9 @@ async function requireReleaseImages(
     const releaseName = compute.image.name;
     const entry = workload.release?.[releaseName];
     if (!entry) continue; // buildBatches' validateReferences already caught a truly dangling reference
-    const tag = releaseImageTag(releaseName, entry, version);
+    // This gate only runs for development deploys (see call site), where the
+    // image is the local packed tag — so resolve it in development mode.
+    const tag = releaseImageTag(releaseName, entry, version, true);
     const result = await $`docker image inspect ${tag}`.quiet().noThrow();
     if (result.code !== 0) {
       const packCmd = `ens pack ${releaseName} ${entry.kit}${
@@ -467,7 +490,13 @@ kit.Configure(
   async (workload, batches, options, ctx) => {
     requireVariables(workload);
     await requireSecrets(workload, ctx.volumePath);
-    await requireReleaseImages(workload, options.version);
+    // Only a development deploy runs the locally packed image, so only then
+    // does it make sense to require that image to exist locally. A production
+    // deploy resolves computes to their published references and lets the
+    // target pull them — ens does not gate on the local store.
+    if (options.development) {
+      await requireReleaseImages(workload, options.version);
+    }
 
     const { doc, configFiles } = buildComposeDocument(
       workload,

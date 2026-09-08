@@ -3,36 +3,21 @@ import { $ } from "@david/dax";
 
 const ctx = KitSdk.Pack.getPublishContext();
 
-// Publish options come from the release's `publish:` block (every property
-// other than target/name) — this kit reads `registry`.
-const registry = ctx.options.registry;
-if (!registry) {
-  throw new Error(
-    `docker kit's publish requires a "registry" option (the release's publish: block must set registry: <host>/<path>).`,
-  );
-}
-
-// Credentials come from the process environment (see @ensemble/core's
-// PUBLISH_ENV_PATH — .ensemble/publish.env), not from argv. Log in only when
-// both are present; otherwise assume the daemon is already authenticated
-// (e.g. a prior `docker login`).
-const username = Deno.env.get("REGISTRY_USERNAME");
-const password = Deno.env.get("REGISTRY_PASSWORD");
-if (username && password) {
-  const login = await $`docker login ${registry} -u ${username} --password-stdin`
-    .stdinText(password)
-    .noThrow();
-  if (login.code !== 0) Deno.exit(login.code);
-}
-
-// The remote image is named by packageName (from the release's `publish.name`);
-// the version is folded in as a tag alongside :latest.
+// packageName is the FULL published image reference, straight from the
+// release's `publish.name` (e.g. "registry.example.com/team/app") — the deploy
+// side resolves a production compute's image to this same name, so publisher
+// and consumer agree by construction. This kit invents no registry prefix; the
+// author wires the whole reference. The version is folded in as a tag alongside
+// :latest.
 const localTag = `${ctx.outputName}:latest`;
 const remoteTags = [
-  `${registry}/${ctx.packageName}:latest`,
-  `${registry}/${ctx.packageName}:${ctx.version}`,
+  `${ctx.packageName}:latest`,
+  `${ctx.packageName}:${ctx.version}`,
 ];
 
+// Registry auth is the caller's responsibility (a prior `docker login`, or an
+// ambient/credential-helper-authenticated daemon) — consistent with the
+// explicit-wiring principle. This kit does not log in.
 for (const tag of remoteTags) {
   const result = await $`docker image tag ${localTag} ${tag}`.noThrow();
   if (result.code !== 0) Deno.exit(result.code);
