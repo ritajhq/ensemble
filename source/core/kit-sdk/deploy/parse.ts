@@ -23,6 +23,7 @@ import type {
   Cdn,
   Dns,
   Gateway,
+  GatewayPath,
   GatewayRoute,
   LoadBalancer,
   Networking,
@@ -59,6 +60,16 @@ function optionalString(
 ): string | undefined {
   if (raw === undefined) return undefined;
   if (typeof raw !== "string") fail(file, `${where} must be a string.`);
+  return raw;
+}
+
+function optionalBoolean(
+  file: string,
+  where: string,
+  raw: unknown,
+): boolean | undefined {
+  if (raw === undefined) return undefined;
+  if (typeof raw !== "boolean") fail(file, `${where} must be a boolean.`);
   return raw;
 }
 
@@ -518,10 +529,25 @@ function validateDatabaseEntry(
     version: optionalString(file, `${where}.version`, raw.version),
     overrides: validateOverrides(file, `${where}.overrides`, raw.overrides),
   };
-  if (
-    type === "relational" || type === "key-value" || type === "document" ||
-    type === "cache"
-  ) {
+  if (type === "relational") {
+    const init = raw.init;
+    if (init !== undefined && (!Array.isArray(init) || init.some((p) => typeof p !== "string"))) {
+      fail(file, `${where}.init must be a list of repo-relative file paths.`);
+    }
+    return {
+      ...base,
+      type,
+      user: optionalReferenceable(file, `${where}.user`, raw.user),
+      database: optionalReferenceable(file, `${where}.database`, raw.database),
+      passwordSecret: optionalString(
+        file,
+        `${where}.passwordSecret`,
+        raw.passwordSecret,
+      ),
+      init: init as string[] | undefined,
+    };
+  }
+  if (type === "key-value" || type === "document" || type === "cache") {
     return { ...base, type };
   }
   fail(
@@ -646,6 +672,24 @@ function validateCdn(
   };
 }
 
+/** `path` is either a bare match string (`/api/*`) or a `{ match, strip }` mapping — normalized here to the `GatewayPath` shape. */
+function validateGatewayPath(
+  file: string,
+  where: string,
+  raw: unknown,
+): GatewayPath {
+  if (typeof raw === "string") {
+    return { match: requireString(file, where, raw) };
+  }
+  if (!isRecord(raw)) {
+    fail(file, `${where} must be a match string or a { match, strip } mapping.`);
+  }
+  return {
+    match: requireString(file, `${where}.match`, raw.match),
+    strip: optionalBoolean(file, `${where}.strip`, raw.strip),
+  };
+}
+
 function validateGatewayRoutes(
   file: string,
   where: string,
@@ -658,7 +702,8 @@ function validateGatewayRoutes(
     const entryWhere = `${where}[${i}]`;
     if (!isRecord(entry)) fail(file, `${entryWhere} must be a mapping.`);
     return {
-      path: requireString(file, `${entryWhere}.path`, entry.path),
+      host: optionalString(file, `${entryWhere}.host`, entry.host),
+      path: validateGatewayPath(file, `${entryWhere}.path`, entry.path),
       target: validateReferenceable(file, `${entryWhere}.target`, entry.target),
     };
   });
@@ -670,11 +715,19 @@ function validateGateway(
   base: NetworkingEntryBase,
   raw: Record<string, unknown>,
 ): Gateway {
+  const tls = raw.tls;
+  if (tls !== undefined && tls !== "internal" && tls !== "automatic") {
+    fail(
+      file,
+      `${where}.tls must be "internal" or "automatic", got ${JSON.stringify(tls)}.`,
+    );
+  }
   return {
     class: base.cls,
     network: base.network,
     overrides: base.overrides,
     type: "gateway",
+    tls,
     routes: validateGatewayRoutes(file, `${where}.routes`, raw.routes),
   };
 }
@@ -733,16 +786,26 @@ function validateSecretEntry(
   where: string,
   raw: unknown,
 ): Secret {
-  if (!isRecord(raw)) fail(file, `${where} must be a mapping.`);
-  if (raw.type !== "secret") {
+  // The `secrets` group already fixes the kind, so an entry needs no `type`
+  // and a file-sourced secret may be declared bare (`name:` with no fields).
+  if (raw === null || raw === undefined) return { type: "secret" };
+  if (!isRecord(raw)) {
+    fail(file, `${where} must be a mapping, or empty.`);
+  }
+  if (raw.type !== undefined && raw.type !== "secret") {
+    fail(file, `${where}.type, if given, must be "secret" — a "secrets" entry needs no type.`);
+  }
+  const source = raw.source;
+  if (source !== undefined && source !== "file" && source !== "environment") {
     fail(
       file,
-      `${where}.type must be "secret", got ${JSON.stringify(raw.type)}.`,
+      `${where}.source must be "file" or "environment", got ${JSON.stringify(source)}.`,
     );
   }
   return {
     type: "secret",
     class: optionalString(file, `${where}.class`, raw.class),
+    source,
     overrides: validateOverrides(file, `${where}.overrides`, raw.overrides),
   };
 }
@@ -767,12 +830,14 @@ function validateVariableEntry(
   where: string,
   raw: unknown,
 ): Variable {
-  if (!isRecord(raw)) fail(file, `${where} must be a mapping.`);
-  if (raw.type !== "variable") {
-    fail(
-      file,
-      `${where}.type must be "variable", got ${JSON.stringify(raw.type)}.`,
-    );
+  // The `variables` group already fixes the kind, so an entry needs no
+  // `type` and may be declared bare (`name:` with no fields at all).
+  if (raw === null || raw === undefined) return { type: "variable" };
+  if (!isRecord(raw)) {
+    fail(file, `${where} must be a mapping, or empty.`);
+  }
+  if (raw.type !== undefined && raw.type !== "variable") {
+    fail(file, `${where}.type, if given, must be "variable" — a "variables" entry needs no type.`);
   }
   return {
     type: "variable",

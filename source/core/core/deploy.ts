@@ -1,5 +1,6 @@
 import { join } from "@std/path";
 import { ensureDir, exists } from "@std/fs";
+import { load as loadEnv } from "@std/dotenv";
 import * as KitSdk from "@ensemble/kit-sdk";
 import { findRepoRoot } from "./repo.ts";
 import { runBuild } from "./build.ts";
@@ -45,6 +46,20 @@ export async function runDeploy(
     throw new Error(`Delivery manifest not found at ${manifestPath}`);
   }
 
+  // A deploy kit reads the manifest's variables/secrets straight from
+  // Deno.env (it runs in-process, not as a subprocess handed an env), so a
+  // per-delivery env file has to land in Deno.env before the kit runs. It
+  // lives alongside the manifest (ci/<name>/delivery.env) — the delivery's
+  // own folder, the same place its db init and scripts live. It's a source
+  // of DEFAULTS: an already-set process env var wins (so a pipeline exporting
+  // real per-environment values is never clobbered by a committed dev file),
+  // which is why each key is set only when absent rather than exported over.
+  const envFile = join(repoRoot, "ci", name, "delivery.env");
+  const fileVars = await loadEnv({ envPath: envFile, export: false });
+  for (const [key, value] of Object.entries(fileVars)) {
+    if (Deno.env.get(key) === undefined) Deno.env.set(key, value);
+  }
+
   const kitEntry = join(
     repoRoot,
     ".ensemble",
@@ -79,6 +94,7 @@ export async function runDeploy(
   };
   const ctx: KitSdk.Deploy.KitContext = {
     name,
+    repoRoot,
     volumePath: resolveDeployVolume(volumePath),
     artifactsPath: join(workspace, "artifacts"),
   };

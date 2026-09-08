@@ -36,6 +36,8 @@ export interface KitRunOptions {
 export interface KitContext {
   /** The deployment's name — the `ci/<name>/` folder `ens deploy <name>` resolved this run from. A kit uses it to name whatever its target scopes by deployment (e.g. the compose kit's project name), instead of a generic hardcoded label. */
   name: string;
+  /** The repository root — so a kit can resolve a repo-relative path a manifest declares (e.g. a database's `init` SQL files) to an absolute one for a host bind-mount. */
+  repoRoot: string;
   volumePath: string;
   artifactsPath: string;
 }

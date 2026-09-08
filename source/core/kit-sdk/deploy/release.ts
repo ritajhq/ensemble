@@ -18,21 +18,24 @@
  * Where and under what name a released ship is published. `target` and `name`
  * are the only reserved keys; every other property in the `publish:` block is
  * a publish option collected into `options` and handed to the pack kit's
- * `publish.ts`, which defines what each option means (e.g. the docker kit
- * reads `registry`, the github kit reads `repo`).
+ * `publish.ts`, which defines what each option means (e.g. the github kit
+ * reads `repo`).
  */
 export interface PublishSpec {
   /** Which of the pack kit's declared publish targets (its `kit.yml` `publish:` map) to push through, e.g. "github" or "push". */
   target: string;
   /**
    * The name to publish the artifact under — how each kit uses it is
-   * kit-owned: the docker kit treats it as the remote image name (appending
-   * the release version as a tag), the deno.compile/github kit as the
-   * uploaded release asset's filename. Omitted falls back to the ship's
+   * kit-owned: the docker kit treats it as the FULL remote image reference
+   * (host/path included, e.g. "registry.example.com/team/app"), pushing it
+   * verbatim with the release version as a tag; the deno.compile/github kit as
+   * the uploaded release asset's filename. For docker this is also the image a
+   * production deploy resolves `${release.<ship>.image}` to — so publisher and
+   * deployer agree by construction. Omitted falls back to the ship's
    * `outputName`, then its name.
    */
   name?: string;
-  /** Every `publish:` property other than `target`/`name`, passed through to the kit's `publish.ts` (e.g. `registry`, `repo`). */
+  /** Every `publish:` property other than `target`/`name`, passed through to the kit's `publish.ts` (e.g. github's `repo`). */
   options: Record<string, string>;
 }
 

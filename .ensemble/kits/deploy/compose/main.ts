@@ -1,4 +1,4 @@
-import { join } from "@std/path";
+import { basename, dirname, join } from "@std/path";
 import { ensureDir, exists } from "@std/fs";
 import { stringify as stringifyYaml } from "@std/yaml";
 import { $ } from "@david/dax";
@@ -36,13 +36,32 @@ function resolveReferenceable(
   return outputs.get(`${value.category}.${value.name}`)?.[value.output];
 }
 
-/** The literal Docker image tag a `release` entry resolves to for `version` — `<outputName ?? name>:<version>`, matching `ens pack`'s own default tagging convention (name defaults to the ship name, see pack-context.ts's `outputName`). */
+/**
+ * The Docker image a `release` entry resolves to for `version`, by mode:
+ *
+ * - **development** (`ens develop`) — the LOCAL packed tag
+ *   `<outputName ?? name>:<version>`, matching `ens pack`'s own default tagging
+ *   convention. This is the image the dev loop just built.
+ * - **production** (a real `ens deploy`) — the PUBLISHED reference the workload
+ *   declared, `<publish.name>:<version>`, read verbatim: the deploy kit invents
+ *   no registry convention, since the author wires `publish.name` to the full
+ *   pushed reference (e.g. `registry.example.com/team/app`). A production entry
+ *   whose compute is referenced but which declares no `publish.name` is an
+ *   error — there's nothing to run — surfaced by the caller.
+ */
 function releaseImageTag(
   name: string,
   entry: KitSdk.Deploy.Release,
   version: string,
+  development: boolean,
 ): string {
-  return `${entry.outputName ?? name}:${version}`;
+  if (development) return `${entry.outputName ?? name}:${version}`;
+  if (!entry.publish?.name) {
+    throw new Error(
+      `release "${name}" is referenced by a production deploy but declares no publish.name — set publish.name to the full published image reference (the deploy resolves \`\${release.${name}.image}\` to it), or use \`ens develop\` to run the locally packed image.`,
+    );
+  }
+  return `${entry.publish.name}:${version}`;
 }
 
 /** Resolves `spec`'s `env` (each value a literal or a `${category.name.output}` Reference) into plain strings, using `outputs` from every already-resolved entry. */
@@ -107,6 +126,7 @@ function translateContainerCompute(
   artifactsPath: string,
   doc: ComposeDocument,
   development: boolean,
+  publishPorts: boolean,
 ): ComposeService {
   const service: ComposeService = {
     image: resolveReferenceable(spec.image, outputs)!,
@@ -119,8 +139,12 @@ function translateContainerCompute(
   const networks = resolveServiceNetworks(spec.network, outputs, doc, development);
   if (networks) service.networks = networks;
 
+  // A compute fronted by a gateway is reached through it over the internal
+  // network, so it isn't host-published — its ports stay listen-only (still
+  // driving PORT env and its `${compute.<name>.http}` target). Only the
+  // gateway (and any un-fronted service) is a host entry point.
   const portValues = Object.values(spec.ports ?? {});
-  if (portValues.length > 0) {
+  if (publishPorts && portValues.length > 0) {
     service.ports = portValues.map((port) => `${port}:${port}`);
   }
   if (spec.health) {
@@ -173,18 +197,39 @@ function translateContainerCompute(
   return service;
 }
 
-/** Walks `batches`, translating every entry into the shared `ComposeDocument`, threading each entry's output into `outputs` for downstream entries/compute to consume. Returns the Caddyfiles keyed by service name for any `cdn`/`load-balancer` entries. */
+/** Every compute entry named as a gateway route's target — i.e. reached through the gateway, so it isn't host-published (see translateContainerCompute's `publishPorts`). */
+function gatewayTargetComputeNames(
+  workload: KitSdk.Deploy.Workload,
+): Set<string> {
+  const names = new Set<string>();
+  for (const net of Object.values(workload.networking ?? {})) {
+    if (net.type !== "gateway") continue;
+    for (const route of net.routes) {
+      if (
+        KitSdk.Deploy.isReference(route.target) &&
+        route.target.category === "compute"
+      ) {
+        names.add(route.target.name);
+      }
+    }
+  }
+  return names;
+}
+
+/** Walks `batches`, translating every entry into the shared `ComposeDocument`, threading each entry's output into `outputs` for downstream entries/compute to consume. Returns the config files (Caddyfiles, garage.toml) keyed by volume-relative path. */
 function buildComposeDocument(
   workload: KitSdk.Deploy.Workload,
   batches: KitSdk.Deploy.BatchEntry[][],
   projectName: string,
+  repoRoot: string,
   artifactsPath: string,
   version: string,
   development: boolean,
-): { doc: ComposeDocument; caddyfiles: Map<string, string> } {
+): { doc: ComposeDocument; configFiles: Map<string, string> } {
   const doc = newComposeDocument(projectName);
   const outputs = new Map<string, Record<string, string>>();
-  const caddyfiles = new Map<string, string>();
+  const configFiles = new Map<string, string>();
+  const gatewayTargets = gatewayTargetComputeNames(workload);
 
   for (const batch of batches) {
     for (const entry of batch) {
@@ -205,6 +250,7 @@ function buildComposeDocument(
           artifactsPath,
           doc,
           development,
+          !gatewayTargets.has(entry.name),
         );
         outputs.set(
           `compute.${entry.name}`,
@@ -219,18 +265,42 @@ function buildComposeDocument(
 
       if (entry.category === "databases") {
         const spec = workload.databases![entry.name];
-        const { service, output } = translateDatabase(entry.name, spec);
+        const relationalInputs = spec.type === "relational"
+          ? {
+            user: resolveReferenceable(spec.user ?? "ensemble", outputs) ??
+              "ensemble",
+            database:
+              resolveReferenceable(spec.database ?? entry.name, outputs) ??
+                entry.name,
+            passwordSecret: spec.passwordSecret,
+            initMounts: (spec.init ?? []).map((path) =>
+              `${
+                join(repoRoot, path)
+              }:/docker-entrypoint-initdb.d/${basename(path)}:ro`
+            ),
+          }
+          : undefined;
+        const { service, output } = translateDatabase(
+          entry.name,
+          spec,
+          relationalInputs,
+        );
         doc.services[entry.name] = service;
         outputs.set(`databases.${entry.name}`, output);
       }
 
       if (entry.category === "storage") {
         const spec = workload.storage![entry.name];
-        const { service, output } = translateStorage(entry.name, spec);
+        const { service, output, config } = translateStorage(entry.name, spec);
         if (spec.type === "file-storage") {
           ensureVolumeDeclared(doc, entry.name);
         } else if (service) {
           doc.services[entry.name] = service;
+          // object-storage (Garage) keeps its meta+data on named volumes so
+          // its one-off bootstrap (buckets/keys) survives `down`.
+          ensureVolumeDeclared(doc, `${entry.name}-meta`);
+          ensureVolumeDeclared(doc, `${entry.name}-data`);
+          if (config) configFiles.set(`garage/${entry.name}.toml`, config);
         }
         outputs.set(`storage.${entry.name}`, output);
       }
@@ -249,8 +319,10 @@ function buildComposeDocument(
           : undefined;
         const routeTargets = spec.type === "gateway"
           ? spec.routes.map((route) => ({
-            path: route.path,
+            host: route.host,
+            match: route.path.match,
             target: resolveReferenceable(route.target, outputs),
+            strip: route.path.strip,
           }))
           : undefined;
         const { service, caddyfile, output } = translateNetworking(
@@ -272,7 +344,7 @@ function buildComposeDocument(
           }
         }
         if (caddyfile) {
-          caddyfiles.set(entry.name, caddyfile);
+          configFiles.set(`caddy/${entry.name}.Caddyfile`, caddyfile);
           service!.volumes = [
             ...(service!.volumes ?? []),
             `./caddy/${entry.name}.Caddyfile:/etc/caddy/Caddyfile:ro`,
@@ -290,7 +362,14 @@ function buildComposeDocument(
       if (entry.category === "secrets") {
         const spec = workload.secrets![entry.name];
         const { output } = translateSecret(entry.name, spec);
-        doc.secrets[entry.name] = { file: `./secrets/${entry.name}` };
+        // An env-sourced secret's value is read by Compose itself from the
+        // env var named after the secret (presence guaranteed by
+        // requireSecrets); a file-sourced one from a local file the pipeline
+        // placed. Either way it reaches a service only as a mounted file at
+        // ${secrets.<name>.path} — never as a plain container env var.
+        doc.secrets[entry.name] = spec.source === "environment"
+          ? { environment: entry.name }
+          : { file: `./secrets/${entry.name}` };
         outputs.set(`secrets.${entry.name}`, output);
       }
 
@@ -303,13 +382,13 @@ function buildComposeDocument(
       if (entry.category === "release") {
         const spec = workload.release![entry.name];
         outputs.set(`release.${entry.name}`, {
-          image: releaseImageTag(entry.name, spec, version),
+          image: releaseImageTag(entry.name, spec, version, development),
         });
       }
     }
   }
 
-  return { doc, caddyfiles };
+  return { doc, configFiles };
 }
 
 /**
@@ -332,12 +411,26 @@ function requireVariables(workload: KitSdk.Deploy.Workload): void {
   }
 }
 
-/** Fails clearly (rather than silently proceeding) if any declared `secrets` entry has no corresponding file under `<volumePath>/secrets/`. */
-async function requireSecretFiles(
+/**
+ * Fails clearly (rather than silently proceeding) if any declared `secrets`
+ * entry has no value where its `source` says to find it: a file-sourced
+ * secret needs a file under `<volumePath>/secrets/`; an env-sourced one needs
+ * the env var named after it set in the deploy process's environment (which
+ * Compose itself reads at `up` time). Placing either is the pipeline's job.
+ */
+async function requireSecrets(
   workload: KitSdk.Deploy.Workload,
   volumePath: string,
 ): Promise<void> {
-  for (const name of Object.keys(workload.secrets ?? {})) {
+  for (const [name, spec] of Object.entries(workload.secrets ?? {})) {
+    if (spec.source === "environment") {
+      if (Deno.env.get(name) === undefined) {
+        throw new Error(
+          `Secret "${name}" is declared (source: environment) but env var "${name}" isn't set — export it before running ens deploy.`,
+        );
+      }
+      continue;
+    }
     const path = join(volumePath, "secrets", name);
     if (!await exists(path, { isFile: true })) {
       throw new Error(
@@ -353,7 +446,9 @@ async function requireSecretFiles(
  * stale image under the same tag) if any container compute entry's `image`
  * is a `${release.<name>...}` reference whose resolved tag isn't present in
  * the local image store — i.e. `ens pack` hasn't been run yet for that
- * version.
+ * version. Development-only: a production deploy resolves computes to their
+ * published references and lets the target pull them, so there's no local
+ * image to require.
  */
 async function requireReleaseImages(
   workload: KitSdk.Deploy.Workload,
@@ -371,7 +466,9 @@ async function requireReleaseImages(
     const releaseName = compute.image.name;
     const entry = workload.release?.[releaseName];
     if (!entry) continue; // buildBatches' validateReferences already caught a truly dangling reference
-    const tag = releaseImageTag(releaseName, entry, version);
+    // This gate only runs for development deploys (see call site), where the
+    // image is the local packed tag — so resolve it in development mode.
+    const tag = releaseImageTag(releaseName, entry, version, true);
     const result = await $`docker image inspect ${tag}`.quiet().noThrow();
     if (result.code !== 0) {
       const packCmd = `ens pack ${releaseName} ${entry.kit}${
@@ -392,13 +489,20 @@ const kit = new KitSdk.Deploy.Kit();
 kit.Configure(
   async (workload, batches, options, ctx) => {
     requireVariables(workload);
-    await requireSecretFiles(workload, ctx.volumePath);
-    await requireReleaseImages(workload, options.version);
+    await requireSecrets(workload, ctx.volumePath);
+    // Only a development deploy runs the locally packed image, so only then
+    // does it make sense to require that image to exist locally. A production
+    // deploy resolves computes to their published references and lets the
+    // target pull them — ens does not gate on the local store.
+    if (options.development) {
+      await requireReleaseImages(workload, options.version);
+    }
 
-    const { doc, caddyfiles } = buildComposeDocument(
+    const { doc, configFiles } = buildComposeDocument(
       workload,
       batches,
       ctx.name,
+      ctx.repoRoot,
       ctx.artifactsPath,
       options.version,
       options.development,
@@ -409,14 +513,13 @@ kit.Configure(
       stringifyYaml(doc as unknown as Record<string, unknown>),
     );
 
-    if (caddyfiles.size > 0) {
-      await ensureDir(join(ctx.volumePath, "caddy"));
-      for (const [name, content] of caddyfiles) {
-        await Deno.writeTextFile(
-          join(ctx.volumePath, "caddy", `${name}.Caddyfile`),
-          content,
-        );
-      }
+    // Each key is a volume-relative path (e.g. "caddy/gw.Caddyfile",
+    // "garage/store.toml") a service bind-mounts — written here alongside the
+    // compose file.
+    for (const [relPath, content] of configFiles) {
+      const abs = join(ctx.volumePath, relPath);
+      await ensureDir(dirname(abs));
+      await Deno.writeTextFile(abs, content);
     }
 
     const watchArgs = options.watch ? ["--watch"] : ["-d"];

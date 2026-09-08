@@ -124,6 +124,24 @@ function networkingReferences(
   return refs;
 }
 
+/** Every `Reference` a relational database entry's reference-capable fields (`user`, `database`) declare, alongside the entry that declared it and which field it came from (for error messages). */
+function databaseReferences(
+  workload: Workload,
+): { from: EntryId; field: string; ref: Reference }[] {
+  const refs: { from: EntryId; field: string; ref: Reference }[] = [];
+  for (const [name, db] of Object.entries(workload.databases ?? {})) {
+    if (db.type !== "relational") continue;
+    const from: EntryId = { category: "databases", name };
+    if (db.user && isReference(db.user)) {
+      refs.push({ from, field: "user", ref: db.user });
+    }
+    if (db.database && isReference(db.database)) {
+      refs.push({ from, field: "database", ref: db.database });
+    }
+  }
+  return refs;
+}
+
 /** Every `(where, Reference)` pair declared anywhere in `workload`, for error messages that name the field a bad reference came from. */
 function allReferencesWithLocation(
   workload: Workload,
@@ -132,7 +150,12 @@ function allReferencesWithLocation(
     where: `${from.category}.${from.name}.${field}`,
     ref,
   }));
-  for (const { from, field, ref } of networkingReferences(workload)) {
+  for (
+    const { from, field, ref } of [
+      ...networkingReferences(workload),
+      ...databaseReferences(workload),
+    ]
+  ) {
     refs.push({ where: `${from.category}.${from.name}.${field}`, ref });
   }
   return refs;
@@ -181,6 +204,16 @@ export function validateReferences(file: string, workload: Workload): void {
       );
     }
   }
+
+  const secretNames = new Set(Object.keys(workload.secrets ?? {}));
+  for (const [name, db] of Object.entries(workload.databases ?? {})) {
+    if (db.type !== "relational" || !db.passwordSecret) continue;
+    if (!secretNames.has(db.passwordSecret)) {
+      throw new WorkloadReferenceError(
+        `${file}: databases.${name}.passwordSecret references secret "${db.passwordSecret}", but no secrets entry named "${db.passwordSecret}" is declared.`,
+      );
+    }
+  }
 }
 
 /**
@@ -205,10 +238,13 @@ export function buildBatches(file: string, workload: Workload): BatchEntry[][] {
   const dependencies = new Map<string, Set<string>>();
   for (const entry of entries) dependencies.set(entryKey(entry), new Set());
 
-  for (const { from, ref } of networkingReferences(workload)) {
-    dependencies.get(entryKey(from))!.add(entryKey(ref));
-  }
-  for (const { from, ref } of computeReferences(workload)) {
+  for (
+    const { from, ref } of [
+      ...networkingReferences(workload),
+      ...databaseReferences(workload),
+      ...computeReferences(workload),
+    ]
+  ) {
     dependencies.get(entryKey(from))!.add(entryKey(ref));
   }
 
