@@ -1,3 +1,12 @@
+## [0.1.0] - 2026-09-08
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.0.12
+
+### 💼 Other
+
+- Save delivery output
 ## [0.0.11] - 2026-09-06
 
 ### 🚀 Features
