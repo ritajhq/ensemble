@@ -18,7 +18,7 @@ import type {
   Vm,
   Volume,
 } from "./compute.ts";
-import type { Database } from "./databases.ts";
+import type { Database, KeySchema } from "./databases.ts";
 import type {
   Cdn,
   Dns,
@@ -516,6 +516,23 @@ function validateStorage(
   return storage;
 }
 
+function validateKeySchema(
+  file: string,
+  where: string,
+  raw: unknown,
+): KeySchema | undefined {
+  if (raw === undefined) return undefined;
+  if (!isRecord(raw)) fail(file, `${where} must be a mapping with a "partition" (and optional "sort").`);
+  const partition = raw.partition;
+  if (typeof partition !== "string" || partition.length === 0) {
+    fail(file, `${where}.partition is required and must be a non-empty attribute name.`);
+  }
+  return {
+    partition: partition as string,
+    sort: optionalString(file, `${where}.sort`, raw.sort),
+  };
+}
+
 function validateDatabaseEntry(
   file: string,
   where: string,
@@ -547,7 +564,10 @@ function validateDatabaseEntry(
       init: init as string[] | undefined,
     };
   }
-  if (type === "key-value" || type === "document" || type === "cache") {
+  if (type === "key-value") {
+    return { ...base, type, keySchema: validateKeySchema(file, `${where}.keySchema`, raw.keySchema) };
+  }
+  if (type === "document" || type === "cache") {
     return { ...base, type };
   }
   fail(

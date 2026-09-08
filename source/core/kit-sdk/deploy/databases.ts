@@ -35,13 +35,32 @@ export interface Relational extends DatabaseBase {
 }
 
 /**
+ * How a key-value entry partitions and orders its items, in store-agnostic
+ * terms: `partition` is the attribute items are grouped/sharded by (DynamoDB's
+ * partition key, Cassandra's partition key, Bigtable's row key, Cosmos DB's
+ * partition key), and the optional `sort` orders items within a partition
+ * (DynamoDB's sort key, Cassandra's clustering column). Both name an attribute;
+ * a target's own provisioning specifics — DynamoDB attribute types, billing
+ * mode, secondary indexes — are that kit's concern (via `overrides`), not part
+ * of this portable shape.
+ */
+export interface KeySchema {
+  partition: string;
+  sort?: string;
+}
+
+/**
  * Deliberately the SAFE PORTABLE SUBSET only — put/get/delete/scan-by-prefix.
  * Does NOT attempt to unify DynamoDB's full data model (secondary indexes,
  * batch ops, conditional writes, single-table design) — a workload needing
- * those isn't fully served by this abstraction. See taxonomy doc.
+ * those isn't fully served by this abstraction. See taxonomy doc. A kit that
+ * provisions the store (e.g. the `aws` kit creating a DynamoDB table) reads
+ * `keySchema`; a kit that runs a local KV server (e.g. compose → valkey) may
+ * ignore it.
  */
 export interface KeyValue extends DatabaseBase {
   type: "key-value";
+  keySchema?: KeySchema;
 }
 
 /** Query/filter by field, indexes (MongoDB Atlas, Firestore, Cosmos DB SQL API, DynamoDB used document-style). Kept separate from KeyValue since this capability can't be satisfied by a KV-only local fallback. */
