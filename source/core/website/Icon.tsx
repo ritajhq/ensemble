@@ -62,6 +62,34 @@ export function ExternalLinkIcon({ className }: IconProps) {
   );
 }
 
+/** A left-pointing chevron, for stepping to the previous item in a sequence. */
+export function ChevronLeftIcon({ className }: IconProps) {
+  return (
+    <svg {...ICON_PROPS} className={className} aria-hidden="true">
+      <path d="M15 6l-6 6 6 6" />
+    </svg>
+  );
+}
+
+/** A right-pointing chevron, for stepping to the next item in a sequence. */
+export function ChevronRightIcon({ className }: IconProps) {
+  return (
+    <svg {...ICON_PROPS} className={className} aria-hidden="true">
+      <path d="M9 6l6 6-6 6" />
+    </svg>
+  );
+}
+
+/** A circular arrow, for replaying a sequence from the start. */
+export function ReplayIcon({ className }: IconProps) {
+  return (
+    <svg {...ICON_PROPS} className={className} aria-hidden="true">
+      <path d="M4 12a8 8 0 1 1 2.343 5.657" />
+      <path d="M4 17v-5h5" />
+    </svg>
+  );
+}
+
 /** The GitHub mark, for a compact icon-only link next to the primary CTA. */
 export function GitHubMarkIcon({ className }: IconProps) {
   return (

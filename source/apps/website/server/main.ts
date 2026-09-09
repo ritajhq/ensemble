@@ -3,7 +3,12 @@ import { createElement } from "react";
 import { renderToString } from "react-dom/server";
 import * as Website from "@ensemble/website";
 import { ENSEMBLE_LOGO_PNG_BASE64 } from "./ensemble-logo.ts";
-import { GEIST_MONO_WOFF2_BASE64, GEIST_SANS_WOFF2_BASE64 } from "./fonts.ts";
+import {
+  GEIST_MONO_WOFF2_BASE64,
+  GEIST_SANS_WOFF2_BASE64,
+  LIBRE_CASLON_TEXT_BOLD_WOFF2_BASE64,
+  LIBRE_CASLON_TEXT_REGULAR_WOFF2_BASE64,
+} from "./fonts.ts";
 
 const PAGE_TITLE = "Ensemble — one workspace, one CLI, source to deployment";
 const PAGE_DESCRIPTION =
@@ -23,6 +28,8 @@ function decodeBase64(base64: string): Uint8Array {
 const logoBytes = decodeBase64(ENSEMBLE_LOGO_PNG_BASE64);
 const geistSansBytes = decodeBase64(GEIST_SANS_WOFF2_BASE64);
 const geistMonoBytes = decodeBase64(GEIST_MONO_WOFF2_BASE64);
+const libreCaslonRegularBytes = decodeBase64(LIBRE_CASLON_TEXT_REGULAR_WOFF2_BASE64);
+const libreCaslonBoldBytes = decodeBase64(LIBRE_CASLON_TEXT_BOLD_WOFF2_BASE64);
 
 const STATIC_ASSETS: Record<string, { contentType: string; body: () => Promise<Uint8Array> | Uint8Array }> = {
   "/main.js": {
@@ -44,6 +51,14 @@ const STATIC_ASSETS: Record<string, { contentType: string; body: () => Promise<U
   "/fonts/geist-mono.woff2": {
     contentType: "font/woff2",
     body: () => geistMonoBytes,
+  },
+  "/fonts/libre-caslon-text-regular.woff2": {
+    contentType: "font/woff2",
+    body: () => libreCaslonRegularBytes,
+  },
+  "/fonts/libre-caslon-text-bold.woff2": {
+    contentType: "font/woff2",
+    body: () => libreCaslonBoldBytes,
   },
 };
 

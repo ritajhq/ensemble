@@ -19,7 +19,7 @@ export function InstallCommand() {
 
       <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 font-mono text-sm text-slate-700">
         <span className="select-none text-blue-600">$</span>
-        <code className="flex-1 overflow-x-auto whitespace-pre">{INSTALL_COMMAND}</code>
+        <code className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{INSTALL_COMMAND}</code>
         <button
           type="button"
           onClick={copyCommand}

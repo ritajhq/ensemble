@@ -2136,6 +2136,12 @@
           "jsr:@std/path@1.1.6"
         ]
       },
+      ".ensemble/kits/deploy/aws": {
+        "dependencies": [
+          "jsr:@david/dax@0.42.0",
+          "jsr:@ensemble/kit-sdk@*"
+        ]
+      },
       ".ensemble/kits/deploy/compose": {
         "dependencies": [
           "jsr:@david/dax@0.42.0",
