@@ -120,23 +120,39 @@ export function CliTabs() {
           </ol>
 
           <div>
-            <div className="overflow-x-auto rounded-xl bg-slate-900 shadow-sm">
-              <div className="flex items-center justify-between border-b border-white/10 px-4 py-2.5">
+            <div className="overflow-x-auto rounded-xl border border-term-border bg-term-bg shadow-sm">
+              <div className="flex items-center justify-between border-b border-term-border px-4 py-2.5">
                 <div className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full bg-white/20" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-white/20" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-white/20" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-term-red" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-term-yellow" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-term-green" />
                 </div>
-                <span className="font-mono text-xs text-slate-500">
+                <span className="font-mono text-xs text-term-muted">
                   {String(activeIndex + 1).padStart(2, "0")} / {String(STEPS.length).padStart(2, "0")}
                 </span>
               </div>
+
+              <div
+                aria-hidden="true"
+                className="flex w-max min-w-full items-stretch gap-3 border-b border-term-border px-4 font-mono text-[11px] tracking-wide whitespace-nowrap uppercase sm:gap-5"
+              >
+                <span className="flex items-center py-2 text-term-muted">Problems</span>
+                <span className="flex items-center py-2 text-term-muted">Output</span>
+                <span className="flex items-center py-2 text-term-muted">Debug Console</span>
+                <span className="-mb-px flex items-center border-b border-term-accent py-2 text-term-fg">
+                  Terminal
+                </span>
+              </div>
+
               <div className="p-5 font-mono text-sm">
-                <div className="flex items-center gap-2 text-blue-400">
-                  <span className="select-none">$</span>
-                  <span className="whitespace-pre">{active.command}</span>
+                <div className="flex items-center gap-2">
+                  <span className="select-none text-term-green">$</span>
+                  <span className="flex items-center whitespace-pre text-term-fg">
+                    {active.command}
+                    <span className="ml-1.5 h-4 w-2 animate-[cli-step-cursor_1.1s_step-end_infinite] bg-term-fg" />
+                  </span>
                 </div>
-                <div className="mt-2 whitespace-pre text-slate-400">{active.output}</div>
+                <div className="mt-2 whitespace-pre text-term-muted">{active.output}</div>
               </div>
             </div>
 

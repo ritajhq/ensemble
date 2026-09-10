@@ -1,6 +1,11 @@
 @import "tailwindcss";
 @source "../../../core/website";
 
+/* Makes `dark:` mean "inside .dark" rather than the OS preference, so the
+   site's future light/dark switch can flip one class on <html>. Nothing sets
+   it yet — see the terminal palette below for the first consumer. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @font-face {
   font-family: "Geist";
   src: url("/fonts/geist-sans.woff2") format("woff2");
@@ -47,16 +52,67 @@
   --color-blue-600: #0084d1;
   --color-blue-700: #006ba8;
 
-  /* Hero section background: a soft diagonal mesh — sage glow top-left, sky
-     glow top-right, fading to white toward the bottom (see .bg-hero-mesh). */
+  /* Page-edge backgrounds: a soft diagonal mesh — sage glow on the left, sky glow
+     on the right. The hero anchors it to the top edge (.bg-hero-mesh) and the
+     footer mirrors it to the bottom edge (.bg-footer-mesh). */
   --color-sage: #e9ecd9;
   --color-sky: #c8ecf2;
+}
+
+/* The terminal card in sections/CliTabs.tsx wears the VS Code "Vitesse" theme
+   (antfu/vscode-theme-vitesse). Both of its palettes live here so the card can
+   follow a light/dark switch later: the light one is what the light site paints
+   with today, and `.dark` — which the switch will set — swaps the same slots to
+   the dark one. Each slot names the theme key it comes from, and the theme's
+   alpha suffixes are flattened to opaque values. */
+:root {
+  --term-bg: #ffffff; /* panel.background */
+  --term-border: #f0f0f0; /* panel.border */
+  --term-fg: #393a34; /* editor.foreground */
+  --term-muted: #6a737d; /* panelTitle.inactiveForeground */
+  --term-red: #ab5959; /* terminal.ansiRed */
+  --term-yellow: #bda437; /* terminal.ansiYellow */
+  --term-green: #1e754f; /* terminal.ansiGreen */
+  --term-accent: #1c6b48; /* panelTitle.activeBorder */
+}
+
+.dark {
+  --term-bg: #121212;
+  --term-border: #191919;
+  --term-fg: #dbd7ca;
+  --term-muted: #959da5;
+  --term-red: #cb7676;
+  --term-yellow: #e6cc77;
+  --term-green: #4d9375;
+  --term-accent: #4d9375;
+}
+
+/* `inline` keeps the generated utilities pointing straight at the --term-*
+   slots above, so they re-resolve wherever `.dark` swaps them. */
+@theme inline {
+  --color-term-bg: var(--term-bg);
+  --color-term-border: var(--term-border);
+  --color-term-fg: var(--term-fg);
+  --color-term-muted: var(--term-muted);
+  --color-term-red: var(--term-red);
+  --color-term-yellow: var(--term-yellow);
+  --color-term-green: var(--term-green);
+  --color-term-accent: var(--term-accent);
 }
 
 .bg-hero-mesh {
   background:
     radial-gradient(ellipse 70% 55% at 0% 0%, var(--color-sage), transparent),
     radial-gradient(ellipse 70% 55% at 100% 0%, var(--color-sky), transparent),
+    #ffffff;
+}
+
+/* The same mesh as .bg-hero-mesh, mirrored so the glows are anchored to the bottom
+   edge and fade to white upward — the page closes the way it opens. */
+.bg-footer-mesh {
+  background:
+    radial-gradient(ellipse 70% 55% at 0% 100%, var(--color-sage), transparent),
+    radial-gradient(ellipse 70% 55% at 100% 100%, var(--color-sky), transparent),
     #ffffff;
 }
 
@@ -67,5 +123,17 @@
   }
   to {
     width: 100%;
+  }
+}
+
+/* Blinks the block cursor trailing the active command in sections/CliTabs.tsx. */
+@keyframes cli-step-cursor {
+  0%,
+  49.9% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
   }
 }

@@ -26,9 +26,8 @@ export function Hero() {
         <div className="flex items-center gap-5">
           <a
             href={`${GITHUB_URL}#readme`}
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 transition hover:text-blue-600"
+            className="text-sm font-medium text-slate-600 transition hover:text-blue-600"
           >
-            <DocsIcon className="h-4 w-4" />
             Documentation
           </a>
           <a
