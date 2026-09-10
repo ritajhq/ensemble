@@ -4,6 +4,8 @@ import { ChevronLeftIcon, ChevronRightIcon, ReplayIcon } from "../Icon.tsx";
 
 interface CliStep {
   name: string;
+  /** Tailwind text colour for the command, mirroring the verb it echoes in the hero title. */
+  color: string;
   description: string;
   command: string;
   output: string;
@@ -12,31 +14,41 @@ interface CliStep {
 const STEPS: CliStep[] = [
   {
     name: "Build",
-    description: "Builds an app through its configured build kit — a plain TS service, a React SPA, whatever comes next.",
+    color: "text-blue-600",
+    description:
+      "Builds an app through its configured build kit — a plain TS service, a React SPA, whatever comes next.",
     command: "ens build web -m production",
     output: "built web",
   },
   {
     name: "Pack",
-    description: "Packs a built app into a deployable artifact: a Docker image, an OCI tarball, or a compiled binary.",
+    color: "text-emerald-600",
+    description:
+      "Packs a built app into a deployable artifact: a Docker image, an OCI tarball, or a compiled binary.",
     command: "ens pack web docker",
     output: "packed web → my-web-image:latest",
   },
   {
-    name: "Workflow",
-    description: "Runs a YAML-defined job DAG — dependencies, conditionals, matrix strategies — locally or on a remote server.",
-    command: "ens workflow deploy -j build",
-    output: "resolved 2 jobs → running build",
+    name: "Deploy",
+    color: "text-amber-600",
+    description:
+      "Runs a declared workload through the deploy kit you name: brings it up, or reconciles it to its declared state.",
+    command: "ens deploy web compose",
+    output: "deployed web → 3 services up",
   },
   {
     name: "Release",
-    description: "Computes, creates, or undoes a semver release tag, with dry-run previews instead of eyeballing git history.",
+    color: "text-yellow-600",
+    description:
+      "Computes, creates, or undoes a semver release tag, with dry-run previews instead of eyeballing git history.",
     command: "ens release next patch --dry-run",
     output: "next: v1.4.2 (from v1.4.1)",
   },
   {
-    name: "Deploy",
-    description: "Brings a declared workload up locally for development, or reconciles it to its declared state in production.",
+    name: "Develop",
+    color: "text-violet-600",
+    description:
+      "Brings the same workload up locally: always watching for source changes, and treating external resources as conveniences it can create itself.",
     command: "ens develop web",
     output: "Listening on http://localhost:8000",
   },
@@ -77,7 +89,8 @@ export function CliTabs() {
           One CLI for the whole workflow
         </h2>
         <p className="mx-auto mt-3 max-w-xl text-center text-base leading-relaxed text-slate-600">
-          Build, pack, release, and deploy — every step is a command carefully designed.
+          Build, pack, release, and deploy — every step is a command carefully
+          designed.
         </p>
 
         <div className="mt-12 grid grid-cols-1 gap-8 lg:grid-cols-2 lg:items-center">
@@ -89,19 +102,33 @@ export function CliTabs() {
                   <button
                     type="button"
                     onClick={() => goTo(index)}
-                    className={`w-full rounded-lg px-4 py-3 text-left transition ${isActive ? "bg-slate-100" : "hover:bg-slate-50"}`}
+                    className={`w-full rounded-lg px-4 py-3 text-left transition ${
+                      isActive ? "bg-slate-100" : "hover:bg-slate-50"
+                    }`}
                   >
                     <div className="flex items-baseline gap-3">
-                      <span className={`font-mono text-xs ${isActive ? "text-blue-600" : "text-slate-400"}`}>
+                      <span
+                        className={`font-mono text-xs ${
+                          isActive ? "text-blue-600" : "text-slate-400"
+                        }`}
+                      >
                         {String(index + 1).padStart(2, "0")}
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className={`text-sm font-semibold ${isActive ? "text-slate-900" : "text-slate-600"}`}>
+                        <p
+                          className={`text-sm font-semibold ${
+                            isActive ? "text-slate-900" : "text-slate-600"
+                          }`}
+                        >
                           {step.name}
                         </p>
-                        <p className="mt-0.5 font-mono text-xs text-slate-500">$ {step.command}</p>
+                        <p className="mt-0.5 font-mono text-xs text-slate-500">
+                          $ <span className={step.color}>{step.command}</span>
+                        </p>
                         {isActive && (
-                          <p className="mt-2 text-sm leading-relaxed text-slate-600">{step.description}</p>
+                          <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                            {step.description}
+                          </p>
                         )}
                       </div>
                     </div>
@@ -109,7 +136,11 @@ export function CliTabs() {
                       <div className="mt-3 h-0.5 w-full overflow-hidden rounded-full bg-slate-200">
                         <div
                           key={activeIndex}
-                          className={`h-full bg-blue-600 ${autoplay ? "animate-[cli-step-progress_4s_linear]" : "w-full"}`}
+                          className={`h-full bg-blue-600 ${
+                            autoplay
+                              ? "animate-[cli-step-progress_4s_linear]"
+                              : "w-full"
+                          }`}
                         />
                       </div>
                     )}
@@ -128,7 +159,8 @@ export function CliTabs() {
                   <span className="h-2.5 w-2.5 rounded-full bg-term-green" />
                 </div>
                 <span className="font-mono text-xs text-term-muted">
-                  {String(activeIndex + 1).padStart(2, "0")} / {String(STEPS.length).padStart(2, "0")}
+                  {String(activeIndex + 1).padStart(2, "0")} /{" "}
+                  {String(STEPS.length).padStart(2, "0")}
                 </span>
               </div>
 
@@ -136,9 +168,15 @@ export function CliTabs() {
                 aria-hidden="true"
                 className="flex w-max min-w-full items-stretch gap-3 border-b border-term-border px-4 font-mono text-[11px] tracking-wide whitespace-nowrap uppercase sm:gap-5"
               >
-                <span className="flex items-center py-2 text-term-muted">Problems</span>
-                <span className="flex items-center py-2 text-term-muted">Output</span>
-                <span className="flex items-center py-2 text-term-muted">Debug Console</span>
+                <span className="flex items-center py-2 text-term-muted">
+                  Problems
+                </span>
+                <span className="flex items-center py-2 text-term-muted">
+                  Output
+                </span>
+                <span className="flex items-center py-2 text-term-muted">
+                  Debug Console
+                </span>
                 <span className="-mb-px flex items-center border-b border-term-accent py-2 text-term-fg">
                   Terminal
                 </span>
@@ -152,7 +190,9 @@ export function CliTabs() {
                     <span className="ml-1.5 h-4 w-2 animate-[cli-step-cursor_1.1s_step-end_infinite] bg-term-fg" />
                   </span>
                 </div>
-                <div className="mt-2 whitespace-pre text-term-muted">{active.output}</div>
+                <div className="mt-2 whitespace-pre text-term-muted">
+                  {active.output}
+                </div>
               </div>
             </div>
 
