@@ -177,7 +177,9 @@ export function Delivery() {
         <p className="mx-auto mt-3 max-w-2xl text-center text-base leading-relaxed text-slate-600">
           A delivery manifest describes what your workload is — the compute, the
           databases, the storage, the routes — and nothing about how any of it
-          gets built. The kit you point at it decides that.
+          gets built.
+          <br />
+          The kit you point at it decides that.
         </p>
 
         <div className="mx-auto mt-12 max-w-2xl overflow-hidden rounded-xl border border-term-border bg-term-bg shadow-sm">
