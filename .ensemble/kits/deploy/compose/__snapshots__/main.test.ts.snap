@@ -1,0 +1,35 @@
+export const snapshot = {};
+
+snapshot[`compose kit: renders Appendix A's worked example (golden snapshot) 1`] = `
+{
+  services: {
+    api: {
+      depends_on: [
+        "primary",
+      ],
+      environment: {
+        DATABASE_URL: "postgres://appuser:\${DB_PASSWORD}@primary:5432/appdb",
+      },
+      image: "ens-local/web:dev",
+      ports: [
+        "8080:8080",
+      ],
+    },
+    primary: {
+      environment: {
+        POSTGRES_DB: "appdb",
+        POSTGRES_PASSWORD: "\${DB_PASSWORD}",
+        POSTGRES_USER: "appuser",
+      },
+      image: "postgres:16",
+      restart: "always",
+      volumes: [
+        "primary-data:/var/lib/postgresql/data",
+      ],
+    },
+  },
+  volumes: {
+    "primary-data": {},
+  },
+}
+`;

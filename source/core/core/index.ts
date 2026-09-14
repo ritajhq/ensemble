@@ -4,12 +4,17 @@ export { resolveDenoExecutable } from "./deno-exe.ts";
 export { runBuild, type RunBuildOptions } from "./build.ts";
 export { runInit, type RunInitOptions } from "./init.ts";
 export { runPack, type RunPackOptions } from "./pack.ts";
-export { PUBLISH_ENV_PATH, runPublish, type RunPublishOptions } from "./publish.ts";
 export {
-  type DeployAction,
+  PUBLISH_ENV_PATH,
+  runPublish,
+  type RunPublishOptions,
+} from "./publish.ts";
+export {
+  type DeployTermination,
   runDeploy,
   type RunDeployOptions,
 } from "./deploy.ts";
+export { runExplain, type RunExplainOptions } from "./explain.ts";
 
 export * as Config from "./config.ts";
 export * as Hooks from "./hooks.ts";

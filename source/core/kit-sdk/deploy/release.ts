@@ -1,48 +1,24 @@
 /**
- * How to pack this ship into a deployable image — the recipe a compute
- * entry's `image: ${release.<name>.image}` resolves through (see
- * reference.ts). Declared per workload rather than once per repo: a
- * workload's own compute entries may need a particular pack `mode`/
- * `outputName` for how they consume the image, so the recipe travels with
- * the workload that needs it rather than being factored out — accepting
- * that the same ship may be declared identically in more than one
- * workload's `release:` section (see `ens release`, which deduplicates
- * across workloads by ship name + options).
- *
- * No discriminant `type` (unlike every other category) because there's
- * exactly one shape today: "pack a ship with a kit." Add one only when a
- * second real shape shows up — see compute.ts's Port lesson on not
- * pre-building for a hypothetical future.
- */
-/**
  * Where and under what name a released ship is published. `target` and `name`
  * are the only reserved keys; every other property in the `publish:` block is
  * a publish option collected into `options` and handed to the pack kit's
- * `publish.ts`, which defines what each option means (e.g. the github kit
- * reads `repo`).
+ * `publish.ts`.
  */
 export interface PublishSpec {
-  /** Which of the pack kit's declared publish targets (its `kit.yml` `publish:` map) to push through, e.g. "github" or "push". */
-  target: string;
-  /**
-   * The name to publish the artifact under — how each kit uses it is
-   * kit-owned: the docker kit treats it as the FULL remote image reference
-   * (host/path included, e.g. "registry.example.com/team/app"), pushing it
-   * verbatim with the release version as a tag; the deno.compile/github kit as
-   * the uploaded release asset's filename. For docker this is also the image a
-   * production deploy resolves `${release.<ship>.image}` to — so publisher and
-   * deployer agree by construction. Omitted falls back to the ship's
-   * `outputName`, then its name.
-   */
-  name?: string;
-  /** Every `publish:` property other than `target`/`name`, passed through to the kit's `publish.ts` (e.g. github's `repo`). */
-  options: Record<string, string>;
+  readonly target: string;
+  readonly name?: string;
+  readonly options: Readonly<Record<string, string>>;
 }
 
+/**
+ * How to pack a ship this workload's compute entries reference via
+ * `${release.<name>.image}`. A sibling of `deploy`, built by pack kits — out
+ * of scope for this rearchitecture (see Section 12) beyond staying parseable
+ * as part of the envelope.
+ */
 export interface Release {
-  kit: string;
-  mode?: string;
-  outputName?: string;
-  /** How to publish this ship during `ens release`. Omitted means it's packed as part of a release but never published anywhere. */
-  publish?: PublishSpec;
+  readonly kit: string;
+  readonly mode?: string;
+  readonly outputName?: string;
+  readonly publish?: PublishSpec;
 }

@@ -1,60 +1,53 @@
-export interface ComposeWatchRule {
-  path: string;
-  action: "sync" | "sync+restart";
-  target: string;
-}
+import * as KitSdk from "@ensemble/kit-sdk";
 
-/** The subset of Compose's schema this kit actually emits. */
-export interface ComposeService {
-  image: string;
-  environment?: Record<string, string>;
-  ports?: string[];
-  volumes?: string[];
-  command?: string[];
-  restart?: string;
-  depends_on?: string[];
-  healthcheck?: {
-    test: string[];
-    interval: string;
-    timeout: string;
-  };
-  secrets?: string[];
-  develop?: {
-    watch: ComposeWatchRule[];
-  };
-  /** Networks this service joins, beyond the workload's own implicit default network — see ComposeDocument.networks. */
-  networks?: string[];
-}
+/** The categories that produce their own compose service — everything a `depends_on` edge could actually point at (release/secrets/variables/external never do, see render/renderer.ts's `UNRENDERED_CATEGORIES` and Section 12's release-as-image-tag-only model). */
+const SERVICE_CATEGORIES: readonly string[] = [
+  "compute",
+  "storage",
+  "databases",
+  "messaging",
+  "networking",
+];
 
-/** A Compose secret sourced either from a local file (`file`) or from an env var of the compose process (`environment`) — exactly one is set. See Compose's secrets docs. */
-export interface ComposeSecret {
-  file?: string;
-  environment?: string;
+interface ComposeFragmentContent {
+  readonly service: Record<string, unknown>;
+  readonly volumes?: Readonly<Record<string, unknown>>;
 }
 
 /**
- * An `external: true` network is one this workload doesn't create/manage —
- * declared elsewhere (another stack's `docker network create`, or its own
- * `docker compose up`) — see external.ts's Network kind. `name` pins a
- * Compose-managed (non-external) network to a literal name instead of
- * Compose's own project-prefixed default — used in development mode so an
- * `external` entry's declared name still means something concrete locally,
- * while Compose auto-creates it if missing rather than requiring it to
- * already exist.
+ * Assembles a render pass's `Artifacts` into one compose document:
+ * `services:` in the order they were rendered (Appendix A itself lists
+ * `primary` before `api` — dependency order, not alphabetical), each with
+ * `depends_on` derived from the `DependencyGraph`'s reference edges (Section
+ * 8's "compose depends_on" example of target-native apply ordering) filtered
+ * to only the edges that point at another service; and a top-level
+ * `volumes:` collecting every fragment's own named volume, omitted entirely
+ * when nothing declared one.
  */
-export interface ComposeNetwork {
-  external?: true;
-  name?: string;
-}
+export function assembleComposeDocument(
+  artifacts: KitSdk.Deploy.Render.Artifacts,
+  graph: KitSdk.Deploy.Resolve.DependencyGraph,
+): Record<string, unknown> {
+  const services: Record<string, unknown> = {};
+  const volumes: Record<string, unknown> = {};
 
-export interface ComposeDocument {
-  name: string;
-  services: Record<string, ComposeService>;
-  volumes: Record<string, Record<string, never>>;
-  secrets: Record<string, ComposeSecret>;
-  networks: Record<string, ComposeNetwork>;
-}
+  for (const fragment of artifacts.fragments) {
+    const content = fragment.content as ComposeFragmentContent;
+    const dependsOn = graph.dependenciesOf({
+      category: fragment.category,
+      name: fragment.name,
+    })
+      .filter((dependency) => SERVICE_CATEGORIES.includes(dependency.category))
+      .map((dependency) => dependency.name)
+      .sort();
 
-export function newComposeDocument(name: string): ComposeDocument {
-  return { name, services: {}, volumes: {}, secrets: {}, networks: {} };
+    services[fragment.name] = dependsOn.length > 0
+      ? { ...content.service, depends_on: dependsOn }
+      : content.service;
+    Object.assign(volumes, content.volumes ?? {});
+  }
+
+  const document: Record<string, unknown> = { services };
+  if (Object.keys(volumes).length > 0) document.volumes = volumes;
+  return document;
 }

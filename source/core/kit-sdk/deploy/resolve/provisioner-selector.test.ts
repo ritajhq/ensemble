@@ -1,0 +1,128 @@
+import { assertEquals, assertThrows } from "@std/assert";
+import { relationalV1 } from "../contracts/seeds/relational.ts";
+import type { MatchedResource } from "./matched-resource.ts";
+import { NoMatchingProvisionerError } from "./selected-provisioner.ts";
+import { ProvisionerSelector } from "./provisioner-selector.ts";
+import { FakeKit, FakeProvisioner, FakeRealization } from "./test-fakes.ts";
+
+function matchedRelational(
+  overrides: Partial<MatchedResource["declaration"]> = {},
+): MatchedResource {
+  return {
+    category: "databases",
+    name: "primary",
+    contract: relationalV1,
+    declaration: {
+      type: "relational",
+      params: {
+        engine: "postgres",
+        version: "16",
+        user: "appuser",
+        database: "appdb",
+        passwordSecret: "db-password",
+      },
+      ...overrides,
+    },
+  };
+}
+
+const selector = new ProvisionerSelector();
+
+Deno.test("ProvisionerSelector.select: first-match wins over a later matching provisioner", () => {
+  const first = new FakeProvisioner(() => true);
+  const second = new FakeProvisioner(() => true);
+  const kit = new FakeKit([first, second], new FakeRealization());
+
+  const selected = selector.select(matchedRelational(), kit);
+  assertEquals(selected.provisioner, first);
+});
+
+Deno.test("ProvisionerSelector.select: skips a non-matching provisioner to reach a later match", () => {
+  const skip = new FakeProvisioner(() => false);
+  const match = new FakeProvisioner(() => true);
+  const kit = new FakeKit([skip, match], new FakeRealization());
+
+  const selected = selector.select(matchedRelational(), kit);
+  assertEquals(selected.provisioner, match);
+});
+
+Deno.test("ProvisionerSelector.select: throws NoMatchingProvisionerError when nothing matches", () => {
+  const kit = new FakeKit(
+    [new FakeProvisioner(() => false)],
+    new FakeRealization(),
+  );
+  assertThrows(
+    () => selector.select(matchedRelational(), kit),
+    NoMatchingProvisionerError,
+  );
+});
+
+Deno.test("ProvisionerSelector.select: reports no gaps when every requested capability is supported", () => {
+  const realization = new FakeRealization().withCapability(
+    "databases",
+    "relational",
+    "read-replicas",
+    true,
+  );
+  const kit = new FakeKit([new FakeProvisioner(() => true)], realization);
+
+  const selected = selector.select(
+    matchedRelational({ capabilities: { "read-replicas": 2 } }),
+    kit,
+  );
+  assertEquals(selected.gaps, []);
+});
+
+Deno.test("ProvisionerSelector.select: reports a gap for an unsupported capability without failing the match", () => {
+  const kit = new FakeKit(
+    [new FakeProvisioner(() => true)],
+    new FakeRealization(),
+  );
+
+  const selected = selector.select(
+    matchedRelational({ capabilities: { "read-replicas": 2 } }),
+    kit,
+  );
+  assertEquals(selected.gaps, [{ capability: "read-replicas", requested: 2 }]);
+});
+
+Deno.test("ProvisionerSelector.explain: reports every provisioner's own match result, by its describe() label", () => {
+  const relational = new FakeProvisioner(
+    (r) => r.declaration.type === "relational",
+    "relational",
+  );
+  const containerOrchestrated = new FakeProvisioner(
+    (r) => r.declaration.type === "container-orchestrated",
+    "container-orchestrated",
+  );
+  const kit = new FakeKit(
+    [containerOrchestrated, relational],
+    new FakeRealization(),
+  );
+
+  const explanation = selector.explain(matchedRelational(), kit);
+  assertEquals(explanation, [
+    { description: "container-orchestrated", matched: false },
+    { description: "relational", matched: true },
+  ]);
+});
+
+Deno.test("ProvisionerSelector.explain: falls back to a positional label when a provisioner declares no describe()", () => {
+  const kit = new FakeKit(
+    [new FakeProvisioner(() => true)],
+    new FakeRealization(),
+  );
+
+  const explanation = selector.explain(matchedRelational(), kit);
+  assertEquals(explanation, [{ description: "provisioner #1", matched: true }]);
+});
+
+Deno.test("ProvisionerSelector.explain: never throws when nothing matches (unlike select)", () => {
+  const kit = new FakeKit(
+    [new FakeProvisioner(() => false, "relational")],
+    new FakeRealization(),
+  );
+
+  const explanation = selector.explain(matchedRelational(), kit);
+  assertEquals(explanation, [{ description: "relational", matched: false }]);
+});

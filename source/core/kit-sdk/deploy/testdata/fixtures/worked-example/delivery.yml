@@ -1,0 +1,23 @@
+version: v1
+release:
+  web: { kit: docker }
+deploy:
+  compute:
+    api:
+      type: container-orchestrated
+      image: ${release.web}
+      replicas: 2
+      ports: { http: 8080 }
+      env:
+        DATABASE_URL: ${databases.primary.url}
+  databases:
+    primary:
+      type: relational
+      class: critical
+      engine: postgres
+      version: "16"
+      user: appuser
+      database: appdb
+      passwordSecret: db-password
+  secrets:
+    db-password: { source: environment }

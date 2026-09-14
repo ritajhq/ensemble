@@ -1,36 +1,39 @@
-import type { Compute } from "./compute.ts";
-import type { Storage } from "./storage.ts";
-import type { Database } from "./databases.ts";
-import type { Messaging } from "./messaging.ts";
-import type { Networking } from "./networking.ts";
-import type { Secret } from "./secrets.ts";
-import type { Variable } from "./variables.ts";
-import type { External } from "./external.ts";
+import type {
+  ExternalDeclaration,
+  ResourceDeclaration,
+  SecretDeclaration,
+  VariableDeclaration,
+} from "./resource.ts";
 import type { Release } from "./release.ts";
 
+/** The fixed top-level categories a manifest's `deploy:` block may hold — see the plan's ubiquitous-language glossary. Adding a Type does not touch this list; adding a Category would (and none is anticipated). */
+export const CATEGORIES = [
+  "compute",
+  "storage",
+  "databases",
+  "messaging",
+  "networking",
+  "secrets",
+  "variables",
+  "external",
+] as const;
+
+export type Category = typeof CATEGORIES[number];
+
 /**
- * A parsed workload manifest — one top-level key per `Category`, each a
- * mapping keyed by entry name (no wrapping `resources:` array, no redundant
- * `name:` field on the entry itself — see taxonomy doc: category is the
- * organizing unit in the manifest, `type` is just a field within it). The
- * map key IS the name a `${category.name.output}` Reference addresses.
- * `compute` may be empty or omitted (e.g. a static site composed purely of a
- * `storage` entry and a `networking` cdn entry referencing it), or hold
- * several entries (e.g. an API service and a worker process sharing the
- * same databases). `external` is the one category nothing here provisions —
- * see external.ts — kept alongside the rest so referencing it goes through
- * the same `${external.name.output}` mechanism as everything else.
+ * The aggregate root parsed from a manifest (`delivery.yml`) — one map per
+ * `Category`, keyed by resource name, plus the sibling `release:` block built
+ * by pack kits (out of scope; kept parseable so `ens release` keeps working
+ * and computes can reference a release's primary output — Section 12).
  */
 export interface Workload {
-  compute?: Record<string, Compute>;
-  storage?: Record<string, Storage>;
-  databases?: Record<string, Database>;
-  messaging?: Record<string, Messaging>;
-  networking?: Record<string, Networking>;
-  secrets?: Record<string, Secret>;
-  /** Non-sensitive config inputs, declared valueless and supplied at deploy time — see variables.ts. Referenced via `${variables.<name>.value}`. */
-  variables?: Record<string, Variable>;
-  external?: Record<string, External>;
-  /** How to pack each ship this workload's compute entries reference via `${release.<name>.image}` — see release.ts. */
-  release?: Record<string, Release>;
+  readonly release?: Readonly<Record<string, Release>>;
+  readonly compute?: Readonly<Record<string, ResourceDeclaration>>;
+  readonly storage?: Readonly<Record<string, ResourceDeclaration>>;
+  readonly databases?: Readonly<Record<string, ResourceDeclaration>>;
+  readonly messaging?: Readonly<Record<string, ResourceDeclaration>>;
+  readonly networking?: Readonly<Record<string, ResourceDeclaration>>;
+  readonly secrets?: Readonly<Record<string, SecretDeclaration>>;
+  readonly variables?: Readonly<Record<string, VariableDeclaration>>;
+  readonly external?: Readonly<Record<string, ExternalDeclaration>>;
 }

@@ -1,0 +1,6 @@
+behavior:
+  logLevel: info
+targetValues:
+  databases.relational:
+    bounds:
+      read-replicas: { max: 5 }

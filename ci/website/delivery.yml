@@ -2,6 +2,7 @@
 # website/content into one image and runs it as a single compute entry — no
 # publish: block, since this is for `ens develop`/`ens deploy` (local testing
 # and, later, real deploys), not a GitHub/registry release.
+version: v1
 release:
   website:
     kit: docker
@@ -10,7 +11,7 @@ deploy:
   compute:
     server:
       type: container-orchestrated
-      image: ${release.website.image}
+      image: ${release.website}
       replicas: 1
       ports:
         http: 8000

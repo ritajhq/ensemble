@@ -240,7 +240,8 @@ export class ReleaseCeremony {
       const workloadPath = join(ciDir, dirEntry.name, "delivery.yml");
       if (!await exists(workloadPath, { isFile: true })) continue;
 
-      const workload = await KitSdk.Deploy.parseWorkloadFile(workloadPath);
+      const loader = new KitSdk.Deploy.Manifest.Loader(new KitSdk.Deploy.Manifest.Parser());
+      const workload = await loader.loadFile(workloadPath);
       for (const [shipName, release] of Object.entries(workload.release ?? {})) {
         const existing = byName.get(shipName);
         if (!existing) {

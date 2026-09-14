@@ -1,0 +1,1 @@
+Intentionally empty directory (no main.ts) — used by loader.test.ts to exercise the "no kit found" error.

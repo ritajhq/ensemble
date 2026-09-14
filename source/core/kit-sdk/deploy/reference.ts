@@ -1,38 +1,66 @@
-import { CATEGORIES, type Category } from "./kind.ts";
-
 /**
- * A `${<category>.<name>.<output>}` placeholder into another declared
- * entry's output — never a literal value. Only fields the schema marks as
- * reference-capable (see individual spec types) accept this; everywhere else
- * takes a plain value. Kept deliberately narrow (no expressions, no
- * arbitrary-field references) so the dependency graph is built from a known,
- * bounded set of sites rather than inferred by scanning the whole manifest —
- * see the taxonomy doc's "reference mechanism scope". `category` disambiguates
- * `name`, since names are only required unique within their own category.
+ * A parsed `${category.name.output}` reference, or its `${release.name}` sugar
+ * (which targets the release's primary output — `output` is left undefined for
+ * that shorthand, since a release's primary output has no name to state).
+ * Domain-agnostic: `category` can be any `Category` or the sibling `"release"`,
+ * so a reference targets any producer's declared output — a deploy resource
+ * today, a pack release already, and any future producer without a grammar
+ * change.
  */
 export interface Reference {
-  category: Category;
-  /** The referenced entry's `name`, unique within `category`. */
-  name: string;
-  /** Which of that entry's resolved outputs to substitute (e.g. "url", "connectionString"). */
-  output: string;
+  readonly category: string;
+  readonly name: string;
+  readonly output?: string;
 }
 
-const REFERENCE_PATTERN = /^\$\{([^.}]+)\.([^.}]+)\.([^.}]+)\}$/;
-
-/** A field that's either a literal string or a `Reference` placeholder. */
-export type Referenceable = string | Reference;
-
-/** Parses a `${<category>.<name>.<output>}` string into a Reference, or undefined if `raw` isn't that shape (including an unrecognized category). */
-export function parseReference(raw: string): Reference | undefined {
-  const match = REFERENCE_PATTERN.exec(raw);
-  if (!match) return undefined;
-  const [, category, name, output] = match;
-  if (!(CATEGORIES as readonly string[]).includes(category)) return undefined;
-  return { category: category as Category, name, output };
+/** Raised when a value has the `${...}` reference shape but its inner segments don't parse. */
+export class ReferenceSyntaxError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ReferenceSyntaxError";
+  }
 }
 
-/** True if `value` is a Reference rather than a literal. */
-export function isReference(value: Referenceable): value is Reference {
-  return typeof value !== "string";
+const REFERENCE_SHAPE = /^\$\{(.+)\}$/;
+
+/**
+ * Parses the `${...}` reference grammar out of a raw manifest field value. A
+ * field is either a literal value or, in its entirety, a single reference —
+ * this does not (yet) support a reference embedded inside a larger string.
+ * Pure syntax only: whether the referenced category/name/output actually
+ * exists is a structural question answered elsewhere (contract-level output
+ * checks in Phase 2's `ReferenceValidator`; full graph/cycle validation in
+ * Phase 3's `DependencyGraph`).
+ */
+export class ReferenceSyntax {
+  /** Returns the parsed `Reference`, or undefined if `raw` isn't reference-shaped at all (an ordinary literal value). Throws `ReferenceSyntaxError` if it has the `${...}` shape but its segments don't parse (e.g. wrong segment count). */
+  parse(raw: unknown): Reference | undefined {
+    if (typeof raw !== "string") return undefined;
+    const shape = REFERENCE_SHAPE.exec(raw);
+    if (!shape) return undefined;
+
+    const segments = shape[1].split(".");
+    if (segments.some((segment) => segment.length === 0)) {
+      throw new ReferenceSyntaxError(
+        `"${raw}" is not a valid reference (empty segment).`,
+      );
+    }
+
+    const [category, name, output] = segments;
+    if (category === "release") {
+      if (segments.length !== 2) {
+        throw new ReferenceSyntaxError(
+          `"${raw}" is not a valid reference (expected \${release.<name>}).`,
+        );
+      }
+      return { category, name };
+    }
+
+    if (segments.length !== 3) {
+      throw new ReferenceSyntaxError(
+        `"${raw}" is not a valid reference (expected \${category.name.output}).`,
+      );
+    }
+    return { category, name, output };
+  }
 }

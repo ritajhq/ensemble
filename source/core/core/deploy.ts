@@ -1,160 +1,101 @@
 import { join } from "@std/path";
-import { ensureDir, exists } from "@std/fs";
-import { load as loadEnv } from "@std/dotenv";
 import * as KitSdk from "@ensemble/kit-sdk";
-import { findRepoRoot } from "./repo.ts";
-import { runBuild } from "./build.ts";
+import { loadDeployContext } from "./deploy-context.ts";
 
-export type DeployAction = "up" | "down";
-
-/**
- * "development" bundles the two behaviors that only ever make sense
- * together for a local dev-loop deploy — watch mode (syncing local build
- * output into the running container) and treating `external` entries as
- * auto-creatable local conveniences rather than genuinely external (must
- * already exist) — into one concept, mirroring `ens build`'s own
- * `-m/--mode`. `ens develop` is just `runDeploy(..., { mode: "development" })`.
- */
-export type DeployMode = "development" | "production";
+export type DeployTermination = "eject" | "plan" | "apply";
 
 export interface RunDeployOptions {
-  action: DeployAction;
-  /** Defaults to "production" — a plain `ens deploy` is a real deploy unless told otherwise. Meaningless for "down". */
-  mode?: DeployMode;
-  /** Which released version to resolve `${release.<name>.image}` references to — defaults to "latest" (whatever's packed locally), independent of `mode`: a development-mode deploy can still pin a specific published version. Meaningless for "down". */
-  version?: string;
+  mode: KitSdk.Deploy.Mode;
+  /** Which released version `${release.<name>.image}` resolves to in production mode — meaningless in development mode, where the local tag is always used regardless. */
+  version: string;
+  termination: DeployTermination;
+  acceptCapabilityGaps: boolean;
 }
 
 /**
  * Resolves a deployment's workload manifest and deploy kit by name, and runs
- * the requested action. Unlike build/pack kits (spawned as subprocesses with
- * a CLI-flag contract), a deploy kit is imported in-process: its `main.ts`
- * default-exports a configured `KitSdk.Deploy.Kit` instance, which this
- * calls `Up`/`Down` on directly — see kit-sdk's kit.ts for why (the
- * translator contract is designed to be in-process-first).
+ * the requested termination (eject/plan/apply) via the new
+ * `DeploymentCoordinator` (Phase 6). A from-scratch rebuild of the old
+ * `runDeploy` (removed per the rearchitecture's G1) — same manifest/kit
+ * resolution conventions (`ci/<name>/delivery.yml`,
+ * `.ensemble/kits/deploy/<kit>/`), but a fundamentally different pipeline
+ * underneath (contracts, negotiated values, dependency-ordered render,
+ * three terminations instead of one up/down action).
  */
 export async function runDeploy(
   name: string,
   kit: string,
   options: RunDeployOptions,
 ): Promise<void> {
-  const repoRoot = await findRepoRoot();
-  const workspace = join(repoRoot, "source");
-
-  const manifestPath = join(repoRoot, "ci", name, "delivery.yml");
-  if (!await exists(manifestPath, { isFile: true })) {
-    throw new Error(`Delivery manifest not found at ${manifestPath}`);
-  }
-
-  // A deploy kit reads the manifest's variables/secrets straight from
-  // Deno.env (it runs in-process, not as a subprocess handed an env), so a
-  // per-delivery env file has to land in Deno.env before the kit runs. It
-  // lives alongside the manifest (ci/<name>/delivery.env) — the delivery's
-  // own folder, the same place its db init and scripts live. It's a source
-  // of DEFAULTS: an already-set process env var wins (so a pipeline exporting
-  // real per-environment values is never clobbered by a committed dev file),
-  // which is why each key is set only when absent rather than exported over.
-  const envFile = join(repoRoot, "ci", name, "delivery.env");
-  const fileVars = await loadEnv({ envPath: envFile, export: false });
-  for (const [key, value] of Object.entries(fileVars)) {
-    if (Deno.env.get(key) === undefined) Deno.env.set(key, value);
-  }
-
-  const kitEntry = join(
-    repoRoot,
-    ".ensemble",
-    "kits",
-    "deploy",
+  const { repoRoot, workload, target, registry } = await loadDeployContext(
+    name,
     kit,
-    "main.ts",
   );
-  if (!await exists(kitEntry, { isFile: true })) {
-    throw new Error(`Deploy kit "${kit}" not found (expected ${kitEntry})`);
-  }
 
-  const workload = await KitSdk.Deploy.parseWorkloadFile(manifestPath);
-  const batches = KitSdk.Deploy.buildBatches(manifestPath, workload);
+  const releaseLocator = new KitSdk.Deploy.WorkloadReleaseLocator(
+    workload,
+    options.version,
+  );
+  const renderer = new KitSdk.Deploy.Render.Renderer(
+    new KitSdk.Deploy.Render.ReferenceResolver(target.kit.realization()),
+    releaseLocator,
+    registry,
+  );
 
-  const module = await import(`file://${kitEntry}`);
-  const kitInstance = module.default;
-  if (!(kitInstance instanceof KitSdk.Deploy.Kit)) {
-    throw new Error(
-      `Deploy kit "${kit}" (${kitEntry}) must default-export a KitSdk.Deploy.Kit instance.`,
+  const outputsDir = join(repoRoot, "source", "artifacts", "deploy", name);
+  const sink = new KitSdk.Deploy.Terminations.FileArtifactSink(outputsDir);
+  const cache = new KitSdk.Deploy.Terminations.FileRenderCache(
+    join(repoRoot, ".ensemble", "deploy", name, "last-rendered.txt"),
+  );
+
+  const coordinator = new KitSdk.Deploy.Terminations.DeploymentCoordinator(
+    registry,
+    renderer,
+    new KitSdk.Deploy.Terminations.Ejector(sink),
+    new KitSdk.Deploy.Terminations.Planner(cache),
+    new KitSdk.Deploy.Terminations.Applier(sink, cache),
+  );
+
+  const result = await coordinator.deploy(name, workload, target, {
+    mode: options.mode,
+    termination: options.termination,
+    acceptCapabilityGaps: options.acceptCapabilityGaps,
+  });
+
+  for (const report of result.gaps) {
+    console.warn(
+      `warning: capability "${report.gap.capability}" unmet by kit "${kit}" on ${report.resource} (requested ${report.gap.requested}) — accepted.`,
     );
   }
 
-  const volumePath = join(workspace, "artifacts", "deploy", name);
-  await ensureDir(volumePath);
-
-  const development = (options.mode ?? "production") === "development";
-  const runOptions: KitSdk.Deploy.KitRunOptions = {
-    watch: development,
-    development,
-    version: options.version ?? "latest",
-  };
-  const ctx: KitSdk.Deploy.KitContext = {
-    name,
-    repoRoot,
-    volumePath: resolveDeployVolume(volumePath),
-    artifactsPath: join(workspace, "artifacts"),
-  };
-
-  if (options.action !== "up") {
-    await kitInstance.Down(workload, batches, runOptions, ctx);
-    return;
-  }
-
-  if (!development) {
-    await kitInstance.Up(workload, batches, runOptions, ctx);
-    return;
-  }
-
-  // Development mode: a compute entry's `development.sync` only tells a kit
-  // how to sync already-built artifacts into the running container — nothing
-  // actually keeps regenerating those artifacts from source. Start a build
-  // watcher for every app referenced this way, running concurrently with the
-  // kit's own (also long-running, watch-mode) `Up`, and abort every watcher
-  // once `Up` returns or throws so nothing outlives this `ens develop` run.
-  const apps = collectDevelopmentSyncApps(workload);
-  const buildAbort = new AbortController();
-  const buildWatchers = apps.map((app) =>
-    runBuild(app, { mode: "development", watch: true, signal: buildAbort.signal })
-      .then((code) => {
-        if (code !== 0 && !buildAbort.signal.aborted) {
-          console.error(`build watcher for "${app}" exited with code ${code}`);
-        }
-      })
-      .catch((error) => {
-        console.error(
-          `build watcher for "${app}" failed to start: ${error instanceof Error ? error.message : error}`,
-        );
-      })
-  );
-
-  try {
-    await kitInstance.Up(workload, batches, runOptions, ctx);
-  } finally {
-    buildAbort.abort();
-    await Promise.allSettled(buildWatchers);
-  }
+  presentResult(result, name);
 }
 
-/** Every distinct app name a container compute entry's `development.sync` references, across the whole workload — what `ens develop` starts a build watcher for. */
-function collectDevelopmentSyncApps(workload: KitSdk.Deploy.Workload): string[] {
-  const apps = new Set<string>();
-  for (const compute of Object.values(workload.compute ?? {})) {
-    if (
-      compute.type !== "container-orchestrated" &&
-      compute.type !== "container-serverless"
-    ) continue;
-    for (const sync of compute.development?.sync ?? []) {
-      apps.add(sync.app);
-    }
+function presentResult(
+  result: KitSdk.Deploy.Terminations.DeployResult,
+  name: string,
+): void {
+  switch (result.termination) {
+    case "eject":
+      console.log(`Ejected ${result.artifact.filename} for "${name}":\n`);
+      console.log(result.artifact.content);
+      break;
+    case "plan":
+      if (!result.diff.changed) {
+        console.log("No changes.");
+        break;
+      }
+      for (const line of result.diff.lines) {
+        const prefix = line.kind === "added"
+          ? "+"
+          : line.kind === "removed"
+          ? "-"
+          : " ";
+        console.log(`${prefix} ${line.text}`);
+      }
+      break;
+    case "apply":
+      console.log(`Applied "${name}".`);
+      break;
   }
-  return [...apps];
-}
-
-/** ENSEMBLE_DEPLOY_VOLUME overrides the default artifacts/deploy/<name>/ path, e.g. to point at a different tracked location. */
-function resolveDeployVolume(defaultPath: string): string {
-  return Deno.env.get("ENSEMBLE_DEPLOY_VOLUME") ?? defaultPath;
 }

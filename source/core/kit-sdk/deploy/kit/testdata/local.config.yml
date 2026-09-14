@@ -1,0 +1,9 @@
+behavior:
+  logLevel: debug
+provisioners:
+  - type: relational
+    implementation: { kind: command, command: "echo project-provisioner" }
+targetValues:
+  databases.relational:
+    bounds:
+      read-replicas: { max: 2 }

@@ -1,0 +1,62 @@
+export const snapshot = {};
+
+snapshot[`aws kit: renders Appendix A's worked example (golden snapshot) 1`] = `
+{
+  Parameters: {
+    DbPassword: {
+      NoEcho: true,
+      Type: "String",
+    },
+  },
+  Resources: {
+    ApiTask: {
+      Properties: {
+        ContainerDefinitions: [
+          {
+            Environment: [
+              {
+                Name: "DATABASE_URL",
+                Value: {
+                  "Fn::Sub": [
+                    "postgres://appuser:\${Pw}@\${Host}:5432/appdb",
+                    {
+                      Host: {
+                        "Fn::GetAtt": [
+                          "Primary",
+                          "Endpoint.Address",
+                        ],
+                      },
+                      Pw: {
+                        Ref: "DbPassword",
+                      },
+                    },
+                  ],
+                },
+              },
+            ],
+            Image: "123456.dkr.ecr.amazonaws.com/web:1.4.2",
+            Name: "api",
+          },
+        ],
+      },
+      Type: "AWS::ECS::TaskDefinition",
+    },
+    Primary: {
+      Properties: {
+        AllocatedStorage: 100,
+        BackupRetentionPeriod: 35,
+        DBName: "appdb",
+        DeletionProtection: true,
+        Engine: "postgres",
+        EngineVersion: "16",
+        MasterUserPassword: {
+          Ref: "DbPassword",
+        },
+        MasterUsername: "appuser",
+        MultiAZ: true,
+      },
+      Type: "AWS::RDS::DBInstance",
+    },
+  },
+}
+`;
