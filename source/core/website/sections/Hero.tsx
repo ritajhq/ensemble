@@ -47,7 +47,7 @@ export function Hero() {
             className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-200"
           >
             <span className="h-1.5 w-1.5 rounded-full bg-blue-600" />
-            v1.0.10-alpha · Release
+            v0.1.0 · Release
             <span aria-hidden="true">→</span>
           </a>
 
