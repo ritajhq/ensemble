@@ -83,8 +83,8 @@ async function renderWorkload(
 }
 
 const releaseLocator = new KitSdk.Deploy.StubReleaseLocator({
-  development: { web: { kind: "image", ref: "ens-local/web:dev" } },
-  production: { web: { kind: "image", ref: "registry.ritaj.app/web:1.4.2" } },
+  development: { web: { ref: "ens-local/web:dev" } },
+  production: { web: { ref: "registry.ritaj.app/web:1.4.2" } },
 });
 
 Deno.test("compose kit: renders Appendix A's worked example (golden snapshot)", async (t) => {

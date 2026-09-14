@@ -82,9 +82,9 @@ async function renderWorkload(
 }
 
 const releaseLocator = new KitSdk.Deploy.StubReleaseLocator({
-  development: { web: { kind: "image", ref: "ens-local/web:dev" } },
+  development: { web: { ref: "ens-local/web:dev" } },
   production: {
-    web: { kind: "image", ref: "123456.dkr.ecr.amazonaws.com/web:1.4.2" },
+    web: { ref: "123456.dkr.ecr.amazonaws.com/web:1.4.2" },
   },
 });
 
@@ -238,8 +238,8 @@ Deno.test("aws kit: rendering the same workload twice produces byte-identical pr
 Deno.test("portability: the same manifest renders on both compose and aws with identical output keys", async () => {
   const composeKitModule = await import("../compose/main.ts");
   const composeReleaseLocator = new KitSdk.Deploy.StubReleaseLocator({
-    development: { web: { kind: "image", ref: "ens-local/web:dev" } },
-    production: { web: { kind: "image", ref: "ens-local/web:dev" } },
+    development: { web: { ref: "ens-local/web:dev" } },
+    production: { web: { ref: "ens-local/web:dev" } },
   });
 
   const composeResult = await renderWorkload(

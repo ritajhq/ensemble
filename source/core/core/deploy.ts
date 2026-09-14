@@ -1,6 +1,7 @@
 import { join } from "@std/path";
 import * as KitSdk from "@ensemble/kit-sdk";
 import { loadDeployContext } from "./deploy-context.ts";
+import { SubprocessPackKitGateway } from "./pack-kit-gateway.ts";
 
 export type DeployTermination = "eject" | "plan" | "apply";
 
@@ -32,9 +33,10 @@ export async function runDeploy(
     kit,
   );
 
-  const releaseLocator = new KitSdk.Deploy.WorkloadReleaseLocator(
-    workload,
-    options.version,
+  const gateway = new SubprocessPackKitGateway();
+  const locatorResolver = new KitSdk.Deploy.ReleaseLocatorResolver(gateway);
+  const releaseLocator = new KitSdk.Deploy.PreresolvedReleaseLocator(
+    await locatorResolver.resolveAll(workload, options.mode, options.version),
   );
   const renderer = new KitSdk.Deploy.Render.Renderer(
     new KitSdk.Deploy.Render.ReferenceResolver(target.kit.realization()),
@@ -54,12 +56,14 @@ export async function runDeploy(
     new KitSdk.Deploy.Terminations.Ejector(sink),
     new KitSdk.Deploy.Terminations.Planner(cache),
     new KitSdk.Deploy.Terminations.Applier(sink, cache),
+    new KitSdk.Deploy.Terminations.ReleaseAvailabilityPreflight(gateway),
   );
 
   const result = await coordinator.deploy(name, workload, target, {
     mode: options.mode,
     termination: options.termination,
     acceptCapabilityGaps: options.acceptCapabilityGaps,
+    version: options.version,
   });
 
   for (const report of result.gaps) {

@@ -116,8 +116,8 @@ function buildPipeline(manifestText: string) {
   ]);
 
   const releaseLocator = new StubReleaseLocator({
-    development: { web: { kind: "image", ref: "ens-local/web:dev" } },
-    production: { web: { kind: "image", ref: "registry.ritaj.app/web:1.4.2" } },
+    development: { web: { ref: "ens-local/web:dev" } },
+    production: { web: { ref: "registry.ritaj.app/web:1.4.2" } },
   });
   const referenceResolver = new ReferenceResolver(new FakeRealization()); // FakeRealization: everything is "static"
   const renderer = new Renderer(referenceResolver, releaseLocator, registry);
@@ -287,8 +287,8 @@ Deno.test("Renderer.render: a dynamic output's native wiring passes through to t
   }
 
   const releaseLocator = new StubReleaseLocator({
-    development: { web: { kind: "image", ref: "ens-local/web:dev" } },
-    production: { web: { kind: "image", ref: "registry.ritaj.app/web:1.4.2" } },
+    development: { web: { ref: "ens-local/web:dev" } },
+    production: { web: { ref: "registry.ritaj.app/web:1.4.2" } },
   });
   const renderer = new Renderer(
     new ReferenceResolver(new AllDynamicRealization()),

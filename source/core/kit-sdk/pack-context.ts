@@ -48,7 +48,9 @@ function parseVars(raw: string): Record<string, string> {
     throw new Error(`Invalid --vars JSON payload: ${raw}`);
   }
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    throw new Error(`Invalid --vars JSON payload: expected an object, got ${raw}`);
+    throw new Error(
+      `Invalid --vars JSON payload: expected an object, got ${raw}`,
+    );
   }
   return parsed as Record<string, string>;
 }
@@ -60,8 +62,12 @@ function parseApps(raw: string): string[] {
   } catch {
     throw new Error(`Invalid --apps JSON payload: ${raw}`);
   }
-  if (!Array.isArray(parsed) || parsed.some((entry) => typeof entry !== "string")) {
-    throw new Error(`Invalid --apps JSON payload: expected an array of strings, got ${raw}`);
+  if (
+    !Array.isArray(parsed) || parsed.some((entry) => typeof entry !== "string")
+  ) {
+    throw new Error(
+      `Invalid --apps JSON payload: expected an array of strings, got ${raw}`,
+    );
   }
   return parsed as string[];
 }
@@ -69,20 +75,32 @@ function parseApps(raw: string): string[] {
 /** Parses the standard pack kit CLI contract. Call this from a pack kit's entry point. */
 export function getContext(args: string[] = Deno.args): Context {
   const flags = parseArgs(args, {
-    string: ["name", "output-name", "artifacts", "packages", "mode", "vars", "apps", "result-file"],
+    string: [
+      "name",
+      "output-name",
+      "artifacts",
+      "packages",
+      "mode",
+      "vars",
+      "apps",
+      "result-file",
+    ],
     boolean: ["watch"],
     default: { vars: "{}", apps: "[]", watch: false },
   });
 
   const ship = String(flags._[0] ?? "");
   if (!ship) {
-    throw new Error("Missing required ship directory argument for kit invocation.");
+    throw new Error(
+      "Missing required ship directory argument for kit invocation.",
+    );
   }
 
   const name = requireFlag(flags, "name");
-  const outputNameFlag = typeof flags["output-name"] === "string" && flags["output-name"].length > 0
-    ? flags["output-name"]
-    : undefined;
+  const outputNameFlag =
+    typeof flags["output-name"] === "string" && flags["output-name"].length > 0
+      ? flags["output-name"]
+      : undefined;
   return {
     ship,
     name,
@@ -124,12 +142,16 @@ async function loadKitManifestMap(
 }
 
 /** Reads the `modes` map declared in a pack kit's own `kit.yml` manifest — an empty map if the kit declares none. */
-export async function loadModes(kitDir: string): Promise<Record<string, string>> {
+export async function loadModes(
+  kitDir: string,
+): Promise<Record<string, string>> {
   return await loadKitManifestMap(kitDir, "modes");
 }
 
 /** Reads the `publish` map declared in a pack kit's own `kit.yml` manifest — the set of publish targets the kit's `publish.ts` supports (keys), each mapped to a short human description (values, for `ens` to list). Option *values* come per-release from the delivery manifest's `publish:` block, not from here. Empty if the kit declares none. */
-export async function loadPublishModes(kitDir: string): Promise<Record<string, string>> {
+export async function loadPublishModes(
+  kitDir: string,
+): Promise<Record<string, string>> {
   return await loadKitManifestMap(kitDir, "publish");
 }
 
@@ -152,7 +174,14 @@ export interface PublishContext {
 /** Parses the standard pack kit publish CLI contract. Call this from a pack kit's `publish.ts` entry point. */
 export function getPublishContext(args: string[] = Deno.args): PublishContext {
   const flags = parseArgs(args, {
-    string: ["name", "output-name", "package-name", "version", "options", "vars"],
+    string: [
+      "name",
+      "output-name",
+      "package-name",
+      "version",
+      "options",
+      "vars",
+    ],
     default: { vars: "{}", options: "{}" },
   });
 
@@ -163,5 +192,57 @@ export function getPublishContext(args: string[] = Deno.args): PublishContext {
     version: requireFlag(flags, "version"),
     options: parseVars(flags.options),
     vars: parseVars(flags.vars),
+  };
+}
+
+/** The deploy-side mode a release reference is being resolved for — distinct from this kit's own pack `mode` (e.g. docker's image/tar/oci/local). */
+export type DeployMode = "development" | "production";
+
+/** The parameters `ens` passes to a pack kit's `describe.ts` or `verify.ts` invocation — both just need to identify which release, at which deploy mode/version, so they share one context shape and parser rather than duplicating it. */
+export interface DescribeContext {
+  /** Ship name, i.e. its path inside `ship/` (e.g. "web/spa"). */
+  name: string;
+  /** Name of the local packed artifact the kit would resolve a development-mode reference from. Defaults to `name`. */
+  outputName: string;
+  /** The name the artifact is (or would be) published under. Defaults to `outputName`. */
+  packageName: string;
+  /** Version to describe a production-mode reference for. */
+  version: string;
+  /** Which deploy mode to report a reference for. */
+  mode: DeployMode;
+  /** The publish options for this target, same shape as `PublishContext.options`. */
+  options: Record<string, string>;
+}
+
+/** Parses the standard pack kit describe/verify CLI contract. Call this from a pack kit's `describe.ts` or `verify.ts` entry point. */
+export function getDescribeContext(
+  args: string[] = Deno.args,
+): DescribeContext {
+  const flags = parseArgs(args, {
+    string: [
+      "name",
+      "output-name",
+      "package-name",
+      "version",
+      "mode",
+      "options",
+    ],
+    default: { options: "{}" },
+  });
+
+  const mode = requireFlag(flags, "mode");
+  if (mode !== "development" && mode !== "production") {
+    throw new Error(
+      `Invalid --mode "${mode}", expected "development" or "production".`,
+    );
+  }
+
+  return {
+    name: requireFlag(flags, "name"),
+    outputName: requireFlag(flags, "output-name"),
+    packageName: requireFlag(flags, "package-name"),
+    version: requireFlag(flags, "version"),
+    mode,
+    options: parseVars(flags.options),
   };
 }

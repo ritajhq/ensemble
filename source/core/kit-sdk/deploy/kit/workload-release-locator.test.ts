@@ -18,7 +18,6 @@ const workload: Workload = {
 Deno.test("WorkloadReleaseLocator.locate: development mode uses the local outputName tag", () => {
   const locator = new WorkloadReleaseLocator(workload, "1.4.2");
   assertEquals(locator.locate("worker", "development"), {
-    kind: "image",
     ref: "worker-ship:latest",
   });
 });
@@ -26,7 +25,6 @@ Deno.test("WorkloadReleaseLocator.locate: development mode uses the local output
 Deno.test("WorkloadReleaseLocator.locate: development mode falls back to the release name with no outputName", () => {
   const locator = new WorkloadReleaseLocator(workload, "1.4.2");
   assertEquals(locator.locate("web", "development"), {
-    kind: "image",
     ref: "web:latest",
   });
 });
@@ -34,7 +32,6 @@ Deno.test("WorkloadReleaseLocator.locate: development mode falls back to the rel
 Deno.test("WorkloadReleaseLocator.locate: production mode uses the published name and given version", () => {
   const locator = new WorkloadReleaseLocator(workload, "1.4.2");
   assertEquals(locator.locate("web", "production"), {
-    kind: "image",
     ref: "registry.ritaj.app/web:1.4.2",
   });
 });
@@ -42,7 +39,6 @@ Deno.test("WorkloadReleaseLocator.locate: production mode uses the published nam
 Deno.test("WorkloadReleaseLocator.locate: production mode falls back to outputName/name with no publish block", () => {
   const locator = new WorkloadReleaseLocator(workload, "1.4.2");
   assertEquals(locator.locate("worker", "production"), {
-    kind: "image",
     ref: "worker-ship:1.4.2",
   });
 });

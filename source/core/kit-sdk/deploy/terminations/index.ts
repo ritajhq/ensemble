@@ -9,6 +9,10 @@ export { Ejector } from "./ejector.ts";
 export { Planner } from "./planner.ts";
 export { Applier, ApplyError } from "./applier.ts";
 export {
+  ReleaseAvailabilityError,
+  ReleaseAvailabilityPreflight,
+} from "./release-availability-preflight.ts";
+export {
   CapabilityGapError,
   type CapabilityGapReport,
   DeploymentCoordinator,

@@ -3,6 +3,7 @@ import type { Target } from "../kit/target.ts";
 import type { Mode } from "../mode.ts";
 import type { Knowability } from "../kit/realization.ts";
 import type { ContractRegistry } from "../contracts/registry.ts";
+import { ReferenceValidator } from "../contracts/reference-validator.ts";
 import { DependencyGraphBuilder } from "../resolve/dependency-graph.ts";
 import { ProvisionerSelector } from "../resolve/provisioner-selector.ts";
 import { WorkloadResolver } from "../resolve/workload-resolver.ts";
@@ -65,9 +66,11 @@ export class Explainer {
     private readonly resolver: WorkloadResolver = new WorkloadResolver(
       registry,
     ),
+    private readonly referenceValidator: ReferenceValidator =
+      new ReferenceValidator(registry),
   ) {}
 
-  /** Throws `ResourceNotFoundError` if `category.name` isn't declared in the workload. Any other resolution failure (an unknown type, no matching provisioner) propagates as-is — a real deploy would fail for the same reason, regardless of which resource is being explained. */
+  /** Throws `ContractError` for any reference that targets an undeclared release/resource/output, `ResourceNotFoundError` if `category.name` isn't declared in the workload. Any other resolution failure (an unknown type, no matching provisioner) propagates as-is — a real deploy would fail for the same reason, regardless of which resource is being explained. */
   explain(
     workload: Workload,
     target: Target,
@@ -75,6 +78,8 @@ export class Explainer {
     category: Category,
     name: string,
   ): ResourceExplanation {
+    this.referenceValidator.validate(workload);
+
     const key = `${category}.${name}`;
     const resolution = this.resolver.resolve(workload, target);
 

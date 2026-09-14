@@ -1,5 +1,6 @@
 import * as KitSdk from "@ensemble/kit-sdk";
 import { $ } from "@david/dax";
+import { locate } from "./locator.ts";
 
 const ctx = KitSdk.Pack.getPublishContext();
 
@@ -8,11 +9,17 @@ const ctx = KitSdk.Pack.getPublishContext();
 // side resolves a production compute's image to this same name, so publisher
 // and consumer agree by construction. This kit invents no registry prefix; the
 // author wires the whole reference. The version is folded in as a tag alongside
-// :latest.
-const localTag = `${ctx.outputName}:latest`;
+// :latest. The versioned tag comes from locate(), the same function
+// describe.ts reports to deploy, so the two can never drift apart.
+const localTag = locate(
+  ctx.outputName,
+  ctx.packageName,
+  ctx.version,
+  "development",
+);
 const remoteTags = [
   `${ctx.packageName}:latest`,
-  `${ctx.packageName}:${ctx.version}`,
+  locate(ctx.outputName, ctx.packageName, ctx.version, "production"),
 ];
 
 // Registry auth is the caller's responsibility (a prior `docker login`, or an

@@ -2,6 +2,7 @@ import type { Workload } from "../workload.ts";
 import type { Target } from "../kit/target.ts";
 import type { Mode } from "../mode.ts";
 import type { ContractRegistry } from "../contracts/registry.ts";
+import { ReferenceValidator } from "../contracts/reference-validator.ts";
 import { DependencyGraphBuilder } from "../resolve/dependency-graph.ts";
 import {
   type CapabilityGapReport,
@@ -15,6 +16,7 @@ import type { Ejector } from "./ejector.ts";
 import type { Planner } from "./planner.ts";
 import type { Applier } from "./applier.ts";
 import type { IntentDiff } from "./intent-diff.ts";
+import type { ReleaseAvailabilityPreflight } from "./release-availability-preflight.ts";
 
 export type { CapabilityGapReport };
 
@@ -25,6 +27,8 @@ export interface DeployOptions {
   readonly termination: Termination;
   /** Section 11's "chosen mechanism for now": non-interactive capability-gap policy. `false` (the honest default) hard-fails on any unmet capability; `true` proceeds, still reporting every gap back in the result for the caller to show (a suppressed lint, not a silent one). */
   readonly acceptCapabilityGaps: boolean;
+  /** Which released version a production release resolves to — also what Section 5b's availability preflight checks for, on a production apply. Unused for a development apply, where the preflight never runs. */
+  readonly version: string;
 }
 
 export class CapabilityGapError extends Error {
@@ -69,6 +73,7 @@ export type DeployResult =
  */
 export class DeploymentCoordinator {
   private readonly resolver: WorkloadResolver;
+  private readonly referenceValidator: ReferenceValidator;
 
   constructor(
     registry: ContractRegistry,
@@ -76,19 +81,23 @@ export class DeploymentCoordinator {
     private readonly ejector: Ejector,
     private readonly planner: Planner,
     private readonly applier: Applier,
+    private readonly availabilityPreflight: ReleaseAvailabilityPreflight,
     private readonly graphBuilder: DependencyGraphBuilder =
       new DependencyGraphBuilder(),
   ) {
     this.resolver = new WorkloadResolver(registry);
+    this.referenceValidator = new ReferenceValidator(registry);
   }
 
-  /** `name` is the deployment's own name (`ens deploy <name> <kit>`) — passed through to `apply` for a kit to scope its own native invocation by (a compose project name, a CloudFormation stack name). Throws `CapabilityGapError` (naming every unmet capability) before rendering anything, unless `options.acceptCapabilityGaps` is set. */
+  /** `name` is the deployment's own name (`ens deploy <name> <kit>`) — passed through to `apply` for a kit to scope its own native invocation by (a compose project name, a CloudFormation stack name). Throws `ContractError` for any reference that targets an undeclared release/resource/output before doing any resolution work, then `CapabilityGapError` (naming every unmet capability) before rendering anything, unless `options.acceptCapabilityGaps` is set. For a production apply only, also runs Section 5b's availability preflight right before the kit's own apply command, throwing `ReleaseAvailabilityError` if any declared release isn't actually reachable yet. */
   async deploy(
     name: string,
     workload: Workload,
     target: Target,
     options: DeployOptions,
   ): Promise<DeployResult> {
+    this.referenceValidator.validate(workload);
+
     const { requests, selections, gaps } = this.resolver.resolve(
       workload,
       target,
@@ -106,6 +115,14 @@ export class DeploymentCoordinator {
       graph,
       options.mode,
     );
+
+    if (options.termination === "apply" && options.mode === "production") {
+      await this.availabilityPreflight.check(
+        workload,
+        options.mode,
+        options.version,
+      );
+    }
 
     return await this.terminate(
       options.termination,

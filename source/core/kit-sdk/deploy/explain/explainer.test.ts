@@ -1,5 +1,6 @@
 import { assertEquals, assertThrows } from "@std/assert";
 import { Parser } from "../manifest/parser.ts";
+import { ContractError } from "../contracts/errors.ts";
 import { ContractCatalog } from "../contracts/registry.ts";
 import { relationalV1 } from "../contracts/seeds/relational.ts";
 import { containerOrchestratedV1 } from "../contracts/seeds/container-orchestrated.ts";
@@ -37,8 +38,8 @@ deploy:
 
 const registry = new ContractCatalog([relationalV1, containerOrchestratedV1]);
 const releaseLocator = new StubReleaseLocator({
-  development: { web: { kind: "image", ref: "ens-local/web:dev" } },
-  production: { web: { kind: "image", ref: "registry.ritaj.app/web:1.4.2" } },
+  development: { web: { ref: "ens-local/web:dev" } },
+  production: { web: { ref: "registry.ritaj.app/web:1.4.2" } },
 });
 
 /** A fake kit whose realization mirrors compose's own — static outputs, a preset for `critical`, and *no* default anywhere for `storageSize` — so `flaggedDefaults` has nothing to flag and a test elsewhere can add a default to exercise the flag. */
@@ -281,5 +282,29 @@ Deno.test("Explainer.explain: throws ResourceNotFoundError for an undeclared res
         "ghost",
       ),
     ResourceNotFoundError,
+  );
+});
+
+Deno.test("Explainer.explain: throws ContractError for a reference to an undeclared output", () => {
+  const workload = new Parser().parse(
+    APPENDIX_A.replace(
+      "DATABASE_URL: ${databases.primary.url}",
+      "DATABASE_URL: ${databases.primary.bogus}",
+    ),
+  );
+  const kit = fakeKit();
+  const target: Target = { kit };
+
+  assertThrows(
+    () =>
+      buildExplainer(kit).explain(
+        workload,
+        target,
+        "production",
+        "databases",
+        "primary",
+      ),
+    ContractError,
+    'references undeclared output "bogus"',
   );
 });

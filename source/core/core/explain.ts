@@ -1,5 +1,6 @@
 import * as KitSdk from "@ensemble/kit-sdk";
 import { loadDeployContext } from "./deploy-context.ts";
+import { SubprocessPackKitGateway } from "./pack-kit-gateway.ts";
 
 export interface RunExplainOptions {
   mode: KitSdk.Deploy.Mode;
@@ -30,9 +31,11 @@ export async function runExplain(
 
   const { workload, target, registry } = await loadDeployContext(name, kit);
 
-  const releaseLocator = new KitSdk.Deploy.WorkloadReleaseLocator(
-    workload,
-    options.version,
+  const locatorResolver = new KitSdk.Deploy.ReleaseLocatorResolver(
+    new SubprocessPackKitGateway(),
+  );
+  const releaseLocator = new KitSdk.Deploy.PreresolvedReleaseLocator(
+    await locatorResolver.resolveAll(workload, options.mode, options.version),
   );
   const renderer = new KitSdk.Deploy.Render.Renderer(
     new KitSdk.Deploy.Render.ReferenceResolver(target.kit.realization()),

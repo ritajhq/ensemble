@@ -1,11 +1,13 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { Parser } from "../manifest/parser.ts";
+import { ContractError } from "../contracts/errors.ts";
 import { ContractCatalog } from "../contracts/registry.ts";
 import { containerOrchestratedV1 } from "../contracts/seeds/container-orchestrated.ts";
 import { relationalV1 } from "../contracts/seeds/relational.ts";
 import { ReferenceResolver } from "../render/reference-resolver.ts";
 import { Renderer } from "../render/renderer.ts";
 import { StubReleaseLocator } from "../kit/release-locator.ts";
+import type { PackKitGateway } from "../kit/pack-kit-gateway.ts";
 import type { Kit } from "../kit/kit.ts";
 import type { Target } from "../kit/target.ts";
 import { FakeRealization } from "../resolve/test-fakes.ts";
@@ -13,6 +15,10 @@ import {
   CapabilityGapError,
   DeploymentCoordinator,
 } from "./deployment-coordinator.ts";
+import {
+  ReleaseAvailabilityError,
+  ReleaseAvailabilityPreflight,
+} from "./release-availability-preflight.ts";
 import { Ejector } from "./ejector.ts";
 import { Planner } from "./planner.ts";
 import { Applier } from "./applier.ts";
@@ -45,6 +51,12 @@ deploy:
 
 const registry = new ContractCatalog([relationalV1, containerOrchestratedV1]);
 const realization = new FakeRealization();
+
+/** None of the eject/plan/development-apply tests below ever reach the production-apply-only availability preflight, so this default gateway's `verify` is never actually invoked — only present to satisfy the constructor. */
+const alwaysAvailableGateway: PackKitGateway = {
+  describe: () => Promise.reject(new Error("describe() not used in this test")),
+  verify: () => Promise.resolve({ available: true }),
+};
 
 /** A minimal fake `Kit` with real (if trivial) provisioners, so the coordinator's full deploy() pipeline can actually render something, plus `present`/`applyCommand` so eject/plan/apply have somewhere to go. */
 function fakeKit(
@@ -93,10 +105,11 @@ function buildCoordinator(
   kit: Kit,
   sink: FakeArtifactSink,
   cache: FakeRenderCache,
+  gateway: PackKitGateway = alwaysAvailableGateway,
 ) {
   const releaseLocator = new StubReleaseLocator({
-    development: { web: { kind: "image", ref: "ens-local/web:dev" } },
-    production: { web: { kind: "image", ref: "registry.ritaj.app/web:1.4.2" } },
+    development: { web: { ref: "ens-local/web:dev" } },
+    production: { web: { ref: "registry.ritaj.app/web:1.4.2" } },
   });
   const renderer = new Renderer(
     new ReferenceResolver(kit.realization()),
@@ -109,6 +122,7 @@ function buildCoordinator(
     new Ejector(sink),
     new Planner(cache),
     new Applier(sink, cache),
+    new ReleaseAvailabilityPreflight(gateway),
   );
 }
 
@@ -127,6 +141,7 @@ async function deployAppendixA(
     mode: "development",
     termination,
     acceptCapabilityGaps,
+    version: "1.4.2",
   });
   return { result, sink, cache };
 }
@@ -193,4 +208,97 @@ Deno.test("DeploymentCoordinator.deploy: acceptCapabilityGaps lets a gap through
     resource: "databases.primary",
     gap: { capability: "read-replicas", requested: 2 },
   }]);
+});
+
+Deno.test("DeploymentCoordinator.deploy: a reference to an undeclared output fails before any resolution or rendering work", async () => {
+  const manifest = APPENDIX_A.replace(
+    "DATABASE_URL: ${databases.primary.url}",
+    "DATABASE_URL: ${databases.primary.bogus}",
+  );
+
+  await assertRejects(
+    () => deployAppendixA(fakeKit("x"), "eject", false, manifest),
+    ContractError,
+    'references undeclared output "bogus"',
+  );
+});
+
+Deno.test("DeploymentCoordinator.deploy: a reference to an undeclared release fails before any resolution or rendering work", async () => {
+  const manifest = APPENDIX_A.replace(
+    "image: ${release.web}",
+    "image: ${release.ghost}",
+  );
+
+  await assertRejects(
+    () => deployAppendixA(fakeKit("x"), "eject", false, manifest),
+    ContractError,
+    'references undeclared release "ghost"',
+  );
+});
+
+Deno.test("DeploymentCoordinator.deploy: a production apply fails when the availability preflight reports a release unavailable", async () => {
+  const workload = new Parser().parse(APPENDIX_A);
+  const kit = fakeKit("applied content");
+  const sink = new FakeArtifactSink();
+  const cache = new FakeRenderCache();
+  const unavailableGateway: PackKitGateway = {
+    describe: () =>
+      Promise.reject(new Error("describe() not used in this test")),
+    verify: () =>
+      Promise.resolve({ available: false, detail: "not found in registry" }),
+  };
+  const coordinator = buildCoordinator(kit, sink, cache, unavailableGateway);
+  const target: Target = { kit };
+
+  await assertRejects(
+    () =>
+      coordinator.deploy("phase-preflight-test", workload, target, {
+        mode: "production",
+        termination: "apply",
+        acceptCapabilityGaps: false,
+        version: "1.4.2",
+      }),
+    ReleaseAvailabilityError,
+    "web: not found in registry",
+  );
+});
+
+Deno.test("DeploymentCoordinator.deploy: the availability preflight never runs for eject/plan or a development apply", async () => {
+  const workload = new Parser().parse(APPENDIX_A);
+  const kit = fakeKit("x");
+  const sink = new FakeArtifactSink();
+  const cache = new FakeRenderCache();
+  let verifyCalls = 0;
+  const countingGateway: PackKitGateway = {
+    describe: () =>
+      Promise.reject(new Error("describe() not used in this test")),
+    verify: () => {
+      verifyCalls++;
+      return Promise.resolve({ available: false });
+    },
+  };
+  const coordinator = buildCoordinator(kit, sink, cache, countingGateway);
+  const target: Target = { kit };
+  const baseOptions = {
+    acceptCapabilityGaps: false,
+    version: "1.4.2",
+  } as const;
+
+  await coordinator.deploy("t", workload, target, {
+    ...baseOptions,
+    mode: "production",
+    termination: "eject",
+  });
+  await coordinator.deploy("t", workload, target, {
+    ...baseOptions,
+    mode: "production",
+    termination: "plan",
+  });
+  await coordinator.deploy("t", workload, target, {
+    ...baseOptions,
+    mode: "development",
+    termination: "apply",
+  });
+
+  assertEquals(verifyCalls, 0);
 });

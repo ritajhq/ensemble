@@ -28,10 +28,15 @@ export { ConfiguredProvisioner } from "./configured-provisioner.ts";
 export { LayeredRealization } from "./layered-realization.ts";
 export { KitLoader, KitLoadError } from "./loader.ts";
 export {
-  type ArtifactKind,
   type ArtifactLocator,
+  PreresolvedReleaseLocator,
   type ReleaseLocatorPort,
   StubReleaseLocator,
   UnknownReleaseError,
   WorkloadReleaseLocator,
 } from "./release-locator.ts";
+export type {
+  PackKitGateway,
+  ReleaseAvailability,
+} from "./pack-kit-gateway.ts";
+export { ReleaseLocatorResolver } from "./release-locator-resolver.ts";

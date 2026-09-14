@@ -1,11 +1,8 @@
 import type { Mode } from "../mode.ts";
 import type { Workload } from "../workload.ts";
 
-export type ArtifactKind = "image" | "archive" | "executable";
-
-/** Where a released ship's artifact actually is, in the target's own terms (Section 4) — a docker image reference, an uploaded archive, a compiled executable path. */
+/** Where a released ship's artifact actually is, in the target's own terms (Section 4) — a real reference string (an image tag, a download URL, a path) whose format is entirely owned by the pack kit that produced it. Deploy never interprets or categorizes this string — only embeds it. */
 export interface ArtifactLocator {
-  readonly kind: ArtifactKind;
   readonly ref: string;
 }
 
@@ -84,6 +81,29 @@ export class WorkloadReleaseLocator implements ReleaseLocatorPort {
     const ref = mode === "development"
       ? `${outputName}:latest`
       : `${release.publish?.name ?? outputName}:${this.version}`;
-    return { kind: "image", ref };
+    return { ref };
+  }
+}
+
+/**
+ * A `ReleaseLocatorPort` backed by a locator map resolved ahead of time —
+ * the synchronous counterpart `Renderer` needs, since its render pass is
+ * pure and can't itself await a pack kit subprocess. `ReleaseLocatorResolver`
+ * builds the map once per deploy by asking each release's actual pack kit
+ * (Section 2/3); this just serves it back by name during render.
+ */
+export class PreresolvedReleaseLocator implements ReleaseLocatorPort {
+  constructor(
+    private readonly locators: ReadonlyMap<string, ArtifactLocator>,
+  ) {}
+
+  locate(releaseName: string): ArtifactLocator {
+    const locator = this.locators.get(releaseName);
+    if (!locator) {
+      throw new UnknownReleaseError(
+        `No locator resolved for release "${releaseName}".`,
+      );
+    }
+    return locator;
   }
 }
