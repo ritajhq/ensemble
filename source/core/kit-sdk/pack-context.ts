@@ -195,21 +195,21 @@ export function getPublishContext(args: string[] = Deno.args): PublishContext {
   };
 }
 
-/** The deploy-side mode a release reference is being resolved for — distinct from this kit's own pack `mode` (e.g. docker's image/tar/oci/local). */
-export type DeployMode = "development" | "production";
+/** Which locator a release reference is being resolved for — distinct from this kit's own pack `mode` (e.g. docker's image/tar/oci/local). */
+export type ArtifactsSource = "local" | "published";
 
-/** The parameters `ens` passes to a pack kit's `describe.ts` or `verify.ts` invocation — both just need to identify which release, at which deploy mode/version, so they share one context shape and parser rather than duplicating it. */
+/** The parameters `ens` passes to a pack kit's `describe.ts` or `verify.ts` invocation — both just need to identify which release, at which artifacts source/version, so they share one context shape and parser rather than duplicating it. */
 export interface DescribeContext {
   /** Ship name, i.e. its path inside `ship/` (e.g. "web/spa"). */
   name: string;
-  /** Name of the local packed artifact the kit would resolve a development-mode reference from. Defaults to `name`. */
+  /** Name of the local packed artifact the kit would resolve a local-artifacts reference from. Defaults to `name`. */
   outputName: string;
   /** The name the artifact is (or would be) published under. Defaults to `outputName`. */
   packageName: string;
-  /** Version to describe a production-mode reference for. */
+  /** Version to describe a published-artifacts reference for. */
   version: string;
-  /** Which deploy mode to report a reference for. */
-  mode: DeployMode;
+  /** Which artifacts source to report a reference for. */
+  artifacts: ArtifactsSource;
   /** The publish options for this target, same shape as `PublishContext.options`. */
   options: Record<string, string>;
 }
@@ -224,16 +224,16 @@ export function getDescribeContext(
       "output-name",
       "package-name",
       "version",
-      "mode",
+      "artifacts",
       "options",
     ],
     default: { options: "{}" },
   });
 
-  const mode = requireFlag(flags, "mode");
-  if (mode !== "development" && mode !== "production") {
+  const artifacts = requireFlag(flags, "artifacts");
+  if (artifacts !== "local" && artifacts !== "published") {
     throw new Error(
-      `Invalid --mode "${mode}", expected "development" or "production".`,
+      `Invalid --artifacts "${artifacts}", expected "local" or "published".`,
     );
   }
 
@@ -242,7 +242,7 @@ export function getDescribeContext(
     outputName: requireFlag(flags, "output-name"),
     packageName: requireFlag(flags, "package-name"),
     version: requireFlag(flags, "version"),
-    mode,
+    artifacts,
     options: parseVars(flags.options),
   };
 }

@@ -1,4 +1,4 @@
-import type { Mode } from "../mode.ts";
+import type { ArtifactsSource } from "../artifacts-source.ts";
 import type { Workload } from "../workload.ts";
 import type { PackKitGateway } from "./pack-kit-gateway.ts";
 import type { ArtifactLocator } from "./release-locator.ts";
@@ -16,12 +16,17 @@ export class ReleaseLocatorResolver {
 
   async resolveAll(
     workload: Workload,
-    mode: Mode,
+    artifacts: ArtifactsSource,
     version: string,
   ): Promise<ReadonlyMap<string, ArtifactLocator>> {
     const resolved = new Map<string, ArtifactLocator>();
     for (const [name, release] of Object.entries(workload.release ?? {})) {
-      const ref = await this.gateway.describe(name, release, mode, version);
+      const ref = await this.gateway.describe(
+        name,
+        release,
+        artifacts,
+        version,
+      );
       resolved.set(name, { ref });
     }
     return resolved;

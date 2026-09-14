@@ -14,6 +14,12 @@ const baseConfig = fromFileUrl(
 const localConfig = fromFileUrl(
   new URL("./testdata/local.config.yml", import.meta.url),
 );
+const runtimeConfig = fromFileUrl(
+  new URL("./testdata/runtime.config.yml", import.meta.url),
+);
+const runtimeOverrideConfig = fromFileUrl(
+  new URL("./testdata/runtime-override.config.yml", import.meta.url),
+);
 const missingConfig = fromFileUrl(
   new URL("./testdata/does-not-exist.config.yml", import.meta.url),
 );
@@ -21,10 +27,10 @@ const missingConfig = fromFileUrl(
 const loader = new KitLoader();
 
 Deno.test("KitLoader.load: loads a vendored kit with no sidecar config", async () => {
-  const kit = await loader.load(fixtureKitDir);
-  assertEquals(kit.provisioners().length, 1);
+  const loaded = await loader.load(fixtureKitDir);
+  assertEquals(loaded.kit.provisioners().length, 1);
   assertEquals(
-    kit.realization().knowabilityOf("databases", "relational", "host"),
+    loaded.kit.realization().knowabilityOf("databases", "relational", "host"),
     "static",
   );
 });
@@ -34,21 +40,43 @@ Deno.test("KitLoader.load: throws KitLoadError when the vendored dir has no main
 });
 
 Deno.test("KitLoader.load: silently skips a sidecar path that doesn't exist", async () => {
-  const kit = await loader.load(fixtureKitDir, [missingConfig]);
-  assertEquals(kit.provisioners().length, 1);
+  const loaded = await loader.load(fixtureKitDir, [missingConfig]);
+  assertEquals(loaded.kit.provisioners().length, 1);
 });
 
 Deno.test("KitLoader.load: layers sidecar config over the kit's own defaults, later path wins a conflict", async () => {
-  const kit = await loader.load(fixtureKitDir, [baseConfig, localConfig]);
+  const loaded = await loader.load(fixtureKitDir, [baseConfig, localConfig]);
 
   assertEquals(
-    kit.realization().boundFor("databases", "relational", "read-replicas"),
+    loaded.kit.realization().boundFor(
+      "databases",
+      "relational",
+      "read-replicas",
+    ),
     { max: 2 },
   );
 });
 
 Deno.test("KitLoader.load: project-declared provisioners come before the kit's own, in declaration order", async () => {
-  const kit = await loader.load(fixtureKitDir, [baseConfig, localConfig]);
+  const loaded = await loader.load(fixtureKitDir, [baseConfig, localConfig]);
 
-  assertEquals(kit.provisioners().length, 2);
+  assertEquals(loaded.kit.provisioners().length, 2);
+});
+
+Deno.test("KitLoader.load: no sidecar selection config means an undefined runtime", async () => {
+  const loaded = await loader.load(fixtureKitDir);
+  assertEquals(loaded.runtime, undefined);
+});
+
+Deno.test("KitLoader.load: surfaces the sidecar config's selection.runtime as the loaded target's runtime", async () => {
+  const loaded = await loader.load(fixtureKitDir, [runtimeConfig]);
+  assertEquals(loaded.runtime, "localstack");
+});
+
+Deno.test("KitLoader.load: a later sidecar layer's runtime overrides an earlier one", async () => {
+  const loaded = await loader.load(fixtureKitDir, [
+    runtimeConfig,
+    runtimeOverrideConfig,
+  ]);
+  assertEquals(loaded.runtime, "real");
 });

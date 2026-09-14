@@ -19,6 +19,12 @@ import {
   ReleaseAvailabilityError,
   ReleaseAvailabilityPreflight,
 } from "./release-availability-preflight.ts";
+import {
+  LocalArtifactsPacker,
+  type ReleasePacker,
+  ReleasePackError,
+} from "./release-packer.ts";
+import { WatchNotSupportedError, WatchRunner } from "./watch-runner.ts";
 import { Ejector } from "./ejector.ts";
 import { Planner } from "./planner.ts";
 import { Applier } from "./applier.ts";
@@ -52,16 +58,22 @@ deploy:
 const registry = new ContractCatalog([relationalV1, containerOrchestratedV1]);
 const realization = new FakeRealization();
 
-/** None of the eject/plan/development-apply tests below ever reach the production-apply-only availability preflight, so this default gateway's `verify` is never actually invoked — only present to satisfy the constructor. */
+/** None of the eject/plan/local-apply tests below ever reach the published-apply-only availability preflight, so this default gateway's `verify` is never actually invoked — only present to satisfy the constructor. */
 const alwaysAvailableGateway: PackKitGateway = {
   describe: () => Promise.reject(new Error("describe() not used in this test")),
   verify: () => Promise.resolve({ available: true }),
 };
 
-/** A minimal fake `Kit` with real (if trivial) provisioners, so the coordinator's full deploy() pipeline can actually render something, plus `present`/`applyCommand` so eject/plan/apply have somewhere to go. */
+/** Default packer for tests that don't care about packing itself — every local apply below goes through this unless a test builds its own coordinator with a different one. */
+const alwaysSucceedsPacker: ReleasePacker = {
+  pack: () => Promise.resolve(),
+};
+
+/** A minimal fake `Kit` with real (if trivial) provisioners, so the coordinator's full deploy() pipeline can actually render something, plus `present`/`applyCommand` so eject/plan/apply have somewhere to go. `watchCommand` is only present when `watchCommand` is given — `undefined` (the parameter's own default) means this fake, like aws today, simply can't watch. */
 function fakeKit(
   presentedContent: string,
   applyCommand: readonly string[] = ["true"],
+  watchCommand?: readonly string[],
 ): Kit {
   return {
     provisioners: () => [
@@ -98,6 +110,9 @@ function fakeKit(
     realization: () => realization,
     present: () => ({ filename: "compose.yaml", content: presentedContent }),
     applyCommand: (path) => [...applyCommand, path],
+    ...(watchCommand
+      ? { watchCommand: (path: string) => [...watchCommand, path] }
+      : {}),
   };
 }
 
@@ -106,10 +121,11 @@ function buildCoordinator(
   sink: FakeArtifactSink,
   cache: FakeRenderCache,
   gateway: PackKitGateway = alwaysAvailableGateway,
+  packer: ReleasePacker = alwaysSucceedsPacker,
 ) {
   const releaseLocator = new StubReleaseLocator({
-    development: { web: { ref: "ens-local/web:dev" } },
-    production: { web: { ref: "registry.ritaj.app/web:1.4.2" } },
+    local: { web: { ref: "ens-local/web:dev" } },
+    published: { web: { ref: "registry.ritaj.app/web:1.4.2" } },
   });
   const renderer = new Renderer(
     new ReferenceResolver(kit.realization()),
@@ -123,6 +139,8 @@ function buildCoordinator(
     new Planner(cache),
     new Applier(sink, cache),
     new ReleaseAvailabilityPreflight(gateway),
+    new LocalArtifactsPacker(packer),
+    new WatchRunner(sink),
   );
 }
 
@@ -138,10 +156,12 @@ async function deployAppendixA(
   const coordinator = buildCoordinator(kit, sink, cache);
   const target: Target = { kit };
   const result = await coordinator.deploy("phase6-test", workload, target, {
-    mode: "development",
+    artifacts: "local",
     termination,
     acceptCapabilityGaps,
     version: "1.4.2",
+    pack: true,
+    watch: false,
   });
   return { result, sink, cache };
 }
@@ -236,7 +256,7 @@ Deno.test("DeploymentCoordinator.deploy: a reference to an undeclared release fa
   );
 });
 
-Deno.test("DeploymentCoordinator.deploy: a production apply fails when the availability preflight reports a release unavailable", async () => {
+Deno.test("DeploymentCoordinator.deploy: a published apply fails when the availability preflight reports a release unavailable", async () => {
   const workload = new Parser().parse(APPENDIX_A);
   const kit = fakeKit("applied content");
   const sink = new FakeArtifactSink();
@@ -253,17 +273,19 @@ Deno.test("DeploymentCoordinator.deploy: a production apply fails when the avail
   await assertRejects(
     () =>
       coordinator.deploy("phase-preflight-test", workload, target, {
-        mode: "production",
+        artifacts: "published",
         termination: "apply",
         acceptCapabilityGaps: false,
         version: "1.4.2",
+        pack: true,
+        watch: false,
       }),
     ReleaseAvailabilityError,
     "web: not found in registry",
   );
 });
 
-Deno.test("DeploymentCoordinator.deploy: the availability preflight never runs for eject/plan or a development apply", async () => {
+Deno.test("DeploymentCoordinator.deploy: the availability preflight never runs for eject/plan or a local apply", async () => {
   const workload = new Parser().parse(APPENDIX_A);
   const kit = fakeKit("x");
   const sink = new FakeArtifactSink();
@@ -282,23 +304,301 @@ Deno.test("DeploymentCoordinator.deploy: the availability preflight never runs f
   const baseOptions = {
     acceptCapabilityGaps: false,
     version: "1.4.2",
+    pack: true,
+    watch: false,
   } as const;
 
   await coordinator.deploy("t", workload, target, {
     ...baseOptions,
-    mode: "production",
+    artifacts: "published",
     termination: "eject",
   });
   await coordinator.deploy("t", workload, target, {
     ...baseOptions,
-    mode: "production",
+    artifacts: "published",
     termination: "plan",
   });
   await coordinator.deploy("t", workload, target, {
     ...baseOptions,
-    mode: "development",
+    artifacts: "local",
     termination: "apply",
   });
 
   assertEquals(verifyCalls, 0);
+});
+
+const TWO_COMPUTES_ONE_RELEASE = `
+version: v1
+release:
+  web: { kit: docker }
+deploy:
+  compute:
+    api:
+      type: container-orchestrated
+      image: \${release.web}
+      replicas: 2
+    worker:
+      type: container-orchestrated
+      image: \${release.web}
+      replicas: 1
+  databases:
+    primary:
+      type: relational
+      class: critical
+      engine: postgres
+      version: "16"
+      user: appuser
+      database: appdb
+      passwordSecret: db-password
+  secrets:
+    db-password: { source: environment }
+`;
+
+Deno.test("DeploymentCoordinator.deploy: a local apply packs each referenced release exactly once, even when multiple resources reference it", async () => {
+  const workload = new Parser().parse(TWO_COMPUTES_ONE_RELEASE);
+  const kit = fakeKit("applied content");
+  const sink = new FakeArtifactSink();
+  const cache = new FakeRenderCache();
+  const packedNames: string[] = [];
+  const packer: ReleasePacker = {
+    pack: (name) => {
+      packedNames.push(name);
+      return Promise.resolve();
+    },
+  };
+  const coordinator = buildCoordinator(
+    kit,
+    sink,
+    cache,
+    alwaysAvailableGateway,
+    packer,
+  );
+  const target: Target = { kit };
+
+  await coordinator.deploy("t", workload, target, {
+    artifacts: "local",
+    termination: "apply",
+    acceptCapabilityGaps: false,
+    version: "1.4.2",
+    pack: true,
+    watch: false,
+  });
+
+  assertEquals(packedNames, ["web"]);
+});
+
+Deno.test("DeploymentCoordinator.deploy: pack: false skips packing for a local apply", async () => {
+  const workload = new Parser().parse(APPENDIX_A);
+  const kit = fakeKit("x");
+  const sink = new FakeArtifactSink();
+  const cache = new FakeRenderCache();
+  let packCalls = 0;
+  const packer: ReleasePacker = {
+    pack: () => {
+      packCalls++;
+      return Promise.resolve();
+    },
+  };
+  const coordinator = buildCoordinator(
+    kit,
+    sink,
+    cache,
+    alwaysAvailableGateway,
+    packer,
+  );
+  const target: Target = { kit };
+
+  await coordinator.deploy("t", workload, target, {
+    artifacts: "local",
+    termination: "apply",
+    acceptCapabilityGaps: false,
+    version: "1.4.2",
+    pack: false,
+    watch: false,
+  });
+
+  assertEquals(packCalls, 0);
+});
+
+Deno.test("DeploymentCoordinator.deploy: a published apply never packs, even with pack: true", async () => {
+  const workload = new Parser().parse(APPENDIX_A);
+  const kit = fakeKit("x");
+  const sink = new FakeArtifactSink();
+  const cache = new FakeRenderCache();
+  let packCalls = 0;
+  const packer: ReleasePacker = {
+    pack: () => {
+      packCalls++;
+      return Promise.resolve();
+    },
+  };
+  const coordinator = buildCoordinator(
+    kit,
+    sink,
+    cache,
+    alwaysAvailableGateway,
+    packer,
+  );
+  const target: Target = { kit };
+
+  await coordinator.deploy("t", workload, target, {
+    artifacts: "published",
+    termination: "apply",
+    acceptCapabilityGaps: false,
+    version: "1.4.2",
+    pack: true,
+    watch: false,
+  });
+
+  assertEquals(packCalls, 0);
+});
+
+Deno.test("DeploymentCoordinator.deploy: eject/plan never pack, even for local artifacts with pack: true", async () => {
+  const workload = new Parser().parse(APPENDIX_A);
+  const kit = fakeKit("x");
+  const sink = new FakeArtifactSink();
+  const cache = new FakeRenderCache();
+  let packCalls = 0;
+  const packer: ReleasePacker = {
+    pack: () => {
+      packCalls++;
+      return Promise.resolve();
+    },
+  };
+  const coordinator = buildCoordinator(
+    kit,
+    sink,
+    cache,
+    alwaysAvailableGateway,
+    packer,
+  );
+  const target: Target = { kit };
+  const baseOptions = {
+    artifacts: "local",
+    acceptCapabilityGaps: false,
+    version: "1.4.2",
+    pack: true,
+    watch: false,
+  } as const;
+
+  await coordinator.deploy("t", workload, target, {
+    ...baseOptions,
+    termination: "eject",
+  });
+  await coordinator.deploy("t", workload, target, {
+    ...baseOptions,
+    termination: "plan",
+  });
+
+  assertEquals(packCalls, 0);
+});
+
+Deno.test("DeploymentCoordinator.deploy: a pack failure aborts before the terminal step runs", async () => {
+  const workload = new Parser().parse(APPENDIX_A);
+  const kit = fakeKit("applied content");
+  const sink = new FakeArtifactSink();
+  const cache = new FakeRenderCache();
+  const failingPacker: ReleasePacker = {
+    pack: (name) =>
+      Promise.reject(new ReleasePackError(name, `packing "${name}" failed`)),
+  };
+  const coordinator = buildCoordinator(
+    kit,
+    sink,
+    cache,
+    alwaysAvailableGateway,
+    failingPacker,
+  );
+  const target: Target = { kit };
+
+  await assertRejects(
+    () =>
+      coordinator.deploy("t", workload, target, {
+        artifacts: "local",
+        termination: "apply",
+        acceptCapabilityGaps: false,
+        version: "1.4.2",
+        pack: true,
+        watch: false,
+      }),
+    ReleasePackError,
+    'packing "web" failed',
+  );
+  assertEquals(sink.written, []);
+});
+
+Deno.test("DeploymentCoordinator.deploy: --watch runs the kit's watch command instead of a one-shot apply", async () => {
+  const workload = new Parser().parse(APPENDIX_A);
+  const kit = fakeKit("watched content", ["true"], ["true"]);
+  const sink = new FakeArtifactSink();
+  const cache = new FakeRenderCache();
+  const coordinator = buildCoordinator(kit, sink, cache);
+  const target: Target = { kit };
+
+  const result = await coordinator.deploy("t", workload, target, {
+    artifacts: "local",
+    termination: "apply",
+    acceptCapabilityGaps: false,
+    version: "1.4.2",
+    pack: true,
+    watch: true,
+  });
+
+  assertEquals(result, { termination: "apply", gaps: [] });
+  assertEquals(sink.written, [{
+    filename: "compose.yaml",
+    content: "watched content",
+  }]);
+});
+
+Deno.test("DeploymentCoordinator.deploy: --watch against a kit with no watch command throws WatchNotSupportedError", async () => {
+  const workload = new Parser().parse(APPENDIX_A);
+  const kit = fakeKit("x"); // no watchCommand given — can't watch, like aws today
+  const sink = new FakeArtifactSink();
+  const cache = new FakeRenderCache();
+  const coordinator = buildCoordinator(kit, sink, cache);
+  const target: Target = { kit };
+
+  await assertRejects(
+    () =>
+      coordinator.deploy("t", workload, target, {
+        artifacts: "local",
+        termination: "apply",
+        acceptCapabilityGaps: false,
+        version: "1.4.2",
+        pack: true,
+        watch: true,
+      }),
+    WatchNotSupportedError,
+  );
+});
+
+Deno.test("DeploymentCoordinator.deploy: eject/plan never invoke the watch step, even with watch: true", async () => {
+  const workload = new Parser().parse(APPENDIX_A);
+  // No watchCommand at all — if the coordinator ever actually tried to
+  // watch here, it would throw WatchNotSupportedError and fail this test.
+  const kit = fakeKit("x");
+  const sink = new FakeArtifactSink();
+  const cache = new FakeRenderCache();
+  const coordinator = buildCoordinator(kit, sink, cache);
+  const target: Target = { kit };
+  const baseOptions = {
+    artifacts: "local",
+    acceptCapabilityGaps: false,
+    version: "1.4.2",
+    pack: true,
+    watch: true,
+  } as const;
+
+  const ejected = await coordinator.deploy("t", workload, target, {
+    ...baseOptions,
+    termination: "eject",
+  });
+  const planned = await coordinator.deploy("t", workload, target, {
+    ...baseOptions,
+    termination: "plan",
+  });
+
+  assertEquals(ejected.termination, "eject");
+  assertEquals(planned.termination, "plan");
 });

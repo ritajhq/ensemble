@@ -38,14 +38,14 @@ export async function loadDeployContext(
     );
   }
   const sidecarConfigPath = join(repoRoot, "ci", name, `${kit}.config.yml`);
-  const kitInstance = await new KitSdk.Deploy.KitLoader().load(vendoredKitDir, [
+  const loaded = await new KitSdk.Deploy.KitLoader().load(vendoredKitDir, [
     sidecarConfigPath,
   ]);
 
   return {
     repoRoot,
     workload,
-    target: { kit: kitInstance },
+    target: { kit: loaded.kit, runtime: loaded.runtime },
     registry: new KitSdk.Deploy.Contracts.Catalog(RESOURCE_CONTRACTS),
   };
 }

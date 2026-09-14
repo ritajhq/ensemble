@@ -6,7 +6,7 @@ const ctx = KitSdk.Pack.getPublishContext();
 
 // packageName is the FULL published image reference, straight from the
 // release's `publish.name` (e.g. "registry.example.com/team/app") — the deploy
-// side resolves a production compute's image to this same name, so publisher
+// side resolves a published compute's image to this same name, so publisher
 // and consumer agree by construction. This kit invents no registry prefix; the
 // author wires the whole reference. The version is folded in as a tag alongside
 // :latest. The versioned tag comes from locate(), the same function
@@ -15,11 +15,11 @@ const localTag = locate(
   ctx.outputName,
   ctx.packageName,
   ctx.version,
-  "development",
+  "local",
 );
 const remoteTags = [
   `${ctx.packageName}:latest`,
-  locate(ctx.outputName, ctx.packageName, ctx.version, "production"),
+  locate(ctx.outputName, ctx.packageName, ctx.version, "published"),
 ];
 
 // Registry auth is the caller's responsibility (a prior `docker login`, or an

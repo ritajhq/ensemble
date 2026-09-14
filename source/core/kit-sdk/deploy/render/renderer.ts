@@ -1,5 +1,5 @@
 import type { Category, Workload } from "../workload.ts";
-import type { Mode } from "../mode.ts";
+import type { ArtifactsSource } from "../artifacts-source.ts";
 import type { ReferenceSyntax } from "../reference.ts";
 import type {
   DependencyGraph,
@@ -55,10 +55,15 @@ export class Renderer {
     requests: ReadonlyMap<string, ProvisioningRequest>,
     selections: ReadonlyMap<string, SelectedProvisioner>,
     graph: DependencyGraph,
-    mode: Mode,
+    artifactsSource: ArtifactsSource,
   ): Artifacts {
-    return this.renderWithLedger(workload, requests, selections, graph, mode)
-      .artifacts;
+    return this.renderWithLedger(
+      workload,
+      requests,
+      selections,
+      graph,
+      artifactsSource,
+    ).artifacts;
   }
 
   /** Same render pass as `render`, also handing back the `OutputsLedger` it built — `ens deploy explain` (Phase 8) needs a resource's real resolved outputs, which only exist once the whole workload has actually been rendered in dependency order. `render` stays the normal entry point; this is for callers that need to inspect the ledger afterward. */
@@ -67,7 +72,7 @@ export class Renderer {
     requests: ReadonlyMap<string, ProvisioningRequest>,
     selections: ReadonlyMap<string, SelectedProvisioner>,
     graph: DependencyGraph,
-    mode: Mode,
+    artifactsSource: ArtifactsSource,
   ): { artifacts: Artifacts; ledger: OutputsLedger } {
     const ledger = new OutputsLedger();
     const fragments: ArtifactFragment[] = [];
@@ -80,7 +85,7 @@ export class Renderer {
           requests,
           selections,
           ledger,
-          mode,
+          artifactsSource,
         );
         if (fragment) fragments.push(fragment);
       }
@@ -95,12 +100,12 @@ export class Renderer {
     requests: ReadonlyMap<string, ProvisioningRequest>,
     selections: ReadonlyMap<string, SelectedProvisioner>,
     ledger: OutputsLedger,
-    mode: Mode,
+    artifactsSource: ArtifactsSource,
   ): ArtifactFragment | undefined {
     if (id.category === "release") {
       ledger.recordRelease(
         id.name,
-        this.releaseLocator.locate(id.name, mode).ref,
+        this.releaseLocator.locate(id.name, artifactsSource).ref,
       );
       return undefined;
     }

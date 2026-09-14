@@ -28,4 +28,16 @@ export interface Kit {
    * than inventing their own.
    */
   applyCommand(artifactPath: string, name: string): readonly string[];
+  /**
+   * The argv for a long-lived watch command over `artifactPath`, mirroring
+   * `applyCommand` — `["docker", "compose", "-f", artifactPath, "-p", name,
+   * "watch"]` for compose. Optional, and `undefined` is a legitimate answer
+   * (not an error): a kit/target with no native watch tool — aws today —
+   * simply doesn't implement this, which the watch terminal step reads as a
+   * capability gap rather than a bug.
+   */
+  watchCommand?(
+    artifactPath: string,
+    name: string,
+  ): readonly string[] | undefined;
 }

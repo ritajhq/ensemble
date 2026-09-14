@@ -6,18 +6,22 @@ const explainCommand = new Command()
   .description(
     'Explain one resource\'s resolution: which provisioner matched (and why others didn\'t), each value\'s provenance, accepted capability gaps, and resolved outputs. <resource> is given as "category.name" (e.g. "databases.primary").',
   )
-  .type("mode", new EnumType(["development", "production"]))
+  .type("artifacts", new EnumType(["local", "published"]))
   .arguments("<name:string> <kit:string> <resource:string>")
-  .option("-m, --mode <mode:mode>", "Deploy mode.", {
-    default: "production" as const,
-  })
+  .option(
+    "--artifacts <artifacts:artifacts>",
+    "Which release locator to resolve.",
+    {
+      default: "published" as const,
+    },
+  )
   .option(
     "--version <version:string>",
-    "Released version to resolve ${release.<name>.image} references to in production mode.",
+    "Released version to resolve ${release.<name>} references to for published artifacts.",
     { default: "latest" },
   )
-  .action(async ({ mode, version }, name, kit, resource) => {
-    await runExplain(name, kit, resource, { mode, version });
+  .action(async ({ artifacts, version }, name, kit, resource) => {
+    await runExplain(name, kit, resource, { artifacts, version });
   });
 
 export const deployCommand = new Command()
@@ -26,14 +30,18 @@ export const deployCommand = new Command()
     "Deploy a workload using the given deploy kit: render, then eject, plan, or apply (the default). " +
       "Tearing a workload down is out of scope for this rearchitecture's current phases.",
   )
-  .type("mode", new EnumType(["development", "production"]))
+  .type("artifacts", new EnumType(["local", "published"]))
   .arguments("<name:string> <kit:string>")
-  .option("-m, --mode <mode:mode>", "Deploy mode.", {
-    default: "production" as const,
-  })
+  .option(
+    "--artifacts <artifacts:artifacts>",
+    "Which release locator to resolve.",
+    {
+      default: "published" as const,
+    },
+  )
   .option(
     "--version <version:string>",
-    "Released version to resolve ${release.<name>.image} references to in production mode.",
+    "Released version to resolve ${release.<name>} references to for published artifacts.",
     { default: "latest" },
   )
   .option(
@@ -45,22 +53,41 @@ export const deployCommand = new Command()
     "Render and show the intent-diff against the last apply/plan, then stop.",
   )
   .option(
+    "--watch",
+    "Run the kit's long-lived watch command instead of a one-shot apply, torn down on Ctrl+C.",
+    { default: false },
+  )
+  .option(
+    "--no-pack",
+    "Skip packing referenced releases before a local apply (default: pack). Ignored for published artifacts.",
+  )
+  .option(
     "--accept-capability-gaps",
     "Proceed even if the target kit can't satisfy a requested capability (otherwise this hard-fails).",
     { default: false },
   )
   .action(
-    async ({ mode, version, eject, plan, acceptCapabilityGaps }, name, kit) => {
+    async (
+      { artifacts, version, eject, plan, watch, pack, acceptCapabilityGaps },
+      name,
+      kit,
+    ) => {
       if (eject && plan) {
         console.error("error: --eject and --plan can't be used together.");
         Deno.exit(1);
       }
+      if (watch && (eject || plan)) {
+        console.error("error: --watch can't be used with --eject or --plan.");
+        Deno.exit(1);
+      }
       const termination = eject ? "eject" : plan ? "plan" : "apply";
       await runDeploy(name, kit, {
-        mode,
+        artifacts,
         version,
         termination,
         acceptCapabilityGaps,
+        watch,
+        pack,
       });
     },
   )

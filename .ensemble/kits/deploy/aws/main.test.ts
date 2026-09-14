@@ -27,7 +27,7 @@ async function renderWorkload(
   fixturePath: string,
   kit: KitSdk.Deploy.Kit,
   releaseLocator: KitSdk.Deploy.ReleaseLocatorPort,
-  mode: KitSdk.Deploy.Mode,
+  artifactsSource: KitSdk.Deploy.ArtifactsSource,
 ) {
   const loader = new KitSdk.Deploy.Manifest.Loader(
     new KitSdk.Deploy.Manifest.Parser(),
@@ -51,7 +51,7 @@ async function renderWorkload(
       const [name, declaration] of Object.entries(workload[category] ?? {})
     ) {
       const matched = matcher.match(category, name, declaration);
-      const selection = selector.select(matched, kit);
+      const selection = selector.select(matched, target);
       const values = negotiator.negotiate(matched, target);
       const request = assembler.assemble(matched, values);
       requests.set(`${category}.${name}`, request);
@@ -75,15 +75,15 @@ async function renderWorkload(
     requests,
     selections,
     graph,
-    mode,
+    artifactsSource,
   );
 
   return { artifacts, graph };
 }
 
 const releaseLocator = new KitSdk.Deploy.StubReleaseLocator({
-  development: { web: { ref: "ens-local/web:dev" } },
-  production: {
+  local: { web: { ref: "ens-local/web:dev" } },
+  published: {
     web: { ref: "123456.dkr.ecr.amazonaws.com/web:1.4.2" },
   },
 });
@@ -93,7 +93,7 @@ Deno.test("aws kit: renders Appendix A's worked example (golden snapshot)", asyn
     FIXTURE,
     awsKit,
     releaseLocator,
-    "production",
+    "published",
   );
   const document = assembleCloudFormationDocument(artifacts);
 
@@ -105,7 +105,7 @@ Deno.test("aws kit: matches Appendix A's documented content exactly", async () =
     FIXTURE,
     awsKit,
     releaseLocator,
-    "production",
+    "published",
   );
   const document = assembleCloudFormationDocument(artifacts) as {
     Parameters: Record<string, unknown>;
@@ -172,7 +172,7 @@ Deno.test("aws kit: presents a valid template.yaml", async () => {
     FIXTURE,
     awsKit,
     releaseLocator,
-    "production",
+    "published",
   );
   const presented = awsKit.present(
     artifacts,
@@ -187,7 +187,7 @@ Deno.test("aws kit: present() never emits YAML anchors/aliases, even though DbPa
     FIXTURE,
     awsKit,
     releaseLocator,
-    "production",
+    "published",
   );
   const presented = awsKit.present(
     artifacts,
@@ -220,13 +220,13 @@ Deno.test("aws kit: rendering the same workload twice produces byte-identical pr
     FIXTURE,
     awsKit,
     releaseLocator,
-    "production",
+    "published",
   );
   const second = await renderWorkload(
     FIXTURE,
     awsKit,
     releaseLocator,
-    "production",
+    "published",
   );
 
   assertEquals(
@@ -238,21 +238,21 @@ Deno.test("aws kit: rendering the same workload twice produces byte-identical pr
 Deno.test("portability: the same manifest renders on both compose and aws with identical output keys", async () => {
   const composeKitModule = await import("../compose/main.ts");
   const composeReleaseLocator = new KitSdk.Deploy.StubReleaseLocator({
-    development: { web: { ref: "ens-local/web:dev" } },
-    production: { web: { ref: "ens-local/web:dev" } },
+    local: { web: { ref: "ens-local/web:dev" } },
+    published: { web: { ref: "ens-local/web:dev" } },
   });
 
   const composeResult = await renderWorkload(
     FIXTURE,
     composeKitModule.default,
     composeReleaseLocator,
-    "development",
+    "local",
   );
   const awsResult = await renderWorkload(
     FIXTURE,
     awsKit,
     releaseLocator,
-    "production",
+    "published",
   );
 
   // Both renders must succeed at all (this line only reaches if neither threw a
@@ -307,7 +307,7 @@ Deno.test("capabilities end-to-end: aws satisfies read-replicas (no gap) and act
     resolution.requests,
     resolution.selections,
     graph,
-    "production",
+    "published",
   );
 
   const document = assembleCloudFormationDocument(rendered) as {

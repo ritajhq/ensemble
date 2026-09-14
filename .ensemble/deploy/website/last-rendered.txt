@@ -4,3 +4,11 @@ services:
     ports:
       - '8000:8000'
     environment: {}
+    develop:
+      watch:
+        - path: website/server
+          target: /app/server
+          action: sync
+        - path: website/content
+          target: /app/content
+          action: sync

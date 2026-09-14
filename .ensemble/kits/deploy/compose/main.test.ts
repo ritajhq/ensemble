@@ -1,5 +1,5 @@
 import { fromFileUrl } from "@std/path";
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertRejects } from "@std/assert";
 import { assertSnapshot } from "@std/testing/snapshot";
 import * as KitSdk from "@ensemble/kit-sdk";
 import composeKit from "./main.ts";
@@ -24,17 +24,29 @@ const registry = new KitSdk.Deploy.Contracts.Catalog([
  * the loop"); this is test-only glue so Phase 5's `Renderer` can be verified
  * end to end before the real coordinator exists.
  */
-async function renderWorkload(
+async function renderFixture(
   fixturePath: string,
   kit: KitSdk.Deploy.Kit,
   releaseLocator: KitSdk.Deploy.ReleaseLocatorPort,
-  mode: KitSdk.Deploy.Mode,
+  artifactsSource: KitSdk.Deploy.ArtifactsSource,
 ) {
   const loader = new KitSdk.Deploy.Manifest.Loader(
     new KitSdk.Deploy.Manifest.Parser(),
   );
   const workload = await loader.loadFile(fixturePath);
+  return renderWorkload(workload, kit, releaseLocator, artifactsSource);
+}
 
+// Stays async (render itself is synchronous) so a throw inside is a
+// rejection assertRejects() can catch, not an exception escaping the call
+// before any promise exists.
+// deno-lint-ignore require-await
+async function renderWorkload(
+  workload: KitSdk.Deploy.Workload,
+  kit: KitSdk.Deploy.Kit,
+  releaseLocator: KitSdk.Deploy.ReleaseLocatorPort,
+  artifactsSource: KitSdk.Deploy.ArtifactsSource,
+) {
   const matcher = new KitSdk.Deploy.Resolve.ContractMatcher(registry);
   const selector = new KitSdk.Deploy.Resolve.ProvisionerSelector();
   const negotiator = new KitSdk.Deploy.Resolve.ValueNegotiator();
@@ -52,7 +64,7 @@ async function renderWorkload(
       const [name, declaration] of Object.entries(workload[category] ?? {})
     ) {
       const matched = matcher.match(category, name, declaration);
-      const selection = selector.select(matched, kit);
+      const selection = selector.select(matched, target);
       const values = negotiator.negotiate(matched, target);
       const request = assembler.assemble(matched, values);
       requests.set(`${category}.${name}`, request);
@@ -76,23 +88,23 @@ async function renderWorkload(
     requests,
     selections,
     graph,
-    mode,
+    artifactsSource,
   );
 
   return { artifacts, graph };
 }
 
 const releaseLocator = new KitSdk.Deploy.StubReleaseLocator({
-  development: { web: { ref: "ens-local/web:dev" } },
-  production: { web: { ref: "registry.ritaj.app/web:1.4.2" } },
+  local: { web: { ref: "ens-local/web:dev" } },
+  published: { web: { ref: "registry.ritaj.app/web:1.4.2" } },
 });
 
 Deno.test("compose kit: renders Appendix A's worked example (golden snapshot)", async (t) => {
-  const { artifacts, graph } = await renderWorkload(
+  const { artifacts, graph } = await renderFixture(
     FIXTURE,
     composeKit,
     releaseLocator,
-    "development",
+    "local",
   );
   const document = assembleComposeDocument(artifacts, graph);
 
@@ -100,11 +112,11 @@ Deno.test("compose kit: renders Appendix A's worked example (golden snapshot)", 
 });
 
 Deno.test("compose kit: matches Appendix A's documented content exactly", async () => {
-  const { artifacts, graph } = await renderWorkload(
+  const { artifacts, graph } = await renderFixture(
     FIXTURE,
     composeKit,
     releaseLocator,
-    "development",
+    "local",
   );
   const document = assembleComposeDocument(artifacts, graph) as {
     services: Record<string, unknown>;
@@ -134,12 +146,12 @@ Deno.test("compose kit: matches Appendix A's documented content exactly", async 
   assertEquals(document.volumes, { "primary-data": {} });
 });
 
-Deno.test("compose kit: a production-mode render resolves the release to its published locator instead", async () => {
-  const { artifacts, graph } = await renderWorkload(
+Deno.test("compose kit: a published-artifacts render resolves the release to its published locator instead", async () => {
+  const { artifacts, graph } = await renderFixture(
     FIXTURE,
     composeKit,
     releaseLocator,
-    "production",
+    "published",
   );
   const document = assembleComposeDocument(artifacts, graph) as {
     services: Record<string, { image: unknown }>;
@@ -149,11 +161,11 @@ Deno.test("compose kit: a production-mode render resolves the release to its pub
 });
 
 Deno.test("compose kit: present() serializes to compose.yaml, parseable back to the same content", async () => {
-  const { artifacts, graph } = await renderWorkload(
+  const { artifacts, graph } = await renderFixture(
     FIXTURE,
     composeKit,
     releaseLocator,
-    "development",
+    "local",
   );
 
   const presented = composeKit.present(artifacts, graph);
@@ -177,18 +189,131 @@ Deno.test("compose kit: applyCommand runs docker compose up scoped by the deploy
   );
 });
 
-Deno.test("compose kit: rendering the same workload twice produces byte-identical presented content (G5)", async () => {
-  const first = await renderWorkload(
-    FIXTURE,
-    composeKit,
-    releaseLocator,
-    "development",
+Deno.test("compose kit: watchCommand runs docker compose watch scoped by the deployment's own project name, with --project-directory pointed at source/", () => {
+  assertEquals(
+    composeKit.watchCommand?.(
+      "/repo/source/artifacts/deploy/phase7-smoke-test/compose.yaml",
+      "phase7-smoke-test",
+    ),
+    [
+      "docker",
+      "compose",
+      "-f",
+      "/repo/source/artifacts/deploy/phase7-smoke-test/compose.yaml",
+      "-p",
+      "phase7-smoke-test",
+      "--project-directory",
+      "/repo/source",
+      "watch",
+    ],
   );
-  const second = await renderWorkload(
+});
+
+const WITH_DEVELOPMENT_BLOCK = `
+version: v1
+release:
+  web: { kit: docker }
+deploy:
+  compute:
+    api:
+      type: container-orchestrated
+      image: \${release.web}
+      replicas: 1
+      development:
+        sync:
+          - app: website/server
+            path: /app/server
+          - app: website/content
+            path: /app/content
+            action: sync+restart
+            ignore: ["*.test.ts"]
+`;
+
+Deno.test("compose kit: a development block renders a develop.watch entry per sync rule", async () => {
+  const workload = new KitSdk.Deploy.Manifest.Parser().parse(
+    WITH_DEVELOPMENT_BLOCK,
+  );
+  const { artifacts, graph } = await renderWorkload(
+    workload,
+    composeKit,
+    releaseLocator,
+    "local",
+  );
+  const document = assembleComposeDocument(artifacts, graph) as {
+    services: Record<string, { develop?: { watch: unknown[] } }>;
+  };
+
+  assertEquals(document.services.api.develop, {
+    watch: [
+      { path: "website/server", target: "/app/server", action: "sync" },
+      {
+        path: "website/content",
+        target: "/app/content",
+        action: "sync+restart",
+        ignore: ["*.test.ts"],
+      },
+    ],
+  });
+});
+
+Deno.test("compose kit: no development block renders no develop key at all", async () => {
+  const { artifacts, graph } = await renderFixture(
     FIXTURE,
     composeKit,
     releaseLocator,
-    "development",
+    "local",
+  );
+  const document = assembleComposeDocument(artifacts, graph) as {
+    services: Record<string, { develop?: unknown }>;
+  };
+
+  assertEquals("develop" in document.services.api, false);
+});
+
+Deno.test("compose kit: an invalid development block fails render with a clear error", async () => {
+  const workload = new KitSdk.Deploy.Manifest.Parser().parse(
+    WITH_DEVELOPMENT_BLOCK.replace("sync+restart", "rebuild-everything"),
+  );
+
+  await assertRejects(
+    () => renderWorkload(workload, composeKit, releaseLocator, "local"),
+    KitSdk.Deploy.DevelopmentBlockError,
+    'must be "sync" or "sync+restart"',
+  );
+});
+
+Deno.test("compose kit: up -d still applies correctly over a watch-bearing artifact", async () => {
+  const workload = new KitSdk.Deploy.Manifest.Parser().parse(
+    WITH_DEVELOPMENT_BLOCK,
+  );
+  const { artifacts, graph } = await renderWorkload(
+    workload,
+    composeKit,
+    releaseLocator,
+    "local",
+  );
+
+  const presented = composeKit.present(artifacts, graph);
+  assertEquals(presented.content.includes("develop:"), true);
+  assertEquals(presented.content.includes("watch:"), true);
+  assertEquals(
+    composeKit.applyCommand("/tmp/compose.yaml", "t"),
+    ["docker", "compose", "-f", "/tmp/compose.yaml", "-p", "t", "up", "-d"],
+  );
+});
+
+Deno.test("compose kit: rendering the same workload twice produces byte-identical presented content (G5)", async () => {
+  const first = await renderFixture(
+    FIXTURE,
+    composeKit,
+    releaseLocator,
+    "local",
+  );
+  const second = await renderFixture(
+    FIXTURE,
+    composeKit,
+    releaseLocator,
+    "local",
   );
 
   assertEquals(

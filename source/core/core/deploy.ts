@@ -2,15 +2,20 @@ import { join } from "@std/path";
 import * as KitSdk from "@ensemble/kit-sdk";
 import { loadDeployContext } from "./deploy-context.ts";
 import { SubprocessPackKitGateway } from "./pack-kit-gateway.ts";
+import { RunPackReleasePacker } from "./release-packer.ts";
 
 export type DeployTermination = "eject" | "plan" | "apply";
 
 export interface RunDeployOptions {
-  mode: KitSdk.Deploy.Mode;
-  /** Which released version `${release.<name>.image}` resolves to in production mode — meaningless in development mode, where the local tag is always used regardless. */
+  artifacts: KitSdk.Deploy.ArtifactsSource;
+  /** Which released version `${release.<name>}` resolves to for published artifacts — meaningless for local artifacts, where the local tag is always used regardless. */
   version: string;
   termination: DeployTermination;
   acceptCapabilityGaps: boolean;
+  /** Run the kit's long-lived watch command instead of a one-shot apply, torn down cleanly on SIGINT. Ignored by `eject`/`plan`. */
+  watch: boolean;
+  /** Pack the referenced releases before a local apply. `true` by default; ignored for published artifacts. */
+  pack: boolean;
 }
 
 /**
@@ -36,7 +41,11 @@ export async function runDeploy(
   const gateway = new SubprocessPackKitGateway();
   const locatorResolver = new KitSdk.Deploy.ReleaseLocatorResolver(gateway);
   const releaseLocator = new KitSdk.Deploy.PreresolvedReleaseLocator(
-    await locatorResolver.resolveAll(workload, options.mode, options.version),
+    await locatorResolver.resolveAll(
+      workload,
+      options.artifacts,
+      options.version,
+    ),
   );
   const renderer = new KitSdk.Deploy.Render.Renderer(
     new KitSdk.Deploy.Render.ReferenceResolver(target.kit.realization()),
@@ -57,13 +66,19 @@ export async function runDeploy(
     new KitSdk.Deploy.Terminations.Planner(cache),
     new KitSdk.Deploy.Terminations.Applier(sink, cache),
     new KitSdk.Deploy.Terminations.ReleaseAvailabilityPreflight(gateway),
+    new KitSdk.Deploy.Terminations.LocalArtifactsPacker(
+      new RunPackReleasePacker(),
+    ),
+    new KitSdk.Deploy.Terminations.WatchRunner(sink),
   );
 
   const result = await coordinator.deploy(name, workload, target, {
-    mode: options.mode,
+    artifacts: options.artifacts,
     termination: options.termination,
     acceptCapabilityGaps: options.acceptCapabilityGaps,
     version: options.version,
+    pack: options.pack,
+    watch: options.watch,
   });
 
   for (const report of result.gaps) {
@@ -72,12 +87,13 @@ export async function runDeploy(
     );
   }
 
-  presentResult(result, name);
+  presentResult(result, name, options.watch);
 }
 
 function presentResult(
   result: KitSdk.Deploy.Terminations.DeployResult,
   name: string,
+  watched: boolean,
 ): void {
   switch (result.termination) {
     case "eject":
@@ -99,7 +115,9 @@ function presentResult(
       }
       break;
     case "apply":
-      console.log(`Applied "${name}".`);
+      console.log(
+        watched ? `Watch session for "${name}" ended.` : `Applied "${name}".`,
+      );
       break;
   }
 }

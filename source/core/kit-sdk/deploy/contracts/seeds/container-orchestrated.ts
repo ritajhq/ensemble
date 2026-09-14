@@ -12,11 +12,12 @@ import { ResourceContract } from "../contract.ts";
  * rather than the contract's `outputs` list — a compute's ports are
  * developer-declared data (a param), not a provisioner-produced output.
  *
- * `development` is accepted (but otherwise untyped/unvalidated) per Section
- * 12's reserved watch seam: "the compute `development` block stays in the
- * manifest as developer-owned, dev-only data that only the watch path reads
- * and every other path ignores" — accepted here, not rejected, even though
- * nothing reads it yet.
+ * `development` is accepted here only at the shallow, contract level (must
+ * be an object) — the compute `development` block is developer-owned,
+ * dev-only data whose real shape (`../../development.ts`'s `SyncRule`
+ * schema) is validated only by a provisioner that actually honors it during
+ * render (the watch/develop plan); every other path leaves the raw value
+ * alone rather than rejecting it upfront.
  */
 export const containerOrchestratedV1 = new ResourceContract(
   "compute",

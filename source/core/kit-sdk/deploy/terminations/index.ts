@@ -13,6 +13,12 @@ export {
   ReleaseAvailabilityPreflight,
 } from "./release-availability-preflight.ts";
 export {
+  LocalArtifactsPacker,
+  type ReleasePacker,
+  ReleasePackError,
+} from "./release-packer.ts";
+export { WatchNotSupportedError, WatchRunner } from "./watch-runner.ts";
+export {
   CapabilityGapError,
   type CapabilityGapReport,
   DeploymentCoordinator,

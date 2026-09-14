@@ -8,5 +8,6 @@ export * from "./workload.ts";
 export * from "./resource.ts";
 export * from "./release.ts";
 export * from "./reference.ts";
-export * from "./mode.ts";
+export * from "./development.ts";
+export * from "./artifacts-source.ts";
 export * from "./kit/index.ts";

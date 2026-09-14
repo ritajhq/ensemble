@@ -1,4 +1,4 @@
-import type { Mode } from "../mode.ts";
+import type { ArtifactsSource } from "../artifacts-source.ts";
 import type { Workload } from "../workload.ts";
 import type { PackKitGateway } from "../kit/pack-kit-gateway.ts";
 
@@ -20,26 +20,30 @@ export class ReleaseAvailabilityError extends Error {
 }
 
 /**
- * Section 5b's apply-time preflight: before a production apply proceeds,
- * confirms every declared release's artifact is actually reachable at its
- * target destination — impure (a real registry/repo read), and deliberately
- * only ever run for a production apply. `eject`/`plan` (and a development
- * apply, which only ever targets a local artifact `ens pack`/`ens develop`
- * already produced) need the reference to exist as a *string* (Section 5a's
- * structural check) but never need the thing it points to to actually be
- * present yet — the whole point of a plan is to be checkable before that's
- * true.
+ * The apply-time preflight: before an apply against published artifacts
+ * proceeds, confirms every declared release's artifact is actually reachable
+ * at its target destination — impure (a real registry/repo read), and
+ * deliberately only ever run for a published apply. `eject`/`plan` (and an
+ * apply against local artifacts, which only ever targets a tag `ens pack`/
+ * `ens develop` already produced) need the reference to exist as a *string*
+ * (the structural check) but never need the thing it points to to actually
+ * be present yet — the whole point of a plan is to be checkable before
+ * that's true.
  */
 export class ReleaseAvailabilityPreflight {
   constructor(private readonly gateway: PackKitGateway) {}
 
-  async check(workload: Workload, mode: Mode, version: string): Promise<void> {
+  async check(
+    workload: Workload,
+    artifacts: ArtifactsSource,
+    version: string,
+  ): Promise<void> {
     const failures: { release: string; detail?: string }[] = [];
     for (const [name, release] of Object.entries(workload.release ?? {})) {
       const availability = await this.gateway.verify(
         name,
         release,
-        mode,
+        artifacts,
         version,
       );
       if (!availability.available) {

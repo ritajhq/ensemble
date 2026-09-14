@@ -3,8 +3,8 @@ import { loadDeployContext } from "./deploy-context.ts";
 import { SubprocessPackKitGateway } from "./pack-kit-gateway.ts";
 
 export interface RunExplainOptions {
-  mode: KitSdk.Deploy.Mode;
-  /** Only meaningful if the explained resource's dependency chain reaches a `${release.<name>.image}` reference in production mode — same convention as `ens deploy --version`. */
+  artifacts: KitSdk.Deploy.ArtifactsSource;
+  /** Only meaningful if the explained resource's dependency chain reaches a `${release.<name>}` reference for published artifacts — same convention as `ens deploy --version`. */
   version: string;
 }
 
@@ -35,7 +35,11 @@ export async function runExplain(
     new SubprocessPackKitGateway(),
   );
   const releaseLocator = new KitSdk.Deploy.PreresolvedReleaseLocator(
-    await locatorResolver.resolveAll(workload, options.mode, options.version),
+    await locatorResolver.resolveAll(
+      workload,
+      options.artifacts,
+      options.version,
+    ),
   );
   const renderer = new KitSdk.Deploy.Render.Renderer(
     new KitSdk.Deploy.Render.ReferenceResolver(target.kit.realization()),
@@ -47,7 +51,7 @@ export async function runExplain(
   const explanation = explainer.explain(
     workload,
     target,
-    options.mode,
+    options.artifacts,
     category as KitSdk.Deploy.Category,
     resourceName,
   );

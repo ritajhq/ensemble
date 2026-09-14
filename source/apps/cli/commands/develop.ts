@@ -2,15 +2,16 @@ import { Command } from "@cliffy/command";
 import { runDeploy } from "@ensemble/core";
 
 /**
- * A one-shot `apply` in development mode — no watch loop yet. Watch (Section
- * 12, a reserved seam: syncing local build output into a running container)
- * is not built as part of this rearchitecture's current phases; this command
- * is otherwise the same `DeploymentCoordinator` path `ens deploy` uses.
+ * Pure sugar for `ens deploy <name> <kit> --artifacts local --watch` — no
+ * semantics of its own; nothing in the code branches on "am I develop."
+ * Packs the referenced releases, then runs the kit's long-lived watch
+ * command until Ctrl+C. A kit/target with no watch command (aws today)
+ * surfaces `WatchNotSupportedError`.
  */
 export const developCommand = new Command()
   .name("develop")
   .description(
-    "Deploy a workload locally for development (one-shot — no watch loop yet).",
+    "Deploy a workload locally for development (sugar for `deploy --artifacts local --watch`).",
   )
   .arguments("<name:string>")
   .option("-k, --kit <kit:string>", "Deploy kit to use.", {
@@ -18,9 +19,11 @@ export const developCommand = new Command()
   })
   .action(async ({ kit }, name) => {
     await runDeploy(name, kit, {
-      mode: "development",
+      artifacts: "local",
       version: "latest",
       termination: "apply",
       acceptCapabilityGaps: false,
+      watch: true,
+      pack: true,
     });
   });

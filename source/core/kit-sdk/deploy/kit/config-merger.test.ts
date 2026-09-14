@@ -9,6 +9,7 @@ function config(overrides: Partial<KitConfig>): KitConfig {
     behavior: {},
     provisionerCatalog: { provisioners: [] },
     targetValues: {},
+    selection: {},
     ...overrides,
   };
 }
@@ -114,10 +115,22 @@ Deno.test("KitConfigMerger.merge: overriding one class's preset doesn't clobber 
   });
 });
 
+Deno.test("KitConfigMerger.merge: a later layer's selection key wins a conflict", () => {
+  const base = config({ selection: { runtime: "real", region: "us-east-1" } });
+  const override = config({ selection: { runtime: "localstack" } });
+
+  const merged = merger.merge([base, override]);
+  assertEquals(merged.selection, {
+    runtime: "localstack",
+    region: "us-east-1",
+  });
+});
+
 Deno.test("KitConfigMerger.merge: an empty layer list produces an empty effective config", () => {
   assertEquals(merger.merge([]), {
     behavior: {},
     provisionerCatalog: { provisioners: [] },
     targetValues: {},
+    selection: {},
   });
 });

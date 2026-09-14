@@ -38,8 +38,8 @@ deploy:
 
 const registry = new ContractCatalog([relationalV1, containerOrchestratedV1]);
 const releaseLocator = new StubReleaseLocator({
-  development: { web: { ref: "ens-local/web:dev" } },
-  production: { web: { ref: "registry.ritaj.app/web:1.4.2" } },
+  local: { web: { ref: "ens-local/web:dev" } },
+  published: { web: { ref: "registry.ritaj.app/web:1.4.2" } },
 });
 
 /** A fake kit whose realization mirrors compose's own — static outputs, a preset for `critical`, and *no* default anywhere for `storageSize` — so `flaggedDefaults` has nothing to flag and a test elsewhere can add a default to exercise the flag. */
@@ -128,7 +128,7 @@ Deno.test("Explainer.explain: names which provisioner matched and which didn't",
   const explanation = buildExplainer(kit).explain(
     workload,
     target,
-    "production",
+    "published",
     "databases",
     "primary",
   );
@@ -148,7 +148,7 @@ Deno.test("Explainer.explain: reports provenance for every resolved value", () =
   const explanation = buildExplainer(kit).explain(
     workload,
     target,
-    "production",
+    "published",
     "databases",
     "primary",
   );
@@ -171,7 +171,7 @@ Deno.test("Explainer.explain: flags a value that resolved purely from a kit defa
   const explanation = buildExplainer(kit).explain(
     workload,
     target,
-    "production",
+    "published",
     "databases",
     "primary",
   );
@@ -191,7 +191,7 @@ Deno.test("Explainer.explain: reports no flagged defaults when nothing resolved 
   const explanation = buildExplainer(kit).explain(
     workload,
     target,
-    "production",
+    "published",
     "databases",
     "primary",
   );
@@ -212,7 +212,7 @@ Deno.test("Explainer.explain: reports an accepted capability gap without failing
   const explanation = buildExplainer(kit).explain(
     workload,
     target,
-    "production",
+    "published",
     "databases",
     "primary",
   );
@@ -236,7 +236,7 @@ Deno.test("Explainer.explain: reports no gap when the capability is satisfied", 
   const explanation = buildExplainer(kit).explain(
     workload,
     target,
-    "production",
+    "published",
     "databases",
     "primary",
   );
@@ -252,7 +252,7 @@ Deno.test("Explainer.explain: reports the resource's real resolved outputs with 
   const explanation = buildExplainer(kit).explain(
     workload,
     target,
-    "production",
+    "published",
     "databases",
     "primary",
   );
@@ -277,7 +277,7 @@ Deno.test("Explainer.explain: throws ResourceNotFoundError for an undeclared res
       buildExplainer(kit).explain(
         workload,
         target,
-        "production",
+        "published",
         "databases",
         "ghost",
       ),
@@ -300,7 +300,7 @@ Deno.test("Explainer.explain: throws ContractError for a reference to an undecla
       buildExplainer(kit).explain(
         workload,
         target,
-        "production",
+        "published",
         "databases",
         "primary",
       ),

@@ -1,6 +1,6 @@
 import type { Workload } from "../workload.ts";
 import type { Target } from "../kit/target.ts";
-import type { Mode } from "../mode.ts";
+import type { ArtifactsSource } from "../artifacts-source.ts";
 import type { ContractRegistry } from "../contracts/registry.ts";
 import { ReferenceValidator } from "../contracts/reference-validator.ts";
 import { DependencyGraphBuilder } from "../resolve/dependency-graph.ts";
@@ -17,18 +17,24 @@ import type { Planner } from "./planner.ts";
 import type { Applier } from "./applier.ts";
 import type { IntentDiff } from "./intent-diff.ts";
 import type { ReleaseAvailabilityPreflight } from "./release-availability-preflight.ts";
+import type { LocalArtifactsPacker } from "./release-packer.ts";
+import type { WatchRunner } from "./watch-runner.ts";
 
 export type { CapabilityGapReport };
 
 export type Termination = "eject" | "plan" | "apply";
 
 export interface DeployOptions {
-  readonly mode: Mode;
+  readonly artifacts: ArtifactsSource;
   readonly termination: Termination;
   /** Section 11's "chosen mechanism for now": non-interactive capability-gap policy. `false` (the honest default) hard-fails on any unmet capability; `true` proceeds, still reporting every gap back in the result for the caller to show (a suppressed lint, not a silent one). */
   readonly acceptCapabilityGaps: boolean;
-  /** Which released version a production release resolves to — also what Section 5b's availability preflight checks for, on a production apply. Unused for a development apply, where the preflight never runs. */
+  /** Which released version a published release resolves to — also what the availability preflight checks for, on a published apply. Unused for a local apply, where the preflight never runs. */
   readonly version: string;
+  /** Whether a local apply packs its referenced releases first (Section 7). `true` by default; `false` for someone who already packed manually or is iterating on deploy config only. Unused for published artifacts, where packing never runs regardless. */
+  readonly pack: boolean;
+  /** Run the kit's long-lived watch command instead of a one-shot apply (Section 8) — a variant of `apply`, not a fourth termination. Ignored by `eject`/`plan`. */
+  readonly watch: boolean;
 }
 
 export class CapabilityGapError extends Error {
@@ -82,6 +88,8 @@ export class DeploymentCoordinator {
     private readonly planner: Planner,
     private readonly applier: Applier,
     private readonly availabilityPreflight: ReleaseAvailabilityPreflight,
+    private readonly localArtifactsPacker: LocalArtifactsPacker,
+    private readonly watchRunner: WatchRunner,
     private readonly graphBuilder: DependencyGraphBuilder =
       new DependencyGraphBuilder(),
   ) {
@@ -89,7 +97,7 @@ export class DeploymentCoordinator {
     this.referenceValidator = new ReferenceValidator(registry);
   }
 
-  /** `name` is the deployment's own name (`ens deploy <name> <kit>`) — passed through to `apply` for a kit to scope its own native invocation by (a compose project name, a CloudFormation stack name). Throws `ContractError` for any reference that targets an undeclared release/resource/output before doing any resolution work, then `CapabilityGapError` (naming every unmet capability) before rendering anything, unless `options.acceptCapabilityGaps` is set. For a production apply only, also runs Section 5b's availability preflight right before the kit's own apply command, throwing `ReleaseAvailabilityError` if any declared release isn't actually reachable yet. */
+  /** `name` is the deployment's own name (`ens deploy <name> <kit>`) — passed through to `apply`/watch for a kit to scope its own native invocation by (a compose project name, a CloudFormation stack name). Throws `ContractError` for any reference that targets an undeclared release/resource/output before doing any resolution work, then `CapabilityGapError` (naming every unmet capability) before rendering anything, unless `options.acceptCapabilityGaps` is set. For a published apply, runs the availability preflight right before the terminal step, throwing `ReleaseAvailabilityError` if any declared release isn't actually reachable yet; for a local apply (unless `options.pack` is `false`), packs the referenced releases instead, throwing `ReleasePackError` if any of them fails. When `options.watch` is set, runs the kit's long-lived watch command instead of a one-shot apply, throwing `WatchNotSupportedError` if the kit has none for this target. */
   async deploy(
     name: string,
     workload: Workload,
@@ -113,15 +121,24 @@ export class DeploymentCoordinator {
       requests,
       selections,
       graph,
-      options.mode,
+      options.artifacts,
     );
 
-    if (options.termination === "apply" && options.mode === "production") {
-      await this.availabilityPreflight.check(
-        workload,
-        options.mode,
-        options.version,
-      );
+    if (options.termination === "apply") {
+      if (options.artifacts === "published") {
+        await this.availabilityPreflight.check(
+          workload,
+          options.artifacts,
+          options.version,
+        );
+      } else if (options.pack) {
+        await this.localArtifactsPacker.packReferenced(workload, graph);
+      }
+
+      if (options.watch) {
+        await this.watchRunner.watch(artifacts, graph, target.kit, name);
+        return { termination: "apply", gaps };
+      }
     }
 
     return await this.terminate(

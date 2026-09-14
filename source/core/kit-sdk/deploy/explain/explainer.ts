@@ -1,6 +1,6 @@
 import type { Category, Workload } from "../workload.ts";
 import type { Target } from "../kit/target.ts";
-import type { Mode } from "../mode.ts";
+import type { ArtifactsSource } from "../artifacts-source.ts";
 import type { Knowability } from "../kit/realization.ts";
 import type { ContractRegistry } from "../contracts/registry.ts";
 import { ReferenceValidator } from "../contracts/reference-validator.ts";
@@ -74,7 +74,7 @@ export class Explainer {
   explain(
     workload: Workload,
     target: Target,
-    mode: Mode,
+    artifacts: ArtifactsSource,
     category: Category,
     name: string,
   ): ResourceExplanation {
@@ -98,7 +98,7 @@ export class Explainer {
       resolution.requests,
       resolution.selections,
       graph,
-      mode,
+      artifacts,
     );
 
     const realization = target.kit.realization();
@@ -123,7 +123,7 @@ export class Explainer {
       name,
       type: matched.declaration.type,
       contractId: matched.contract.id,
-      provisionerMatches: this.selector.explain(matched, target.kit),
+      provisionerMatches: this.selector.explain(matched, target),
       values: values.values,
       flaggedDefaults,
       capabilityGaps: selection.gaps,

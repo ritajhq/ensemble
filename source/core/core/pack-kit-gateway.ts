@@ -17,7 +17,7 @@ export class SubprocessPackKitGateway implements KitSdk.Deploy.PackKitGateway {
   async describe(
     releaseName: string,
     release: KitSdk.Deploy.Release,
-    mode: KitSdk.Deploy.Mode,
+    artifacts: KitSdk.Deploy.ArtifactsSource,
     version: string,
   ): Promise<string> {
     const kitDir = await this.resolveEntrypoint(release.kit, "describe");
@@ -25,7 +25,7 @@ export class SubprocessPackKitGateway implements KitSdk.Deploy.PackKitGateway {
 
     const ref = await $`${denoExe} run -A -q --minimum-dependency-age 0 ${
       join(kitDir, "describe.ts")
-    } ${this.contextArgs(releaseName, release, mode, version)}`
+    } ${this.contextArgs(releaseName, release, artifacts, version)}`
       .cwd(kitDir)
       .text();
 
@@ -35,7 +35,7 @@ export class SubprocessPackKitGateway implements KitSdk.Deploy.PackKitGateway {
   async verify(
     releaseName: string,
     release: KitSdk.Deploy.Release,
-    mode: KitSdk.Deploy.Mode,
+    artifacts: KitSdk.Deploy.ArtifactsSource,
     version: string,
   ): Promise<KitSdk.Deploy.ReleaseAvailability> {
     const kitDir = await this.resolveEntrypoint(release.kit, "verify");
@@ -43,7 +43,7 @@ export class SubprocessPackKitGateway implements KitSdk.Deploy.PackKitGateway {
 
     const result = await $`${denoExe} run -A -q --minimum-dependency-age 0 ${
       join(kitDir, "verify.ts")
-    } ${this.contextArgs(releaseName, release, mode, version)}`
+    } ${this.contextArgs(releaseName, release, artifacts, version)}`
       .cwd(kitDir)
       .stdout("piped")
       .stderr("piped")
@@ -71,7 +71,7 @@ export class SubprocessPackKitGateway implements KitSdk.Deploy.PackKitGateway {
   private contextArgs(
     releaseName: string,
     release: KitSdk.Deploy.Release,
-    mode: KitSdk.Deploy.Mode,
+    artifacts: KitSdk.Deploy.ArtifactsSource,
     version: string,
   ): string[] {
     const outputName = release.outputName ?? releaseName;
@@ -87,8 +87,8 @@ export class SubprocessPackKitGateway implements KitSdk.Deploy.PackKitGateway {
       packageName,
       "--version",
       version,
-      "--mode",
-      mode,
+      "--artifacts",
+      artifacts,
       "--options",
       JSON.stringify(options),
     ];

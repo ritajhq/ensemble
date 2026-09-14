@@ -16,13 +16,16 @@ export class FakeProvisioner implements Provisioner {
   readonly describe?: () => string;
 
   constructor(
-    private readonly predicate: (resource: MatchedResource) => boolean,
+    private readonly predicate: (
+      resource: MatchedResource,
+      runtime?: string,
+    ) => boolean,
     label?: string,
   ) {
     if (label !== undefined) this.describe = () => label;
   }
-  matches(resource: MatchedResource): boolean {
-    return this.predicate(resource);
+  matches(resource: MatchedResource, runtime?: string): boolean {
+    return this.predicate(resource, runtime);
   }
 }
 
@@ -133,6 +136,6 @@ export class FakeKit implements Kit {
   }
 }
 
-export function fakeTarget(kit: Kit): Target {
-  return { kit };
+export function fakeTarget(kit: Kit, runtime?: string): Target {
+  return { kit, runtime };
 }

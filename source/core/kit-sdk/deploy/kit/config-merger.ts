@@ -22,6 +22,8 @@ import type {
  *     later layer wins per key (not per `category.type` as a whole, so one
  *     layer can override just one class's preset without clobbering another
  *     class the base layer already set for the same type).
+ *   - `selection`: a flat bag, same as `behavior` — shallow-merged key by
+ *     key, later layer wins.
  */
 export class KitConfigMerger {
   merge(layers: readonly KitConfig[]): KitConfig {
@@ -38,11 +40,13 @@ export class KitConfigMerger {
           acc.targetValues,
           layer.targetValues,
         ),
+        selection: { ...acc.selection, ...layer.selection },
       }),
       {
         behavior: {},
         provisionerCatalog: { provisioners: [] },
         targetValues: {},
+        selection: {},
       } as KitConfig,
     );
   }

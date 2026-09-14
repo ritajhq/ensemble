@@ -6,15 +6,17 @@ Deno.test("parseKitConfig: an empty file yields the empty config", () => {
     behavior: {},
     provisionerCatalog: { provisioners: [] },
     targetValues: {},
+    selection: {},
   });
   assertEquals(parseKitConfig(null), {
     behavior: {},
     provisionerCatalog: { provisioners: [] },
     targetValues: {},
+    selection: {},
   });
 });
 
-Deno.test("parseKitConfig: reads all three sections when present", () => {
+Deno.test("parseKitConfig: reads all four sections when present", () => {
   const config = parseKitConfig({
     behavior: { logLevel: "debug" },
     provisioners: [{
@@ -24,16 +26,19 @@ Deno.test("parseKitConfig: reads all three sections when present", () => {
     targetValues: {
       "databases.relational": { bounds: { "read-replicas": { max: 2 } } },
     },
+    selection: { runtime: "localstack" },
   });
   assertEquals(config.behavior, { logLevel: "debug" });
   assertEquals(config.provisionerCatalog.provisioners.length, 1);
   assertEquals(config.targetValues["databases.relational"].bounds, {
     "read-replicas": { max: 2 },
   });
+  assertEquals(config.selection, { runtime: "localstack" });
 });
 
 Deno.test("parseKitConfig: a missing section falls back to its empty default", () => {
   const config = parseKitConfig({ behavior: { logLevel: "debug" } });
   assertEquals(config.provisionerCatalog, { provisioners: [] });
   assertEquals(config.targetValues, {});
+  assertEquals(config.selection, {});
 });

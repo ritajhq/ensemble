@@ -116,8 +116,8 @@ function buildPipeline(manifestText: string) {
   ]);
 
   const releaseLocator = new StubReleaseLocator({
-    development: { web: { ref: "ens-local/web:dev" } },
-    production: { web: { ref: "registry.ritaj.app/web:1.4.2" } },
+    local: { web: { ref: "ens-local/web:dev" } },
+    published: { web: { ref: "registry.ritaj.app/web:1.4.2" } },
   });
   const referenceResolver = new ReferenceResolver(new FakeRealization()); // FakeRealization: everything is "static"
   const renderer = new Renderer(referenceResolver, releaseLocator, registry);
@@ -135,7 +135,7 @@ Deno.test("Renderer.render: bakes a static database output into the compute's en
     requests,
     selections,
     graph,
-    "production",
+    "published",
   );
 
   const api = artifacts.fragments.find((f) => f.name === "api")!;
@@ -146,31 +146,31 @@ Deno.test("Renderer.render: bakes a static database output into the compute's en
   );
 });
 
-Deno.test("Renderer.render: bakes the release sugar into the compute's image, per mode", () => {
+Deno.test("Renderer.render: bakes the release sugar into the compute's image, per artifacts source", () => {
   const { renderer, workload, requests, selections, graph } = buildPipeline(
     APPENDIX_A,
   );
 
-  const production = renderer.render(
+  const published = renderer.render(
     workload,
     requests,
     selections,
     graph,
-    "production",
+    "published",
   );
-  const development = renderer.render(
+  const local = renderer.render(
     workload,
     requests,
     selections,
     graph,
-    "development",
+    "local",
   );
 
-  const image = (fragments: typeof production.fragments) =>
+  const image = (fragments: typeof published.fragments) =>
     (fragments.find((f) => f.name === "api")!.content as { image: unknown })
       .image;
-  assertEquals(image(production.fragments), "registry.ritaj.app/web:1.4.2");
-  assertEquals(image(development.fragments), "ens-local/web:dev");
+  assertEquals(image(published.fragments), "registry.ritaj.app/web:1.4.2");
+  assertEquals(image(local.fragments), "ens-local/web:dev");
 });
 
 Deno.test("Renderer.render: fragments appear in dependency order (database before compute)", () => {
@@ -183,7 +183,7 @@ Deno.test("Renderer.render: fragments appear in dependency order (database befor
     requests,
     selections,
     graph,
-    "production",
+    "published",
   );
   assertEquals(artifacts.fragments.map((f) => f.name), ["primary", "api"]);
 });
@@ -194,7 +194,7 @@ Deno.test("Renderer.render: throws when a resource has no matching provisioning 
 
   assertThrows(
     () =>
-      renderer.render(workload, emptyRequests, selections, graph, "production"),
+      renderer.render(workload, emptyRequests, selections, graph, "published"),
     RendererError,
   );
 });
@@ -216,7 +216,7 @@ Deno.test("Renderer.render: throws when the selected provisioner has no provisio
         requests,
         selectionsWithoutProvision,
         graph,
-        "production",
+        "published",
       ),
     RendererError,
   );
@@ -287,8 +287,8 @@ Deno.test("Renderer.render: a dynamic output's native wiring passes through to t
   }
 
   const releaseLocator = new StubReleaseLocator({
-    development: { web: { ref: "ens-local/web:dev" } },
-    production: { web: { ref: "registry.ritaj.app/web:1.4.2" } },
+    local: { web: { ref: "ens-local/web:dev" } },
+    published: { web: { ref: "registry.ritaj.app/web:1.4.2" } },
   });
   const renderer = new Renderer(
     new ReferenceResolver(new AllDynamicRealization()),
@@ -301,7 +301,7 @@ Deno.test("Renderer.render: a dynamic output's native wiring passes through to t
     requests,
     selections,
     graph,
-    "production",
+    "published",
   );
   const api = artifacts.fragments.find((f) => f.name === "api")!;
 
@@ -335,7 +335,7 @@ Deno.test("Renderer.render: throws when a provisioner produces fewer outputs tha
   ]);
 
   const error = assertThrows(
-    () => renderer.render(workload, requests, selections, graph, "production"),
+    () => renderer.render(workload, requests, selections, graph, "published"),
     RendererError,
   );
   assertEquals(
@@ -367,7 +367,7 @@ Deno.test("Renderer.render: throws when a provisioner produces an output its con
   ]);
 
   const error = assertThrows(
-    () => renderer.render(workload, requests, selections, graph, "production"),
+    () => renderer.render(workload, requests, selections, graph, "published"),
     RendererError,
   );
   assertEquals(
@@ -472,8 +472,8 @@ deploy:
     }
   }
   const releaseLocator = new StubReleaseLocator({
-    development: {},
-    production: {},
+    local: {},
+    published: {},
   });
   const renderer = new Renderer(
     new ReferenceResolver(new AllDynamicRealization()),
@@ -486,7 +486,7 @@ deploy:
     requests,
     selections,
     graph,
-    "production",
+    "published",
   );
   const apiValue =
     (artifacts.fragments.find((f) => f.name === "api")!.content as {

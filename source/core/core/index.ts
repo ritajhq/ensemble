@@ -16,6 +16,7 @@ export {
 } from "./deploy.ts";
 export { runExplain, type RunExplainOptions } from "./explain.ts";
 export { SubprocessPackKitGateway } from "./pack-kit-gateway.ts";
+export { RunPackReleasePacker } from "./release-packer.ts";
 
 export * as Config from "./config.ts";
 export * as Hooks from "./hooks.ts";

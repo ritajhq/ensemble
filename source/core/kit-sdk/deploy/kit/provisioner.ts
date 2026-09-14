@@ -41,7 +41,8 @@ export interface ProvisionOutcome {
  * clear error if it selects a provisioner with no `provision`.
  */
 export interface Provisioner {
-  matches(resource: MatchedResource): boolean;
+  /** `runtime` is the target's effective selection value (Section 5 of the watch/develop plan) — opaque to ens, meaningful only to a kit whose own provisioners choose to test it (`when: runtime == "localstack"`). Most kits ignore it entirely; `undefined` when the target declares none. */
+  matches(resource: MatchedResource, runtime?: string): boolean;
   provision?(request: ResolvedRequest): ProvisionOutcome;
   /** A short human label for `ens deploy explain` (Phase 8) to name this provisioner by — "why this one matched, why the others didn't." Optional: a provisioner with no label falls back to a positional description ("provisioner #N"). */
   describe?(): string;

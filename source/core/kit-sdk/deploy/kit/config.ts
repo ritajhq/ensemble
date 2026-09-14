@@ -53,20 +53,33 @@ export interface TargetValueOverrides {
 export type TargetValuesConfig = Readonly<Record<string, TargetValueOverrides>>;
 
 /**
- * A kit's sidecar project config — the three concerns Section 10 requires be
- * "kept separate (do not merge into one blob)". Kept as three distinct
- * sections here (structurally separated) rather than three separate files;
- * either satisfies "kept separate" — this repo uses one file per kit for
- * simplicity, flagged in the Phase 4 report as a judgment call.
+ * Kit-defined selection keys (concern d, the watch/develop plan's Section
+ * 5) — opaque values a kit's own `when` clauses test during provisioner
+ * selection (e.g. `runtime`). Distinct in role from `behavior` (kit-wide
+ * operational settings the kit itself reads) and `targetValues` (value/
+ * preset/bound overrides the `ValueNegotiator` reads): this is what
+ * `ProvisionerSelector` reads. ens never interprets a selection value's
+ * meaning — it only ever hands it to the kit's own `matches()`.
+ */
+export type KitSelectionConfig = Readonly<Record<string, unknown>>;
+
+/**
+ * A kit's sidecar project config — the concerns Section 10 requires be "kept
+ * separate (do not merge into one blob)". Kept as distinct sections here
+ * (structurally separated) rather than separate files; either satisfies
+ * "kept separate" — this repo uses one file per kit for simplicity, flagged
+ * in the Phase 4 report as a judgment call.
  */
 export interface KitConfig {
   readonly behavior: KitBehaviorConfig;
   readonly provisionerCatalog: ProvisionerCatalogConfig;
   readonly targetValues: TargetValuesConfig;
+  readonly selection: KitSelectionConfig;
 }
 
 export const EMPTY_KIT_CONFIG: KitConfig = {
   behavior: {},
   provisionerCatalog: { provisioners: [] },
   targetValues: {},
+  selection: {},
 };

@@ -71,7 +71,7 @@ export class WorkloadResolver {
       ) {
         const key = `${category}.${name}`;
         const matched = this.matcher.match(category, name, declaration);
-        const selection = this.selector.select(matched, target.kit);
+        const selection = this.selector.select(matched, target);
         for (const gap of selection.gaps) gaps.push({ resource: key, gap });
 
         const resolvedValues = this.negotiator.negotiate(matched, target);

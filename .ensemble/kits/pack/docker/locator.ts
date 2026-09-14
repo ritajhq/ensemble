@@ -10,9 +10,9 @@ export function locate(
   outputName: string,
   packageName: string,
   version: string,
-  mode: KitSdk.Pack.DeployMode,
+  artifacts: KitSdk.Pack.ArtifactsSource,
 ): string {
-  return mode === "development"
+  return artifacts === "local"
     ? `${outputName}:latest`
     : `${packageName}:${version}`;
 }

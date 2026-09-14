@@ -16,6 +16,7 @@ export {
   EMPTY_KIT_CONFIG,
   type KitBehaviorConfig,
   type KitConfig,
+  type KitSelectionConfig,
   type ProvisionerCatalogConfig,
   type ProvisionerConfigEntry,
   type ProvisionerImplementation,
@@ -26,7 +27,7 @@ export { KitConfigMerger } from "./config-merger.ts";
 export { parseKitConfig } from "./config-file.ts";
 export { ConfiguredProvisioner } from "./configured-provisioner.ts";
 export { LayeredRealization } from "./layered-realization.ts";
-export { KitLoader, KitLoadError } from "./loader.ts";
+export { KitLoader, KitLoadError, type LoadedKit } from "./loader.ts";
 export {
   type ArtifactLocator,
   PreresolvedReleaseLocator,

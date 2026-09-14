@@ -21,5 +21,7 @@ export function parseKitConfig(raw: unknown): KitConfig {
     },
     targetValues: (obj.targetValues as KitConfig["targetValues"]) ??
       EMPTY_KIT_CONFIG.targetValues,
+    selection: (obj.selection as KitConfig["selection"]) ??
+      EMPTY_KIT_CONFIG.selection,
   };
 }

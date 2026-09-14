@@ -15,6 +15,12 @@ export class KitLoadError extends Error {
   }
 }
 
+/** A vendored kit with its sidecar config already applied, plus the one piece of that config `Target` itself needs to carry forward: the effective `runtime` selection value (Section 5 of the watch/develop plan). */
+export interface LoadedKit {
+  readonly kit: Kit;
+  readonly runtime?: string;
+}
+
 /**
  * Loads a vendored kit checkout (pristine, tag-pinned — never edited in
  * place, Section 10) by importing its `main.ts` in-process — the same
@@ -35,10 +41,14 @@ export class KitLoader {
   async load(
     vendoredDir: string,
     sidecarConfigPaths: readonly string[] = [],
-  ): Promise<Kit> {
+  ): Promise<LoadedKit> {
     const kit = await this.importKit(vendoredDir);
     const layers = await this.readConfigLayers(sidecarConfigPaths);
-    return this.configure(kit, this.merger.merge(layers));
+    const config = this.merger.merge(layers);
+    return {
+      kit: this.configure(kit, config),
+      runtime: this.effectiveRuntime(config),
+    };
   }
 
   private async importKit(vendoredDir: string): Promise<Kit> {
@@ -90,6 +100,17 @@ export class KitLoader {
       present: (artifacts, graph) => kit.present(artifacts, graph),
       applyCommand: (artifactPath, name) =>
         kit.applyCommand(artifactPath, name),
+      ...(kit.watchCommand
+        ? {
+          watchCommand: (artifactPath: string, name: string) =>
+            kit.watchCommand!(artifactPath, name),
+        }
+        : {}),
     };
+  }
+
+  private effectiveRuntime(config: KitConfig): string | undefined {
+    const value = config.selection.runtime;
+    return typeof value === "string" ? value : undefined;
   }
 }

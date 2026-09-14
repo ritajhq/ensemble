@@ -13,6 +13,7 @@ export class FakePresentingKit implements Kit {
   constructor(
     private readonly presented: PresentedArtifact,
     private readonly command: readonly string[] = ["true"],
+    private readonly watch: readonly string[] | undefined = undefined,
   ) {}
   provisioners(): ProvisionerSet {
     return [];
@@ -25,6 +26,9 @@ export class FakePresentingKit implements Kit {
   }
   applyCommand(artifactPath: string): readonly string[] {
     return [...this.command, artifactPath];
+  }
+  watchCommand(artifactPath: string): readonly string[] | undefined {
+    return this.watch ? [...this.watch, artifactPath] : undefined;
   }
 }
 
