@@ -1,3 +1,5 @@
+import { CATEGORIES, type Workload } from "./workload.ts";
+
 /** How a sync rule keeps a container's copy of a host path current — `sync` copies changes over, `sync+restart` additionally restarts the container so the process picks them up. */
 export type SyncAction = "sync" | "sync+restart";
 
@@ -112,4 +114,30 @@ function parseIgnore(raw: unknown, index: number): readonly string[] {
     );
   }
   return raw as string[];
+}
+
+/**
+ * Every app named by any resource's `development.sync` in this workload —
+ * the set a `--watch` session needs to keep freshly built so compose's own
+ * file-watching sync has something real to copy in. Reused, not re-derived,
+ * by whoever spawns the companion `ens build --watch` process per app
+ * (`@ensemble/core`'s `runDeploy`) — this is a pure function of the
+ * workload alone, independent of which kit or target is deploying it.
+ */
+export function discoverWatchedApps(workload: Workload): ReadonlySet<string> {
+  const apps = new Set<string>();
+  for (const category of CATEGORIES) {
+    const resources = workload[category] as
+      | Readonly<Record<string, { params?: Readonly<Record<string, unknown>> }>>
+      | undefined;
+    if (!resources) continue;
+    for (const declaration of Object.values(resources)) {
+      const development = declaration.params?.development;
+      if (development === undefined) continue;
+      for (const rule of parseDevelopmentBlock(development).sync) {
+        apps.add(rule.app);
+      }
+    }
+  }
+  return apps;
 }

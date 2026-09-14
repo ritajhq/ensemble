@@ -1,5 +1,10 @@
 import { assertEquals, assertThrows } from "@std/assert";
-import { DevelopmentBlockError, parseDevelopmentBlock } from "./development.ts";
+import {
+  DevelopmentBlockError,
+  discoverWatchedApps,
+  parseDevelopmentBlock,
+} from "./development.ts";
+import type { Workload } from "./workload.ts";
 
 Deno.test("parseDevelopmentBlock: a single sync rule with defaults", () => {
   const block = parseDevelopmentBlock({
@@ -133,4 +138,64 @@ Deno.test("parseDevelopmentBlock: throws when ignore isn't a list of strings", (
 Deno.test("parseDevelopmentBlock: an empty sync list is valid (a watchable resource with nothing to sync)", () => {
   const block = parseDevelopmentBlock({ sync: [] });
   assertEquals(block, { sync: [] });
+});
+
+Deno.test("discoverWatchedApps: collects every app across every resource's sync rules, deduped", () => {
+  const workload: Workload = {
+    compute: {
+      api: {
+        type: "container-orchestrated",
+        params: {
+          development: {
+            sync: [
+              { app: "website/server", path: "/app/server" },
+              { app: "website/content", path: "/app/content" },
+            ],
+          },
+        },
+      },
+      worker: {
+        type: "container-orchestrated",
+        params: {
+          // Same app as api's — must only appear once in the result.
+          development: { sync: [{ app: "website/server", path: "/app" }] },
+        },
+      },
+    },
+  };
+
+  assertEquals(
+    [...discoverWatchedApps(workload)].sort(),
+    ["website/content", "website/server"],
+  );
+});
+
+Deno.test("discoverWatchedApps: a resource with no development block contributes nothing", () => {
+  const workload: Workload = {
+    compute: {
+      api: {
+        type: "container-orchestrated",
+        params: {},
+      },
+    },
+  };
+
+  assertEquals(discoverWatchedApps(workload).size, 0);
+});
+
+Deno.test("discoverWatchedApps: a workload with no resources at all discovers nothing", () => {
+  assertEquals(discoverWatchedApps({}).size, 0);
+});
+
+Deno.test("discoverWatchedApps: an invalid development block still throws DevelopmentBlockError", () => {
+  const workload: Workload = {
+    compute: {
+      api: {
+        type: "container-orchestrated",
+        params: { development: { sync: "not-a-list" } },
+      },
+    },
+  };
+
+  assertThrows(() => discoverWatchedApps(workload), DevelopmentBlockError);
 });

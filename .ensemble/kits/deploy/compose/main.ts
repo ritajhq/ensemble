@@ -7,17 +7,21 @@ import { relationalProvisioner } from "./provisioners/relational.ts";
 import { assembleComposeDocument } from "./compose-document.ts";
 
 /**
- * `develop.watch.path` entries are ens app identifiers (e.g. "website/server"),
- * meant to resolve against the workspace's `source/` directory — but compose
- * resolves relative `develop.watch` paths against the compose file's own
- * directory, not an app root. `--project-directory` overrides that base.
- * Deriving it from `artifactPath` (always `<repoRoot>/source/artifacts/
- * deploy/<name>/compose.yaml`, per `@ensemble/core`'s `runDeploy`) is the
- * only source of that path this pure function ever receives — a real, if
- * narrow, coupling to that convention that only `watchCommand` needs.
+ * `develop.watch.path` entries are ens app identifiers (e.g. "website/server")
+ * — and what a container actually runs is that app's *build output*
+ * (`source/artifacts/<app>`, what the Dockerfile's `COPY --from=<app>` and
+ * the docker pack kit's own `--build-context <app>=<artifacts>/<app>` both
+ * resolve to), not its raw TypeScript source under `source/apps/<app>`. So
+ * `--project-directory` needs to point at `source/artifacts/`, not `source/`
+ * itself — compose resolves relative `develop.watch` paths against whichever
+ * directory this names. Deriving it from `artifactPath` (always `<repoRoot>/
+ * source/artifacts/deploy/<name>/compose.yaml`, per `@ensemble/core`'s
+ * `runDeploy`) is the only source of that path this pure function ever
+ * receives — a real, if narrow, coupling to that convention that only
+ * `watchCommand` needs.
  */
-function sourceDirFor(artifactPath: string): string {
-  return dirname(dirname(dirname(dirname(artifactPath))));
+function artifactsDirFor(artifactPath: string): string {
+  return dirname(dirname(dirname(artifactPath)));
 }
 
 const kit: KitSdk.Deploy.Kit = {
@@ -40,7 +44,7 @@ const kit: KitSdk.Deploy.Kit = {
     "-p",
     name,
     "--project-directory",
-    sourceDirFor(artifactPath),
+    artifactsDirFor(artifactPath),
     "watch",
   ],
 };

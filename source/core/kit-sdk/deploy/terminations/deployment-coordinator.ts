@@ -35,6 +35,8 @@ export interface DeployOptions {
   readonly pack: boolean;
   /** Run the kit's long-lived watch command instead of a one-shot apply (Section 8) — a variant of `apply`, not a fourth termination. Ignored by `eject`/`plan`. */
   readonly watch: boolean;
+  /** Drives the watch step's teardown when given — the caller's own SIGINT (or other) signal, so it can tear this down in lockstep with companion processes (e.g. `ens build --watch` per referenced app) it starts alongside this. Omit to let `WatchRunner` install its own `SIGINT` listener; unused unless `watch` is `true`. */
+  readonly signal?: AbortSignal;
 }
 
 export class CapabilityGapError extends Error {
@@ -136,7 +138,13 @@ export class DeploymentCoordinator {
       }
 
       if (options.watch) {
-        await this.watchRunner.watch(artifacts, graph, target.kit, name);
+        await this.watchRunner.watch(
+          artifacts,
+          graph,
+          target.kit,
+          name,
+          options.signal,
+        );
         return { termination: "apply", gaps };
       }
     }

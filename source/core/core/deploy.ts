@@ -3,6 +3,7 @@ import * as KitSdk from "@ensemble/kit-sdk";
 import { loadDeployContext } from "./deploy-context.ts";
 import { SubprocessPackKitGateway } from "./pack-kit-gateway.ts";
 import { RunPackReleasePacker } from "./release-packer.ts";
+import { runBuild } from "./build.ts";
 
 export type DeployTermination = "eject" | "plan" | "apply";
 
@@ -12,10 +13,58 @@ export interface RunDeployOptions {
   version: string;
   termination: DeployTermination;
   acceptCapabilityGaps: boolean;
-  /** Run the kit's long-lived watch command instead of a one-shot apply, torn down cleanly on SIGINT. Ignored by `eject`/`plan`. */
+  /** Run the kit's long-lived watch command instead of a one-shot apply, torn down cleanly on SIGINT. Also starts one companion `ens build --watch` per app any resource's `development.sync` references, so the kit's own sync has freshly built output to copy — both torn down together. Ignored by `eject`/`plan`. */
   watch: boolean;
   /** Pack the referenced releases before a local apply. `true` by default; ignored for published artifacts. */
   pack: boolean;
+}
+
+/**
+ * Keeps every app a `--watch` session's `development.sync` rules reference
+ * freshly built, so the kit's own file-watching sync (`docker compose
+ * watch`'s `develop.watch`) has real, current output to copy in — the
+ * "rebuild-on-change" companion this plan's Section 8 reserved. One
+ * `ens build <app> --watch` per app, all sharing one signal installed once
+ * here (the same `RunBuildOptions.signal` seam `runBuild` already exposed
+ * for exactly this), so a single `SIGINT` tears every one of them down
+ * together with the main watch step, which is handed the same signal
+ * instead of installing its own.
+ */
+class CompanionBuildWatchers {
+  private constructor(
+    readonly signal: AbortSignal,
+    private readonly controller: AbortController,
+    private readonly sigintListener: () => void,
+    private readonly watchers: readonly Promise<number>[],
+  ) {}
+
+  static start(apps: ReadonlySet<string>): CompanionBuildWatchers {
+    const controller = new AbortController();
+    const sigintListener = () => controller.abort();
+    Deno.addSignalListener("SIGINT", sigintListener);
+
+    console.log(`Building & watching: ${[...apps].join(", ")}`);
+    const watchers = [...apps].map((app) =>
+      runBuild(app, {
+        mode: "development",
+        watch: true,
+        signal: controller.signal,
+      })
+    );
+
+    return new CompanionBuildWatchers(
+      controller.signal,
+      controller,
+      sigintListener,
+      watchers,
+    );
+  }
+
+  async stop(): Promise<void> {
+    this.controller.abort();
+    Deno.removeSignalListener("SIGINT", this.sigintListener);
+    await Promise.allSettled(this.watchers);
+  }
 }
 
 /**
@@ -72,22 +121,34 @@ export async function runDeploy(
     new KitSdk.Deploy.Terminations.WatchRunner(sink),
   );
 
-  const result = await coordinator.deploy(name, workload, target, {
-    artifacts: options.artifacts,
-    termination: options.termination,
-    acceptCapabilityGaps: options.acceptCapabilityGaps,
-    version: options.version,
-    pack: options.pack,
-    watch: options.watch,
-  });
+  const watchedApps = options.watch
+    ? KitSdk.Deploy.discoverWatchedApps(workload)
+    : new Set<string>();
+  const buildWatchers = watchedApps.size > 0
+    ? CompanionBuildWatchers.start(watchedApps)
+    : undefined;
 
-  for (const report of result.gaps) {
-    console.warn(
-      `warning: capability "${report.gap.capability}" unmet by kit "${kit}" on ${report.resource} (requested ${report.gap.requested}) — accepted.`,
-    );
+  try {
+    const result = await coordinator.deploy(name, workload, target, {
+      artifacts: options.artifacts,
+      termination: options.termination,
+      acceptCapabilityGaps: options.acceptCapabilityGaps,
+      version: options.version,
+      pack: options.pack,
+      watch: options.watch,
+      signal: buildWatchers?.signal,
+    });
+
+    for (const report of result.gaps) {
+      console.warn(
+        `warning: capability "${report.gap.capability}" unmet by kit "${kit}" on ${report.resource} (requested ${report.gap.requested}) — accepted.`,
+      );
+    }
+
+    presentResult(result, name, options.watch);
+  } finally {
+    await buildWatchers?.stop();
   }
-
-  presentResult(result, name, options.watch);
 }
 
 function presentResult(
