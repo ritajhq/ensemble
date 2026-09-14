@@ -1,3 +1,18 @@
+## [0.2.0] - 2026-09-14
+
+### 🚀 Features
+
+- Develop start also apps building on watch mode
+
+### 🐛 Bug Fixes
+
+- *(cli/delivery)* Add version
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.1.0
+- Formatting
+- Typo
 ## [0.1.0] - 2026-09-08
 
 ### ⚙️ Miscellaneous Tasks
