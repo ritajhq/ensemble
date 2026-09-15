@@ -1,4 +1,4 @@
-import { join } from "@std/path";
+import { basename, join } from "@std/path";
 import * as KitSdk from "@ensemble/kit-sdk";
 import { loadDeployContext } from "./deploy-context.ts";
 import { SubprocessPackKitGateway } from "./pack-kit-gateway.ts";
@@ -104,6 +104,15 @@ export async function runDeploy(
     registry,
   );
 
+  // A kit's native scoping identifier (a compose project name, a
+  // CloudFormation stack name) lives in a namespace shared across the whole
+  // Docker host / AWS account — unlike outputsDir/cache below, which already
+  // live inside this one repo checkout and can't collide with anything.
+  // Prefixing with the repo dir's own basename (e.g. "ensemble-website"
+  // rather than a bare "website") keeps two different repos — or two
+  // worktrees of the same one — from colliding on the same host.
+  const deploymentName = `${basename(repoRoot)}-${name}`;
+
   const outputsDir = join(repoRoot, "source", "artifacts", "deploy", name);
   const sink = new KitSdk.Deploy.Terminations.FileArtifactSink(outputsDir);
   const cache = new KitSdk.Deploy.Terminations.FileRenderCache(
@@ -133,7 +142,7 @@ export async function runDeploy(
     : undefined;
 
   try {
-    const result = await coordinator.deploy(name, workload, target, {
+    const result = await coordinator.deploy(deploymentName, workload, target, {
       artifacts: options.artifacts,
       termination: options.termination,
       acceptCapabilityGaps: options.acceptCapabilityGaps,
