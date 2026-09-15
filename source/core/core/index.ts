@@ -8,6 +8,9 @@ export { PlainBuildReporter } from "./plain-build-reporter.ts";
 export { runInit, type RunInitOptions } from "./init.ts";
 export { runPack, type RunPackOptions } from "./pack.ts";
 export { resolvePackDependencies } from "./pack-dependencies.ts";
+export type { PackProgress, PackReporter } from "./pack-reporter.ts";
+export { AnimatedPackReporter } from "./animated-pack-reporter.ts";
+export { PlainPackReporter } from "./plain-pack-reporter.ts";
 export {
   PUBLISH_ENV_PATH,
   runPublish,

@@ -19,6 +19,8 @@ export interface RunDeployOptions {
   pack: boolean;
   /** Before a real apply, stand up a local substitute for each `deploy.external` entry the target's kit knows how to emulate, instead of assuming it already exists elsewhere (`docker network create` for a compose external network). Ignored by `eject`/`plan`. */
   emulateExternals: boolean;
+  /** Let a local apply's pack step show the kit's own build-tool output (e.g. `docker buildx build`'s progress log) instead of hiding it behind the pack spinner. Ignored for published artifacts, which never pack. */
+  verbose: boolean;
 }
 
 /**
@@ -131,7 +133,7 @@ export async function runDeploy(
     new KitSdk.Deploy.Terminations.Applier(sink, cache),
     new KitSdk.Deploy.Terminations.ReleaseAvailabilityPreflight(gateway),
     new KitSdk.Deploy.Terminations.LocalArtifactsPacker(
-      new RunPackReleasePacker(watchedApps),
+      new RunPackReleasePacker(watchedApps, options.verbose),
     ),
     new KitSdk.Deploy.Terminations.WatchRunner(sink),
     new KitSdk.Deploy.Terminations.ExternalsEmulator(),

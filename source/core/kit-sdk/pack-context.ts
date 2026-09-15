@@ -25,6 +25,8 @@ export interface Context {
   vars: Record<string, string>;
   /** True when --watch was passed. Kits that don't support watch mode can ignore this. */
   watch: boolean;
+  /** True when --verbose was passed. `ens` hides a kit's own build-tool output by default (e.g. `docker buildx build`'s progress log) behind a spinner; this asks the kit to let it through unfiltered instead — kits with nothing noisy to show can ignore this. */
+  verbose: boolean;
 }
 
 /** The subset of a ship's candidate `apps` a kit's config actually depends on (e.g. Dockerfile `COPY --from=<app>` references it found) — `dependencies.ts`'s stdout payload shape, asked before packing so `ens` knows which apps to build first. */
@@ -76,8 +78,8 @@ export function getContext(args: string[] = Deno.args): Context {
       "vars",
       "apps",
     ],
-    boolean: ["watch"],
-    default: { vars: "{}", apps: "[]", watch: false },
+    boolean: ["watch", "verbose"],
+    default: { vars: "{}", apps: "[]", watch: false, verbose: false },
   });
 
   const ship = String(flags._[0] ?? "");
@@ -103,6 +105,7 @@ export function getContext(args: string[] = Deno.args): Context {
     vars: parseVars(flags.vars),
     apps: parseApps(flags.apps),
     watch: flags.watch,
+    verbose: flags.verbose,
   };
 }
 

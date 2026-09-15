@@ -17,7 +17,12 @@ export const developCommand = new Command()
   .option("-k, --kit <kit:string>", "Deploy kit to use.", {
     default: "compose",
   })
-  .action(async ({ kit }, name) => {
+  .option(
+    "--verbose",
+    "Let the initial pack step show the kit's own build-tool output (e.g. docker buildx build's progress log) instead of hiding it behind the pack spinner.",
+    { default: false },
+  )
+  .action(async ({ kit, verbose }, name) => {
     await runDeploy(name, kit, {
       artifacts: "local",
       version: "latest",
@@ -26,5 +31,6 @@ export const developCommand = new Command()
       watch: true,
       pack: true,
       emulateExternals: true,
+      verbose,
     });
   });

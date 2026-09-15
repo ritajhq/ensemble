@@ -20,6 +20,7 @@ export class RunPackReleasePacker
    */
   constructor(
     private readonly skipBuildingApps: ReadonlySet<string> = new Set(),
+    private readonly verbose = false,
   ) {}
 
   async pack(
@@ -30,6 +31,7 @@ export class RunPackReleasePacker
       mode: release.mode,
       outputName: release.outputName,
       skipBuildingApps: this.skipBuildingApps,
+      verbose: this.verbose,
     });
     if (code !== 0) {
       throw new KitSdk.Deploy.Terminations.ReleasePackError(

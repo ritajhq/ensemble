@@ -8,6 +8,8 @@ import * as KitSdk from "@ensemble/kit-sdk";
 import { EnsembleConfigStore } from "./config.ts";
 import { runBuild } from "./build.ts";
 import { resolvePackDependencies } from "./pack-dependencies.ts";
+import type { PackReporter } from "./pack-reporter.ts";
+import { AnimatedPackReporter } from "./animated-pack-reporter.ts";
 
 export interface RunPackOptions {
   /** Defaults to the first mode declared in the kit's kit.yml, or "default" if it has none. */
@@ -26,6 +28,10 @@ export interface RunPackOptions {
    * to none, i.e. every resolved dependency gets built here.
    */
   skipBuildingApps?: ReadonlySet<string>;
+  /** Let the kit's own build tool print its normal output (e.g. `docker buildx build`'s progress log) instead of hiding it behind the pack spinner. `false` by default. */
+  verbose?: boolean;
+  /** How to report this pack's lifecycle to the terminal — ignored for `watch: true` or `verbose: true` (both have nothing sensible for a spinner to resolve against: a `--watch` kit never exits, and verbose output competes with it for the same line). Defaults to `AnimatedPackReporter`; a future `--plain` flag would pass `PlainPackReporter` here instead. */
+  reporter?: PackReporter;
 }
 
 /**
@@ -80,6 +86,7 @@ export async function runPack(
 
   const outputNameArgs = options.outputName ? ["--output-name", options.outputName] : [];
   const watchArgs = options.watch ? ["--watch"] : [];
+  const verboseArgs = options.verbose ? ["--verbose"] : [];
 
   const envFile = join(workspace, "envs", "pack", `${shipName}.env`);
   const fileVars = await loadEnv({ envPath: envFile, export: false });
@@ -100,6 +107,10 @@ export async function runPack(
     }
   }
 
+  const progress = options.watch || options.verbose
+    ? undefined
+    : (options.reporter ?? new AnimatedPackReporter()).packing(shipName);
+
   // --minimum-dependency-age 0: see the identical flag in build.ts.
   const result = await $`${denoExe} run -A -q --minimum-dependency-age 0 ${kitEntry}
     --artifacts ${artifactsDir}
@@ -110,10 +121,14 @@ export async function runPack(
     --apps ${JSON.stringify(apps)}
     ${outputNameArgs}
     ${watchArgs}
+    ${verboseArgs}
     ${shipDir}`
     .cwd(kitDir)
     .env(packVars)
     .noThrow();
+
+  if (result.code === 0) progress?.succeed();
+  else progress?.fail();
 
   return result.code;
 }

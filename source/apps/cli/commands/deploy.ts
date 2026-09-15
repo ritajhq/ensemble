@@ -71,6 +71,11 @@ export const deployCommand = new Command()
     "Before applying, stand up a local substitute for each declared external resource the kit knows how to emulate (e.g. `docker network create` for an external network) instead of assuming it already exists elsewhere.",
     { default: false },
   )
+  .option(
+    "--verbose",
+    "Let a local apply's pack step show the kit's own build-tool output (e.g. docker buildx build's progress log) instead of hiding it behind the pack spinner.",
+    { default: false },
+  )
   .action(
     async (
       {
@@ -82,6 +87,7 @@ export const deployCommand = new Command()
         pack,
         acceptCapabilityGaps,
         emulateExternals,
+        verbose,
       },
       name,
       kit,
@@ -109,6 +115,7 @@ export const deployCommand = new Command()
         watch,
         pack,
         emulateExternals,
+        verbose,
       });
     },
   )

@@ -51,13 +51,23 @@ if (format.startsWith("image")) {
   output = `type=${format},dest=${dest}`;
 }
 
-const result = await $`docker buildx build
+// --verbose lets buildx's own progress log (layer pulls, build steps, the
+// works) through unfiltered — otherwise it's hidden behind the pack spinner,
+// via --progress=quiet (still writes real errors to stderr) plus discarding
+// stdout outright (quiet mode's only remaining output there on success is a
+// bare content-digest line, which the spinner's own resolved line replaces).
+const progressArgs = ctx.verbose ? [] : ["--progress", "quiet"];
+
+const build = $`docker buildx build
   --tag ${ctx.outputName}
   --build-context packages=${ctx.packages}
   ${artifactContextArgs}
   --output ${output}
   ${allowArgs}
+  ${progressArgs}
   ${ctx.ship}`
   .noThrow();
+
+const result = await (ctx.verbose ? build : build.stdout("null"));
 
 Deno.exit(result.code);
