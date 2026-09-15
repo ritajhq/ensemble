@@ -1,0 +1,252 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ensemble.dev/schemas/delivery.schema.json",
+  "title": "Ensemble delivery manifest",
+  "description": "Schema for a workload's delivery.yml, as parsed by kit-sdk/deploy/manifest/parser.ts. Reference values use the ${category.name.output} or ${release.name} grammar.",
+  "type": "object",
+  "required": ["version"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "description": "Manifest envelope version.",
+      "type": "string",
+      "enum": ["v1"]
+    },
+    "release": {
+      "description": "How to pack a ship this workload's compute entries reference via ${release.<name>.image}. Built by pack kits.",
+      "type": "object",
+      "additionalProperties": { "$ref": "#/definitions/release" }
+    },
+    "deploy": {
+      "description": "The workload's resources, one map per category, keyed by resource name.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "compute": {
+          "description": "Compute resources (e.g. container-orchestrated workloads).",
+          "type": "object",
+          "additionalProperties": { "$ref": "#/definitions/resourceDeclaration" }
+        },
+        "storage": {
+          "description": "Storage resources.",
+          "type": "object",
+          "additionalProperties": { "$ref": "#/definitions/resourceDeclaration" }
+        },
+        "databases": {
+          "description": "Database resources (e.g. relational).",
+          "type": "object",
+          "additionalProperties": { "$ref": "#/definitions/resourceDeclaration" }
+        },
+        "messaging": {
+          "description": "Messaging resources.",
+          "type": "object",
+          "additionalProperties": { "$ref": "#/definitions/resourceDeclaration" }
+        },
+        "networking": {
+          "description": "Networking resources.",
+          "type": "object",
+          "additionalProperties": { "$ref": "#/definitions/resourceDeclaration" }
+        },
+        "secrets": {
+          "description": "Secrets sourced externally (file or environment), never minted by ens.",
+          "type": "object",
+          "additionalProperties": { "$ref": "#/definitions/secretDeclaration" }
+        },
+        "variables": {
+          "description": "Developer-owned, valueless entries supplied at deploy time. Permissive passthrough bag.",
+          "type": "object",
+          "additionalProperties": { "type": "object" }
+        },
+        "external": {
+          "description": "Resources ens does not provision, only references.",
+          "type": "object",
+          "additionalProperties": { "$ref": "#/definitions/externalDeclaration" }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "release": {
+      "type": "object",
+      "required": ["kit"],
+      "additionalProperties": false,
+      "properties": {
+        "kit": {
+          "description": "The pack kit used to build this release.",
+          "type": "string"
+        },
+        "mode": {
+          "description": "Optional pack mode passed through to the pack kit.",
+          "type": "string"
+        },
+        "outputName": {
+          "description": "Optional name of the release's non-primary output.",
+          "type": "string"
+        },
+        "publish": { "$ref": "#/definitions/publishSpec" }
+      }
+    },
+    "publishSpec": {
+      "description": "Where and under what name a released ship is published.",
+      "type": "object",
+      "required": ["target"],
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "description": "Publish target.",
+          "type": "string"
+        },
+        "name": {
+          "description": "Optional published name.",
+          "type": "string"
+        },
+        "options": {
+          "description": "Publish options, handed to the pack kit's publish.ts.",
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "resourceDeclaration": {
+      "description": "A typed resource declaration. Per-type fields beyond type/class/capabilities are validated by the matching ResourceContract, not this schema.",
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "description": "The resource type (e.g. container-orchestrated, relational). Matched against a registered ResourceContract.",
+          "type": "string",
+          "examples": ["container-orchestrated", "relational"]
+        },
+        "class": {
+          "description": "Optional resource class (e.g. critical) affecting how a kit realizes it.",
+          "type": "string"
+        },
+        "capabilities": {
+          "description": "Optional negotiated capabilities requested from the deploy kit.",
+          "type": "object",
+          "additionalProperties": { "type": ["boolean", "number"] }
+        },
+        "image": {
+          "description": "container-orchestrated: the image reference, typically ${release.<name>} or ${release.<name>.<output>}.",
+          "type": "string"
+        },
+        "replicas": {
+          "description": "container-orchestrated: number of replicas.",
+          "type": "number"
+        },
+        "ports": {
+          "description": "container-orchestrated: named port map, individually referenceable as ${compute.<name>.<port>}.",
+          "type": "object",
+          "additionalProperties": { "type": "number" }
+        },
+        "env": {
+          "description": "container-orchestrated: environment variables, values may be literals or ${...} references.",
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "networks": {
+          "description": "container-orchestrated: networks this container attaches to, usually ${external.<name>.name} references.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "development": { "$ref": "#/definitions/developmentBlock" },
+        "engine": {
+          "description": "relational: database engine (e.g. postgres).",
+          "type": "string"
+        },
+        "user": {
+          "description": "relational: database user.",
+          "type": "string"
+        },
+        "database": {
+          "description": "relational: database name.",
+          "type": "string"
+        },
+        "passwordSecret": {
+          "description": "relational: name of a secrets entry supplying the password.",
+          "type": "string"
+        },
+        "storageSize": {
+          "description": "relational: negotiated storage size capability.",
+          "type": ["string", "number"]
+        },
+        "backupRetention": {
+          "description": "relational: negotiated backup retention capability.",
+          "type": ["string", "number"]
+        },
+        "multiAz": {
+          "description": "relational: negotiated multi-AZ capability.",
+          "type": ["boolean", "number"]
+        },
+        "deletionProtection": {
+          "description": "relational: negotiated deletion protection capability.",
+          "type": ["boolean", "number"]
+        }
+      }
+    },
+    "developmentBlock": {
+      "description": "Developer-owned intent for `ens deploy --watch`, honored only by provisioners that support it.",
+      "type": "object",
+      "required": ["sync"],
+      "additionalProperties": false,
+      "properties": {
+        "sync": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/syncRule" }
+        }
+      }
+    },
+    "syncRule": {
+      "type": "object",
+      "required": ["app", "path"],
+      "additionalProperties": false,
+      "properties": {
+        "app": {
+          "description": "App whose source (relative to that app's own source directory) is kept in sync.",
+          "type": "string"
+        },
+        "path": {
+          "description": "Path inside the deployed container to keep current with the app's source.",
+          "type": "string"
+        },
+        "action": {
+          "description": "Whether to just sync files or also restart the container. Defaults to sync.",
+          "type": "string",
+          "enum": ["sync", "sync+restart"]
+        },
+        "ignore": {
+          "description": "Glob patterns to exclude from sync.",
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "secretDeclaration": {
+      "type": "object",
+      "required": ["source"],
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "description": "Where the secret's value comes from.",
+          "type": "string",
+          "enum": ["file", "environment"]
+        }
+      }
+    },
+    "externalDeclaration": {
+      "type": "object",
+      "required": ["type", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "description": "The external resource's type (e.g. network).",
+          "type": "string"
+        },
+        "name": {
+          "description": "The external resource's name, as it exists outside ens's management.",
+          "type": "string"
+        }
+      }
+    }
+  }
+}

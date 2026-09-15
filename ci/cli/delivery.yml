@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../docs/delivery.schema.json
 version: v1
 
 release:
