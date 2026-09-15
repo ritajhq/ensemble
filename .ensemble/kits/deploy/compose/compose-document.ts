@@ -20,9 +20,13 @@ interface ComposeFragmentContent {
  * `primary` before `api` — dependency order, not alphabetical), each with
  * `depends_on` derived from the `DependencyGraph`'s reference edges (Section
  * 8's "compose depends_on" example of target-native apply ordering) filtered
- * to only the edges that point at another service; and a top-level
- * `volumes:` collecting every fragment's own named volume, omitted entirely
- * when nothing declared one.
+ * to only the edges that point at another service; a top-level `volumes:`
+ * collecting every fragment's own named volume, omitted entirely when
+ * nothing declared one; and a top-level `networks:` naming every network any
+ * service attaches to as `external: true` — the only way a network name
+ * reaches a service today is a `${external.*}` reference (Section 5: ens
+ * provisions no network of its own), so every one collected here is by
+ * definition someone else's, never ens's to define.
  */
 export function assembleComposeDocument(
   artifacts: KitSdk.Deploy.Render.Artifacts,
@@ -30,6 +34,7 @@ export function assembleComposeDocument(
 ): Record<string, unknown> {
   const services: Record<string, unknown> = {};
   const volumes: Record<string, unknown> = {};
+  const networks: Record<string, unknown> = {};
 
   for (const fragment of artifacts.fragments) {
     const content = fragment.content as ComposeFragmentContent;
@@ -45,9 +50,14 @@ export function assembleComposeDocument(
       ? { ...content.service, depends_on: dependsOn }
       : content.service;
     Object.assign(volumes, content.volumes ?? {});
+
+    for (const name of (content.service.networks as string[] | undefined) ?? []) {
+      networks[name] = { external: true };
+    }
   }
 
   const document: Record<string, unknown> = { services };
   if (Object.keys(volumes).length > 0) document.volumes = volumes;
+  if (Object.keys(networks).length > 0) document.networks = networks;
   return document;
 }

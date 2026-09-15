@@ -37,13 +37,14 @@ function developBlock(
 
 /**
  * Fulfills `container-orchestrated` on compose: an image, its environment,
- * published ports, and — when the resource declares one — its `develop.watch`
- * sync wiring. `replicas` has no compose-native equivalent outside swarm
- * mode, so it's silently dropped rather than rendered as something
- * misleading — Appendix A's own golden output has no trace of it either.
- * Declares no outputs (Phase 2's `container-orchestrated.v1` contract
- * declares none): a compute's ports are referenced directly off its own
- * `ports` param, not through a provisioner-declared output.
+ * published ports, any networks it attaches to, and — when the resource
+ * declares one — its `develop.watch` sync wiring. `replicas` has no
+ * compose-native equivalent outside swarm mode, so it's silently dropped
+ * rather than rendered as something misleading — Appendix A's own golden
+ * output has no trace of it either. Declares no outputs (Phase 2's
+ * `container-orchestrated.v1` contract declares none): a compute's ports are
+ * referenced directly off its own `ports` param, not through a
+ * provisioner-declared output.
  */
 export function containerOrchestratedProvisioner(): KitSdk.Deploy.Provisioner {
   return {
@@ -63,6 +64,9 @@ export function containerOrchestratedProvisioner(): KitSdk.Deploy.Provisioner {
                 ? { ports: portMappings(request.params.ports) }
                 : {}),
               environment: request.params.env ?? {},
+              ...(request.params.networks
+                ? { networks: request.params.networks }
+                : {}),
               ...(develop ? { develop } : {}),
             },
           },

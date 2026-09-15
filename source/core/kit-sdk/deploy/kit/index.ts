@@ -1,4 +1,5 @@
 export type { Kit } from "./kit.ts";
+export type { ExternalEmulation } from "./external-emulation.ts";
 export type {
   Provisioner,
   ProvisionerSet,

@@ -5,6 +5,7 @@ import { composeRealization } from "./realization.ts";
 import { containerOrchestratedProvisioner } from "./provisioners/container-orchestrated.ts";
 import { relationalProvisioner } from "./provisioners/relational.ts";
 import { assembleComposeDocument } from "./compose-document.ts";
+import { externalNetworkEmulations } from "./external-networks.ts";
 
 /**
  * `develop.watch.path` entries are ens app identifiers (e.g. "website/server")
@@ -47,6 +48,7 @@ const kit: KitSdk.Deploy.Kit = {
     artifactsDirFor(artifactPath),
     "watch",
   ],
+  emulateExternals: externalNetworkEmulations,
 };
 
 export default kit;

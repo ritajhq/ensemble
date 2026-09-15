@@ -19,6 +19,7 @@ import type { IntentDiff } from "./intent-diff.ts";
 import type { ReleaseAvailabilityPreflight } from "./release-availability-preflight.ts";
 import type { LocalArtifactsPacker } from "./release-packer.ts";
 import type { WatchRunner } from "./watch-runner.ts";
+import type { ExternalsEmulator } from "./externals-emulator.ts";
 
 export type { CapabilityGapReport };
 
@@ -35,6 +36,8 @@ export interface DeployOptions {
   readonly pack: boolean;
   /** Run the kit's long-lived watch command instead of a one-shot apply (Section 8) — a variant of `apply`, not a fourth termination. Ignored by `eject`/`plan`. */
   readonly watch: boolean;
+  /** Before a real apply, stand up a local substitute for each `deploy.external` entry the target's kit knows how to emulate, instead of assuming it already exists elsewhere (`docker network create` for a compose external network). Ignored by `eject`/`plan`; throws `EmulateExternalsNotSupportedError` if the kit has no emulation hook at all. */
+  readonly emulateExternals: boolean;
   /** Drives the watch step's teardown when given — the caller's own SIGINT (or other) signal, so it can tear this down in lockstep with companion processes (e.g. `ens build --watch` per referenced app) it starts alongside this. Omit to let `WatchRunner` install its own `SIGINT` listener; unused unless `watch` is `true`. */
   readonly signal?: AbortSignal;
 }
@@ -92,6 +95,7 @@ export class DeploymentCoordinator {
     private readonly availabilityPreflight: ReleaseAvailabilityPreflight,
     private readonly localArtifactsPacker: LocalArtifactsPacker,
     private readonly watchRunner: WatchRunner,
+    private readonly externalsEmulator: ExternalsEmulator,
     private readonly graphBuilder: DependencyGraphBuilder =
       new DependencyGraphBuilder(),
   ) {
@@ -99,7 +103,7 @@ export class DeploymentCoordinator {
     this.referenceValidator = new ReferenceValidator(registry);
   }
 
-  /** `name` is the deployment's own name (`ens deploy <name> <kit>`) — passed through to `apply`/watch for a kit to scope its own native invocation by (a compose project name, a CloudFormation stack name). Throws `ContractError` for any reference that targets an undeclared release/resource/output before doing any resolution work, then `CapabilityGapError` (naming every unmet capability) before rendering anything, unless `options.acceptCapabilityGaps` is set. For a published apply, runs the availability preflight right before the terminal step, throwing `ReleaseAvailabilityError` if any declared release isn't actually reachable yet; for a local apply (unless `options.pack` is `false`), packs the referenced releases instead, throwing `ReleasePackError` if any of them fails. When `options.watch` is set, runs the kit's long-lived watch command instead of a one-shot apply, throwing `WatchNotSupportedError` if the kit has none for this target. */
+  /** `name` is the deployment's own name (`ens deploy <name> <kit>`) — passed through to `apply`/watch for a kit to scope its own native invocation by (a compose project name, a CloudFormation stack name). Throws `ContractError` for any reference that targets an undeclared release/resource/output before doing any resolution work, then `CapabilityGapError` (naming every unmet capability) before rendering anything, unless `options.acceptCapabilityGaps` is set. On an apply, if `options.emulateExternals` is set, stands up each `deploy.external` entry the kit knows how to emulate before anything else in this block, throwing `EmulateExternalsNotSupportedError`/`ExternalsEmulationError` on failure. For a published apply, runs the availability preflight right before the terminal step, throwing `ReleaseAvailabilityError` if any declared release isn't actually reachable yet; for a local apply (unless `options.pack` is `false`), packs the referenced releases instead, throwing `ReleasePackError` if any of them fails. When `options.watch` is set, runs the kit's long-lived watch command instead of a one-shot apply, throwing `WatchNotSupportedError` if the kit has none for this target. */
   async deploy(
     name: string,
     workload: Workload,
@@ -127,6 +131,10 @@ export class DeploymentCoordinator {
     );
 
     if (options.termination === "apply") {
+      if (options.emulateExternals) {
+        await this.externalsEmulator.emulate(workload, target.kit);
+      }
+
       if (options.artifacts === "published") {
         await this.availabilityPreflight.check(
           workload,

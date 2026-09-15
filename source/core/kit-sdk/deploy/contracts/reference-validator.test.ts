@@ -91,6 +91,64 @@ deploy:
   validator.validate(workload);
 });
 
+Deno.test("ReferenceValidator: accepts a reference to an external declaration's name", () => {
+  const workload = parser.parse(`
+version: v1
+deploy:
+  compute:
+    api:
+      type: container-orchestrated
+      image: nginx
+      replicas: 1
+      networks: ["\${external.edge-net.name}"]
+  external:
+    edge-net:
+      type: network
+      name: edge-net
+`);
+  validator.validate(workload);
+});
+
+Deno.test("ReferenceValidator: rejects a reference to an undeclared external resource", () => {
+  const workload = parser.parse(`
+version: v1
+deploy:
+  compute:
+    api:
+      type: container-orchestrated
+      image: nginx
+      replicas: 1
+      networks: ["\${external.edge-net.name}"]
+`);
+  const error = assertThrows(() => validator.validate(workload), ContractError);
+  assertEquals(
+    error.message,
+    'compute.api.networks[0] references undeclared resource "external.edge-net".',
+  );
+});
+
+Deno.test("ReferenceValidator: rejects a reference to an undeclared field on an external declaration", () => {
+  const workload = parser.parse(`
+version: v1
+deploy:
+  compute:
+    api:
+      type: container-orchestrated
+      image: nginx
+      replicas: 1
+      networks: ["\${external.edge-net.id}"]
+  external:
+    edge-net:
+      type: network
+      name: edge-net
+`);
+  const error = assertThrows(() => validator.validate(workload), ContractError);
+  assertEquals(
+    error.message,
+    'compute.api.networks[0] references undeclared field "id" on external.edge-net (declared fields: type, name).',
+  );
+});
+
 Deno.test("ReferenceValidator: rejects a reference to a port the target compute doesn't declare", () => {
   const workload = parser.parse(`
 version: v1

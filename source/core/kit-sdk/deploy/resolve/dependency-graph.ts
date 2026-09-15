@@ -143,7 +143,11 @@ export class DependencyGraphBuilder {
       onReference(reference);
       return;
     }
-    if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+    if (Array.isArray(value)) {
+      for (const item of value) this.visitValue(item, onReference);
+      return;
+    }
+    if (typeof value === "object" && value !== null) {
       for (const nested of Object.values(value as Record<string, unknown>)) {
         this.visitValue(nested, onReference);
       }

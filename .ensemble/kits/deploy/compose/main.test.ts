@@ -270,6 +270,70 @@ Deno.test("compose kit: no development block renders no develop key at all", asy
   assertEquals("develop" in document.services.api, false);
 });
 
+const WITH_EXTERNAL_NETWORK = `
+version: v1
+release:
+  web: { kit: docker }
+deploy:
+  compute:
+    api:
+      type: container-orchestrated
+      image: \${release.web}
+      replicas: 1
+      networks: ["\${external.edge-net.name}"]
+  external:
+    edge-net:
+      type: network
+      name: edge-net
+`;
+
+Deno.test("compose kit: a compute referencing an external network renders it on the service and declares it external at the top level", async () => {
+  const workload = new KitSdk.Deploy.Manifest.Parser().parse(
+    WITH_EXTERNAL_NETWORK,
+  );
+  const { artifacts, graph } = await renderWorkload(
+    workload,
+    composeKit,
+    releaseLocator,
+    "local",
+  );
+  const document = assembleComposeDocument(artifacts, graph) as {
+    services: Record<string, { networks?: string[] }>;
+    networks?: Record<string, unknown>;
+  };
+
+  assertEquals(document.services.api.networks, ["edge-net"]);
+  assertEquals(document.networks, { "edge-net": { external: true } });
+});
+
+Deno.test("compose kit: emulateExternals reports a docker network inspect/create pair per external network", () => {
+  const workload = new KitSdk.Deploy.Manifest.Parser().parse(
+    WITH_EXTERNAL_NETWORK,
+  );
+
+  assertEquals(composeKit.emulateExternals?.(workload), [{
+    name: "edge-net",
+    check: ["docker", "network", "inspect", "edge-net"],
+    create: ["docker", "network", "create", "edge-net"],
+  }]);
+});
+
+Deno.test("compose kit: no networks param renders no networks key anywhere", async () => {
+  const { artifacts, graph } = await renderFixture(
+    FIXTURE,
+    composeKit,
+    releaseLocator,
+    "local",
+  );
+  const document = assembleComposeDocument(artifacts, graph) as {
+    services: Record<string, { networks?: unknown }>;
+    networks?: unknown;
+  };
+
+  assertEquals("networks" in document.services.api, false);
+  assertEquals("networks" in document, false);
+});
+
 Deno.test("compose kit: an invalid development block fails render with a clear error", async () => {
   const workload = new KitSdk.Deploy.Manifest.Parser().parse(
     WITH_DEVELOPMENT_BLOCK.replace("sync+restart", "rebuild-everything"),

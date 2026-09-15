@@ -13,6 +13,7 @@ import { DeploymentCoordinator } from "./deployment-coordinator.ts";
 import { ReleaseAvailabilityPreflight } from "./release-availability-preflight.ts";
 import { LocalArtifactsPacker, type ReleasePacker } from "./release-packer.ts";
 import { WatchNotSupportedError, WatchRunner } from "./watch-runner.ts";
+import { ExternalsEmulator } from "./externals-emulator.ts";
 import { Ejector } from "./ejector.ts";
 import { Planner } from "./planner.ts";
 import { Applier } from "./applier.ts";
@@ -121,6 +122,7 @@ async function buildCoordinator(
     new ReleaseAvailabilityPreflight(gateway),
     new LocalArtifactsPacker(packer),
     new WatchRunner(sink),
+    new ExternalsEmulator(),
   );
   const target: Target = { kit };
   return { workload, coordinator, target };
@@ -171,6 +173,7 @@ Deno.test("worked example: ens develop packs the referenced release, bakes the l
       version: "latest",
       pack: true,
       watch: true,
+      emulateExternals: false,
     },
   );
 
@@ -226,6 +229,7 @@ Deno.test("worked example: --artifacts published (no --watch) skips the pack ste
       version: "1.0.0",
       pack: true,
       watch: false,
+      emulateExternals: false,
     },
   );
 
@@ -267,6 +271,7 @@ Deno.test("worked example: a target whose kit has no watch command produces the 
         version: "latest",
         pack: true,
         watch: true,
+        emulateExternals: false,
       }),
     WatchNotSupportedError,
   );

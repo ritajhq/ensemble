@@ -17,6 +17,8 @@ export interface RunDeployOptions {
   watch: boolean;
   /** Pack the referenced releases before a local apply. `true` by default; ignored for published artifacts. */
   pack: boolean;
+  /** Before a real apply, stand up a local substitute for each `deploy.external` entry the target's kit knows how to emulate, instead of assuming it already exists elsewhere (`docker network create` for a compose external network). Ignored by `eject`/`plan`. */
+  emulateExternals: boolean;
 }
 
 /**
@@ -119,6 +121,7 @@ export async function runDeploy(
       new RunPackReleasePacker(),
     ),
     new KitSdk.Deploy.Terminations.WatchRunner(sink),
+    new KitSdk.Deploy.Terminations.ExternalsEmulator(),
   );
 
   const watchedApps = options.watch
@@ -136,6 +139,7 @@ export async function runDeploy(
       version: options.version,
       pack: options.pack,
       watch: options.watch,
+      emulateExternals: options.emulateExternals,
       signal: buildWatchers?.signal,
     });
 

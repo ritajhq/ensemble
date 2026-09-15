@@ -376,6 +376,70 @@ Deno.test("Renderer.render: throws when a provisioner produces an output its con
   );
 });
 
+Deno.test("Renderer.render: bakes an external reference straight off the workload, not through the ledger", () => {
+  const manifest = `
+version: v1
+deploy:
+  compute:
+    api:
+      type: container-orchestrated
+      image: nginx
+      replicas: 1
+      networks: ["\${external.edge-net.name}"]
+  external:
+    edge-net:
+      type: network
+      name: edge-net
+`;
+  const workload = new Parser().parse(manifest);
+  const graph = new DependencyGraphBuilder().build(workload);
+
+  const requests = new Map<string, ProvisioningRequest>([
+    ["compute.api", {
+      category: "compute",
+      name: "api",
+      type: "container-orchestrated",
+      params: workload.compute!.api.params,
+      values: {},
+    }],
+  ]);
+  function echoNetworksProvision(request: ResolvedRequest): ProvisionOutcome {
+    return {
+      fragment: {
+        category: request.category,
+        name: request.name,
+        content: { networks: request.params.networks },
+      },
+      outputs: {},
+    };
+  }
+  const selections = new Map<string, SelectedProvisioner>([
+    ["compute.api", {
+      provisioner: { matches: () => true, provision: echoNetworksProvision },
+      gaps: [],
+    }],
+  ]);
+
+  const renderer = new Renderer(
+    new ReferenceResolver(new FakeRealization()),
+    new StubReleaseLocator({ local: {}, published: {} }),
+    registry,
+  );
+
+  const artifacts = renderer.render(
+    workload,
+    requests,
+    selections,
+    graph,
+    "published",
+  );
+  const api = artifacts.fragments.find((f) => f.name === "api")!;
+  assertEquals(
+    (api.content as { networks: unknown }).networks,
+    ["edge-net"],
+  );
+});
+
 Deno.test("Renderer.render: two consumers of the same dynamic output each get their own object, never a shared reference", () => {
   const manifest = `
 version: v1

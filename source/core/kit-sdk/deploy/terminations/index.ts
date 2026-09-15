@@ -19,6 +19,11 @@ export {
 } from "./release-packer.ts";
 export { WatchNotSupportedError, WatchRunner } from "./watch-runner.ts";
 export {
+  EmulateExternalsNotSupportedError,
+  ExternalsEmulationError,
+  ExternalsEmulator,
+} from "./externals-emulator.ts";
+export {
   CapabilityGapError,
   type CapabilityGapReport,
   DeploymentCoordinator,

@@ -11,7 +11,7 @@ import { runDeploy } from "@ensemble/core";
 export const developCommand = new Command()
   .name("develop")
   .description(
-    "Deploy a workload locally for development (sugar for `deploy --artifacts local --watch`).",
+    "Deploy a workload locally for development (sugar for `deploy --emulate-externals --artifacts local --watch`).",
   )
   .arguments("<name:string>")
   .option("-k, --kit <kit:string>", "Deploy kit to use.", {
@@ -25,5 +25,6 @@ export const developCommand = new Command()
       acceptCapabilityGaps: false,
       watch: true,
       pack: true,
+      emulateExternals: true,
     });
   });

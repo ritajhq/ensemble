@@ -1,6 +1,8 @@
 import type { DependencyGraph } from "../resolve/dependency-graph.ts";
+import type { Workload } from "../workload.ts";
 import type { Artifacts } from "../render/artifact.ts";
 import type { PresentedArtifact } from "../render/presented-artifact.ts";
+import type { ExternalEmulation } from "./external-emulation.ts";
 import type { ProvisionerSet } from "./provisioner.ts";
 import type { Realization } from "./realization.ts";
 
@@ -40,4 +42,16 @@ export interface Kit {
     artifactPath: string,
     name: string,
   ): readonly string[] | undefined;
+  /**
+   * `--emulate-externals`'s hook: for each `deploy.external` entry this kit
+   * knows how to stand up locally, a `check`/`create` command pair (Section
+   * 5's "provisioned by nothing" relaxed on request) — a compose external
+   * network via `docker network create`, e.g. Optional, and `undefined` is a
+   * legitimate answer (not an error): a kit with no notion of "bring this up
+   * locally" — aws today — simply doesn't implement this, which the
+   * emulate-externals step reads as a capability gap rather than a bug. A
+   * kit that does implement it, but is handed an `external` entry of a type
+   * it has no emulation for, throws rather than silently skipping it.
+   */
+  emulateExternals?(workload: Workload): readonly ExternalEmulation[];
 }

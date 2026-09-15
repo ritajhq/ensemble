@@ -121,6 +121,29 @@ deploy:
   );
 });
 
+Deno.test("DependencyGraphBuilder.build: finds a reference inside an array-valued param (e.g. networks)", () => {
+  const workload = parser.parse(`
+version: v1
+deploy:
+  compute:
+    api:
+      type: container-orchestrated
+      image: nginx
+      replicas: 1
+      networks: ["\${external.edge-net.name}"]
+  external:
+    edge-net:
+      type: network
+      name: edge-net
+`);
+
+  const graph = builder.build(workload);
+  assertEquals(
+    graph.dependenciesOf({ category: "compute", name: "api" }),
+    [{ category: "external", name: "edge-net" }],
+  );
+});
+
 Deno.test("DependencyGraphBuilder.build: throws on a cycle", () => {
   const workload = parser.parse(`
 version: v1

@@ -47,7 +47,7 @@ export class ReferenceValidator {
     }
   }
 
-  /** A param's value may itself be a mapping (e.g. `env: { DATABASE_URL: ${...} }`) — references can appear one level inside it, so this recurses into plain objects rather than only checking the param's own top-level value. */
+  /** A param's value may itself be a mapping (e.g. `env: { DATABASE_URL: ${...} }`) or a list (e.g. `networks: [${...}]`) — references can appear one level inside either, so this recurses into plain objects and arrays rather than only checking the param's own top-level value. */
   private validateValue(
     workload: Workload,
     path: string,
@@ -58,7 +58,13 @@ export class ReferenceValidator {
       this.validateReference(workload, path, reference);
       return;
     }
-    if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+    if (Array.isArray(value)) {
+      value.forEach((item, index) =>
+        this.validateValue(workload, `${path}[${index}]`, item)
+      );
+      return;
+    }
+    if (typeof value === "object" && value !== null) {
       for (
         const [key, nested] of Object.entries(value as Record<string, unknown>)
       ) {
@@ -87,6 +93,12 @@ export class ReferenceValidator {
       );
     }
     const category = reference.category as Category;
+
+    if (category === "external") {
+      this.validateExternalReference(workload, path, reference);
+      return;
+    }
+
     const target = (workload[category] as
       | Record<string, { type: string; params: Record<string, unknown> }>
       | undefined)
@@ -111,6 +123,25 @@ export class ReferenceValidator {
         `${path} references undeclared output "${output}" on ${contract.id} (declared outputs: ${
           contract.outputs.join(", ") || "none"
         }).`,
+      );
+    }
+  }
+
+  /** `external` entries have no contract (Section 5: "provisioned by nothing") — a reference into one names one of `ExternalDeclaration`'s own fields (`type` or `name`) rather than a contract-declared output. */
+  private validateExternalReference(
+    workload: Workload,
+    path: string,
+    reference: Reference,
+  ): void {
+    if (!workload.external?.[reference.name]) {
+      throw new ContractError(
+        `${path} references undeclared resource "external.${reference.name}".`,
+      );
+    }
+    const output = reference.output!;
+    if (output !== "type" && output !== "name") {
+      throw new ContractError(
+        `${path} references undeclared field "${output}" on external.${reference.name} (declared fields: type, name).`,
       );
     }
   }

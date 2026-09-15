@@ -1,6 +1,6 @@
 import type { Category, Workload } from "../workload.ts";
 import type { ArtifactsSource } from "../artifacts-source.ts";
-import type { ReferenceSyntax } from "../reference.ts";
+import type { Reference, ReferenceSyntax } from "../reference.ts";
 import type {
   DependencyGraph,
   ResourceId,
@@ -127,9 +127,8 @@ export class Renderer {
       );
     }
 
-    const params = this.resolveValue(request.params, ledger) as Readonly<
-      Record<string, unknown>
-    >;
+    const params = this.resolveValue(request.params, ledger, workload) as
+      Readonly<Record<string, unknown>>;
     const outcome = selection.provisioner.provision({
       category: request.category,
       name: request.name,
@@ -170,34 +169,63 @@ export class Renderer {
     );
   }
 
-  private resolveValue(value: unknown, ledger: OutputsLedger): unknown {
+  private resolveValue(
+    value: unknown,
+    ledger: OutputsLedger,
+    workload: Workload,
+  ): unknown {
     const reference = this.syntax.parse(value);
     if (reference) {
-      const resolved = this.referenceResolver.resolve(reference, ledger);
-      const resolvedValue = resolved.mode === "baked"
-        ? resolved.value
-        : resolved.wiring;
-      // The ledger hands back the same stored object on every lookup — if two
-      // different consumers reference the same output (or one provisioner's own
-      // fragment and its output both embed the same wiring object, as a dynamic
-      // `!GetAtt`/`Fn::Sub` value naturally would), cloning here guarantees no two
-      // places in the final artifact ever share object identity. That matters
-      // because a serializer that notices shared identity (e.g. `@std/yaml`) emits
-      // YAML anchors/aliases (`&x`/`*x`) — syntax some targets' own template
-      // parsers (CloudFormation's included) don't reliably support.
-      return typeof resolvedValue === "object" && resolvedValue !== null
-        ? structuredClone(resolvedValue)
-        : resolvedValue;
+      return reference.category === "external"
+        ? this.resolveExternalReference(reference, workload)
+        : this.bakeOrDefer(reference, ledger);
     }
-    if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+    if (Array.isArray(value)) {
+      return value.map((item) => this.resolveValue(item, ledger, workload));
+    }
+    if (typeof value === "object" && value !== null) {
       const resolved: Record<string, unknown> = {};
       for (
         const [key, nested] of Object.entries(value as Record<string, unknown>)
       ) {
-        resolved[key] = this.resolveValue(nested, ledger);
+        resolved[key] = this.resolveValue(nested, ledger, workload);
       }
       return resolved;
     }
     return value;
+  }
+
+  /**
+   * `external` entries are manifest-declared literals, not provisioner
+   * outputs (Section 5: "provisioned by nothing") — resolved straight off
+   * the workload rather than through the ledger/`Realization`. Always baked:
+   * there's no provisioner in the loop for a value to ever be deferred to.
+   * Trusts `ReferenceValidator` already confirmed the resource and field
+   * exist (same trust `OutputsLedger` places in it for every other category).
+   */
+  private resolveExternalReference(
+    reference: Reference,
+    workload: Workload,
+  ): unknown {
+    const declaration = workload.external![reference.name];
+    return declaration[reference.output! as "type" | "name"];
+  }
+
+  private bakeOrDefer(reference: Reference, ledger: OutputsLedger): unknown {
+    const resolved = this.referenceResolver.resolve(reference, ledger);
+    const resolvedValue = resolved.mode === "baked"
+      ? resolved.value
+      : resolved.wiring;
+    // The ledger hands back the same stored object on every lookup — if two
+    // different consumers reference the same output (or one provisioner's own
+    // fragment and its output both embed the same wiring object, as a dynamic
+    // `!GetAtt`/`Fn::Sub` value naturally would), cloning here guarantees no two
+    // places in the final artifact ever share object identity. That matters
+    // because a serializer that notices shared identity (e.g. `@std/yaml`) emits
+    // YAML anchors/aliases (`&x`/`*x`) — syntax some targets' own template
+    // parsers (CloudFormation's included) don't reliably support.
+    return typeof resolvedValue === "object" && resolvedValue !== null
+      ? structuredClone(resolvedValue)
+      : resolvedValue;
   }
 }

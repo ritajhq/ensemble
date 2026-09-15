@@ -18,6 +18,12 @@ import { ResourceContract } from "../contract.ts";
  * schema) is validated only by a provisioner that actually honors it during
  * render (the watch/develop plan); every other path leaves the raw value
  * alone rather than rejecting it upfront.
+ *
+ * `networks` names the (typically external) networks this container attaches
+ * to — entries are usually `${external.<name>.name}` references into a
+ * `deploy.external` declaration (ens provisions no network itself, only
+ * threads the referenced name through to the target), though a literal
+ * network name works too.
  */
 export const containerOrchestratedV1 = new ResourceContract(
   "compute",
@@ -29,6 +35,7 @@ export const containerOrchestratedV1 = new ResourceContract(
     { name: "ports", required: false, type: "object" },
     { name: "env", required: false, type: "object" },
     { name: "development", required: false, type: "object" },
+    { name: "networks", required: false, type: "array" },
   ],
   [],
   [],

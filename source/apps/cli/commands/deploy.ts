@@ -66,9 +66,23 @@ export const deployCommand = new Command()
     "Proceed even if the target kit can't satisfy a requested capability (otherwise this hard-fails).",
     { default: false },
   )
+  .option(
+    "--emulate-externals",
+    "Before applying, stand up a local substitute for each declared external resource the kit knows how to emulate (e.g. `docker network create` for an external network) instead of assuming it already exists elsewhere.",
+    { default: false },
+  )
   .action(
     async (
-      { artifacts, version, eject, plan, watch, pack, acceptCapabilityGaps },
+      {
+        artifacts,
+        version,
+        eject,
+        plan,
+        watch,
+        pack,
+        acceptCapabilityGaps,
+        emulateExternals,
+      },
       name,
       kit,
     ) => {
@@ -80,6 +94,12 @@ export const deployCommand = new Command()
         console.error("error: --watch can't be used with --eject or --plan.");
         Deno.exit(1);
       }
+      if (emulateExternals && (eject || plan)) {
+        console.error(
+          "error: --emulate-externals can't be used with --eject or --plan.",
+        );
+        Deno.exit(1);
+      }
       const termination = eject ? "eject" : plan ? "plan" : "apply";
       await runDeploy(name, kit, {
         artifacts,
@@ -88,6 +108,7 @@ export const deployCommand = new Command()
         acceptCapabilityGaps,
         watch,
         pack,
+        emulateExternals,
       });
     },
   )

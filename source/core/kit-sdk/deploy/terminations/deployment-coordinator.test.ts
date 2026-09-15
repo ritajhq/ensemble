@@ -25,6 +25,11 @@ import {
   ReleasePackError,
 } from "./release-packer.ts";
 import { WatchNotSupportedError, WatchRunner } from "./watch-runner.ts";
+import {
+  EmulateExternalsNotSupportedError,
+  ExternalsEmulationError,
+  ExternalsEmulator,
+} from "./externals-emulator.ts";
 import { Ejector } from "./ejector.ts";
 import { Planner } from "./planner.ts";
 import { Applier } from "./applier.ts";
@@ -74,6 +79,7 @@ function fakeKit(
   presentedContent: string,
   applyCommand: readonly string[] = ["true"],
   watchCommand?: readonly string[],
+  emulateExternals?: Kit["emulateExternals"],
 ): Kit {
   return {
     provisioners: () => [
@@ -113,6 +119,7 @@ function fakeKit(
     ...(watchCommand
       ? { watchCommand: (path: string) => [...watchCommand, path] }
       : {}),
+    ...(emulateExternals ? { emulateExternals } : {}),
   };
 }
 
@@ -141,6 +148,7 @@ function buildCoordinator(
     new ReleaseAvailabilityPreflight(gateway),
     new LocalArtifactsPacker(packer),
     new WatchRunner(sink),
+    new ExternalsEmulator(),
   );
 }
 
@@ -162,6 +170,7 @@ async function deployAppendixA(
     version: "1.4.2",
     pack: true,
     watch: false,
+    emulateExternals: false,
   });
   return { result, sink, cache };
 }
@@ -279,6 +288,7 @@ Deno.test("DeploymentCoordinator.deploy: a published apply fails when the availa
         version: "1.4.2",
         pack: true,
         watch: false,
+        emulateExternals: false,
       }),
     ReleaseAvailabilityError,
     "web: not found in registry",
@@ -306,6 +316,7 @@ Deno.test("DeploymentCoordinator.deploy: the availability preflight never runs f
     version: "1.4.2",
     pack: true,
     watch: false,
+    emulateExternals: false,
   } as const;
 
   await coordinator.deploy("t", workload, target, {
@@ -382,6 +393,7 @@ Deno.test("DeploymentCoordinator.deploy: a local apply packs each referenced rel
     version: "1.4.2",
     pack: true,
     watch: false,
+    emulateExternals: false,
   });
 
   assertEquals(packedNames, ["web"]);
@@ -415,6 +427,7 @@ Deno.test("DeploymentCoordinator.deploy: pack: false skips packing for a local a
     version: "1.4.2",
     pack: false,
     watch: false,
+    emulateExternals: false,
   });
 
   assertEquals(packCalls, 0);
@@ -448,6 +461,7 @@ Deno.test("DeploymentCoordinator.deploy: a published apply never packs, even wit
     version: "1.4.2",
     pack: true,
     watch: false,
+    emulateExternals: false,
   });
 
   assertEquals(packCalls, 0);
@@ -479,6 +493,7 @@ Deno.test("DeploymentCoordinator.deploy: eject/plan never pack, even for local a
     version: "1.4.2",
     pack: true,
     watch: false,
+    emulateExternals: false,
   } as const;
 
   await coordinator.deploy("t", workload, target, {
@@ -520,6 +535,7 @@ Deno.test("DeploymentCoordinator.deploy: a pack failure aborts before the termin
         version: "1.4.2",
         pack: true,
         watch: false,
+        emulateExternals: false,
       }),
     ReleasePackError,
     'packing "web" failed',
@@ -542,6 +558,7 @@ Deno.test("DeploymentCoordinator.deploy: --watch runs the kit's watch command in
     version: "1.4.2",
     pack: true,
     watch: true,
+    emulateExternals: false,
   });
 
   assertEquals(result, { termination: "apply", gaps: [] });
@@ -568,9 +585,156 @@ Deno.test("DeploymentCoordinator.deploy: --watch against a kit with no watch com
         version: "1.4.2",
         pack: true,
         watch: true,
+        emulateExternals: false,
       }),
     WatchNotSupportedError,
   );
+});
+
+Deno.test("DeploymentCoordinator.deploy: emulateExternals: false never touches the kit's emulation hook", async () => {
+  const workload = new Parser().parse(APPENDIX_A);
+  let emulateCalls = 0;
+  const kit = fakeKit("x", ["true"], undefined, () => {
+    emulateCalls++;
+    return [];
+  });
+  const sink = new FakeArtifactSink();
+  const cache = new FakeRenderCache();
+  const coordinator = buildCoordinator(kit, sink, cache);
+  const target: Target = { kit };
+
+  await coordinator.deploy("t", workload, target, {
+    artifacts: "local",
+    termination: "apply",
+    acceptCapabilityGaps: false,
+    version: "1.4.2",
+    pack: true,
+    watch: false,
+    emulateExternals: false,
+  });
+
+  assertEquals(emulateCalls, 0);
+});
+
+Deno.test("DeploymentCoordinator.deploy: emulateExternals: true runs the kit's emulation hook before an apply", async () => {
+  const workload = new Parser().parse(APPENDIX_A);
+  let emulateCalls = 0;
+  const kit = fakeKit("applied content", ["true"], undefined, (w) => {
+    emulateCalls++;
+    assertEquals(w, workload);
+    return [];
+  });
+  const sink = new FakeArtifactSink();
+  const cache = new FakeRenderCache();
+  const coordinator = buildCoordinator(kit, sink, cache);
+  const target: Target = { kit };
+
+  await coordinator.deploy("t", workload, target, {
+    artifacts: "local",
+    termination: "apply",
+    acceptCapabilityGaps: false,
+    version: "1.4.2",
+    pack: true,
+    watch: false,
+    emulateExternals: true,
+  });
+
+  assertEquals(emulateCalls, 1);
+});
+
+Deno.test("DeploymentCoordinator.deploy: emulateExternals: true against a kit with no emulation hook throws EmulateExternalsNotSupportedError", async () => {
+  const workload = new Parser().parse(APPENDIX_A);
+  const kit = fakeKit("x"); // no emulateExternals given — can't emulate, like aws today
+  const sink = new FakeArtifactSink();
+  const cache = new FakeRenderCache();
+  const coordinator = buildCoordinator(kit, sink, cache);
+  const target: Target = { kit };
+
+  await assertRejects(
+    () =>
+      coordinator.deploy("t", workload, target, {
+        artifacts: "local",
+        termination: "apply",
+        acceptCapabilityGaps: false,
+        version: "1.4.2",
+        pack: true,
+        watch: false,
+        emulateExternals: true,
+      }),
+    EmulateExternalsNotSupportedError,
+  );
+});
+
+Deno.test("DeploymentCoordinator.deploy: a failed emulation aborts before packing or the terminal step run", async () => {
+  const workload = new Parser().parse(APPENDIX_A);
+  const kit = fakeKit("x", ["true"], undefined, () => [
+    { name: "edge-net", check: ["false"], create: ["false"] },
+  ]);
+  const sink = new FakeArtifactSink();
+  const cache = new FakeRenderCache();
+  let packCalls = 0;
+  const packer: ReleasePacker = {
+    pack: () => {
+      packCalls++;
+      return Promise.resolve();
+    },
+  };
+  const coordinator = buildCoordinator(
+    kit,
+    sink,
+    cache,
+    alwaysAvailableGateway,
+    packer,
+  );
+  const target: Target = { kit };
+
+  await assertRejects(
+    () =>
+      coordinator.deploy("t", workload, target, {
+        artifacts: "local",
+        termination: "apply",
+        acceptCapabilityGaps: false,
+        version: "1.4.2",
+        pack: true,
+        watch: false,
+        emulateExternals: true,
+      }),
+    ExternalsEmulationError,
+    'Failed to bring up "external.edge-net"',
+  );
+  assertEquals(packCalls, 0);
+  assertEquals(sink.written, []);
+});
+
+Deno.test("DeploymentCoordinator.deploy: eject/plan never invoke the emulate-externals step, even with emulateExternals: true", async () => {
+  const workload = new Parser().parse(APPENDIX_A);
+  // No emulateExternals at all — if the coordinator ever actually tried to
+  // emulate here, it would throw EmulateExternalsNotSupportedError and fail.
+  const kit = fakeKit("x");
+  const sink = new FakeArtifactSink();
+  const cache = new FakeRenderCache();
+  const coordinator = buildCoordinator(kit, sink, cache);
+  const target: Target = { kit };
+  const baseOptions = {
+    artifacts: "local",
+    acceptCapabilityGaps: false,
+    version: "1.4.2",
+    pack: true,
+    watch: false,
+    emulateExternals: true,
+  } as const;
+
+  const ejected = await coordinator.deploy("t", workload, target, {
+    ...baseOptions,
+    termination: "eject",
+  });
+  const planned = await coordinator.deploy("t", workload, target, {
+    ...baseOptions,
+    termination: "plan",
+  });
+
+  assertEquals(ejected.termination, "eject");
+  assertEquals(planned.termination, "plan");
 });
 
 Deno.test("DeploymentCoordinator.deploy: eject/plan never invoke the watch step, even with watch: true", async () => {
@@ -588,6 +752,7 @@ Deno.test("DeploymentCoordinator.deploy: eject/plan never invoke the watch step,
     version: "1.4.2",
     pack: true,
     watch: true,
+    emulateExternals: false,
   } as const;
 
   const ejected = await coordinator.deploy("t", workload, target, {

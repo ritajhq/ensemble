@@ -153,6 +153,32 @@ Deno.test("ResourceContract.validate: rejects a non-object value for an object-t
   );
 });
 
+Deno.test("ResourceContract.validate: accepts a networks list of external references", () => {
+  containerOrchestratedV1.validate({
+    type: "container-orchestrated",
+    params: {
+      image: "web:latest",
+      replicas: 1,
+      networks: ["${external.edge-net.name}"],
+    },
+  });
+});
+
+Deno.test("ResourceContract.validate: rejects a non-array value for an array-typed param", () => {
+  const error = assertThrows(
+    () =>
+      containerOrchestratedV1.validate({
+        type: "container-orchestrated",
+        params: { image: "web", replicas: 1, networks: "edge-net" },
+      }),
+    ContractError,
+  );
+  assertEquals(
+    error.message,
+    'compute.container-orchestrated param "networks" must be a array.',
+  );
+});
+
 Deno.test("id: is category.type", () => {
   assertEquals(relationalV1.id, "databases.relational");
   assertEquals(containerOrchestratedV1.id, "compute.container-orchestrated");

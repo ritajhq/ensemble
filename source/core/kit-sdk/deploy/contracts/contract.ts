@@ -6,7 +6,7 @@ import { ContractError } from "./errors.ts";
 /** The ordered, portable core class vocabulary (Section 2) — every contract accepts the full vocabulary at the interface layer; a realization decides what each class expands to (Phase 4/5). */
 export const CORE_CLASSES = ["ephemeral", "standard", "critical"] as const;
 
-export type ScalarType = "string" | "number" | "boolean" | "object";
+export type ScalarType = "string" | "number" | "boolean" | "object" | "array";
 
 /** A **param** field (bin = param, Section 7): developer-owned, platform-indifferent, passed through untouched once validated. */
 export interface ParamField {
@@ -143,6 +143,8 @@ export class ResourceContract {
         return typeof value === "number";
       case "boolean":
         return typeof value === "boolean";
+      case "array":
+        return Array.isArray(value);
     }
   }
 }
