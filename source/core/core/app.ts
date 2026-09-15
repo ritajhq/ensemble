@@ -10,14 +10,17 @@ const APP_NAME_PATTERN = /^[a-zA-Z0-9](?:[a-zA-Z0-9._\-/]*[a-zA-Z0-9])?$/;
 export interface RunAppCreateOptions {
   kit: string;
   name: string;
+  /** Static build variant to scaffold for (e.g. the `react` kit's "ssr"), forwarded to the kit's scaffold.ts and persisted as build.<name>.target. */
+  target?: string;
 }
 
 /**
  * Scaffolds a new app at source/apps/<name> by running its chosen kit's
  * scaffold.ts (the same CLI contract build/pack kits use, see
  * @ensemble/kit-sdk's Scaffold.getContext), then registers
- * build.<name>.kit in .ensemble/config.yaml via EnsembleConfigStore.setAppBuildKit — so the app
- * is immediately buildable with `ens build <name>`.
+ * build.<name>.kit (and .target, if given) in .ensemble/config.yaml via
+ * EnsembleConfigStore.setAppBuildKit — so the app is immediately buildable
+ * with `ens build <name>`.
  */
 export async function runAppCreate(options: RunAppCreateOptions): Promise<void> {
   const name = options.name.trim();
@@ -41,11 +44,12 @@ export async function runAppCreate(options: RunAppCreateOptions): Promise<void> 
   }
 
   const denoExe = await resolveDenoExecutable();
+  const targetArgs = options.target ? ["--target", options.target] : [];
   // --minimum-dependency-age 0: see the identical flag in build.ts — kits
   // depend on first-party @ensemble/*/@duesabati/* packages that a fresh
   // release can otherwise trip Deno's default 24h supply-chain guard on.
   const result =
-    await $`${denoExe} run -A -q --minimum-dependency-age 0 ${scaffoldEntry} --dest ${sourceDir} --name ${name}`
+    await $`${denoExe} run -A -q --minimum-dependency-age 0 ${scaffoldEntry} --dest ${sourceDir} --name ${name} ${targetArgs}`
       .cwd(kitDir)
       .noThrow();
   if (result.code !== 0) {
@@ -53,5 +57,5 @@ export async function runAppCreate(options: RunAppCreateOptions): Promise<void> 
   }
 
   const config = new EnsembleConfigStore(repoRoot);
-  await config.setAppBuildKit(name, options.kit);
+  await config.setAppBuildKit(name, options.kit, options.target);
 }

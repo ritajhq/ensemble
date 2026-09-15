@@ -8,9 +8,10 @@ export const appCommand = new Command()
     "create",
     new Command()
       .description("Scaffold a new app with a build kit's hello-world template.")
+      .option("--target <target:string>", "Static build variant to scaffold for (e.g. the react kit's \"ssr\").")
       .arguments("<kit:string> <name:string>")
-      .action(async (_options, kit, name) => {
-        await runAppCreate({ kit, name });
+      .action(async ({ target }, kit, name) => {
+        await runAppCreate({ kit, name, target });
         console.log(`Scaffolded source/apps/${name} with kit "${kit}".`);
       }),
   );

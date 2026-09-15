@@ -109,12 +109,13 @@ export class EnsembleConfigStore {
   }
 
   /**
-   * Sets build.<appName>.kit in .ensemble/config.yaml, creating the file if it
-   * doesn't exist yet and preserving any other existing entries. This is a
-   * plain parse-modify-rewrite of the YAML, so any hand-written comments in an
-   * existing config.yaml are not preserved across this call.
+   * Sets build.<appName>.kit (and, if given, .target) in .ensemble/config.yaml,
+   * creating the file if it doesn't exist yet and preserving any other
+   * existing entries. This is a plain parse-modify-rewrite of the YAML, so
+   * any hand-written comments in an existing config.yaml are not preserved
+   * across this call.
    */
-  async setAppBuildKit(appName: string, kit: string): Promise<void> {
+  async setAppBuildKit(appName: string, kit: string, target?: string): Promise<void> {
     const kitEntry = join(this.repoRoot, ".ensemble", "kits", "build", kit, "main.ts");
     if (!await exists(kitEntry, { isFile: true })) {
       throw new Error(`Build kit "${kit}" not found (expected ${kitEntry})`);
@@ -127,7 +128,7 @@ export class EnsembleConfigStore {
 
     const config: EnsembleConfig = {
       ...existingConfig,
-      build: { ...existingConfig.build, [appName]: { kit } },
+      build: { ...existingConfig.build, [appName]: target ? { kit, target } : { kit } },
     };
     await Deno.writeTextFile(path, stringifyYaml(config as unknown as Record<string, unknown>));
   }

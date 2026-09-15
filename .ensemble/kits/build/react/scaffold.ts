@@ -56,14 +56,19 @@ const INDEX_HTML = `<!doctype html>
 `;
 
 const ctx = KitSdk.Scaffold.getContext();
-await ensureDir(join(ctx.dest, "public"));
 
 await Deno.writeTextFile(join(ctx.dest, "deno.json"), DENO_JSON);
 await Deno.writeTextFile(join(ctx.dest, "main.tsx"), MAIN_TSX);
 await Deno.writeTextFile(join(ctx.dest, "index.css"), INDEX_CSS);
-await Deno.writeTextFile(
-  join(ctx.dest, "public", "index.html"),
-  INDEX_HTML.replace("%NAME%", ctx.name),
-);
+
+// target "ssr" hydrates a page a server renders itself — see the identical
+// check in main.ts — so there is no standalone public/index.html to own.
+if (ctx.target !== "ssr") {
+  await ensureDir(join(ctx.dest, "public"));
+  await Deno.writeTextFile(
+    join(ctx.dest, "public", "index.html"),
+    INDEX_HTML.replace("%NAME%", ctx.name),
+  );
+}
 
 console.log(`scaffolded ${ctx.name}`);
