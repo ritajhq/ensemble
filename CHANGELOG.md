@@ -1,3 +1,13 @@
+## [0.2.2] - 2026-09-15
+
+### 🚀 Features
+
+- Let pack kits report which apps they depend on before packing runs
+- Build a ship's app dependencies before packing, drop the stale meta.ship.artifacts record
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.2.1
 ## [0.2.1] - 2026-09-15
 
 ### 🚀 Features
