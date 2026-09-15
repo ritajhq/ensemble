@@ -2,7 +2,7 @@ import { dirname, fromFileUrl, join } from "@std/path";
 import { ensureDir, exists, expandGlob } from "@std/fs";
 import { $ } from "@david/dax";
 import * as KitSdk from "@ensemble/kit-sdk";
-import { resolveDenoExecutable } from "@ensemble/core";
+import { resolveDenoExecutable, terminateChildrenOnSignal } from "@ensemble/core";
 
 const TAILWIND_RELEASE_BASE =
   "https://github.com/tailwindlabs/tailwindcss/releases/latest/download";
@@ -182,14 +182,21 @@ const watchArgs = ctx.watch ? ["--watch"] : [];
 // the case for a spawned subprocess — `=always` keeps it watching regardless.
 const cssWatchArgs = ctx.watch ? ["--watch=always"] : [];
 
-const [bundleResult, cssResult] = await Promise.all([
-  $`${denoExe} bundle -q --platform browser ${entry} -o ${jsOut} ${minifyArgs} ${watchArgs}`
-    .noThrow(),
-  // --silent: Tailwind's own version banner and "Done in Xms" line are noise
-  // on every successful (re)build — it still writes real errors to stderr
-  // even with this on, so a broken build is never silenced.
-  $`${tailwindBin} --silent --cwd ${ctx.source} -i ${cssEntry} -o ${cssOut} ${minifyArgs} ${cssWatchArgs}`
-    .noThrow(),
-]);
+const bundle = $`${denoExe} bundle -q --platform browser ${entry} -o ${jsOut} ${minifyArgs} ${watchArgs}`
+  .noThrow()
+  .spawn();
+// --silent: Tailwind's own version banner and "Done in Xms" line are noise
+// on every successful (re)build — it still writes real errors to stderr
+// even with this on, so a broken build is never silenced.
+const css = $`${tailwindBin} --silent --cwd ${ctx.source} -i ${cssEntry} -o ${cssOut} ${minifyArgs} ${cssWatchArgs}`
+  .noThrow()
+  .spawn();
+// Neither of these is reliably reachable by a plain kill/Ctrl+C of just this
+// kit's own process — see terminateChildrenOnSignal's own doc comment — so
+// without this, --watch/--watch=always above (deliberately immune to their
+// own usual stop conditions) leave both running as orphans indefinitely.
+terminateChildrenOnSignal([bundle, css]);
+
+const [bundleResult, cssResult] = await Promise.all([bundle, css]);
 
 Deno.exit(bundleResult.code !== 0 ? bundleResult.code : cssResult.code);

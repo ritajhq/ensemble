@@ -1,6 +1,10 @@
 export { findRepoRoot } from "./repo.ts";
 export { runAppCreate, type RunAppCreateOptions } from "./app.ts";
 export { resolveDenoExecutable } from "./deno-exe.ts";
+export {
+  type Spawned,
+  terminateChildrenOnSignal,
+} from "./terminate-children-on-signal.ts";
 export { runBuild, type RunBuildOptions } from "./build.ts";
 export type { BuildProgress, BuildReporter } from "./build-reporter.ts";
 export { AnimatedBuildReporter } from "./animated-build-reporter.ts";
