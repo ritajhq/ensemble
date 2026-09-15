@@ -1,3 +1,17 @@
+## [0.3.1] - 2026-09-15
+
+### 🚀 Features
+
+- Prefix a deploy's compose/stack project name with the repo dir's own name
+
+### 🐛 Bug Fixes
+
+- Swallow the already-terminated race when a build watcher's kill signal fires
+- *(website)* Actually attach the server to the declared edge network
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.3.0
 ## [0.3.0] - 2026-09-15
 
 ### 🐛 Bug Fixes
