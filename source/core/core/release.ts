@@ -2,8 +2,6 @@ import { join } from "@std/path";
 import { exists } from "@std/fs";
 import { $ } from "@david/dax";
 import * as KitSdk from "@ensemble/kit-sdk";
-import { EnsembleConfigStore } from "./config.ts";
-import { runBuild } from "./build.ts";
 import { runPack } from "./pack.ts";
 import { runPublish } from "./publish.ts";
 
@@ -267,29 +265,12 @@ export class ReleaseCeremony {
   }
 
   /**
-   * Builds every app each ship's pack kit is known to depend on (from
-   * `.ensemble/config.yaml`'s `meta.ship.<name>.artifacts`, populated by a
-   * prior `ens pack` run — if a ship has never been packed before, this is
-   * empty and the build step is skipped, exactly as `workflows/release`'s
-   * own hand-written steps assume a first pack has already happened once),
-   * packs each ship, then publishes it if it declares a `publish` target.
-   * Stops at the first failure rather than partially releasing.
+   * Packs each ship (which itself builds whatever apps it actually depends
+   * on first — see `runPack`), then publishes it if it declares a `publish`
+   * target. Stops at the first failure rather than partially releasing.
    */
   async releaseShips(ships: ShipRelease[], version: string): Promise<void> {
-    const config = new EnsembleConfigStore(this.repoRoot);
-    const ensembleConfig = await config.load();
-
     for (const ship of ships) {
-      const artifacts = ensembleConfig.meta?.ship?.[ship.name]?.artifacts ?? [];
-      for (const app of artifacts) {
-        const code = await runBuild(app, { mode: "production", watch: false });
-        if (code !== 0) {
-          throw new Error(
-            `Building "${app}" (a dependency of ship "${ship.name}") failed with code ${code}.`,
-          );
-        }
-      }
-
       const packCode = await runPack(ship.name, ship.kit, {
         mode: ship.mode,
         outputName: ship.outputName,

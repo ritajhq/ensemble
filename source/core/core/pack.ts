@@ -6,7 +6,8 @@ import { findRepoRoot } from "./repo.ts";
 import { resolveDenoExecutable } from "./deno-exe.ts";
 import * as KitSdk from "@ensemble/kit-sdk";
 import { EnsembleConfigStore } from "./config.ts";
-import { ArtifactDependencyTracker } from "./artifact-dependencies.ts";
+import { runBuild } from "./build.ts";
+import { resolvePackDependencies } from "./pack-dependencies.ts";
 
 export interface RunPackOptions {
   /** Defaults to the first mode declared in the kit's kit.yml, or "default" if it has none. */
@@ -18,7 +19,14 @@ export interface RunPackOptions {
   varOverrides?: Record<string, string>;
 }
 
-/** Resolves a pack kit by name and spawns it with the standard pack kit CLI contract. */
+/**
+ * Resolves a pack kit by name and spawns it with the standard pack kit CLI
+ * contract. Before that, asks the kit (via its `dependencies.ts`, if it has
+ * one — see `resolvePackDependencies`) which of the ship's candidate apps it
+ * actually depends on, and builds exactly those first, so the kit always
+ * finds fresh build output waiting under `artifacts/` rather than requiring
+ * it to have been built out of band beforehand.
+ */
 export async function runPack(
   shipName: string,
   kit: string,
@@ -74,52 +82,28 @@ export async function runPack(
   const ensembleConfig = await config.load();
   const apps = Object.keys(ensembleConfig.build ?? {});
 
-  const resultFile = await Deno.makeTempFile({
-    prefix: "ensemble-pack-result-",
-  });
-  try {
-    // --minimum-dependency-age 0: see the identical flag in build.ts.
-    const result = await $`${denoExe} run -A -q --minimum-dependency-age 0 ${kitEntry}
-      --artifacts ${artifactsDir}
-      --packages ${packagesDir}
-      --name ${shipName}
-      --mode ${mode}
-      --vars ${JSON.stringify(packVars)}
-      --apps ${JSON.stringify(apps)}
-      --result-file ${resultFile}
-      ${outputNameArgs}
-      ${watchArgs}
-      ${shipDir}`
-      .cwd(kitDir)
-      .env(packVars)
-      .noThrow();
-
-    if (result.code !== 0) {
-      return result.code;
+  const dependencies = await resolvePackDependencies(shipName, kit, apps);
+  for (const app of dependencies) {
+    const buildCode = await runBuild(app, { mode: "production", watch: false });
+    if (buildCode !== 0) {
+      return buildCode;
     }
-
-    const reported = await readKitResult(resultFile);
-    if (reported) {
-      const tracker = new ArtifactDependencyTracker(artifactsDir, config);
-      await tracker.Resolve(shipName, reported.artifacts);
-    }
-
-    return result.code;
-  } finally {
-    await Deno.remove(resultFile).catch(() => {});
   }
-}
 
-/** Reads a kit's Result from its --result-file, or undefined if the kit didn't write one. */
-async function readKitResult(
-  resultFile: string,
-): Promise<KitSdk.Pack.Result | undefined> {
-  let text: string;
-  try {
-    text = await Deno.readTextFile(resultFile);
-  } catch {
-    return undefined;
-  }
-  if (text.length === 0) return undefined;
-  return JSON.parse(text) as KitSdk.Pack.Result;
+  // --minimum-dependency-age 0: see the identical flag in build.ts.
+  const result = await $`${denoExe} run -A -q --minimum-dependency-age 0 ${kitEntry}
+    --artifacts ${artifactsDir}
+    --packages ${packagesDir}
+    --name ${shipName}
+    --mode ${mode}
+    --vars ${JSON.stringify(packVars)}
+    --apps ${JSON.stringify(apps)}
+    ${outputNameArgs}
+    ${watchArgs}
+    ${shipDir}`
+    .cwd(kitDir)
+    .env(packVars)
+    .noThrow();
+
+  return result.code;
 }

@@ -25,19 +25,11 @@ export interface Context {
   vars: Record<string, string>;
   /** True when --watch was passed. Kits that don't support watch mode can ignore this. */
   watch: boolean;
-  /** Path a kit may write a `Result` to (via `writeResult`) before exiting, reporting back which of `apps` it actually depended on. Optional to write — a kit with nothing to report can leave it untouched. */
-  resultFile: string;
 }
 
-/** What a pack kit reports back to `ens` about its own run, written to `Context.resultFile`. */
+/** The subset of a ship's candidate `apps` a kit's config actually depends on (e.g. Dockerfile `COPY --from=<app>` references it found) — `dependencies.ts`'s stdout payload shape, asked before packing so `ens` knows which apps to build first. */
 export interface Result {
-  /** The subset of `Context.apps` this kit's run actually depended on (e.g. Dockerfile `COPY --from=<app>` references it found). */
   artifacts: string[];
-}
-
-/** Writes a kit's `Result` to `Context.resultFile`. Call this from a pack kit's entry point before exiting, if it has artifacts to report. */
-export async function writeResult(ctx: Context, result: Result): Promise<void> {
-  await Deno.writeTextFile(ctx.resultFile, JSON.stringify(result));
 }
 
 function parseVars(raw: string): Record<string, string> {
@@ -83,7 +75,6 @@ export function getContext(args: string[] = Deno.args): Context {
       "mode",
       "vars",
       "apps",
-      "result-file",
     ],
     boolean: ["watch"],
     default: { vars: "{}", apps: "[]", watch: false },
@@ -112,7 +103,6 @@ export function getContext(args: string[] = Deno.args): Context {
     vars: parseVars(flags.vars),
     apps: parseApps(flags.apps),
     watch: flags.watch,
-    resultFile: requireFlag(flags, "result-file"),
   };
 }
 

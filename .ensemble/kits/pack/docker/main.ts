@@ -9,18 +9,16 @@ const ctx = KitSdk.Pack.getContext();
 
 // Only apps this ship's Dockerfile actually references (via `COPY
 // --from=<app>`) get registered as build contexts — an app declared in
-// .ensemble/config.yaml but unused by this Dockerfile is left alone. Each
-// referenced app is required to have build output under artifacts/, so a
-// stale/unrelated same-named image can never be silently substituted (see
-// ArtifactDependencyTracker in @ensemble/core, which enforces this from the
-// reported result).
+// .ensemble/config.yaml but unused by this Dockerfile is left alone. `ens`
+// asks this same question up front via dependencies.ts and builds exactly
+// these apps before ever spawning this script, so their output is already
+// there by now.
 const dependencies = await referencedApps(ctx.ship, ctx.apps);
 
 const artifactContextArgs: string[] = [];
 for (const app of dependencies) {
   artifactContextArgs.push("--build-context", `${app}=${join(ctx.artifacts, app)}`);
 }
-await KitSdk.Pack.writeResult(ctx, { artifacts: dependencies });
 
 const modes = await KitSdk.Pack.loadModes(kitDir);
 const format = modes[ctx.mode];

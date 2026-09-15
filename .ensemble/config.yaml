@@ -8,15 +8,6 @@ build:
     target: ssr
   website/server:
     kit: deno.bundle
-meta:
-  ship:
-    demo/spa:
-      artifacts:
-        - demo/spa
-    website:
-      artifacts:
-        - website/content
-        - website/server
 hooks:
   release:
     after: >-
