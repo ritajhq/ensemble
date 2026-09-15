@@ -1,6 +1,7 @@
 import { join } from "@std/path";
 import { copy, ensureDir, exists } from "@std/fs";
 import { $ } from "@david/dax";
+import { formatVersionTag, SelfUpdateService } from "./version.ts";
 
 const ENSEMBLE_REPO_URL = "https://github.com/ritajhq/ensemble.git";
 
@@ -87,16 +88,19 @@ Run any command with \`--help\` for its full option list.
  * Fetches ensemble's built-in kits into destDir by sparse-checking-out just
  * .ensemble/kits from the ensemble repository into a scratch clone, copying
  * it out, and discarding the clone — so the project gets the kits without
- * vendoring the whole ensemble repository or its git history.
+ * vendoring the whole ensemble repository or its git history. Pulls the git
+ * tag matching the running `ens` binary's own installed version, so scaffolded
+ * kits always match the CLI that scaffolded them, rather than whatever's
+ * newest on `main`.
  */
-async function fetchKits(destDir: string): Promise<void> {
+async function fetchKits(destDir: string, ref: string): Promise<void> {
   const scratchDir = await Deno.makeTempDir({ prefix: "ensemble-init-kits-" });
   try {
     await $`git init -q`.cwd(scratchDir);
     await $`git remote add origin ${ENSEMBLE_REPO_URL}`.cwd(scratchDir);
     await $`git sparse-checkout init --no-cone`.cwd(scratchDir);
     await $`git sparse-checkout set /.ensemble/kits/*`.cwd(scratchDir);
-    await $`git pull --depth 1 origin main -q`.cwd(scratchDir);
+    await $`git pull --depth 1 origin ${ref} -q`.cwd(scratchDir);
     await copy(join(scratchDir, ".ensemble", "kits"), destDir);
   } finally {
     await Deno.remove(scratchDir, { recursive: true });
@@ -116,10 +120,13 @@ export async function runInit(options: RunInitOptions): Promise<void> {
   }
   await ensureDir(projectDir);
 
+  const installedVersion = await new SelfUpdateService().getInstalledVersion();
+  const kitsRef = installedVersion ? formatVersionTag(installedVersion) : "main";
+
   const ensembleDir = join(projectDir, ".ensemble");
   await ensureDir(ensembleDir);
   await Deno.writeTextFile(join(ensembleDir, "config.yaml"), CONFIG_TEMPLATE);
-  await fetchKits(join(ensembleDir, "kits"));
+  await fetchKits(join(ensembleDir, "kits"), kitsRef);
 
   for (const dir of SKELETON_DIRS) {
     await ensureDir(join(projectDir, dir));

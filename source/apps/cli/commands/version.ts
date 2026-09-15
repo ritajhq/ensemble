@@ -1,9 +1,7 @@
 import { Command, EnumType } from "@cliffy/command";
 import * as Core from "@ensemble/core";
 
-export function formatVersion(v: { major: number; minor: number; patch: number; preRelease?: string }): string {
-  return `${v.major}.${v.minor}.${v.patch}${v.preRelease ? `-${v.preRelease}` : ""}`;
-}
+export const formatVersion = Core.Version.formatVersionTag;
 
 export const versionCommand = new Command()
   .name("version")

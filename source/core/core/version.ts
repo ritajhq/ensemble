@@ -21,6 +21,10 @@ export function parseVersionTag(tag: string): SemVer | undefined {
   return { major: Number(major), minor: Number(minor), patch: Number(patch), preRelease };
 }
 
+export function formatVersionTag(version: SemVer): string {
+  return `${version.major}.${version.minor}.${version.patch}${version.preRelease ? `-${version.preRelease}` : ""}`;
+}
+
 /** Semver precedence: a pre-release has lower precedence than its associated normal version. */
 function compareSemVer(a: SemVer, b: SemVer): number {
   if (a.major !== b.major) return a.major - b.major;
