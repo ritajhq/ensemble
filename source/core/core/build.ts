@@ -6,6 +6,8 @@ import { findRepoRoot } from "./repo.ts";
 import { EnsembleConfigStore } from "./config.ts";
 import { resolveDenoExecutable } from "./deno-exe.ts";
 import type * as KitSdk from "@ensemble/kit-sdk";
+import type { BuildReporter } from "./build-reporter.ts";
+import { AnimatedBuildReporter } from "./animated-build-reporter.ts";
 
 export interface RunBuildOptions {
   mode: KitSdk.Build.Mode;
@@ -13,6 +15,8 @@ export interface RunBuildOptions {
   varOverrides?: Record<string, string>;
   /** Aborting this stops the spawned build kit process — meaningful mainly with `watch: true`, which otherwise runs until killed. Used by `runDeploy`'s development-mode build-watcher orchestration to shut every watcher down once the deploy itself ends. */
   signal?: AbortSignal;
+  /** How to report this build's lifecycle to the terminal — ignored for `watch: true` (a long-lived session has no single "done" moment to resolve toward). Defaults to `AnimatedBuildReporter`; a future `--plain` flag would pass `PlainBuildReporter` here instead. */
+  reporter?: BuildReporter;
 }
 
 /** Resolves an app's configured kit and spawns it with the standard kit CLI contract. */
@@ -62,6 +66,10 @@ export async function runBuild(name: string, options: RunBuildOptions): Promise<
     else options.signal.addEventListener("abort", kill);
   }
 
+  const progress = options.watch
+    ? undefined
+    : (options.reporter ?? new AnimatedBuildReporter()).building(name);
+
   // --minimum-dependency-age 0: this project's own kits depend on
   // @ensemble/*/@duesabati/* first-party packages, which Deno's default 24h
   // minimum dependency age (a supply-chain mitigation aimed at unfamiliar
@@ -81,6 +89,9 @@ export async function runBuild(name: string, options: RunBuildOptions): Promise<
     .env(buildVars)
     .signal(killSignal.signal)
     .noThrow();
+
+  if (result.code === 0) progress?.succeed();
+  else progress?.fail();
 
   return result.code;
 }

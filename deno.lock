@@ -14,7 +14,7 @@
     "jsr:@david/which@~0.4.1": "0.4.2",
     "jsr:@duesabati/evento@1.0.0": "1.0.0",
     "jsr:@std/assert@0.221": "0.221.0",
-    "jsr:@std/assert@1.0.19": "1.0.19",
+    "jsr:@std/assert@1.0.14": "1.0.14",
     "jsr:@std/assert@^1.0.15": "1.0.19",
     "jsr:@std/assert@^1.0.19": "1.0.19",
     "jsr:@std/bytes@0.221": "0.221.0",
@@ -22,10 +22,12 @@
     "jsr:@std/dotenv@0.225.5": "0.225.5",
     "jsr:@std/encoding@^1.0.10": "1.0.11",
     "jsr:@std/fmt@1": "1.0.10",
+    "jsr:@std/fmt@1.0.10": "1.0.10",
     "jsr:@std/fmt@^1.0.10": "1.0.10",
     "jsr:@std/fs@1": "1.0.24",
     "jsr:@std/fs@1.0.24": "1.0.24",
     "jsr:@std/fs@^1.0.19": "1.0.24",
+    "jsr:@std/internal@^1.0.10": "1.0.14",
     "jsr:@std/internal@^1.0.12": "1.0.14",
     "jsr:@std/internal@^1.0.14": "1.0.14",
     "jsr:@std/io@0.221": "0.221.0",
@@ -128,6 +130,12 @@
     },
     "@std/assert@0.221.0": {
       "integrity": "a5f1aa6e7909dbea271754fd4ab3f4e687aeff4873b4cef9a320af813adb489a"
+    },
+    "@std/assert@1.0.14": {
+      "integrity": "68d0d4a43b365abc927f45a9b85c639ea18a9fab96ad92281e493e4ed84abaa4",
+      "dependencies": [
+        "jsr:@std/internal@^1.0.10"
+      ]
     },
     "@std/assert@1.0.19": {
       "integrity": "eaada96ee120cb980bc47e040f82814d786fe8162ecc53c91d8df60b8755991e",
@@ -2237,6 +2245,7 @@
           "jsr:@ensemble/kit-sdk@*",
           "jsr:@std/assert@1.0.14",
           "jsr:@std/dotenv@0.225.5",
+          "jsr:@std/fmt@1.0.10",
           "jsr:@std/fs@1.0.24",
           "jsr:@std/path@1.1.6",
           "jsr:@std/yaml@1.1.2"

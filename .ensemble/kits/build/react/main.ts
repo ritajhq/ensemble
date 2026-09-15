@@ -192,6 +192,4 @@ const [bundleResult, cssResult] = await Promise.all([
     .noThrow(),
 ]);
 
-if (bundleResult.code === 0 && cssResult.code === 0) console.log(`built ${ctx.name}`);
-
 Deno.exit(bundleResult.code !== 0 ? bundleResult.code : cssResult.code);
