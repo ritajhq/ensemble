@@ -1,3 +1,12 @@
+## [0.3.0] - 2026-09-15
+
+### 🐛 Bug Fixes
+
+- Forward emulateExternals through KitLoader, and skip double-building apps ens develop already watches
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.2.2
 ## [0.2.2] - 2026-09-15
 
 ### 🚀 Features
