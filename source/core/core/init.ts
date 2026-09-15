@@ -26,8 +26,12 @@ const SKELETON_DIRS = [
 
 const GITIGNORE_TEMPLATE = `.ensemble/kits/**/.bin/
 .ensemble/publish.env
-source/artifacts/
 node_modules/
+`;
+
+const ARTIFACTS_GITIGNORE_TEMPLATE = `*
+!.gitignore
+!deploy
 `;
 
 /**
@@ -82,6 +86,10 @@ export async function runInit(options: RunInitOptions): Promise<void> {
   );
 
   await Deno.writeTextFile(join(projectDir, ".gitignore"), GITIGNORE_TEMPLATE);
+  await Deno.writeTextFile(
+    join(projectDir, "source/artifacts", ".gitignore"),
+    ARTIFACTS_GITIGNORE_TEMPLATE,
+  );
 
   await $`git init`.cwd(projectDir);
 }
