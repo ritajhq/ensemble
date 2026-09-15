@@ -49,9 +49,17 @@ export async function runBuild(name: string, options: RunBuildOptions): Promise<
   const denoExe = await resolveDenoExecutable();
 
   const killSignal = new KillSignalController();
+  const kill = () => {
+    try {
+      killSignal.kill();
+    } catch {
+      // Already exited on its own — nothing to tear down (same race
+      // WatchRunner's own teardown guards against).
+    }
+  };
   if (options.signal) {
-    if (options.signal.aborted) killSignal.kill();
-    else options.signal.addEventListener("abort", () => killSignal.kill());
+    if (options.signal.aborted) kill();
+    else options.signal.addEventListener("abort", kill);
   }
 
   // --minimum-dependency-age 0: this project's own kits depend on
