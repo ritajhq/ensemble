@@ -1,3 +1,12 @@
+## [0.2.1] - 2026-09-15
+
+### 🚀 Features
+
+- Attach compute to external Docker networks, with --emulate-externals to stand them up locally
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.2.0
 ## [0.2.0] - 2026-09-14
 
 ### 🚀 Features
