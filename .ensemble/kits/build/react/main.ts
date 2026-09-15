@@ -185,7 +185,10 @@ const cssWatchArgs = ctx.watch ? ["--watch=always"] : [];
 const [bundleResult, cssResult] = await Promise.all([
   $`${denoExe} bundle -q --platform browser ${entry} -o ${jsOut} ${minifyArgs} ${watchArgs}`
     .noThrow(),
-  $`${tailwindBin} --cwd ${ctx.source} -i ${cssEntry} -o ${cssOut} ${minifyArgs} ${cssWatchArgs}`
+  // --silent: Tailwind's own version banner and "Done in Xms" line are noise
+  // on every successful (re)build — it still writes real errors to stderr
+  // even with this on, so a broken build is never silenced.
+  $`${tailwindBin} --silent --cwd ${ctx.source} -i ${cssEntry} -o ${cssOut} ${minifyArgs} ${cssWatchArgs}`
     .noThrow(),
 ]);
 
