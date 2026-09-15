@@ -1,3 +1,12 @@
+## [0.4.0] - 2026-09-15
+
+### 🚀 Features
+
+- *(kit-sdk)* Pass build target through to app scaffolding
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.3.4
 ## [0.3.4] - 2026-09-15
 
 ### 🐛 Bug Fixes
