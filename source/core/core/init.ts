@@ -17,6 +17,7 @@ const CONFIG_TEMPLATE = `# Configure each app's build kit here, e.g.:
 
 const SKELETON_DIRS = [
   "source/apps",
+  "source/core",
   "source/ship",
   "source/envs/build",
   "source/envs/pack",
@@ -79,7 +80,7 @@ export async function runInit(options: RunInitOptions): Promise<void> {
   await Deno.writeTextFile(
     join(projectDir, "deno.json"),
     JSON.stringify(
-      { workspace: ["source/apps/**", "source/libs/**", ".ensemble/kits/**"] },
+      { workspace: ["source/apps/**", "source/core/**", "source/libs/**", ".ensemble/kits/**"] },
       null,
       2,
     ) + "\n",
