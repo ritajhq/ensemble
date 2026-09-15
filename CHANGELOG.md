@@ -1,3 +1,17 @@
+## [0.3.3] - 2026-09-15
+
+### 🚀 Features
+
+- Animated build progress reporter with a rotating spinner for ens build
+- Green pack progress reporter with --verbose to show the kit's raw build-tool output
+
+### 🐛 Bug Fixes
+
+- Forward termination signals to build kits' own spawned children
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.3.2
 ## [0.3.2] - 2026-09-15
 
 ### 🐛 Bug Fixes
