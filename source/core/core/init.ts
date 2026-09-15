@@ -23,6 +23,7 @@ const SKELETON_DIRS = [
   "source/envs/pack",
   "source/libs",
   "source/artifacts",
+  "ci",
 ];
 
 const GITIGNORE_TEMPLATE = `.ensemble/kits/**/.bin/
@@ -50,6 +51,7 @@ each live in their own top-level folder. See \`ens --help\` for the full CLI.
 - \`source/envs/build/<app>.env\` / \`source/envs/pack/<ship>.env\` — per-app
   default build/pack vars.
 - \`source/artifacts/\` — build output (gitignored, except \`deploy/\`).
+- \`ci/<name>/delivery.yml\` — deploy manifest for the workload of that name.
 - \`.ensemble/kits/{build,pack,deploy}/\` — pluggable kits doing the actual work.
 - \`.ensemble/config.yaml\` — which kit each app/ship uses (shared, git-tracked).
 - \`.ensemble/config.local.yaml\` — personal default vars (gitignored).
