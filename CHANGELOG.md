@@ -1,3 +1,12 @@
+## [0.3.2] - 2026-09-15
+
+### 🐛 Bug Fixes
+
+- *(react kit)* Silence Tailwind's routine build/watch chatter, keep its errors visible
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.3.1
 ## [0.3.1] - 2026-09-15
 
 ### 🚀 Features
