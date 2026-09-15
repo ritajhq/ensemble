@@ -116,6 +116,33 @@ export function getContext(args: string[] = Deno.args): Context {
   };
 }
 
+/** The parameters `ens` passes to a pack kit's `dependencies.ts` invocation — just enough to answer "which of these candidate apps does this ship's own config actually reference?" without touching artifacts/packages/mode/vars, since nothing gets built or packed here. */
+export interface DependenciesContext {
+  /** Absolute path to the ship's directory. */
+  ship: string;
+  /** Candidate app names to check for a reference (typically every app declared under `build:` in .ensemble/config.yaml). */
+  apps: string[];
+}
+
+/** Parses the standard pack kit dependencies CLI contract. Call this from a pack kit's `dependencies.ts` entry point. */
+export function getDependenciesContext(
+  args: string[] = Deno.args,
+): DependenciesContext {
+  const flags = parseArgs(args, {
+    string: ["apps"],
+    default: { apps: "[]" },
+  });
+
+  const ship = String(flags._[0] ?? "");
+  if (!ship) {
+    throw new Error(
+      "Missing required ship directory argument for kit invocation.",
+    );
+  }
+
+  return { ship, apps: parseApps(flags.apps) };
+}
+
 async function loadKitManifestMap(
   kitDir: string,
   key: "modes" | "publish",

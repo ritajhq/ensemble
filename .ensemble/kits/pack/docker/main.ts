@@ -2,13 +2,10 @@ import { dirname, fromFileUrl, join } from "@std/path";
 import { ensureDir } from "@std/fs";
 import { $ } from "@david/dax";
 import * as KitSdk from "@ensemble/kit-sdk";
+import { referencedApps } from "./referenced-apps.ts";
 
 const kitDir = dirname(fromFileUrl(import.meta.url));
 const ctx = KitSdk.Pack.getContext();
-
-function escapeRegExp(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
 
 // Only apps this ship's Dockerfile actually references (via `COPY
 // --from=<app>`) get registered as build contexts — an app declared in
@@ -17,17 +14,13 @@ function escapeRegExp(text: string): string {
 // stale/unrelated same-named image can never be silently substituted (see
 // ArtifactDependencyTracker in @ensemble/core, which enforces this from the
 // reported result).
-const dockerfileText = await Deno.readTextFile(join(ctx.ship, "Dockerfile"));
-const referencedApps = ctx.apps.filter((app) => {
-  const fromPattern = new RegExp(`--from=${escapeRegExp(app)}(?=\\s)`);
-  return fromPattern.test(dockerfileText);
-});
+const dependencies = await referencedApps(ctx.ship, ctx.apps);
 
 const artifactContextArgs: string[] = [];
-for (const app of referencedApps) {
+for (const app of dependencies) {
   artifactContextArgs.push("--build-context", `${app}=${join(ctx.artifacts, app)}`);
 }
-await KitSdk.Pack.writeResult(ctx, { artifacts: referencedApps });
+await KitSdk.Pack.writeResult(ctx, { artifacts: dependencies });
 
 const modes = await KitSdk.Pack.loadModes(kitDir);
 const format = modes[ctx.mode];

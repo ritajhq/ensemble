@@ -4,6 +4,7 @@ export { resolveDenoExecutable } from "./deno-exe.ts";
 export { runBuild, type RunBuildOptions } from "./build.ts";
 export { runInit, type RunInitOptions } from "./init.ts";
 export { runPack, type RunPackOptions } from "./pack.ts";
+export { resolvePackDependencies } from "./pack-dependencies.ts";
 export {
   PUBLISH_ENV_PATH,
   runPublish,
