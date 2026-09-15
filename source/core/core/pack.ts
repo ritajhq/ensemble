@@ -17,6 +17,15 @@ export interface RunPackOptions {
   /** Repack on source changes. Only meaningful for kits that declare watch support (e.g. deno.compile) — an unsupporting kit just ignores the flag. */
   watch?: boolean;
   varOverrides?: Record<string, string>;
+  /**
+   * Apps to leave out of the automatic pre-build step even if this ship
+   * depends on them — for when something else is already responsible for
+   * keeping their build output fresh (`ens develop`'s companion `ens build
+   * --watch` loop, started once per deploy and long-lived, would otherwise
+   * race this function's own one-shot build of the very same app). Defaults
+   * to none, i.e. every resolved dependency gets built here.
+   */
+  skipBuildingApps?: ReadonlySet<string>;
 }
 
 /**
@@ -84,6 +93,7 @@ export async function runPack(
 
   const dependencies = await resolvePackDependencies(shipName, kit, apps);
   for (const app of dependencies) {
+    if (options.skipBuildingApps?.has(app)) continue;
     const buildCode = await runBuild(app, { mode: "production", watch: false });
     if (buildCode !== 0) {
       return buildCode;

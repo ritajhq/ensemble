@@ -2,6 +2,7 @@ import { join, toFileUrl } from "@std/path";
 import { exists } from "@std/fs";
 import { parse as parseYaml } from "@std/yaml";
 import type { Kit } from "./kit.ts";
+import type { Workload } from "../workload.ts";
 import type { KitConfig } from "./config.ts";
 import { parseKitConfig } from "./config-file.ts";
 import { KitConfigMerger } from "./config-merger.ts";
@@ -104,6 +105,12 @@ export class KitLoader {
         ? {
           watchCommand: (artifactPath: string, name: string) =>
             kit.watchCommand!(artifactPath, name),
+        }
+        : {}),
+      ...(kit.emulateExternals
+        ? {
+          emulateExternals: (workload: Workload) =>
+            kit.emulateExternals!(workload),
         }
         : {}),
     };

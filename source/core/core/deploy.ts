@@ -110,6 +110,10 @@ export async function runDeploy(
     join(repoRoot, ".ensemble", "deploy", name, "last-rendered.txt"),
   );
 
+  const watchedApps = options.watch
+    ? KitSdk.Deploy.discoverWatchedApps(workload)
+    : new Set<string>();
+
   const coordinator = new KitSdk.Deploy.Terminations.DeploymentCoordinator(
     registry,
     renderer,
@@ -118,15 +122,12 @@ export async function runDeploy(
     new KitSdk.Deploy.Terminations.Applier(sink, cache),
     new KitSdk.Deploy.Terminations.ReleaseAvailabilityPreflight(gateway),
     new KitSdk.Deploy.Terminations.LocalArtifactsPacker(
-      new RunPackReleasePacker(),
+      new RunPackReleasePacker(watchedApps),
     ),
     new KitSdk.Deploy.Terminations.WatchRunner(sink),
     new KitSdk.Deploy.Terminations.ExternalsEmulator(),
   );
 
-  const watchedApps = options.watch
-    ? KitSdk.Deploy.discoverWatchedApps(workload)
-    : new Set<string>();
   const buildWatchers = watchedApps.size > 0
     ? CompanionBuildWatchers.start(watchedApps)
     : undefined;

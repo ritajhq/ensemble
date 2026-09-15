@@ -11,6 +11,17 @@ import { runPack } from "./pack.ts";
  */
 export class RunPackReleasePacker
   implements KitSdk.Deploy.Terminations.ReleasePacker {
+  /**
+   * `skipBuildingApps`: apps this packer should never build itself, because
+   * a caller-owned companion process already keeps them fresh (e.g. `ens
+   * develop`'s `ens build --watch` loop over `development.sync` apps) —
+   * building them here too would race that long-lived watch build over the
+   * same output directory. Defaults to none.
+   */
+  constructor(
+    private readonly skipBuildingApps: ReadonlySet<string> = new Set(),
+  ) {}
+
   async pack(
     releaseName: string,
     release: KitSdk.Deploy.Release,
@@ -18,6 +29,7 @@ export class RunPackReleasePacker
     const code = await runPack(releaseName, release.kit, {
       mode: release.mode,
       outputName: release.outputName,
+      skipBuildingApps: this.skipBuildingApps,
     });
     if (code !== 0) {
       throw new KitSdk.Deploy.Terminations.ReleasePackError(

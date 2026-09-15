@@ -80,3 +80,17 @@ Deno.test("KitLoader.load: a later sidecar layer's runtime overrides an earlier 
   ]);
   assertEquals(loaded.runtime, "real");
 });
+
+Deno.test("KitLoader.load: forwards watchCommand from a kit that declares it", async () => {
+  const loaded = await loader.load(fixtureKitDir);
+  assertEquals(loaded.kit.watchCommand?.("path", "name"), ["fixture-watch"]);
+});
+
+Deno.test("KitLoader.load: forwards emulateExternals from a kit that declares it — regression for the capability silently dropped by configure()'s wrapper", async () => {
+  const loaded = await loader.load(fixtureKitDir);
+  assertEquals(loaded.kit.emulateExternals?.({}), [{
+    name: "fixture-external",
+    check: ["fixture-check"],
+    create: ["fixture-create"],
+  }]);
+});
