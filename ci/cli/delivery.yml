@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../docs/delivery.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ritajhq/ensemble/refs/heads/main/docs/delivery.schema.json
 version: v1
 
 release:

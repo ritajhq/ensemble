@@ -25,7 +25,7 @@
         "compute": {
           "description": "Compute resources (e.g. container-orchestrated workloads).",
           "type": "object",
-          "additionalProperties": { "$ref": "#/definitions/resourceDeclaration" }
+          "additionalProperties": { "$ref": "#/definitions/containerOrchestratedResource" }
         },
         "storage": {
           "description": "Storage resources.",
@@ -35,7 +35,7 @@
         "databases": {
           "description": "Database resources (e.g. relational).",
           "type": "object",
-          "additionalProperties": { "$ref": "#/definitions/resourceDeclaration" }
+          "additionalProperties": { "$ref": "#/definitions/relationalResource" }
         },
         "messaging": {
           "description": "Messaging resources.",
@@ -108,14 +108,33 @@
       }
     },
     "resourceDeclaration": {
-      "description": "A typed resource declaration. Per-type fields beyond type/class/capabilities are validated by the matching ResourceContract, not this schema.",
+      "description": "A typed resource declaration for a category with no seeded ResourceContract yet. Per-type fields beyond type/class/capabilities are validated by whatever contract a kit registers for it, not this schema.",
       "type": "object",
       "required": ["type"],
       "properties": {
         "type": {
-          "description": "The resource type (e.g. container-orchestrated, relational). Matched against a registered ResourceContract.",
+          "description": "The resource type. Matched against a registered ResourceContract.",
+          "type": "string"
+        },
+        "class": {
+          "description": "Optional resource class (e.g. critical) affecting how a kit realizes it.",
+          "type": "string"
+        },
+        "capabilities": {
+          "description": "Optional negotiated capabilities requested from the deploy kit.",
+          "type": "object",
+          "additionalProperties": { "type": ["boolean", "number"] }
+        }
+      }
+    },
+    "containerOrchestratedResource": {
+      "description": "A `container-orchestrated.v1` compute entry (kit-sdk/deploy/contracts/seeds/container-orchestrated.ts).",
+      "type": "object",
+      "required": ["type", "image", "replicas"],
+      "properties": {
+        "type": {
           "type": "string",
-          "examples": ["container-orchestrated", "relational"]
+          "const": "container-orchestrated"
         },
         "class": {
           "description": "Optional resource class (e.g. critical) affecting how a kit realizes it.",
@@ -127,59 +146,83 @@
           "additionalProperties": { "type": ["boolean", "number"] }
         },
         "image": {
-          "description": "container-orchestrated: the image reference, typically ${release.<name>} or ${release.<name>.<output>}.",
+          "description": "The image reference, typically ${release.<name>} or ${release.<name>.<output>}.",
           "type": "string"
         },
         "replicas": {
-          "description": "container-orchestrated: number of replicas.",
+          "description": "Number of replicas.",
           "type": "number"
         },
         "ports": {
-          "description": "container-orchestrated: named port map, individually referenceable as ${compute.<name>.<port>}.",
+          "description": "Named port map, individually referenceable as ${compute.<name>.<port>}.",
           "type": "object",
           "additionalProperties": { "type": "number" }
         },
         "env": {
-          "description": "container-orchestrated: environment variables, values may be literals or ${...} references.",
+          "description": "Environment variables, values may be literals or ${...} references.",
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
         "networks": {
-          "description": "container-orchestrated: networks this container attaches to, usually ${external.<name>.name} references.",
+          "description": "Networks this container attaches to, usually ${external.<name>.name} references.",
           "type": "array",
           "items": { "type": "string" }
         },
-        "development": { "$ref": "#/definitions/developmentBlock" },
+        "development": { "$ref": "#/definitions/developmentBlock" }
+      }
+    },
+    "relationalResource": {
+      "description": "A `relational.v1` database entry (kit-sdk/deploy/contracts/seeds/relational.ts).",
+      "type": "object",
+      "required": ["type", "engine", "version", "user", "database", "passwordSecret"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "relational"
+        },
+        "class": {
+          "description": "Optional resource class (e.g. critical) — required for deletionProtection/backupRetention/multiAz to materialize on some kits.",
+          "type": "string"
+        },
+        "capabilities": {
+          "description": "Optional negotiated capabilities requested from the deploy kit (e.g. read-replicas).",
+          "type": "object",
+          "additionalProperties": { "type": ["boolean", "number"] }
+        },
         "engine": {
-          "description": "relational: database engine (e.g. postgres).",
+          "description": "Database engine (e.g. postgres).",
+          "type": "string"
+        },
+        "version": {
+          "description": "Engine version.",
           "type": "string"
         },
         "user": {
-          "description": "relational: database user.",
+          "description": "Database user.",
           "type": "string"
         },
         "database": {
-          "description": "relational: database name.",
+          "description": "Database name.",
           "type": "string"
         },
         "passwordSecret": {
-          "description": "relational: name of a secrets entry supplying the password.",
+          "description": "Name of a secrets entry supplying the password.",
           "type": "string"
         },
         "storageSize": {
-          "description": "relational: negotiated storage size capability.",
+          "description": "Negotiated storage size capability.",
           "type": ["string", "number"]
         },
         "backupRetention": {
-          "description": "relational: negotiated backup retention capability.",
+          "description": "Negotiated backup retention capability.",
           "type": ["string", "number"]
         },
         "multiAz": {
-          "description": "relational: negotiated multi-AZ capability.",
+          "description": "Negotiated multi-AZ capability.",
           "type": ["boolean", "number"]
         },
         "deletionProtection": {
-          "description": "relational: negotiated deletion protection capability.",
+          "description": "Negotiated deletion protection capability.",
           "type": ["boolean", "number"]
         }
       }
