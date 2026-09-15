@@ -4,6 +4,8 @@ services:
     ports:
       - '8000:8000'
     environment: {}
+    networks:
+      - edge
     develop:
       watch:
         - path: website/server
@@ -12,3 +14,6 @@ services:
         - path: website/content
           target: /app/content
           action: sync
+networks:
+  edge:
+    external: true
