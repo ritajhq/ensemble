@@ -1,3 +1,13 @@
+## [0.5.0] - 2026-09-15
+
+### 🚀 Features
+
+- *(init)* Scaffold source/core and add it to the workspace
+- *(init)* Scaffold a README describing the workspace and ens commands
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.4.0
 ## [0.4.0] - 2026-09-15
 
 ### 🚀 Features
