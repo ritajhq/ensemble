@@ -1,3 +1,13 @@
+## [0.3.4] - 2026-09-15
+
+### 🐛 Bug Fixes
+
+- *(deno.compile kit)* Report its single actual dependency instead of every declared app
+- *(init)* Scope artifacts gitignore to the artifacts folder itself
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.3.3
 ## [0.3.3] - 2026-09-15
 
 ### 🚀 Features
