@@ -11,6 +11,6 @@ build:
 hooks:
   release:
     after: >-
-      git-cliff --tag "$ENSEMBLE_RELEASE_TAG" -o CHANGELOG.md && { git diff
-      --quiet -- CHANGELOG.md || git commit CHANGELOG.md -m "chore(changelog):
-      update for $ENSEMBLE_RELEASE_TAG"; }
+      git-cliff --latest --prepend CHANGELOG.md && { git diff --quiet --
+      CHANGELOG.md || git commit CHANGELOG.md -m "chore(changelog): update for
+      $ENSEMBLE_RELEASE_TAG"; }
