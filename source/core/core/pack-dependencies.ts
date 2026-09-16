@@ -1,7 +1,7 @@
 import { join } from "@std/path";
 import { exists } from "@std/fs";
 import { $ } from "@david/dax";
-import type * as KitSdk from "@ensemble/kit-sdk";
+import type * as Pack from "./pack-context.ts";
 import { findRepoRoot } from "./repo.ts";
 import { resolveDenoExecutable } from "./deno-exe.ts";
 
@@ -41,6 +41,6 @@ export async function resolvePackDependencies(
       .cwd(kitDir)
       .text();
 
-  const result = JSON.parse(stdout) as KitSdk.Pack.Result;
+  const result = JSON.parse(stdout) as Pack.Result;
   return result.artifacts;
 }

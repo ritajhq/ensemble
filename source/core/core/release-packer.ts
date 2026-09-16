@@ -1,4 +1,4 @@
-import * as KitSdk from "@ensemble/kit-sdk";
+import * as Deploy from "./deploy/index.ts";
 import { runPack } from "./pack.ts";
 
 /**
@@ -10,7 +10,7 @@ import { runPack } from "./pack.ts";
  * repo/config-file access, which kit-sdk can't depend on.
  */
 export class RunPackReleasePacker
-  implements KitSdk.Deploy.Terminations.ReleasePacker {
+  implements Deploy.Terminations.ReleasePacker {
   /**
    * `skipBuildingApps`: apps this packer should never build itself, because
    * a caller-owned companion process already keeps them fresh (e.g. `ens
@@ -25,7 +25,7 @@ export class RunPackReleasePacker
 
   async pack(
     releaseName: string,
-    release: KitSdk.Deploy.Release,
+    release: Deploy.Release,
   ): Promise<void> {
     const code = await runPack(releaseName, release.kit, {
       mode: release.mode,
@@ -34,7 +34,7 @@ export class RunPackReleasePacker
       verbose: this.verbose,
     });
     if (code !== 0) {
-      throw new KitSdk.Deploy.Terminations.ReleasePackError(
+      throw new Deploy.Terminations.ReleasePackError(
         releaseName,
         `Packing release "${releaseName}" with kit "${release.kit}" failed (exit code ${code}).`,
       );

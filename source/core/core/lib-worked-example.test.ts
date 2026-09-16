@@ -1,6 +1,6 @@
 import { join } from "@std/path";
 import { assert, assertEquals, assertRejects } from "@std/assert";
-import type * as KitSdk from "@ensemble/kit-sdk";
+import type * as Lib from "./lib-context.ts";
 import { runLibNew } from "./lib-scaffold.ts";
 import { SelfContainmentChecker } from "./lib-self-containment.ts";
 import { LibDeclarationLoader } from "./lib-declaration.ts";
@@ -13,15 +13,15 @@ import type { PackageSource, PullRequestRef } from "./vendor/package-source.ts";
 import { FileRegistry } from "./vendor/registry.ts";
 
 class FakeLibKit {
-  static calls: { kit: string; input: KitSdk.Lib.Context }[] = [];
+  static calls: { kit: string; input: Lib.Context }[] = [];
 
   constructor(private readonly kit: string) {}
 
-  stamp(_input: KitSdk.Lib.Context): Promise<void> {
+  stamp(_input: Lib.Context): Promise<void> {
     return Promise.resolve();
   }
 
-  publish(input: KitSdk.Lib.Context): Promise<void> {
+  publish(input: Lib.Context): Promise<void> {
     FakeLibKit.calls.push({ kit: this.kit, input });
     return Promise.resolve();
   }

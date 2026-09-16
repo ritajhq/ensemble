@@ -1,5 +1,5 @@
-export * as Build from "./build-context.ts";
-export * as Pack from "./pack-context.ts";
-export * as Scaffold from "./scaffold-context.ts";
-export * as Deploy from "./deploy/index.ts";
-export * as Lib from "./lib-context.ts";
+export * as Build from "@ensemble/core/build-context";
+export * as Pack from "@ensemble/core/pack-context";
+export * as Scaffold from "@ensemble/core/scaffold-context";
+export * as Deploy from "@ensemble/core/deploy";
+export * as Lib from "@ensemble/core/lib-context";

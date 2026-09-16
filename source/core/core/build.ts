@@ -5,12 +5,12 @@ import { $, KillSignalController } from "@david/dax";
 import { findRepoRoot } from "./repo.ts";
 import { EnsembleConfigStore } from "./config.ts";
 import { resolveDenoExecutable } from "./deno-exe.ts";
-import type * as KitSdk from "@ensemble/kit-sdk";
+import type * as Build from "./build-context.ts";
 import type { BuildReporter } from "./build-reporter.ts";
 import { AnimatedBuildReporter } from "./animated-build-reporter.ts";
 
 export interface RunBuildOptions {
-  mode: KitSdk.Build.Mode;
+  mode: Build.Mode;
   watch: boolean;
   varOverrides?: Record<string, string>;
   /** Aborting this stops the spawned build kit process — meaningful mainly with `watch: true`, which otherwise runs until killed. Used by `runDeploy`'s development-mode build-watcher orchestration to shut every watcher down once the deploy itself ends. */

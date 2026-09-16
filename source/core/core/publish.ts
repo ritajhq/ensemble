@@ -4,7 +4,7 @@ import { load as loadEnv } from "@std/dotenv";
 import { $ } from "@david/dax";
 import { findRepoRoot } from "./repo.ts";
 import { resolveDenoExecutable } from "./deno-exe.ts";
-import * as KitSdk from "@ensemble/kit-sdk";
+import * as Pack from "./pack-context.ts";
 
 /** Untracked env file holding publish-target credentials (registry passwords, GH_TOKEN, …). Loaded into the publish kit's process environment, never onto its argv. */
 export const PUBLISH_ENV_PATH = ".ensemble/publish.env";
@@ -44,7 +44,7 @@ export async function runPublish(
     );
   }
 
-  const publishTargets = await KitSdk.Pack.loadPublishModes(kitDir);
+  const publishTargets = await Pack.loadPublishModes(kitDir);
   if (!Object.hasOwn(publishTargets, options.target)) {
     const available = Object.keys(publishTargets).join(", ") ||
       "(none declared)";

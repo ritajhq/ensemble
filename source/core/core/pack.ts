@@ -4,7 +4,7 @@ import { load as loadEnv } from "@std/dotenv";
 import { $ } from "@david/dax";
 import { findRepoRoot } from "./repo.ts";
 import { resolveDenoExecutable } from "./deno-exe.ts";
-import * as KitSdk from "@ensemble/kit-sdk";
+import * as Pack from "./pack-context.ts";
 import { EnsembleConfigStore } from "./config.ts";
 import { runBuild } from "./build.ts";
 import { resolvePackDependencies } from "./pack-dependencies.ts";
@@ -64,7 +64,7 @@ export async function runPack(
   let mode = options.mode;
   const kitManifest = join(kitDir, "kit.yml");
   const modes = await exists(kitManifest, { isFile: true })
-    ? await KitSdk.Pack.loadModes(kitDir)
+    ? await Pack.loadModes(kitDir)
     : {};
   const declaredModes = Object.keys(modes);
   if (declaredModes.length > 0) {

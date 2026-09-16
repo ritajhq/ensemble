@@ -1,7 +1,7 @@
 import { join } from "@std/path";
 import { exists } from "@std/fs";
 import { $ } from "@david/dax";
-import * as KitSdk from "@ensemble/kit-sdk";
+import * as Deploy from "./deploy/index.ts";
 import { runPack } from "./pack.ts";
 import { runPublish } from "./publish.ts";
 import { LibDeclarationLoader } from "./lib-declaration.ts";
@@ -240,7 +240,7 @@ export class ReleaseService {
 }
 
 /** One ship's release recipe, collected from a workload's `release:` section — `declaredIn` names every workload that declares it identically (see `ReleaseCeremony.collectShipReleases`). */
-export interface ShipRelease extends KitSdk.Deploy.Release {
+export interface ShipRelease extends Deploy.Release {
   name: string;
   declaredIn: string[];
 }
@@ -249,8 +249,8 @@ export interface ShipRelease extends KitSdk.Deploy.Release {
 export class ReleaseConflictError extends Error {}
 
 function releaseEntriesEqual(
-  a: KitSdk.Deploy.Release,
-  b: KitSdk.Deploy.Release,
+  a: Deploy.Release,
+  b: Deploy.Release,
 ): boolean {
   return a.kit === b.kit && a.mode === b.mode &&
     a.outputName === b.outputName &&
@@ -298,8 +298,8 @@ export class ReleaseCeremony {
       const workloadPath = join(ciDir, dirEntry.name, "delivery.yml");
       if (!await exists(workloadPath, { isFile: true })) continue;
 
-      const loader = new KitSdk.Deploy.Manifest.Loader(
-        new KitSdk.Deploy.Manifest.Parser(),
+      const loader = new Deploy.Manifest.Loader(
+        new Deploy.Manifest.Parser(),
       );
       const workload = await loader.loadFile(workloadPath);
       for (

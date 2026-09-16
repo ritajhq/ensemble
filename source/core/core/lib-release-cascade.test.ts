@@ -1,22 +1,22 @@
 import { join } from "@std/path";
 import { assertEquals } from "@std/assert";
-import type * as KitSdk from "@ensemble/kit-sdk";
+import type * as Lib from "./lib-context.ts";
 import { LibDeclarationLoader } from "./lib-declaration.ts";
 import { CoreLibReleaseCascade } from "./lib-release-cascade.ts";
 import type { LibKit } from "./lib-kit.ts";
 
 class FakeLibKit {
-  static stampCalls: { kit: string; input: KitSdk.Lib.Context }[] = [];
-  static publishCalls: { kit: string; input: KitSdk.Lib.Context }[] = [];
+  static stampCalls: { kit: string; input: Lib.Context }[] = [];
+  static publishCalls: { kit: string; input: Lib.Context }[] = [];
 
   constructor(private readonly kit: string) {}
 
-  stamp(input: KitSdk.Lib.Context): Promise<void> {
+  stamp(input: Lib.Context): Promise<void> {
     FakeLibKit.stampCalls.push({ kit: this.kit, input });
     return Promise.resolve();
   }
 
-  publish(input: KitSdk.Lib.Context): Promise<void> {
+  publish(input: Lib.Context): Promise<void> {
     FakeLibKit.publishCalls.push({ kit: this.kit, input });
     return Promise.resolve();
   }
