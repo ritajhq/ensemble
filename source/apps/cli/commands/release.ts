@@ -304,13 +304,26 @@ async function runCeremonySafely(
   }
 }
 
-/** Runs the configured `hooks.release.after` hooks in order, once a release has completed. */
-async function runReleaseHook(repoRoot: string, tag: string): Promise<void> {
+/**
+ * Runs the configured `hooks.release.after` hooks in order, once a release
+ * has completed, then pushes whatever they committed (e.g. a changelog
+ * update) to `remote` — a hook author shouldn't have to push their own
+ * commit any more than they have to commit it in the first place.
+ */
+async function runReleaseHook(
+  repoRoot: string,
+  release: Core.Release.ReleaseService,
+  tag: string,
+  remote: string,
+): Promise<void> {
   const hooks = new Core.Hooks.Hooks(repoRoot);
-  for (const hook of await hooks.releaseAfter()) {
+  const releaseHooks = await hooks.releaseAfter();
+  if (releaseHooks.length === 0) return;
+  for (const hook of releaseHooks) {
     console.log(`Running "${hook.name}" hook...`);
     await hooks.run(hook, tag);
   }
+  await release.pushCommits(remote);
 }
 
 /** Dry-run counterpart to `runReleaseHook`: reports the `hooks.release.after` hooks that would run, without running them. */
@@ -360,7 +373,7 @@ export const releaseCommand = new Command()
     if (!await runCeremonySafely(repoRoot, release, preview.tag, remote)) {
       return;
     }
-    await runReleaseHook(repoRoot, preview.tag);
+    await runReleaseHook(repoRoot, release, preview.tag, remote);
   })
   .reset()
   .command(
@@ -385,7 +398,7 @@ export const releaseCommand = new Command()
     if (!await runCeremonySafely(repoRoot, release, preview.tag, remote)) {
       return;
     }
-    await runReleaseHook(repoRoot, preview.tag);
+    await runReleaseHook(repoRoot, release, preview.tag, remote);
   })
   .reset()
   .command(
@@ -421,7 +434,7 @@ export const releaseCommand = new Command()
     if (!await runCeremonySafely(repoRoot, release, tag, remote, filter)) {
       return;
     }
-    await runReleaseHook(repoRoot, tag);
+    await runReleaseHook(repoRoot, release, tag, remote);
   })
   .reset()
   .command("undo", "Deletes the last tag. Does not touch any commit.")
