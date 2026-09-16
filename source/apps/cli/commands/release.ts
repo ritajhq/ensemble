@@ -134,10 +134,14 @@ async function printReleaseCeremonyPreview(
  * The part of the ceremony beyond git tagging: collects every ship declared
  * across every workload's `release:` section (deduplicated — see
  * `ReleaseCeremony.collectShipReleases`) and every core library's `lib.yml`
- * (`collectCoreLibReleases`), and — only if the caller confirms — builds,
- * packs, and publishes each ship, and publishes each core library, all under
- * `tag`. A no-op if neither exists. Anything to run afterwards (e.g. a
- * changelog update) is a configured `hooks.release.after`, run separately.
+ * (`collectCoreLibReleases`), and — only if the caller confirms — packs every
+ * ship, and only once *all* of them pack cleanly, publishes each ship and
+ * each core library, all under `tag`. Packing first and publishing second
+ * (rather than pack-then-publish per ship) means a later ship's pack failure
+ * is caught before an earlier ship — or any core library — ever gets
+ * published. A no-op if neither ships nor libraries exist. Anything to run
+ * afterwards (e.g. a changelog update) is a configured `hooks.release.after`,
+ * run separately.
  */
 async function maybeRunReleaseCeremony(
   repoRoot: string,
@@ -170,7 +174,8 @@ async function maybeRunReleaseCeremony(
   if (!proceed) return;
 
   const ceremony = new Core.Release.ReleaseCeremony(repoRoot);
-  await ceremony.releaseShips(ships, tag);
+  await ceremony.packShips(ships);
+  await ceremony.publishShips(ships, tag);
   await ceremony.releaseCoreLibs(coreLibs, tag);
   const released = [
     ...ships.map((s) => s.name),

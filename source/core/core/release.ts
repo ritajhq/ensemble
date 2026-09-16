@@ -319,7 +319,7 @@ export class ReleaseCeremony {
 
   /**
    * Publishes every discovered core library's declared `publish` entries
-   * under `version` — the same version `releaseShips` stamps ships with in
+   * under `version` — the same version `publishShips` stamps ships with in
    * the same run. Never runs `SelfContainmentChecker`: core libraries are
    * exempt from that check entirely.
    */
@@ -331,11 +331,14 @@ export class ReleaseCeremony {
   }
 
   /**
-   * Packs each ship (which itself builds whatever apps it actually depends
-   * on first — see `runPack`), then publishes it if it declares a `publish`
-   * target. Stops at the first failure rather than partially releasing.
+   * Packs every ship (which itself builds whatever apps it actually depends
+   * on first — see `runPack`). Stops at the first failure. Kept separate from
+   * `publishShips` so a caller can pack everything before publishing
+   * anything — packing is local and repeatable, publishing usually isn't, so
+   * a late pack failure shouldn't be discovered after an earlier ship has
+   * already been published.
    */
-  async releaseShips(ships: ShipRelease[], version: string): Promise<void> {
+  async packShips(ships: readonly ShipRelease[]): Promise<void> {
     for (const ship of ships) {
       const packCode = await runPack(ship.name, ship.kit, {
         mode: ship.mode,
@@ -346,7 +349,15 @@ export class ReleaseCeremony {
           `Packing ship "${ship.name}" failed with code ${packCode}.`,
         );
       }
+    }
+  }
 
+  /** Publishes every ship that declares a `publish` target, under `version`. Assumes `packShips` has already succeeded for all of them. Stops at the first failure. */
+  async publishShips(
+    ships: readonly ShipRelease[],
+    version: string,
+  ): Promise<void> {
+    for (const ship of ships) {
       if (!ship.publish) continue;
       const publishCode = await runPublish(ship.name, ship.kit, {
         target: ship.publish.target,
