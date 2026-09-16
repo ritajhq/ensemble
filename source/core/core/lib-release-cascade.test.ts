@@ -125,10 +125,10 @@ Deno.test("worked example: a discovered core lib publishes alongside ships under
   });
   try {
     const libRoot = join(repoRoot, "source", "core", "kit-sdk");
-    await Deno.mkdir(libRoot, { recursive: true });
+    await Deno.mkdir(join(repoRoot, ".ensemble"), { recursive: true });
     await Deno.writeTextFile(
-      join(libRoot, "lib.yml"),
-      `package: "@ensemble/kit-sdk"\npublish:\n  - kit: jsr\n`,
+      join(repoRoot, ".ensemble", "config.yaml"),
+      `coreLibs:\n  kit-sdk:\n    package: "@ensemble/kit-sdk"\n    publish:\n      - kit: jsr\n`,
     );
 
     const discovered = await new LibDeclarationLoader(repoRoot)

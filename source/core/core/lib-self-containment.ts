@@ -1,5 +1,6 @@
-import { join, relative } from "@std/path";
+import { basename, join, relative } from "@std/path";
 import { exists } from "@std/fs";
+import { EnsembleConfigStore } from "./config.ts";
 
 /** One import a libs library takes that its self-containment check rejects. */
 export interface Violation {
@@ -59,11 +60,12 @@ function workspaceLinkPackageName(target: string): string | undefined {
  * resolve to something a real, external consumer could also resolve —
  * never into `source/core/**` (hard block, no exception, ever), and into a
  * sibling `source/libs/<other>` only when that sibling has made the same
- * portability commitment by declaring its own `lib.yml`. Pure given the
- * workspace's on-disk state: it only reads `deno.json`/`lib.yml` files, it
- * never mutates anything. Only ever invoked against `source/libs/*` paths —
- * core libraries are exempt by omission at the call site, not by a branch
- * in here.
+ * portability commitment by being declared under `libs:` in
+ * `.ensemble/config.yaml`. Pure given the workspace's on-disk state: it
+ * only reads `deno.json` files and `.ensemble/config.yaml`, it never
+ * mutates anything. Only ever invoked against `source/libs/*` paths — core
+ * libraries are exempt by omission at the call site, not by a branch in
+ * here.
  */
 export class SelfContainmentChecker {
   constructor(private readonly repoRoot: string) {}
@@ -84,6 +86,7 @@ export class SelfContainmentChecker {
       this.repoRoot,
       join("source", "libs"),
     );
+    const config = await new EnsembleConfigStore(this.repoRoot).loadOrEmpty();
     const thisLibRelativePath = relative(this.repoRoot, libRoot);
 
     const violations: Violation[] = [];
@@ -105,13 +108,8 @@ export class SelfContainmentChecker {
       const sibling = libsMembers.find((member) => member.name === packageName);
       if (sibling) {
         if (sibling.relativePath === thisLibRelativePath) continue;
-        const siblingHasLibYml = await exists(
-          join(this.repoRoot, sibling.relativePath, "lib.yml"),
-          {
-            isFile: true,
-          },
-        );
-        if (!siblingHasLibYml) {
+        const siblingDeclared = Boolean(config.libs?.[basename(sibling.relativePath)]);
+        if (!siblingDeclared) {
           violations.push({
             importSpecifier: specifier,
             reason:

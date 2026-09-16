@@ -96,12 +96,12 @@ Deno.test("worked example (core-lib path): a discovered core lib shares the same
       `version: v1\nrelease:\n  web:\n    kit: docker\n`,
     );
 
-    // The fixture core lib.
+    // The fixture core lib, declared in .ensemble/config.yaml (already
+    // created by withProjectRoot) rather than a lib.yml alongside it.
     const libRoot = join(repoRoot, "source", "core", "kit-sdk");
-    await Deno.mkdir(libRoot, { recursive: true });
     await Deno.writeTextFile(
-      join(libRoot, "lib.yml"),
-      `package: "@ensemble/kit-sdk"\npublish:\n  - kit: fake\n`,
+      join(repoRoot, ".ensemble", "config.yaml"),
+      `coreLibs:\n  kit-sdk:\n    package: "@ensemble/kit-sdk"\n    publish:\n      - kit: fake\n`,
     );
 
     const ceremony = new ReleaseCeremony(repoRoot);
@@ -149,13 +149,14 @@ Deno.test("worked example (libs-library path): scaffold, publish unejected (warn
     const checker = new SelfContainmentChecker(repoRoot);
     const declarationLoader = new LibDeclarationLoader(repoRoot);
 
-    // 1. Scaffold the fixture lib.
+    // 1. Scaffold the fixture lib — this alone registers libs.widgets.package
+    // in .ensemble/config.yaml, with no manifest file inside libRoot itself.
     await runLibNew("widgets");
 
     // Give it a publish entry — the bare scaffold declares none yet.
     await Deno.writeTextFile(
-      join(libRoot, "lib.yml"),
-      `package: "widgets"\npublish:\n  - kit: fake\n`,
+      join(repoRoot, ".ensemble", "config.yaml"),
+      `libs:\n  widgets:\n    package: "widgets"\n    publish:\n      - kit: fake\n`,
     );
 
     // 2. Publish it, still unejected, before any violation exists — earlier

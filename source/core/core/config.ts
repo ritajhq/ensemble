@@ -22,9 +22,30 @@ export interface HooksConfig {
   };
 }
 
+/** One `publish:` entry for a lib — the kit to publish through and, only for a kit with more than one named destination, which one. */
+export interface LibPublishEntry {
+  kit: string;
+  target?: string;
+}
+
+/**
+ * A lib's declaration — package name and where it publishes — tracked
+ * purely as tooling config, the same way `BuildAppConfig` tracks an app's
+ * build kit rather than the app declaring it internally. Never written
+ * inside the library's own directory: `libs.<name>` (resolved against
+ * `source/libs/<name>`) for a portable library, `coreLibs.<name>`
+ * (resolved against `source/core/<name>`) for a core one.
+ */
+export interface LibConfig {
+  package: string;
+  publish?: LibPublishEntry[];
+}
+
 export interface EnsembleConfig {
   build?: Record<string, BuildAppConfig>;
   hooks?: HooksConfig;
+  libs?: Record<string, LibConfig>;
+  coreLibs?: Record<string, LibConfig>;
 }
 
 export type VarKind = "build" | "pack";
@@ -56,6 +77,11 @@ export class EnsembleConfigStore {
     }
     const parsed = parseYaml(await Deno.readTextFile(path));
     return (parsed ?? {}) as EnsembleConfig;
+  }
+
+  /** Loads config.yaml, or {} if it doesn't exist yet — unlike load(), which requires it. */
+  async loadOrEmpty(): Promise<EnsembleConfig> {
+    return await exists(this.configPath, { isFile: true }) ? await this.load() : {};
   }
 
   /**
@@ -135,6 +161,29 @@ export class EnsembleConfigStore {
     const config: EnsembleConfig = {
       ...existingConfig,
       build: { ...existingConfig.build, [appName]: target ? { kit, target } : { kit } },
+    };
+    await Deno.writeTextFile(path, stringifyYaml(config as unknown as Record<string, unknown>));
+  }
+
+  /**
+   * Sets libs.<name>.package in .ensemble/config.yaml, creating the file if
+   * it doesn't exist yet and preserving any other existing entries
+   * (including a pre-existing .publish list, if this lib already has one) —
+   * so a scaffolded or installed lib is immediately known without
+   * hand-editing config.yaml.
+   */
+  async setLibPackage(name: string, packageName: string): Promise<void> {
+    const path = this.configPath;
+    const existingConfig: EnsembleConfig = await exists(path, { isFile: true })
+      ? ((parseYaml(await Deno.readTextFile(path)) ?? {}) as EnsembleConfig)
+      : {};
+
+    const config: EnsembleConfig = {
+      ...existingConfig,
+      libs: {
+        ...existingConfig.libs,
+        [name]: { ...existingConfig.libs?.[name], package: packageName },
+      },
     };
     await Deno.writeTextFile(path, stringifyYaml(config as unknown as Record<string, unknown>));
   }

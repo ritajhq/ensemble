@@ -1,5 +1,6 @@
 import { join } from "@std/path";
 import { assertEquals, assertRejects } from "@std/assert";
+import { exists } from "@std/fs";
 import { runLibNew } from "./lib-scaffold.ts";
 import { LibDeclarationLoader } from "./lib-declaration.ts";
 
@@ -26,16 +27,11 @@ async function withProjectRoot(
   }
 }
 
-Deno.test("runLibNew: scaffolds lib.yml, deno.json, and index.ts", async () => {
+Deno.test("runLibNew: scaffolds deno.json and index.ts, with no manifest file inside the lib", async () => {
   await withProjectRoot(async (repoRoot) => {
     await runLibNew("widgets");
 
     const libDir = join(repoRoot, "source", "libs", "widgets");
-    assertEquals(
-      await Deno.readTextFile(join(libDir, "lib.yml")),
-      `package: "widgets"\n`,
-    );
-
     const denoJson = JSON.parse(
       await Deno.readTextFile(join(libDir, "deno.json")),
     );
@@ -49,15 +45,16 @@ Deno.test("runLibNew: scaffolds lib.yml, deno.json, and index.ts", async () => {
       await Deno.readTextFile(join(libDir, "index.ts")),
       "export {};\n",
     );
+
+    assertEquals(await exists(join(libDir, "lib.yml")), false);
   });
 });
 
-Deno.test("runLibNew: the scaffolded lib.yml parses cleanly as a valid declaration", async () => {
+Deno.test("runLibNew: registers libs.<name>.package in .ensemble/config.yaml", async () => {
   await withProjectRoot(async (repoRoot) => {
     await runLibNew("widgets");
 
-    const libDir = join(repoRoot, "source", "libs", "widgets");
-    const declaration = await new LibDeclarationLoader(repoRoot).load(libDir);
+    const declaration = await new LibDeclarationLoader(repoRoot).load("widgets");
     assertEquals(declaration, { package: "widgets", publish: [] });
   });
 });

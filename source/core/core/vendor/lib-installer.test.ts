@@ -5,6 +5,7 @@ import { $ } from "@david/dax";
 import { FileRegistry } from "./registry.ts";
 import { GitPackageSource } from "./git-package-source.ts";
 import { LibInstaller } from "./lib-installer.ts";
+import { EnsembleConfigStore } from "../config.ts";
 
 async function makeSourceLibRepo(
   files: Record<string, string>,
@@ -33,9 +34,8 @@ async function makeProjectRepoRoot(): Promise<
   return { dir, cleanup: () => Deno.remove(dir, { recursive: true }) };
 }
 
-Deno.test("LibInstaller.install: a clean lib installs and registers correctly", async () => {
+Deno.test("LibInstaller.install: a clean lib installs, registers, and is declared in .ensemble/config.yaml — no manifest file inside it", async () => {
   const source = await makeSourceLibRepo({
-    "lib.yml": `package: "@x/widgets"\n`,
     "deno.json": JSON.stringify({ name: "@x/widgets", version: "0.0.1" }),
   });
   const project = await makeProjectRepoRoot();
@@ -48,22 +48,27 @@ Deno.test("LibInstaller.install: a clean lib installs and registers correctly", 
     const entry = await installer.install(source.dir);
 
     assert(entry.path.startsWith(join("source", "libs")));
-    assert(
-      await exists(join(project.dir, entry.path, "lib.yml"), { isFile: true }),
+    assertEquals(
+      await exists(join(project.dir, entry.path, "lib.yml")),
+      false,
     );
     assertEquals(
       (await new FileRegistry(project.dir).entryFor(entry.path))?.repo,
       source.dir,
     );
+
+    const name = entry.path.split("/").pop()!;
+    const config = await new EnsembleConfigStore(project.dir).load();
+    assertEquals(config.libs?.[name]?.package, "@x/widgets");
   } finally {
     await source.cleanup();
     await project.cleanup();
   }
 });
 
-Deno.test("LibInstaller.install: missing lib.yml rejected", async () => {
+Deno.test("LibInstaller.install: missing deno.json name rejected", async () => {
   const source = await makeSourceLibRepo({
-    "deno.json": JSON.stringify({ name: "@x/widgets" }),
+    "deno.json": JSON.stringify({}),
   });
   const project = await makeProjectRepoRoot();
   try {
@@ -75,7 +80,7 @@ Deno.test("LibInstaller.install: missing lib.yml rejected", async () => {
     await assertRejects(
       () => installer.install(source.dir),
       Error,
-      "lib.yml not found",
+      'missing a "name"',
     );
   } finally {
     await source.cleanup();
@@ -85,7 +90,6 @@ Deno.test("LibInstaller.install: missing lib.yml rejected", async () => {
 
 Deno.test("LibInstaller.install: a lib importing from source/core is rejected before it's placed", async () => {
   const source = await makeSourceLibRepo({
-    "lib.yml": `package: "@x/widgets"\n`,
     "deno.json": JSON.stringify({
       name: "@x/widgets",
       imports: { "@ensemble/kit-sdk": "jsr:@ensemble/kit-sdk" },
@@ -120,7 +124,6 @@ Deno.test("LibInstaller.install: a lib importing from source/core is rejected be
 
 Deno.test("LibInstaller.install: already-installed destination rejected", async () => {
   const source = await makeSourceLibRepo({
-    "lib.yml": `package: "@x/widgets"\n`,
     "deno.json": JSON.stringify({ name: "@x/widgets" }),
   });
   const project = await makeProjectRepoRoot();

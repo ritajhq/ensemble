@@ -1,12 +1,9 @@
 import { join } from "@std/path";
 import { ensureDir, exists } from "@std/fs";
 import { findRepoRoot } from "./repo.ts";
+import { EnsembleConfigStore } from "./config.ts";
 
 const LIB_NAME_PATTERN = /^[a-zA-Z0-9](?:[a-zA-Z0-9._\-/]*[a-zA-Z0-9])?$/;
-
-function libYmlTemplate(name: string): string {
-  return `package: "${name}"\n`;
-}
 
 function denoJsonTemplate(name: string): string {
   return `${
@@ -25,11 +22,14 @@ function denoJsonTemplate(name: string): string {
 const INDEX_TS_TEMPLATE = `export {};\n`;
 
 /**
- * Scaffolds a new library at `source/libs/<name>`: a stub `lib.yml`
- * declaration, a workspace-member `deno.json` (name, version `0.0.1`,
- * exporting `./index.ts`), and a stub `index.ts`. `source/libs/**` is
- * already a workspace member glob (set up by `ens init`), so no separate
- * workspace registration step is needed.
+ * Scaffolds a new library at `source/libs/<name>`: a workspace-member
+ * `deno.json` (name, version `0.0.1`, exporting `./index.ts`) and a stub
+ * `index.ts`, then registers `libs.<name>.package` in `.ensemble/config.yaml`
+ * via `EnsembleConfigStore.setLibPackage` — so the lib is immediately
+ * publishable with `ens lib publish`, with no manifest file living inside
+ * the library's own directory. `source/libs/**` is already a workspace
+ * member glob (set up by `ens init`), so no separate workspace registration
+ * step is needed.
  */
 export async function runLibNew(name: string): Promise<void> {
   const trimmed = name.trim();
@@ -47,10 +47,11 @@ export async function runLibNew(name: string): Promise<void> {
   }
 
   await ensureDir(libDir);
-  await Deno.writeTextFile(join(libDir, "lib.yml"), libYmlTemplate(trimmed));
   await Deno.writeTextFile(
     join(libDir, "deno.json"),
     denoJsonTemplate(trimmed),
   );
   await Deno.writeTextFile(join(libDir, "index.ts"), INDEX_TS_TEMPLATE);
+
+  await new EnsembleConfigStore(repoRoot).setLibPackage(trimmed, trimmed);
 }

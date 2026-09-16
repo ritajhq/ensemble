@@ -49,11 +49,11 @@ export class LibPublisher {
       );
     }
 
-    const declaration = await this.declarationLoader.load(libRoot);
+    const declaration = await this.declarationLoader.load(name);
     const publishEntry = declaration.publish.find((entry) => entry.kit === kit);
     if (!publishEntry) {
       throw new Error(
-        `"${name}" doesn't declare a "${kit}" entry under "publish" in its lib.yml.`,
+        `"${name}" doesn't declare a "${kit}" entry under "publish" in .ensemble/config.yaml.`,
       );
     }
 

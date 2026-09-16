@@ -5,11 +5,11 @@ import { requireFlag } from "./util.ts";
 export interface Context {
   /** Absolute path to the library's directory (a `source/libs/<name>` or core library). */
   libRoot: string;
-  /** The package name to publish under (`lib.yml`'s `package`). */
+  /** The package name to publish under (`libs.<name>.package` for a `source/libs/<name>` lib, `coreLibs.<name>.package` for a core lib — both in `.ensemble/config.yaml`). */
   package: string;
   /** Version to publish this library under. */
   version: string;
-  /** The named destination within this kit's own publish surface (`lib.yml`'s `publish[].target`) — present only for a kit with more than one. */
+  /** The named destination within this kit's own publish surface (the declaration's `publish[].target`) — present only for a kit with more than one. */
   target?: string;
 }
 

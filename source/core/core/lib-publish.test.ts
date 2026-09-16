@@ -31,12 +31,13 @@ function fakeLibKitFor(kit: string): LibKit {
 async function writeLib(
   repoRoot: string,
   name: string,
-  libYml: string,
+  configYaml: string,
   imports: Record<string, string> = {},
 ): Promise<string> {
   const libRoot = join(repoRoot, "source", "libs", name);
   await Deno.mkdir(libRoot, { recursive: true });
-  await Deno.writeTextFile(join(libRoot, "lib.yml"), libYml);
+  await Deno.mkdir(join(repoRoot, ".ensemble"), { recursive: true });
+  await Deno.writeTextFile(join(repoRoot, ".ensemble", "config.yaml"), configYaml);
   await Deno.writeTextFile(
     join(libRoot, "deno.json"),
     JSON.stringify({ name: `@x/${name}`, imports }, null, 2),
@@ -81,7 +82,7 @@ Deno.test("LibPublisher.publish: an unejected lib warns but still publishes", as
     await writeLib(
       repoRoot,
       "widgets",
-      `package: "@x/widgets"\npublish:\n  - kit: jsr\n`,
+      `libs:\n  widgets:\n    package: "@x/widgets"\n    publish:\n      - kit: jsr\n`,
     );
     const warnings: string[] = [];
     const { publisher } = makePublisher(repoRoot, warnings);
@@ -111,7 +112,7 @@ Deno.test("LibPublisher.publish: an ejected lib publishes silently, no warning",
     await writeLib(
       repoRoot,
       "widgets",
-      `package: "@x/widgets"\npublish:\n  - kit: jsr\n`,
+      `libs:\n  widgets:\n    package: "@x/widgets"\n    publish:\n      - kit: jsr\n`,
     );
     const warnings: string[] = [];
     const { publisher, registry } = makePublisher(repoRoot, warnings);
@@ -143,7 +144,7 @@ Deno.test("LibPublisher.publish: a self-containment violation blocks publish eve
     await writeLib(
       repoRoot,
       "widgets",
-      `package: "@x/widgets"\npublish:\n  - kit: jsr\n`,
+      `libs:\n  widgets:\n    package: "@x/widgets"\n    publish:\n      - kit: jsr\n`,
       { "@ensemble/kit-sdk": "jsr:@ensemble/kit-sdk" },
     );
     const warnings: string[] = [];
@@ -172,7 +173,7 @@ Deno.test("LibPublisher.publish: publishing through an undeclared kit rejects", 
     await writeLib(
       repoRoot,
       "widgets",
-      `package: "@x/widgets"\npublish:\n  - kit: jsr\n`,
+      `libs:\n  widgets:\n    package: "@x/widgets"\n    publish:\n      - kit: jsr\n`,
     );
     const warnings: string[] = [];
     const { publisher } = makePublisher(repoRoot, warnings);
