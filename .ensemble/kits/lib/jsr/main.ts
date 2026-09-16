@@ -1,4 +1,4 @@
 import * as KitSdk from "@ensemble/kit-sdk";
-import { publishLibrary } from "./publish-library.ts";
+import { publishLibrary, stampLibrary } from "./publish-library.ts";
 
-await publishLibrary(KitSdk.Lib.getContext());
+await KitSdk.Lib.run({ stamp: stampLibrary, publish: publishLibrary });

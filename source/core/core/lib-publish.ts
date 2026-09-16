@@ -57,12 +57,15 @@ export class LibPublisher {
       );
     }
 
-    await this.libKitFor(kit).publish({
+    const context = {
       libRoot,
       package: declaration.package,
       version,
       target: publishEntry.target,
-    });
+    };
+    const libKit = this.libKitFor(kit);
+    await libKit.stamp(context);
+    await libKit.publish(context);
   }
 }
 

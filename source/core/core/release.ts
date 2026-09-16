@@ -203,6 +203,22 @@ export class ReleaseService {
     await $`git tag ${preview.tag}`.cwd(this.repoRoot);
   }
 
+  /**
+   * Stages `paths` and commits them under `message` if anything actually
+   * changed there; a no-op otherwise. Used to fold a release-time file
+   * mutation (e.g. a stamped `deno.json` version) into history *before* the
+   * tag is created, so the tag's commit is the one that actually carries it —
+   * same "only commit if dirty" shape as the `hooks.release.after` changelog
+   * hook in `.ensemble/config.yaml`.
+   */
+  async commitIfChanged(paths: string[], message: string): Promise<void> {
+    if (paths.length === 0) return;
+    await $`git add ${paths}`.cwd(this.repoRoot);
+    const staged = await $`git diff --cached --quiet`.cwd(this.repoRoot).noThrow();
+    if (staged.code === 0) return;
+    await $`git commit -m ${message}`.cwd(this.repoRoot);
+  }
+
   /** True if `tag` already exists locally — used by `ens release resume` to reject a tag that was never created. */
   async hasTag(tag: string): Promise<boolean> {
     const tags = await this.listSemVerTags();
@@ -318,16 +334,31 @@ export class ReleaseCeremony {
   }
 
   /**
+   * Writes `version` into every discovered core library's manifest, ahead of
+   * the git tag — call this, then commit the result (see
+   * `ReleaseService.commitIfChanged`), then create the tag, so the tag's
+   * commit actually carries the version bump. Pure local file writes, no
+   * network.
+   */
+  async stampCoreLibs(
+    libs: readonly CoreLibRelease[],
+    version: string,
+  ): Promise<void> {
+    await new CoreLibReleaseCascade().stamp(version, libs);
+  }
+
+  /**
    * Publishes every discovered core library's declared `publish` entries
    * under `version` — the same version `publishShips` stamps ships with in
-   * the same run. Never runs `SelfContainmentChecker`: core libraries are
-   * exempt from that check entirely.
+   * the same run. Assumes `stampCoreLibs` has already run and been committed.
+   * Never runs `SelfContainmentChecker`: core libraries are exempt from that
+   * check entirely.
    */
   async releaseCoreLibs(
     libs: readonly CoreLibRelease[],
     version: string,
   ): Promise<void> {
-    await new CoreLibReleaseCascade().cascade(version, libs);
+    await new CoreLibReleaseCascade().publish(version, libs);
   }
 
   /**

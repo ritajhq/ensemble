@@ -21,7 +21,24 @@ export class CoreLibReleaseCascade {
       new LibKit(kit),
   ) {}
 
-  async cascade(
+  /** Stamps every discovered core library's manifest with `version`, ahead of the release commit that gets tagged — see `ReleaseCeremony.stampCoreLibs`. */
+  async stamp(
+    version: string,
+    libs: readonly CoreLibRelease[],
+  ): Promise<void> {
+    for (const { libRoot, declaration } of libs) {
+      for (const entry of declaration.publish) {
+        await this.libKitFor(entry.kit).stamp({
+          libRoot,
+          package: declaration.package,
+          version,
+          target: entry.target,
+        });
+      }
+    }
+  }
+
+  async publish(
     version: string,
     libs: readonly CoreLibRelease[],
   ): Promise<void> {

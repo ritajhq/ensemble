@@ -97,6 +97,26 @@ async function collectReleases(
   return { ships, coreLibs };
 }
 
+/**
+ * Stamps every core library's manifest with `tag` and commits the result —
+ * unconditionally, like tag creation itself — so the tag ends up pointing at
+ * a commit that actually carries the version bump. Must run before
+ * `release.createReleaseTag`, never after.
+ */
+async function stampAndCommitCoreLibs(
+  repoRoot: string,
+  release: Core.Release.ReleaseService,
+  tag: string,
+): Promise<void> {
+  const { coreLibs } = await collectReleases(repoRoot, {});
+  if (coreLibs.length === 0) return;
+  await new Core.Release.ReleaseCeremony(repoRoot).stampCoreLibs(coreLibs, tag);
+  await release.commitIfChanged(
+    coreLibs.map((lib) => lib.libRoot),
+    `chore(release): bump library versions for ${tag}`,
+  );
+}
+
 /** How a ship would be packed and (if declared) published, for the confirm prompt and the dry-run preview. */
 function describeShipRelease(
   ship: Core.Release.ShipRelease,
@@ -334,6 +354,7 @@ export const releaseCommand = new Command()
       await printReleaseHookPreview(repoRoot);
       return;
     }
+    await stampAndCommitCoreLibs(repoRoot, release, preview.tag);
     await release.createReleaseTag(preview);
     console.log(`Created tag: ${preview.tag}`);
     if (!await runCeremonySafely(repoRoot, release, preview.tag, remote)) {
@@ -358,6 +379,7 @@ export const releaseCommand = new Command()
       await printReleaseHookPreview(repoRoot);
       return;
     }
+    await stampAndCommitCoreLibs(repoRoot, release, preview.tag);
     await release.createReleaseTag(preview);
     console.log(`Created tag: ${preview.tag}`);
     if (!await runCeremonySafely(repoRoot, release, preview.tag, remote)) {

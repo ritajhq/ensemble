@@ -17,6 +17,10 @@ class FakeLibKit {
 
   constructor(private readonly kit: string) {}
 
+  stamp(_input: KitSdk.Lib.Context): Promise<void> {
+    return Promise.resolve();
+  }
+
   publish(input: KitSdk.Lib.Context): Promise<void> {
     FakeLibKit.calls.push({ kit: this.kit, input });
     return Promise.resolve();
@@ -112,7 +116,7 @@ Deno.test("worked example (core-lib path): a discovered core lib shares the same
 
     // Same computed version a ship cascade in the same release run would use.
     const sharedVersion = "3.1.4";
-    await new CoreLibReleaseCascade(fakeLibKitFor).cascade(
+    await new CoreLibReleaseCascade(fakeLibKitFor).publish(
       sharedVersion,
       coreLibs,
     );

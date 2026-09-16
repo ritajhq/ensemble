@@ -30,3 +30,28 @@ export function getContext(args: string[] = Deno.args): Context {
     target,
   };
 }
+
+/** A lib kit's two entry points: `stamp` writes the resolved version into the library's manifest (no network); `publish` pushes it to the registry, assuming the manifest is already correct and committed. */
+export interface Actions {
+  stamp(context: Context): Promise<void>;
+  publish(context: Context): Promise<void>;
+}
+
+/**
+ * Dispatches a lib kit's `main.ts` to `stamp` or `publish` based on its first
+ * CLI argument — the standard entrypoint every lib kit's `main.ts` calls, so
+ * the stamp/publish split (and the CLI contract for reaching it) lives once
+ * here rather than being hand-rolled per kit.
+ */
+export async function run(actions: Actions, args: string[] = Deno.args): Promise<void> {
+  const [mode, ...rest] = args;
+  const handlers: Record<string, (context: Context) => Promise<void>> = {
+    stamp: actions.stamp,
+    publish: actions.publish,
+  };
+  const handler = handlers[mode];
+  if (!handler) {
+    throw new Error(`Unknown lib kit mode "${mode}" (expected "stamp" or "publish")`);
+  }
+  await handler(getContext(rest));
+}

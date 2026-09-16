@@ -8,9 +8,15 @@ import { LibPublisher } from "./lib-publish.ts";
 import type { LibKit } from "./lib-kit.ts";
 
 class FakeLibKit {
+  static stampCalls: { kit: string; input: KitSdk.Lib.Context }[] = [];
   static calls: { kit: string; input: KitSdk.Lib.Context }[] = [];
 
   constructor(private readonly kit: string) {}
+
+  stamp(input: KitSdk.Lib.Context): Promise<void> {
+    FakeLibKit.stampCalls.push({ kit: this.kit, input });
+    return Promise.resolve();
+  }
 
   publish(input: KitSdk.Lib.Context): Promise<void> {
     FakeLibKit.calls.push({ kit: this.kit, input });
@@ -70,6 +76,7 @@ function makePublisher(
 
 Deno.test("LibPublisher.publish: an unejected lib warns but still publishes", async () => {
   await withRepoRoot(async (repoRoot) => {
+    FakeLibKit.stampCalls = [];
     FakeLibKit.calls = [];
     await writeLib(
       repoRoot,
@@ -83,22 +90,23 @@ Deno.test("LibPublisher.publish: an unejected lib warns but still publishes", as
 
     assertEquals(warnings.length, 1);
     assertEquals(warnings[0].includes("hasn't been ejected"), true);
-    assertEquals(FakeLibKit.calls, [
-      {
-        kit: "jsr",
-        input: {
-          libRoot: join(repoRoot, "source", "libs", "widgets"),
-          package: "@x/widgets",
-          version: "1.0.0",
-          target: undefined,
-        },
+    const expectedInput = {
+      kit: "jsr",
+      input: {
+        libRoot: join(repoRoot, "source", "libs", "widgets"),
+        package: "@x/widgets",
+        version: "1.0.0",
+        target: undefined,
       },
-    ]);
+    };
+    assertEquals(FakeLibKit.stampCalls, [expectedInput]);
+    assertEquals(FakeLibKit.calls, [expectedInput]);
   });
 });
 
 Deno.test("LibPublisher.publish: an ejected lib publishes silently, no warning", async () => {
   await withRepoRoot(async (repoRoot) => {
+    FakeLibKit.stampCalls = [];
     FakeLibKit.calls = [];
     await writeLib(
       repoRoot,
@@ -116,12 +124,14 @@ Deno.test("LibPublisher.publish: an ejected lib publishes silently, no warning",
     await publisher.publish("widgets", "jsr", "1.0.0");
 
     assertEquals(warnings, []);
+    assertEquals(FakeLibKit.stampCalls.length, 1);
     assertEquals(FakeLibKit.calls.length, 1);
   });
 });
 
 Deno.test("LibPublisher.publish: a self-containment violation blocks publish even when ejected", async () => {
   await withRepoRoot(async (repoRoot) => {
+    FakeLibKit.stampCalls = [];
     FakeLibKit.calls = [];
     await Deno.mkdir(join(repoRoot, "source", "core", "kit-sdk"), {
       recursive: true,
@@ -149,6 +159,7 @@ Deno.test("LibPublisher.publish: a self-containment violation blocks publish eve
       Error,
       "isn't self-contained enough to publish",
     );
+    assertEquals(FakeLibKit.stampCalls, []);
     assertEquals(FakeLibKit.calls, []);
     assertEquals(warnings, []);
   });
@@ -156,6 +167,7 @@ Deno.test("LibPublisher.publish: a self-containment violation blocks publish eve
 
 Deno.test("LibPublisher.publish: publishing through an undeclared kit rejects", async () => {
   await withRepoRoot(async (repoRoot) => {
+    FakeLibKit.stampCalls = [];
     FakeLibKit.calls = [];
     await writeLib(
       repoRoot,
@@ -170,6 +182,7 @@ Deno.test("LibPublisher.publish: publishing through an undeclared kit rejects", 
       Error,
       'doesn\'t declare a "npm" entry',
     );
+    assertEquals(FakeLibKit.stampCalls, []);
     assertEquals(FakeLibKit.calls, []);
   });
 });

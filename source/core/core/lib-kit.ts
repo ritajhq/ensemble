@@ -17,7 +17,15 @@ import { resolveDenoExecutable } from "./deno-exe.ts";
 export class LibKit {
   constructor(private readonly kit: string) {}
 
+  async stamp(input: KitSdk.Lib.Context): Promise<void> {
+    await this.run("stamp", input, `Stamping "${input.package}" with lib kit "${this.kit}" failed.`);
+  }
+
   async publish(input: KitSdk.Lib.Context): Promise<void> {
+    await this.run("publish", input, `Publishing "${input.package}" with lib kit "${this.kit}" failed.`);
+  }
+
+  private async run(mode: "stamp" | "publish", input: KitSdk.Lib.Context, failureMessage: string): Promise<void> {
     const repoRoot = await findRepoRoot();
     const kitDir = join(repoRoot, ".ensemble", "kits", "lib", this.kit);
     const kitEntry = join(kitDir, "main.ts");
@@ -30,7 +38,7 @@ export class LibKit {
 
     // --minimum-dependency-age 0: see the identical flag in build.ts/pack.ts.
     const result =
-      await $`${denoExe} run -A -q --minimum-dependency-age 0 ${kitEntry}
+      await $`${denoExe} run -A -q --minimum-dependency-age 0 ${kitEntry} ${mode}
       --lib-root ${input.libRoot}
       --package ${input.package}
       --version ${input.version}
@@ -39,9 +47,7 @@ export class LibKit {
         .noThrow();
 
     if (result.code !== 0) {
-      throw new Error(
-        `Publishing "${input.package}" with lib kit "${this.kit}" failed.`,
-      );
+      throw new Error(failureMessage);
     }
   }
 }

@@ -1,6 +1,6 @@
 import { join } from "@std/path";
 import { assertEquals } from "@std/assert";
-import { publishLibrary, type PublishRunner } from "./publish-library.ts";
+import { publishLibrary, stampLibrary, type PublishRunner } from "./publish-library.ts";
 
 class FakeRunner implements PublishRunner {
   calls: string[] = [];
@@ -29,18 +29,13 @@ async function withFixtureLib(
   }
 }
 
-Deno.test("publishLibrary: stamps deno.json with the resolved package/version, then hands off to the runner", async () => {
+Deno.test("stampLibrary: stamps deno.json with the resolved package/version, without publishing", async () => {
   await withFixtureLib({
     name: "@x/old-name",
     version: "0.0.1",
     exports: "./index.ts",
   }, async (libRoot) => {
-    const runner = new FakeRunner();
-
-    await publishLibrary(
-      { libRoot, package: "@x/widgets", version: "1.2.3" },
-      runner,
-    );
+    await stampLibrary({ libRoot, package: "@x/widgets", version: "1.2.3" });
 
     const denoJson = JSON.parse(
       await Deno.readTextFile(join(libRoot, "deno.json")),
@@ -50,13 +45,12 @@ Deno.test("publishLibrary: stamps deno.json with the resolved package/version, t
       version: "1.2.3",
       exports: "./index.ts",
     });
-    assertEquals(runner.calls, [libRoot]);
   });
 });
 
-Deno.test("publishLibrary: never invokes the real deno publish command — the runner is the only publish call", async () => {
+Deno.test("publishLibrary: never touches deno.json — just hands off to the runner", async () => {
   await withFixtureLib(
-    { name: "@x/widgets", version: "0.0.1" },
+    { name: "@x/widgets", version: "1.2.3" },
     async (libRoot) => {
       const runner = new FakeRunner();
       await publishLibrary({
@@ -65,7 +59,12 @@ Deno.test("publishLibrary: never invokes the real deno publish command — the r
         version: "2.0.0",
         target: "public",
       }, runner);
-      assertEquals(runner.calls.length, 1);
+
+      const denoJson = JSON.parse(
+        await Deno.readTextFile(join(libRoot, "deno.json")),
+      );
+      assertEquals(denoJson, { name: "@x/widgets", version: "1.2.3" });
+      assertEquals(runner.calls, [libRoot]);
     },
   );
 });
