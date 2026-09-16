@@ -1,3 +1,10 @@
+## [0.9.0] - 2026-09-16
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.8.0
+- *(changelog)* Scope git-cliff to the latest tag and prepend instead of full regeneration
+- *(changelog)* Move cliff.toml into .ensemble/configs
 ## [0.8.0] - 2026-09-16
 
 ### 🚀 Features
