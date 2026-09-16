@@ -25,7 +25,7 @@ import { ResourceContract } from "../contract.ts";
  * threads the referenced name through to the target), though a literal
  * network name works too.
  */
-export const containerOrchestratedV1 = new ResourceContract(
+export const containerOrchestratedV1: ResourceContract = new ResourceContract(
   "compute",
   "container-orchestrated",
   "v1",

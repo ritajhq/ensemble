@@ -1,0 +1,3 @@
+package: "@ensemble/kit-sdk"
+publish:
+  - kit: jsr

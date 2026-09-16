@@ -15,7 +15,7 @@ import { ResourceContract } from "../contract.ts";
  * `backupRetention`/`multiAz` — evidence compose's golden (Phase 5) never
  * surfaced, since compose has no equivalent to render it into.
  */
-export const relationalV1 = new ResourceContract(
+export const relationalV1: ResourceContract = new ResourceContract(
   "databases",
   "relational",
   "v1",
