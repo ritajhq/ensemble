@@ -21,25 +21,37 @@ function printPreview(
 }
 
 /**
- * Prompts to push commits and the tag, only once the caller has already
- * confirmed the ceremony either succeeded or had nothing to do — never
- * before. Pushing eagerly would publish a tag to the remote before ships or
- * libraries are actually built/published, so a mid-ceremony failure would
- * leave a public tag behind a broken release.
+ * Prompts to push commits and the tag. Called at two different points, each
+ * with its own default: once packing has succeeded but before publishing
+ * (some targets — e.g. a GitHub-release publish — need the tag on the remote
+ * to attach a release to, so this is effectively required, default `true`),
+ * and when there's nothing to build/publish at all (purely optional, default
+ * `false`). Never called before packing succeeds — that's what keeps a pack
+ * failure from ever reaching the remote.
  */
 async function maybePushRelease(
   release: Core.Release.ReleaseService,
   tag: string,
   remote: string,
-): Promise<void> {
+  reason: string,
+  defaultAnswer: boolean,
+): Promise<boolean> {
   const push = await Confirm.prompt({
-    message: `Push commits and tag "${tag}" to "${remote}"?`,
-    default: false,
+    message: `${reason} Push commits and tag "${tag}" to "${remote}"?`,
+    default: defaultAnswer,
   });
-  if (!push) return;
+  if (!push) return false;
   await release.pushCommits(remote);
   await release.pushTag(tag, remote);
   console.log(`  pushed to: ${remote}`);
+  return true;
+}
+
+/** Thrown by `maybeRunReleaseCeremony` so `runCeremonySafely` can report accurately whether the tag reached the remote before the failure — packing failures never push; publishing failures always happen after the push. */
+class CeremonyError extends Error {
+  constructor(message: string, readonly pushed: boolean) {
+    super(message);
+  }
 }
 
 /** Which ships/libraries a ceremony run (or its preview) should include, by name — used by `resume` to retry only what's left after a partial failure. */
@@ -135,21 +147,37 @@ async function printReleaseCeremonyPreview(
  * across every workload's `release:` section (deduplicated — see
  * `ReleaseCeremony.collectShipReleases`) and every core library's `lib.yml`
  * (`collectCoreLibReleases`), and — only if the caller confirms — packs every
- * ship, and only once *all* of them pack cleanly, publishes each ship and
- * each core library, all under `tag`. Packing first and publishing second
- * (rather than pack-then-publish per ship) means a later ship's pack failure
- * is caught before an earlier ship — or any core library — ever gets
- * published. A no-op if neither ships nor libraries exist. Anything to run
+ * ship. Only once *all* of them pack cleanly does it push the tag (some
+ * publish targets, e.g. a GitHub release, need it on the remote to attach a
+ * release to) and then publish each ship and each core library, all under
+ * `tag`. A no-op if neither ships nor libraries exist. Anything to run
  * afterwards (e.g. a changelog update) is a configured `hooks.release.after`,
  * run separately.
+ *
+ * Returns `true` once nothing is left to do — nothing to release, the user
+ * declined to proceed, or everything published — and `false` if it stopped
+ * after packing because the user declined to push (nothing was published, but
+ * that's the user's call, not a failure). Throws `CeremonyError` for an
+ * actual pack/publish failure.
  */
 async function maybeRunReleaseCeremony(
   repoRoot: string,
+  release: Core.Release.ReleaseService,
   tag: string,
+  remote: string,
   filter: ReleaseFilter = {},
-): Promise<void> {
+): Promise<boolean> {
   const { ships, coreLibs } = await collectReleases(repoRoot, filter);
-  if (ships.length === 0 && coreLibs.length === 0) return;
+  if (ships.length === 0 && coreLibs.length === 0) {
+    await maybePushRelease(
+      release,
+      tag,
+      remote,
+      "Nothing to build or publish for this tag.",
+      false,
+    );
+    return true;
+  }
 
   if (ships.length > 0) {
     console.log(`Will build, pack, and publish ${ships.length} ship(s):`);
@@ -171,35 +199,86 @@ async function maybeRunReleaseCeremony(
     message: `Proceed for ${tag}?`,
     default: false,
   });
-  if (!proceed) return;
+  if (!proceed) {
+    await maybePushRelease(
+      release,
+      tag,
+      remote,
+      "Skipping the build/publish ceremony.",
+      false,
+    );
+    return true;
+  }
 
   const ceremony = new Core.Release.ReleaseCeremony(repoRoot);
-  await ceremony.packShips(ships);
-  await ceremony.publishShips(ships, tag);
-  await ceremony.releaseCoreLibs(coreLibs, tag);
+  try {
+    await ceremony.packShips(ships);
+  } catch (error) {
+    throw new CeremonyError((error as Error).message, false);
+  }
+
+  const pushed = await maybePushRelease(
+    release,
+    tag,
+    remote,
+    "Packing succeeded.",
+    true,
+  );
+  if (!pushed) {
+    console.log(
+      `Packed everything, but held off on publishing — publishing (e.g. a GitHub release) needs "${tag}" on the remote first. Push it, then run "ens release resume ${tag}" to publish.`,
+    );
+    return false;
+  }
+
+  try {
+    await ceremony.publishShips(ships, tag);
+    await ceremony.releaseCoreLibs(coreLibs, tag);
+  } catch (error) {
+    throw new CeremonyError((error as Error).message, true);
+  }
+
   const released = [
     ...ships.map((s) => s.name),
     ...coreLibs.map((l) => l.declaration.package),
   ];
   console.log(`Released: ${released.join(", ")}`);
+  return true;
 }
 
 /**
- * Runs the ceremony, catching a failure instead of letting it crash the
- * process — the caller uses the returned success flag to decide whether it's
- * safe to push the tag. `false` means some ship or library never got
- * published; the tag is left local-only, and the caller should point the
- * user at `ens release resume`.
+ * Runs the ceremony, catching `CeremonyError` instead of letting it crash the
+ * process, and prints exactly one clear explanation of what state the tag was
+ * left in — whether it reached the remote before the failure or not — rather
+ * than the caller guessing or repeating itself. `false` means some ship or
+ * library never got published (or publishing was deliberately held off); the
+ * caller should point the user at `ens release resume`.
  */
 async function runCeremonySafely(
   repoRoot: string,
+  release: Core.Release.ReleaseService,
   tag: string,
+  remote: string,
   filter: ReleaseFilter = {},
 ): Promise<boolean> {
   try {
-    await maybeRunReleaseCeremony(repoRoot, tag, filter);
-    return true;
+    return await maybeRunReleaseCeremony(
+      repoRoot,
+      release,
+      tag,
+      remote,
+      filter,
+    );
   } catch (error) {
+    if (error instanceof CeremonyError) {
+      console.error(`Release failed: ${error.message}`);
+      console.log(
+        error.pushed
+          ? `Tag ${tag} is already on the remote, but not everything published under it yet. Fix the issue, then run "ens release resume ${tag}" (--only/--skip to narrow it down).`
+          : `Tag ${tag} is still local-only — nothing was pushed or published. Fix the issue, then run "ens release resume ${tag}" to try again.`,
+      );
+      return false;
+    }
     console.error(`Release ceremony failed: ${(error as Error).message}`);
     return false;
   }
@@ -256,16 +335,9 @@ export const releaseCommand = new Command()
     }
     await release.createReleaseTag(preview);
     console.log(`Created tag: ${preview.tag}`);
-    if (!await runCeremonySafely(repoRoot, preview.tag)) {
-      console.log(
-        `Tag ${preview.tag} was created locally but not pushed — the release didn't fully publish.`,
-      );
-      console.log(
-        `Fix the issue, then run "ens release resume ${preview.tag}" to finish the rest.`,
-      );
+    if (!await runCeremonySafely(repoRoot, release, preview.tag, remote)) {
       return;
     }
-    await maybePushRelease(release, preview.tag, remote);
     await runReleaseHook(repoRoot, preview.tag);
   })
   .reset()
@@ -287,16 +359,9 @@ export const releaseCommand = new Command()
     }
     await release.createReleaseTag(preview);
     console.log(`Created tag: ${preview.tag}`);
-    if (!await runCeremonySafely(repoRoot, preview.tag)) {
-      console.log(
-        `Tag ${preview.tag} was created locally but not pushed — the release didn't fully publish.`,
-      );
-      console.log(
-        `Fix the issue, then run "ens release resume ${preview.tag}" to finish the rest.`,
-      );
+    if (!await runCeremonySafely(repoRoot, release, preview.tag, remote)) {
       return;
     }
-    await maybePushRelease(release, preview.tag, remote);
     await runReleaseHook(repoRoot, preview.tag);
   })
   .reset()
@@ -330,13 +395,9 @@ export const releaseCommand = new Command()
       await printReleaseHookPreview(repoRoot);
       return;
     }
-    if (!await runCeremonySafely(repoRoot, tag, filter)) {
-      console.log(
-        `Tag ${tag} still hasn't fully published. Fix the issue, then run "ens release resume ${tag}" again (--only/--skip to narrow it down).`,
-      );
+    if (!await runCeremonySafely(repoRoot, release, tag, remote, filter)) {
       return;
     }
-    await maybePushRelease(release, tag, remote);
     await runReleaseHook(repoRoot, tag);
   })
   .reset()
