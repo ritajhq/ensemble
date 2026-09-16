@@ -1,3 +1,18 @@
+## [0.8.0] - 2026-09-16
+
+### 🚀 Features
+
+- *(kit-sdk)* Wire kit-sdk into the core-lib release cascade for jsr publishing
+- *(release)* Push tag only after ceremony succeeds, add resume for partial failures
+- *(release)* Pack every ship before publishing any of them
+
+### 🐛 Bug Fixes
+
+- *(release)* Push the tag before publishing, not after, and clean up failure messaging
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.7.0
 ## [0.7.0] - 2026-09-16
 
 ### 🚀 Features
