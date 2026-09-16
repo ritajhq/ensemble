@@ -8,6 +8,7 @@ import { developCommand } from "./commands/develop.ts";
 import { initCommand } from "./commands/init.ts";
 import { kitCommand } from "./commands/kit.ts";
 import { libCommand } from "./commands/lib.ts";
+import { mcpCommand } from "./commands/mcp.ts";
 import { packCommand } from "./commands/pack.ts";
 import { publishCommand } from "./commands/publish.ts";
 import { releaseCommand } from "./commands/release.ts";
@@ -35,6 +36,7 @@ try {
     .command("develop", developCommand)
     .command("config", configCommand)
     .command("release", releaseCommand)
+    .command("mcp", mcpCommand)
     .command("version", versionCommand)
     .parse(Deno.args);
 } catch (error) {
