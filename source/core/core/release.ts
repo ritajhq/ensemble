@@ -4,6 +4,11 @@ import { $ } from "@david/dax";
 import * as KitSdk from "@ensemble/kit-sdk";
 import { runPack } from "./pack.ts";
 import { runPublish } from "./publish.ts";
+import { LibDeclarationLoader } from "./lib-declaration.ts";
+import {
+  type CoreLibRelease,
+  CoreLibReleaseCascade,
+} from "./lib-release-cascade.ts";
 
 export interface SemVer {
   major: number;
@@ -13,14 +18,21 @@ export interface SemVer {
   meta?: string;
 }
 
-const SEMVER_TAG_PATTERN = /^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+([0-9A-Za-z.-]+))?$/;
+const SEMVER_TAG_PATTERN =
+  /^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+([0-9A-Za-z.-]+))?$/;
 const BARE_VERSION_PATTERN = /^\d+\.\d+\.\d+$/;
 
 function parseSemVerTag(tag: string): SemVer | undefined {
   const match = SEMVER_TAG_PATTERN.exec(tag);
   if (!match) return undefined;
   const [, major, minor, patch, preRelease, meta] = match;
-  return { major: Number(major), minor: Number(minor), patch: Number(patch), preRelease, meta };
+  return {
+    major: Number(major),
+    minor: Number(minor),
+    patch: Number(patch),
+    preRelease,
+    meta,
+  };
 }
 
 /**
@@ -34,7 +46,13 @@ function compareSemVer(a: SemVer, b: SemVer): number {
   const aPre = a.preRelease !== undefined;
   const bPre = b.preRelease !== undefined;
   if (aPre !== bPre) return aPre ? -1 : 1;
-  if (aPre && bPre) return a.preRelease! < b.preRelease! ? -1 : a.preRelease! > b.preRelease! ? 1 : 0;
+  if (aPre && bPre) {
+    return a.preRelease! < b.preRelease!
+      ? -1
+      : a.preRelease! > b.preRelease!
+      ? 1
+      : 0;
+  }
   return 0;
 }
 
@@ -80,21 +98,35 @@ export class ReleaseService {
       .map((line) => line.trim())
       .filter((line) => line.length > 0)
       .map((tag) => ({ tag, version: parseSemVerTag(tag) }))
-      .filter((entry): entry is { tag: string; version: SemVer } => entry.version !== undefined);
+      .filter((entry): entry is { tag: string; version: SemVer } =>
+        entry.version !== undefined
+      );
   }
 
   /** The highest tag by semver precedence, not the most recently created one — tags don't have to be created in version order. */
-  private async findLastTag(): Promise<{ tag: string; version: SemVer } | undefined> {
+  private async findLastTag(): Promise<
+    { tag: string; version: SemVer } | undefined
+  > {
     const tags = await this.listSemVerTags();
     if (tags.length === 0) return undefined;
-    return tags.reduce((max, t) => (compareSemVer(t.version, max.version) > 0 ? t : max));
+    return tags.reduce((
+      max,
+      t,
+    ) => (compareSemVer(t.version, max.version) > 0 ? t : max));
   }
 
   /** The highest tag by semver precedence on a given pre-release line (`preRelease` undefined means the stable line). */
-  private async findLastTagOnLine(preRelease: string | undefined): Promise<{ tag: string; version: SemVer } | undefined> {
-    const tags = (await this.listSemVerTags()).filter((t) => t.version.preRelease === preRelease);
+  private async findLastTagOnLine(
+    preRelease: string | undefined,
+  ): Promise<{ tag: string; version: SemVer } | undefined> {
+    const tags = (await this.listSemVerTags()).filter((t) =>
+      t.version.preRelease === preRelease
+    );
     if (tags.length === 0) return undefined;
-    return tags.reduce((max, t) => (compareSemVer(t.version, max.version) > 0 ? t : max));
+    return tags.reduce((
+      max,
+      t,
+    ) => (compareSemVer(t.version, max.version) > 0 ? t : max));
   }
 
   private async buildPreview(
@@ -107,7 +139,11 @@ export class ReleaseService {
     // highest tag. Otherwise bumping the stable line past a higher pre-release
     // tag (e.g. 0.0.11 while 1.0.10-alpha exists) reports a misleading "from".
     const resolvedLast = last ?? await this.findLastTagOnLine(flags.preRelease);
-    const version: SemVer = { ...base, preRelease: flags.preRelease, meta: flags.meta };
+    const version: SemVer = {
+      ...base,
+      preRelease: flags.preRelease,
+      meta: flags.meta,
+    };
     const tag = formatTag(version);
     return { tag, lastTag: resolvedLast?.tag };
   }
@@ -154,7 +190,9 @@ export class ReleaseService {
   /** Previews an arbitrary version. Must be exactly "x.y.z" — use preRelease/meta flags for those suffixes. Does not create the tag — call createReleaseTag separately once confirmed. */
   async set(version: string, flags: ReleaseFlags): Promise<ReleasePreview> {
     if (!BARE_VERSION_PATTERN.test(version)) {
-      throw new Error(`Invalid version "${version}" — expected the shape x.y.z (e.g. 1.2.3).`);
+      throw new Error(
+        `Invalid version "${version}" — expected the shape x.y.z (e.g. 1.2.3).`,
+      );
     }
     const [major, minor, patch] = version.split(".").map(Number);
     return await this.buildPreview({ major, minor, patch }, flags);
@@ -238,9 +276,13 @@ export class ReleaseCeremony {
       const workloadPath = join(ciDir, dirEntry.name, "delivery.yml");
       if (!await exists(workloadPath, { isFile: true })) continue;
 
-      const loader = new KitSdk.Deploy.Manifest.Loader(new KitSdk.Deploy.Manifest.Parser());
+      const loader = new KitSdk.Deploy.Manifest.Loader(
+        new KitSdk.Deploy.Manifest.Parser(),
+      );
       const workload = await loader.loadFile(workloadPath);
-      for (const [shipName, release] of Object.entries(workload.release ?? {})) {
+      for (
+        const [shipName, release] of Object.entries(workload.release ?? {})
+      ) {
         const existing = byName.get(shipName);
         if (!existing) {
           byName.set(shipName, {
@@ -264,6 +306,24 @@ export class ReleaseCeremony {
     return [...byName.values()];
   }
 
+  /** Discovers every `source/core/<name>/lib.yml` — the core-lib half of the same discovery step, run alongside `collectShipReleases` (Section 9 of the vendoring build plan: core libraries publish via this cascade, never `ens lib publish`). */
+  async collectCoreLibReleases(): Promise<CoreLibRelease[]> {
+    return await new LibDeclarationLoader(this.repoRoot).discoverCoreLibs();
+  }
+
+  /**
+   * Publishes every discovered core library's declared `publish` entries
+   * under `version` — the same version `releaseShips` stamps ships with in
+   * the same run. Never runs `SelfContainmentChecker`: core libraries are
+   * exempt from that check entirely.
+   */
+  async releaseCoreLibs(
+    libs: readonly CoreLibRelease[],
+    version: string,
+  ): Promise<void> {
+    await new CoreLibReleaseCascade().cascade(version, libs);
+  }
+
   /**
    * Packs each ship (which itself builds whatever apps it actually depends
    * on first — see `runPack`), then publishes it if it declares a `publish`
@@ -276,7 +336,9 @@ export class ReleaseCeremony {
         outputName: ship.outputName,
       });
       if (packCode !== 0) {
-        throw new Error(`Packing ship "${ship.name}" failed with code ${packCode}.`);
+        throw new Error(
+          `Packing ship "${ship.name}" failed with code ${packCode}.`,
+        );
       }
 
       if (!ship.publish) continue;
@@ -288,7 +350,9 @@ export class ReleaseCeremony {
         version,
       });
       if (publishCode !== 0) {
-        throw new Error(`Publishing ship "${ship.name}" failed with code ${publishCode}.`);
+        throw new Error(
+          `Publishing ship "${ship.name}" failed with code ${publishCode}.`,
+        );
       }
     }
   }

@@ -6,14 +6,19 @@ import { configCommand } from "./commands/config.ts";
 import { deployCommand } from "./commands/deploy.ts";
 import { developCommand } from "./commands/develop.ts";
 import { initCommand } from "./commands/init.ts";
+import { kitCommand } from "./commands/kit.ts";
+import { libCommand } from "./commands/lib.ts";
 import { packCommand } from "./commands/pack.ts";
 import { publishCommand } from "./commands/publish.ts";
 import { releaseCommand } from "./commands/release.ts";
 import { formatVersion, versionCommand } from "./commands/version.ts";
 
 try {
-  const installed = await new Core.Version.SelfUpdateService().getInstalledVersion();
-  const version = installed ? formatVersion(installed) : "unknown (no install marker found)";
+  const installed = await new Core.Version.SelfUpdateService()
+    .getInstalledVersion();
+  const version = installed
+    ? formatVersion(installed)
+    : "unknown (no install marker found)";
 
   await new Command()
     .name("ens")
@@ -21,6 +26,8 @@ try {
     .description("Ensemble — from source code to deployment, in one CLI.")
     .command("init", initCommand)
     .command("app", appCommand)
+    .command("kit", kitCommand)
+    .command("lib", libCommand)
     .command("build", buildCommand)
     .command("pack", packCommand)
     .command("publish", publishCommand)
