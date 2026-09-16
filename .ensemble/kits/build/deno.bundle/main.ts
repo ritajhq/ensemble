@@ -1,7 +1,7 @@
 import { join } from "@std/path";
 import { $ } from "@david/dax";
 import * as KitSdk from "@ensemble/kit-sdk";
-import { resolveDenoExecutable, terminateChildrenOnSignal } from "@ensemble/core";
+import { resolveDenoExecutable, terminateChildrenOnSignal } from "@ensemble/kit-sdk";
 
 const ctx = KitSdk.Build.getContext();
 

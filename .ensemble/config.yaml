@@ -17,6 +17,10 @@ coreLibs:
     package: "@ensemble/core"
     publish:
       - kit: jsr
+  host:
+    package: "@ensemble/host"
+    publish:
+      - kit: jsr
 hooks:
   release:
     after:
