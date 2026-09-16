@@ -5,7 +5,7 @@ import { SelfContainmentChecker } from "./lib-self-containment.ts";
 interface MemberFixture {
   relativePath: string;
   name: string;
-  hasLibYml?: boolean;
+  declared?: boolean;
   imports?: Record<string, string>;
 }
 
@@ -23,10 +23,15 @@ async function writeMember(
       2,
     ),
   );
-  if (member.hasLibYml) {
+  if (member.declared) {
+    const libName = member.relativePath.split("/").pop()!;
+    await Deno.mkdir(join(repoRoot, ".ensemble"), { recursive: true });
+    const configPath = join(repoRoot, ".ensemble", "config.yaml");
+    const existing = await Deno.readTextFile(configPath).catch(() => "libs:\n");
+    const withoutTrailingNewline = existing.endsWith("\n") ? existing : `${existing}\n`;
     await Deno.writeTextFile(
-      join(dir, "lib.yml"),
-      `package: "${member.name}"\n`,
+      configPath,
+      `${withoutTrailingNewline}  ${libName}:\n    package: "${member.name}"\n`,
     );
   }
 }
@@ -55,7 +60,7 @@ Deno.test("SelfContainmentChecker.check: an import into source/core is always a 
       {
         relativePath: "source/libs/widgets",
         name: "@x/widgets",
-        hasLibYml: true,
+        declared: true,
         imports: { "@ensemble/kit-sdk": "jsr:@ensemble/kit-sdk" },
       },
     ],
@@ -74,14 +79,14 @@ Deno.test("SelfContainmentChecker.check: an import into source/core is always a 
   );
 });
 
-Deno.test("SelfContainmentChecker.check: an import into a sibling lib with lib.yml is allowed", async () => {
+Deno.test("SelfContainmentChecker.check: an import into a sibling lib declared under libs: is allowed", async () => {
   await withWorkspace(
     [
-      { relativePath: "source/libs/base", name: "@x/base", hasLibYml: true },
+      { relativePath: "source/libs/base", name: "@x/base", declared: true },
       {
         relativePath: "source/libs/widgets",
         name: "@x/widgets",
-        hasLibYml: true,
+        declared: true,
         imports: { "@x/base": "jsr:@x/base" },
       },
     ],
@@ -95,14 +100,14 @@ Deno.test("SelfContainmentChecker.check: an import into a sibling lib with lib.y
   );
 });
 
-Deno.test("SelfContainmentChecker.check: an import into a sibling lib without lib.yml is a violation naming why", async () => {
+Deno.test("SelfContainmentChecker.check: an import into a sibling lib not declared under libs: is a violation naming why", async () => {
   await withWorkspace(
     [
-      { relativePath: "source/libs/base", name: "@x/base" }, // no lib.yml
+      { relativePath: "source/libs/base", name: "@x/base" }, // not declared
       {
         relativePath: "source/libs/widgets",
         name: "@x/widgets",
-        hasLibYml: true,
+        declared: true,
         imports: { "@x/base": "jsr:@x/base" },
       },
     ],
@@ -127,7 +132,7 @@ Deno.test("SelfContainmentChecker.check: an ordinary versioned external dependen
       {
         relativePath: "source/libs/widgets",
         name: "@x/widgets",
-        hasLibYml: true,
+        declared: true,
         imports: { "@std/path": "jsr:@std/path@1.1.6" },
       },
     ],
@@ -147,7 +152,7 @@ Deno.test("SelfContainmentChecker.check: a workspace-linked import matching no k
       {
         relativePath: "source/libs/widgets",
         name: "@x/widgets",
-        hasLibYml: true,
+        declared: true,
         imports: { "@x/mystery": "jsr:@x/mystery" },
       },
     ],

@@ -22,13 +22,20 @@ export interface HooksConfig {
   };
 }
 
-/** One `publish:` entry for a core lib — the kit to publish through and, only for a kit with more than one named destination, which one. */
+/** One `publish:` entry for a lib — the kit to publish through and, only for a kit with more than one named destination, which one. */
 export interface LibPublishEntry {
   kit: string;
   target?: string;
 }
 
-/** A core lib's declaration, configured under `libs.<name>` (resolved against `source/core/<name>`) rather than a `lib.yml` inside the lib itself — a published core lib like `@ensemble/kit-sdk` shouldn't carry ensemble-CLI-only tooling metadata alongside its real exports. Libs under `source/libs/` are unaffected: they keep their own `lib.yml` since it has to travel with them once ejected to their own repository. */
+/**
+ * A lib's declaration — package name and where it publishes — tracked
+ * purely as tooling config, the same way `BuildAppConfig` tracks an app's
+ * build kit rather than the app declaring it internally. Never written
+ * inside the library's own directory: `libs.<name>` (resolved against
+ * `source/libs/<name>`) for a portable library, `coreLibs.<name>`
+ * (resolved against `source/core/<name>`) for a core one.
+ */
 export interface LibConfig {
   package: string;
   publish?: LibPublishEntry[];
@@ -38,6 +45,7 @@ export interface EnsembleConfig {
   build?: Record<string, BuildAppConfig>;
   hooks?: HooksConfig;
   libs?: Record<string, LibConfig>;
+  coreLibs?: Record<string, LibConfig>;
 }
 
 export type VarKind = "build" | "pack";
@@ -153,6 +161,29 @@ export class EnsembleConfigStore {
     const config: EnsembleConfig = {
       ...existingConfig,
       build: { ...existingConfig.build, [appName]: target ? { kit, target } : { kit } },
+    };
+    await Deno.writeTextFile(path, stringifyYaml(config as unknown as Record<string, unknown>));
+  }
+
+  /**
+   * Sets libs.<name>.package in .ensemble/config.yaml, creating the file if
+   * it doesn't exist yet and preserving any other existing entries
+   * (including a pre-existing .publish list, if this lib already has one) —
+   * so a scaffolded or installed lib is immediately known without
+   * hand-editing config.yaml.
+   */
+  async setLibPackage(name: string, packageName: string): Promise<void> {
+    const path = this.configPath;
+    const existingConfig: EnsembleConfig = await exists(path, { isFile: true })
+      ? ((parseYaml(await Deno.readTextFile(path)) ?? {}) as EnsembleConfig)
+      : {};
+
+    const config: EnsembleConfig = {
+      ...existingConfig,
+      libs: {
+        ...existingConfig.libs,
+        [name]: { ...existingConfig.libs?.[name], package: packageName },
+      },
     };
     await Deno.writeTextFile(path, stringifyYaml(config as unknown as Record<string, unknown>));
   }

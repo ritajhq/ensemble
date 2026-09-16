@@ -8,7 +8,7 @@ build:
     target: ssr
   website/server:
     kit: deno.bundle
-libs:
+coreLibs:
   kit-sdk:
     package: "@ensemble/kit-sdk"
     publish:

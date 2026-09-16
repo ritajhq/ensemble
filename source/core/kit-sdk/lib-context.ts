@@ -5,7 +5,7 @@ import { requireFlag } from "./util.ts";
 export interface Context {
   /** Absolute path to the library's directory (a `source/libs/<name>` or core library). */
   libRoot: string;
-  /** The package name to publish under (a `source/libs/<name>` lib's `lib.yml`, or a core lib's `libs.<name>` entry in `.ensemble/config.yaml`). */
+  /** The package name to publish under (`libs.<name>.package` for a `source/libs/<name>` lib, `coreLibs.<name>.package` for a core lib — both in `.ensemble/config.yaml`). */
   package: string;
   /** Version to publish this library under. */
   version: string;

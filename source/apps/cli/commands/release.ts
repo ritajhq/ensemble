@@ -166,7 +166,7 @@ async function printReleaseCeremonyPreview(
  * The part of the ceremony beyond git tagging: collects every ship declared
  * across every workload's `release:` section (deduplicated — see
  * `ReleaseCeremony.collectShipReleases`) and every core library declared
- * under `libs:` in `.ensemble/config.yaml` (`collectCoreLibReleases`), and —
+ * under `coreLibs:` in `.ensemble/config.yaml` (`collectCoreLibReleases`), and —
  * only if the caller confirms — packs every ship. Only once *all* of them
  * pack cleanly does it push the tag (some
  * publish targets, e.g. a GitHub release, need it on the remote to attach a
