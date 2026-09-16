@@ -1,0 +1,3 @@
+package: "@ensemble/core"
+publish:
+  - kit: jsr
