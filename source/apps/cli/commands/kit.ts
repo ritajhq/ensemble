@@ -43,11 +43,8 @@ export const kitCommand = new Command()
       .description(
         "Push a locally-authored kit to its own repository and register it as a vendored checkout.",
       )
-      .option("--remote <url:string>", "Git remote to push the kit to.", {
-        required: true,
-      })
-      .arguments("<name:string>")
-      .action(async ({ remote }, name) => {
+      .arguments("<name:string> <remote:string>")
+      .action(async (_, name, remote) => {
         const entry = await runKitEject(name, remote);
         console.log(`Ejected ${entry.path} to ${entry.repo}@${entry.ref}.`);
       }),
