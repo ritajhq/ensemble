@@ -1,5 +1,6 @@
 import { Command } from "@cliffy/command";
 import * as Core from "@ensemble/core";
+import { printCliError } from "./cli-error.ts";
 import { appCommand } from "./commands/app.ts";
 import { buildCommand } from "./commands/build.ts";
 import { configCommand } from "./commands/config.ts";
@@ -40,6 +41,6 @@ try {
     .command("version", versionCommand)
     .parse(Deno.args);
 } catch (error) {
-  console.error(`error: ${error instanceof Error ? error.message : error}`);
+  printCliError(error);
   Deno.exit(1);
 }

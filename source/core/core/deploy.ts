@@ -40,12 +40,14 @@ class CompanionBuildWatchers {
     private readonly controller: AbortController,
     private readonly sigintListener: () => void,
     private readonly watchers: readonly Promise<number>[],
+    private readonly failureBox: { failure?: unknown },
   ) {}
 
   static start(apps: ReadonlySet<string>): CompanionBuildWatchers {
     const controller = new AbortController();
     const sigintListener = () => controller.abort();
     Deno.addSignalListener("SIGINT", sigintListener);
+    const failureBox: { failure?: unknown } = {};
 
     console.log(`Building & watching: ${[...apps].join(", ")}`);
     const watchers = [...apps].map((app) =>
@@ -53,6 +55,16 @@ class CompanionBuildWatchers {
         mode: "development",
         watch: true,
         signal: controller.signal,
+      }).catch((error) => {
+        // Attached right here rather than left to `stop()`'s later
+        // `Promise.allSettled` — a startup failure (e.g. no build config for
+        // the app) rejects almost immediately, well before `stop()` runs,
+        // and an unhandled rejection that old would otherwise crash the
+        // process with a raw stack trace instead of the one clean message
+        // `runDeploy` reports once the whole session has wound down.
+        failureBox.failure ??= error;
+        controller.abort();
+        return 1;
       })
     );
 
@@ -61,7 +73,12 @@ class CompanionBuildWatchers {
       controller,
       sigintListener,
       watchers,
+      failureBox,
     );
+  }
+
+  get failure(): unknown {
+    return this.failureBox.failure;
   }
 
   async stop(): Promise<void> {
@@ -164,6 +181,10 @@ export async function runDeploy(
     presentResult(result, name, options.watch);
   } finally {
     await buildWatchers?.stop();
+  }
+
+  if (buildWatchers?.failure !== undefined) {
+    throw buildWatchers.failure;
   }
 }
 

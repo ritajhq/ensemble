@@ -24,6 +24,11 @@ export async function runBuild(name: string, options: RunBuildOptions): Promise<
   const repoRoot = await findRepoRoot();
   const workspace = join(repoRoot, "source");
 
+  const sourceDir = join(workspace, "apps", name);
+  if (!await exists(sourceDir, { isDirectory: true })) {
+    throw new Error(`App "${name}" does not exist (expected a directory at ${sourceDir})`);
+  }
+
   const configStore = new EnsembleConfigStore(repoRoot);
   const config = await configStore.load();
   const appConfig = configStore.getAppBuildConfig(config, name);
@@ -32,11 +37,6 @@ export async function runBuild(name: string, options: RunBuildOptions): Promise<
   const kitEntry = join(kitDir, "main.ts");
   if (!await exists(kitEntry, { isFile: true })) {
     throw new Error(`Build kit "${appConfig.kit}" not found (expected ${kitEntry})`);
-  }
-
-  const sourceDir = join(workspace, "apps", name);
-  if (!await exists(sourceDir, { isDirectory: true })) {
-    throw new Error(`App source not found at ${sourceDir}`);
   }
 
   const outDir = join(workspace, "artifacts", name);
