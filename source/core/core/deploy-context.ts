@@ -1,7 +1,7 @@
 import { join } from "@std/path";
 import { exists } from "@std/fs";
 import * as Deploy from "./deploy/index.ts";
-import { findRepoRoot } from "./repo.ts";
+import type { RepoLocator } from "./ports.ts";
 
 const RESOURCE_CONTRACTS: readonly Deploy.Contracts.ResourceContract[] =
   [
@@ -20,8 +20,9 @@ export interface DeployContext {
 export async function loadDeployContext(
   name: string,
   kit: string,
+  repo: RepoLocator,
 ): Promise<DeployContext> {
-  const repoRoot = await findRepoRoot();
+  const repoRoot = await repo.findRepoRoot();
 
   const manifestPath = join(repoRoot, "ci", name, "delivery.yml");
   if (!await exists(manifestPath, { isFile: true })) {

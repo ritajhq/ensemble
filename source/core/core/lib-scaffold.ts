@@ -1,6 +1,6 @@
 import { join } from "@std/path";
 import { ensureDir, exists } from "@std/fs";
-import { findRepoRoot } from "./repo.ts";
+import type { RepoLocator } from "./ports.ts";
 import { EnsembleConfigStore } from "./config.ts";
 
 const LIB_NAME_PATTERN = /^[a-zA-Z0-9](?:[a-zA-Z0-9._\-/]*[a-zA-Z0-9])?$/;
@@ -31,7 +31,7 @@ const INDEX_TS_TEMPLATE = `export {};\n`;
  * member glob (set up by `ens init`), so no separate workspace registration
  * step is needed.
  */
-export async function runLibNew(name: string): Promise<void> {
+export async function runLibNew(name: string, repo: RepoLocator): Promise<void> {
   const trimmed = name.trim();
   if (!LIB_NAME_PATTERN.test(trimmed)) {
     throw new Error(
@@ -40,7 +40,7 @@ export async function runLibNew(name: string): Promise<void> {
     );
   }
 
-  const repoRoot = await findRepoRoot();
+  const repoRoot = await repo.findRepoRoot();
   const libDir = join(repoRoot, "source", "libs", trimmed);
   if (await exists(libDir)) {
     throw new Error(`"${libDir}" already exists.`);

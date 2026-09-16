@@ -2,9 +2,10 @@ import { join } from "@std/path";
 import { assert, assertEquals, assertRejects } from "@std/assert";
 import { exists } from "@std/fs";
 import { $ } from "@david/dax";
-import { FileRegistry } from "./registry.ts";
+import { Vendor } from "@ensemble/core";
 import { GitPackageSource } from "./git-package-source.ts";
-import { KitInstaller } from "./kit-installer.ts";
+
+const { FileRegistry, KitInstaller } = Vendor;
 
 async function makeSourceKitRepo(
   files: Record<string, string>,

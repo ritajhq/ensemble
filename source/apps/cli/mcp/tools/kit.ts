@@ -7,6 +7,7 @@ import {
   runKitPin,
   runKitUpdate,
 } from "@ensemble/core";
+import * as Host from "@ensemble/host";
 import { z } from "zod";
 import { ToolResult } from "../tool-result.ts";
 import { ToolRegistration } from "../tool-registration.ts";
@@ -26,7 +27,7 @@ export class KitTools {
       },
       ({ name, role }) =>
         ToolResult.from(async () => {
-          await runKitNew(name, role);
+          await runKitNew(name, role, Host.createPorts().repo);
           return `Scaffolded .ensemble/kits/${role}/${name}.`;
         }),
     );
@@ -42,7 +43,7 @@ export class KitTools {
       },
       ({ url }) =>
         ToolResult.from(async () => {
-          const entry = await runKitInstall(url);
+          const entry = await runKitInstall(url, Host.createPorts().repo, new Host.GitPackageSource());
           return `Installed kit at ${entry.path} (${entry.repo}@${entry.ref}).`;
         }),
     );
@@ -58,7 +59,12 @@ export class KitTools {
       },
       ({ name, remote }) =>
         ToolResult.from(async () => {
-          const entry = await runKitEject(name, remote);
+          const entry = await runKitEject(
+            name,
+            remote,
+            Host.createPorts().repo,
+            new Host.GitPackageSource(),
+          );
           return `Ejected ${entry.path} to ${entry.repo}@${entry.ref}.`;
         }),
     );
@@ -73,7 +79,7 @@ export class KitTools {
       },
       ({ name, ref }) =>
         ToolResult.from(async () => {
-          const entry = await runKitPin(name, ref);
+          const entry = await runKitPin(name, ref, Host.createPorts().repo, new Host.GitPackageSource());
           return `Pinned ${entry.path} to ${entry.repo}@${entry.ref}.`;
         }),
     );
@@ -89,7 +95,12 @@ export class KitTools {
       },
       ({ name, bump }) =>
         ToolResult.from(async () => {
-          const entry = await runKitUpdate(name, bump);
+          const entry = await runKitUpdate(
+            name,
+            Host.createPorts().repo,
+            new Host.GitPackageSource(),
+            bump,
+          );
           return `Updated ${entry.path} to ${entry.repo}@${entry.ref}.`;
         }),
     );
@@ -105,7 +116,7 @@ export class KitTools {
       },
       ({ name }) =>
         ToolResult.from(async () => {
-          const pr = await runKitContribute(name);
+          const pr = await runKitContribute(name, Host.createPorts().repo, new Host.GitPackageSource());
           return `Opened pull request: ${pr.url}`;
         }),
     );

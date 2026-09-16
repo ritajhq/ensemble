@@ -8,6 +8,7 @@ import {
   runLibPublish,
   runLibUpdate,
 } from "@ensemble/core";
+import * as Host from "@ensemble/host";
 
 export const libCommand = new Command()
   .name("lib")
@@ -19,7 +20,7 @@ export const libCommand = new Command()
       .description("Scaffold a new library at source/libs/<name>.")
       .arguments("<name:string>")
       .action(async (_, name) => {
-        await runLibNew(name);
+        await runLibNew(name, Host.createPorts().repo);
         console.log(`Scaffolded source/libs/${name}.`);
       }),
   )
@@ -31,7 +32,11 @@ export const libCommand = new Command()
       )
       .arguments("<url:string>")
       .action(async (_, url) => {
-        const entry = await runLibInstall(url);
+        const entry = await runLibInstall(
+          url,
+          Host.createPorts().repo,
+          new Host.GitPackageSource(),
+        );
         console.log(
           `Installed lib at ${entry.path} (${entry.repo}@${entry.ref}).`,
         );
@@ -48,7 +53,12 @@ export const libCommand = new Command()
       })
       .arguments("<name:string>")
       .action(async ({ remote }, name) => {
-        const entry = await runLibEject(name, remote);
+        const entry = await runLibEject(
+          name,
+          remote,
+          Host.createPorts().repo,
+          new Host.GitPackageSource(),
+        );
         console.log(`Ejected ${entry.path} to ${entry.repo}@${entry.ref}.`);
       }),
   )
@@ -58,7 +68,12 @@ export const libCommand = new Command()
       .description("Move a vendored lib's checkout to a different ref.")
       .arguments("<name:string> <ref:string>")
       .action(async (_, name, ref) => {
-        const entry = await runLibPin(name, ref);
+        const entry = await runLibPin(
+          name,
+          ref,
+          Host.createPorts().repo,
+          new Host.GitPackageSource(),
+        );
         console.log(`Pinned ${entry.path} to ${entry.repo}@${entry.ref}.`);
       }),
   )
@@ -72,6 +87,8 @@ export const libCommand = new Command()
       .action(async (_, name, bump) => {
         const entry = await runLibUpdate(
           name,
+          Host.createPorts().repo,
+          new Host.GitPackageSource(),
           bump as "patch" | "minor" | "major" | undefined,
         );
         console.log(`Updated ${entry.path} to ${entry.repo}@${entry.ref}.`);
@@ -85,7 +102,11 @@ export const libCommand = new Command()
       )
       .arguments("<name:string>")
       .action(async (_, name) => {
-        const pr = await runLibContribute(name);
+        const pr = await runLibContribute(
+          name,
+          Host.createPorts().repo,
+          new Host.GitPackageSource(),
+        );
         console.log(`Opened pull request: ${pr.url}`);
       }),
   )
@@ -97,7 +118,7 @@ export const libCommand = new Command()
       )
       .arguments("<name:string> <kit:string> <version:string>")
       .action(async (_, name, kit, version) => {
-        await runLibPublish(name, kit, version);
+        await runLibPublish(name, kit, version, Host.createPorts());
         console.log(`Published ${name} via ${kit} @ ${version}.`);
       }),
   );

@@ -1,9 +1,7 @@
 import { join } from "@std/path";
 import { exists } from "@std/fs";
-import { $ } from "@david/dax";
 import type * as Lib from "./lib-context.ts";
-import { findRepoRoot } from "./repo.ts";
-import { resolveDenoExecutable } from "./deno-exe.ts";
+import type { Ports } from "./ports.ts";
 
 /**
  * Invokes a named lib kit: spawns its `main.ts` with the standard lib kit
@@ -15,7 +13,10 @@ import { resolveDenoExecutable } from "./deno-exe.ts";
  * just how `ens` calls a lib kit.
  */
 export class LibKit {
-  constructor(private readonly kit: string) {}
+  constructor(
+    private readonly kit: string,
+    private readonly ports: Ports,
+  ) {}
 
   async stamp(input: Lib.Context): Promise<void> {
     await this.run("stamp", input, `Stamping "${input.package}" with lib kit "${this.kit}" failed.`);
@@ -26,27 +27,39 @@ export class LibKit {
   }
 
   private async run(mode: "stamp" | "publish", input: Lib.Context, failureMessage: string): Promise<void> {
-    const repoRoot = await findRepoRoot();
+    const repoRoot = await this.ports.repo.findRepoRoot();
     const kitDir = join(repoRoot, ".ensemble", "kits", "lib", this.kit);
     const kitEntry = join(kitDir, "main.ts");
     if (!await exists(kitEntry, { isFile: true })) {
       throw new Error(`Lib kit "${this.kit}" not found (expected ${kitEntry})`);
     }
 
-    const denoExe = await resolveDenoExecutable();
+    const denoExe = await this.ports.denoExe.resolveDenoExecutable();
     const targetArgs = input.target ? ["--target", input.target] : [];
 
     // --minimum-dependency-age 0: see the identical flag in build.ts/pack.ts.
-    const result =
-      await $`${denoExe} run -A -q --minimum-dependency-age 0 ${kitEntry} ${mode}
-      --lib-root ${input.libRoot}
-      --package ${input.package}
-      --version ${input.version}
-      ${targetArgs}`
-        .cwd(kitDir)
-        .noThrow();
+    const code = await this.ports.process.run(
+      denoExe,
+      [
+        "run",
+        "-A",
+        "-q",
+        "--minimum-dependency-age",
+        "0",
+        kitEntry,
+        mode,
+        "--lib-root",
+        input.libRoot,
+        "--package",
+        input.package,
+        "--version",
+        input.version,
+        ...targetArgs,
+      ],
+      { cwd: kitDir },
+    );
 
-    if (result.code !== 0) {
+    if (code !== 0) {
       throw new Error(failureMessage);
     }
   }

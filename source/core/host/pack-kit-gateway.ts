@@ -1,7 +1,7 @@
 import { join } from "@std/path";
 import { exists } from "@std/fs";
 import { $ } from "@david/dax";
-import type * as Deploy from "./deploy/index.ts";
+import type { Deploy } from "@ensemble/core";
 import { findRepoRoot } from "./repo.ts";
 import { resolveDenoExecutable } from "./deno-exe.ts";
 

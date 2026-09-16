@@ -1,9 +1,9 @@
 import { join } from "@std/path";
 import { $ } from "@david/dax";
-import type { PackageSource, PullRequestRef } from "./package-source.ts";
+import type { Vendor } from "@ensemble/core";
 
 /** The real `PackageSource` — shells out to the `git` and `gh` CLIs. */
-export class GitPackageSource implements PackageSource {
+export class GitPackageSource implements Vendor.PackageSource {
   async fetch(
     location: string,
     ref: string | undefined,
@@ -30,7 +30,7 @@ export class GitPackageSource implements PackageSource {
     return await this.currentRef(dir);
   }
 
-  async proposeChange(dir: string): Promise<PullRequestRef> {
+  async proposeChange(dir: string): Promise<Vendor.PullRequestRef> {
     const branch = (await $`git branch --show-current`.cwd(dir).text()).trim();
     await $`git push --quiet origin ${branch}`.cwd(dir);
     const url = (await $`gh pr create --fill --head ${branch}`.cwd(dir).text())

@@ -1,5 +1,6 @@
 import { Command } from "@cliffy/command";
 import { runPublish } from "@ensemble/core";
+import * as Host from "@ensemble/host";
 import * as CliUtil from "./util.ts";
 
 export const publishCommand = new Command()
@@ -24,6 +25,6 @@ export const publishCommand = new Command()
       outputName,
       version,
       varOverrides: CliUtil.parseVarOverrides(vars ?? []),
-    });
+    }, Host.createPorts());
     if (code !== 0) Deno.exit(code);
   });

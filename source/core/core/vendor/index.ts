@@ -2,7 +2,6 @@ export type { Entry } from "./entry.ts";
 export type { Registry } from "./registry.ts";
 export { FileRegistry } from "./registry.ts";
 export type { PackageSource, PullRequestRef } from "./package-source.ts";
-export { GitPackageSource } from "./git-package-source.ts";
 export { KitEjector } from "./kit-ejector.ts";
 export { KitInstaller } from "./kit-installer.ts";
 export { KitPinner } from "./kit-pinner.ts";

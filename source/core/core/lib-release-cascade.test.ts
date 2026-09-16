@@ -4,6 +4,18 @@ import type * as Lib from "./lib-context.ts";
 import { LibDeclarationLoader } from "./lib-declaration.ts";
 import { CoreLibReleaseCascade } from "./lib-release-cascade.ts";
 import type { LibKit } from "./lib-kit.ts";
+import type { Ports } from "./ports.ts";
+
+/** `libKitFor` is always overridden by a fake in these tests, so the default's dependency on real ports never actually runs. */
+const UNUSED_PORTS: Ports = {
+  repo: { findRepoRoot: () => Promise.reject(new Error("not used")) },
+  denoExe: { resolveDenoExecutable: () => Promise.reject(new Error("not used")) },
+  process: {
+    run: () => Promise.reject(new Error("not used")),
+    exec: () => Promise.reject(new Error("not used")),
+    capture: () => Promise.reject(new Error("not used")),
+  },
+};
 
 class FakeLibKit {
   static stampCalls: { kit: string; input: Lib.Context }[] = [];
@@ -28,7 +40,7 @@ function fakeLibKitFor(kit: string): LibKit {
 
 Deno.test("CoreLibReleaseCascade.stamp: stamps each declared entry under the given version", async () => {
   FakeLibKit.stampCalls = [];
-  const cascade = new CoreLibReleaseCascade(fakeLibKitFor);
+  const cascade = new CoreLibReleaseCascade(UNUSED_PORTS, fakeLibKitFor);
 
   await cascade.stamp("1.2.3", [
     {
@@ -67,7 +79,7 @@ Deno.test("CoreLibReleaseCascade.stamp: stamps each declared entry under the giv
 
 Deno.test("CoreLibReleaseCascade.publish: publishes each declared entry under the given version", async () => {
   FakeLibKit.publishCalls = [];
-  const cascade = new CoreLibReleaseCascade(fakeLibKitFor);
+  const cascade = new CoreLibReleaseCascade(UNUSED_PORTS, fakeLibKitFor);
 
   await cascade.publish("1.2.3", [
     {
@@ -106,7 +118,7 @@ Deno.test("CoreLibReleaseCascade.publish: publishes each declared entry under th
 
 Deno.test("CoreLibReleaseCascade.publish: a library with no publish entries publishes nothing", async () => {
   FakeLibKit.publishCalls = [];
-  const cascade = new CoreLibReleaseCascade(fakeLibKitFor);
+  const cascade = new CoreLibReleaseCascade(UNUSED_PORTS, fakeLibKitFor);
 
   await cascade.publish("1.0.0", [
     {
@@ -133,7 +145,7 @@ Deno.test("worked example: a discovered core lib publishes alongside ships under
 
     const discovered = await new LibDeclarationLoader(repoRoot)
       .discoverCoreLibs();
-    const cascade = new CoreLibReleaseCascade(fakeLibKitFor);
+    const cascade = new CoreLibReleaseCascade(UNUSED_PORTS, fakeLibKitFor);
     const sharedVersion = "2.0.0"; // the same version a ship cascade in the same release run would use
     await cascade.publish(sharedVersion, discovered);
 

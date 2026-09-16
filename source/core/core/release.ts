@@ -1,6 +1,5 @@
 import { join } from "@std/path";
 import { exists } from "@std/fs";
-import { $ } from "@david/dax";
 import * as Deploy from "./deploy/index.ts";
 import { runPack } from "./pack.ts";
 import { runPublish } from "./publish.ts";
@@ -9,6 +8,7 @@ import {
   type CoreLibRelease,
   CoreLibReleaseCascade,
 } from "./lib-release-cascade.ts";
+import type { Ports, ProcessRunner } from "./ports.ts";
 
 export interface SemVer {
   major: number;
@@ -89,10 +89,17 @@ export interface UndoResult {
  * constructed once with `repoRoot` so it doesn't need re-resolving on every call.
  */
 export class ReleaseService {
-  constructor(private readonly repoRoot: string) {}
+  constructor(
+    private readonly repoRoot: string,
+    private readonly process: ProcessRunner,
+  ) {}
+
+  private git(args: string[]): Promise<void> {
+    return this.process.exec("git", args, { cwd: this.repoRoot });
+  }
 
   private async listSemVerTags(): Promise<{ tag: string; version: SemVer }[]> {
-    const output = await $`git tag --list`.cwd(this.repoRoot).text();
+    const output = await this.process.capture("git", ["tag", "--list"], { cwd: this.repoRoot });
     return output
       .split("\n")
       .map((line) => line.trim())
@@ -150,23 +157,25 @@ export class ReleaseService {
 
   /** True if the working tree has uncommitted changes (staged, unstaged, or untracked). */
   async hasUncommittedChanges(): Promise<boolean> {
-    const output = await $`git status --porcelain`.cwd(this.repoRoot).text();
+    const output = await this.process.capture("git", ["status", "--porcelain"], {
+      cwd: this.repoRoot,
+    });
     return output.trim().length > 0;
   }
 
   /** Pushes the current branch's commits to the given remote. */
   async pushCommits(remote: string): Promise<void> {
-    await $`git push ${remote} HEAD`.cwd(this.repoRoot);
+    await this.git(["push", remote, "HEAD"]);
   }
 
   /** Pushes a single tag to the given remote. */
   async pushTag(tag: string, remote: string): Promise<void> {
-    await $`git push ${remote} ${tag}`.cwd(this.repoRoot);
+    await this.git(["push", remote, tag]);
   }
 
   /** Deletes a tag from the given remote. */
   async deleteRemoteTag(tag: string, remote: string): Promise<void> {
-    await $`git push ${remote} --delete ${tag}`.cwd(this.repoRoot);
+    await this.git(["push", remote, "--delete", tag]);
   }
 
   /**
@@ -200,7 +209,7 @@ export class ReleaseService {
 
   /** Creates the tag locally, once the caller has confirmed all prompts. Pushing is a separate, explicit step (see pushCommits/pushTag). */
   async createReleaseTag(preview: ReleasePreview): Promise<void> {
-    await $`git tag ${preview.tag}`.cwd(this.repoRoot);
+    await this.git(["tag", preview.tag]);
   }
 
   /**
@@ -213,10 +222,14 @@ export class ReleaseService {
    */
   async commitIfChanged(paths: string[], message: string): Promise<void> {
     if (paths.length === 0) return;
-    await $`git add ${paths}`.cwd(this.repoRoot);
-    const staged = await $`git diff --cached --quiet`.cwd(this.repoRoot).noThrow();
-    if (staged.code === 0) return;
-    await $`git commit -m ${message}`.cwd(this.repoRoot);
+    await this.git(["add", ...paths]);
+    const stagedCode = await this.process.run(
+      "git",
+      ["diff", "--cached", "--quiet"],
+      { cwd: this.repoRoot },
+    );
+    if (stagedCode === 0) return;
+    await this.git(["commit", "-m", message]);
   }
 
   /** True if `tag` already exists locally — used by `ens release resume` to reject a tag that was never created. */
@@ -234,7 +247,7 @@ export class ReleaseService {
     if (flags.dryRun) {
       return { tag: last.tag };
     }
-    await $`git tag -d ${last.tag}`.cwd(this.repoRoot);
+    await this.git(["tag", "-d", last.tag]);
     return { tag: last.tag };
   }
 }
@@ -278,7 +291,10 @@ function publishOptionsEqual(
  * reasons to change.
  */
 export class ReleaseCeremony {
-  constructor(private readonly repoRoot: string) {}
+  constructor(
+    private readonly repoRoot: string,
+    private readonly ports: Ports,
+  ) {}
 
   /**
    * Globs every `ci/<name>/delivery.yml`, collects each one's `release:`
@@ -344,7 +360,7 @@ export class ReleaseCeremony {
     libs: readonly CoreLibRelease[],
     version: string,
   ): Promise<void> {
-    await new CoreLibReleaseCascade().stamp(version, libs);
+    await new CoreLibReleaseCascade(this.ports).stamp(version, libs);
   }
 
   /**
@@ -358,7 +374,7 @@ export class ReleaseCeremony {
     libs: readonly CoreLibRelease[],
     version: string,
   ): Promise<void> {
-    await new CoreLibReleaseCascade().publish(version, libs);
+    await new CoreLibReleaseCascade(this.ports).publish(version, libs);
   }
 
   /**
@@ -374,7 +390,7 @@ export class ReleaseCeremony {
       const packCode = await runPack(ship.name, ship.kit, {
         mode: ship.mode,
         outputName: ship.outputName,
-      });
+      }, this.ports);
       if (packCode !== 0) {
         throw new Error(
           `Packing ship "${ship.name}" failed with code ${packCode}.`,
@@ -396,7 +412,7 @@ export class ReleaseCeremony {
         options: ship.publish.options,
         outputName: ship.outputName,
         version,
-      });
+      }, this.ports);
       if (publishCode !== 0) {
         throw new Error(
           `Publishing ship "${ship.name}" failed with code ${publishCode}.`,

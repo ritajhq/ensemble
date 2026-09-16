@@ -1,5 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { runInit } from "@ensemble/core";
+import * as Host from "@ensemble/host";
 import { z } from "zod";
 import { ToolResult } from "../tool-result.ts";
 import { ToolRegistration } from "../tool-registration.ts";
@@ -16,7 +17,7 @@ export class InitTools {
       },
       ({ name }) =>
         ToolResult.from(async () => {
-          await runInit({ name });
+          await runInit({ name }, Host.createPorts().process);
           return `Scaffolded a new Ensemble project at ${name}/.`;
         }),
     );

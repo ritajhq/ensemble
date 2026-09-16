@@ -8,6 +8,7 @@ import {
   runLibPublish,
   runLibUpdate,
 } from "@ensemble/core";
+import * as Host from "@ensemble/host";
 import { z } from "zod";
 import { ToolResult } from "../tool-result.ts";
 import { ToolRegistration } from "../tool-registration.ts";
@@ -26,7 +27,7 @@ export class LibTools {
       },
       ({ name }) =>
         ToolResult.from(async () => {
-          await runLibNew(name);
+          await runLibNew(name, Host.createPorts().repo);
           return `Scaffolded source/libs/${name}.`;
         }),
     );
@@ -42,7 +43,7 @@ export class LibTools {
       },
       ({ url }) =>
         ToolResult.from(async () => {
-          const entry = await runLibInstall(url);
+          const entry = await runLibInstall(url, Host.createPorts().repo, new Host.GitPackageSource());
           return `Installed lib at ${entry.path} (${entry.repo}@${entry.ref}).`;
         }),
     );
@@ -58,7 +59,12 @@ export class LibTools {
       },
       ({ name, remote }) =>
         ToolResult.from(async () => {
-          const entry = await runLibEject(name, remote);
+          const entry = await runLibEject(
+            name,
+            remote,
+            Host.createPorts().repo,
+            new Host.GitPackageSource(),
+          );
           return `Ejected ${entry.path} to ${entry.repo}@${entry.ref}.`;
         }),
     );
@@ -73,7 +79,7 @@ export class LibTools {
       },
       ({ name, ref }) =>
         ToolResult.from(async () => {
-          const entry = await runLibPin(name, ref);
+          const entry = await runLibPin(name, ref, Host.createPorts().repo, new Host.GitPackageSource());
           return `Pinned ${entry.path} to ${entry.repo}@${entry.ref}.`;
         }),
     );
@@ -89,7 +95,12 @@ export class LibTools {
       },
       ({ name, bump }) =>
         ToolResult.from(async () => {
-          const entry = await runLibUpdate(name, bump);
+          const entry = await runLibUpdate(
+            name,
+            Host.createPorts().repo,
+            new Host.GitPackageSource(),
+            bump,
+          );
           return `Updated ${entry.path} to ${entry.repo}@${entry.ref}.`;
         }),
     );
@@ -104,7 +115,7 @@ export class LibTools {
       },
       ({ name }) =>
         ToolResult.from(async () => {
-          const pr = await runLibContribute(name);
+          const pr = await runLibContribute(name, Host.createPorts().repo, new Host.GitPackageSource());
           return `Opened pull request: ${pr.url}`;
         }),
     );
@@ -120,7 +131,7 @@ export class LibTools {
       },
       ({ name, kit, version }) =>
         ToolResult.from(async () => {
-          await runLibPublish(name, kit, version);
+          await runLibPublish(name, kit, version, Host.createPorts());
           return `Published ${name} via ${kit} @ ${version}.`;
         }),
     );

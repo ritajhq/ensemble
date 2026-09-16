@@ -1,5 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { runDeploy, runExplain } from "@ensemble/core";
+import * as Host from "@ensemble/host";
 import { z } from "zod";
 import { ToolResult } from "../tool-result.ts";
 import { ToolRegistration } from "../tool-registration.ts";
@@ -56,7 +57,7 @@ export class DeployTools {
             pack,
             emulateExternals,
             verbose,
-          });
+          }, Host.createPorts(), new Host.SubprocessPackKitGateway());
           return `Ran "${termination}" for "${name}" via "${kit}" (${artifacts}).`;
         }),
     );
@@ -82,7 +83,14 @@ export class DeployTools {
       },
       ({ name, kit, resource, artifacts, version }) =>
         ToolResult.from(async () => {
-          await runExplain(name, kit, resource, { artifacts, version });
+          await runExplain(
+            name,
+            kit,
+            resource,
+            { artifacts, version },
+            Host.createPorts().repo,
+            new Host.SubprocessPackKitGateway(),
+          );
           return `Explained "${resource}" for "${name}" via "${kit}".`;
         }),
     );

@@ -1,9 +1,9 @@
 import { basename, join } from "@std/path";
 import * as Deploy from "./deploy/index.ts";
 import { loadDeployContext } from "./deploy-context.ts";
-import { SubprocessPackKitGateway } from "./pack-kit-gateway.ts";
 import { RunPackReleasePacker } from "./release-packer.ts";
 import { runBuild } from "./build.ts";
+import type { Ports } from "./ports.ts";
 
 export type DeployTermination = "eject" | "plan" | "apply";
 
@@ -43,7 +43,7 @@ class CompanionBuildWatchers {
     private readonly failureBox: { failure?: unknown },
   ) {}
 
-  static start(apps: ReadonlySet<string>): CompanionBuildWatchers {
+  static start(apps: ReadonlySet<string>, ports: Ports): CompanionBuildWatchers {
     const controller = new AbortController();
     const sigintListener = () => controller.abort();
     Deno.addSignalListener("SIGINT", sigintListener);
@@ -55,7 +55,7 @@ class CompanionBuildWatchers {
         mode: "development",
         watch: true,
         signal: controller.signal,
-      }).catch((error) => {
+      }, ports).catch((error) => {
         // Attached right here rather than left to `stop()`'s later
         // `Promise.allSettled` — a startup failure (e.g. no build config for
         // the app) rejects almost immediately, well before `stop()` runs,
@@ -102,13 +102,15 @@ export async function runDeploy(
   name: string,
   kit: string,
   options: RunDeployOptions,
+  ports: Ports,
+  gateway: Deploy.PackKitGateway,
 ): Promise<void> {
   const { repoRoot, workload, target, registry } = await loadDeployContext(
     name,
     kit,
+    ports.repo,
   );
 
-  const gateway = new SubprocessPackKitGateway();
   const locatorResolver = new Deploy.ReleaseLocatorResolver(gateway);
   const releaseLocator = new Deploy.PreresolvedReleaseLocator(
     await locatorResolver.resolveAll(
@@ -150,14 +152,14 @@ export async function runDeploy(
     new Deploy.Terminations.Applier(sink, cache),
     new Deploy.Terminations.ReleaseAvailabilityPreflight(gateway),
     new Deploy.Terminations.LocalArtifactsPacker(
-      new RunPackReleasePacker(watchedApps, options.verbose),
+      new RunPackReleasePacker(ports, watchedApps, options.verbose),
     ),
     new Deploy.Terminations.WatchRunner(sink),
     new Deploy.Terminations.ExternalsEmulator(),
   );
 
   const buildWatchers = watchedApps.size > 0
-    ? CompanionBuildWatchers.start(watchedApps)
+    ? CompanionBuildWatchers.start(watchedApps, ports)
     : undefined;
 
   try {

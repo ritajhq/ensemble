@@ -1,6 +1,6 @@
 import * as Deploy from "./deploy/index.ts";
 import { loadDeployContext } from "./deploy-context.ts";
-import { SubprocessPackKitGateway } from "./pack-kit-gateway.ts";
+import type { RepoLocator } from "./ports.ts";
 
 export interface RunExplainOptions {
   artifacts: Deploy.ArtifactsSource;
@@ -21,6 +21,8 @@ export async function runExplain(
   kit: string,
   resource: string,
   options: RunExplainOptions,
+  repo: RepoLocator,
+  gateway: Deploy.PackKitGateway,
 ): Promise<void> {
   const [category, resourceName] = resource.split(".");
   if (!category || !resourceName) {
@@ -29,11 +31,9 @@ export async function runExplain(
     );
   }
 
-  const { workload, target, registry } = await loadDeployContext(name, kit);
+  const { workload, target, registry } = await loadDeployContext(name, kit, repo);
 
-  const locatorResolver = new Deploy.ReleaseLocatorResolver(
-    new SubprocessPackKitGateway(),
-  );
+  const locatorResolver = new Deploy.ReleaseLocatorResolver(gateway);
   const releaseLocator = new Deploy.PreresolvedReleaseLocator(
     await locatorResolver.resolveAll(
       workload,

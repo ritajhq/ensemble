@@ -1,5 +1,6 @@
 import * as Deploy from "./deploy/index.ts";
 import { runPack } from "./pack.ts";
+import type { Ports } from "./ports.ts";
 
 /**
  * The real `ReleasePacker`: wraps the existing `runPack` (the same
@@ -19,6 +20,7 @@ export class RunPackReleasePacker
    * same output directory. Defaults to none.
    */
   constructor(
+    private readonly ports: Ports,
     private readonly skipBuildingApps: ReadonlySet<string> = new Set(),
     private readonly verbose = false,
   ) {}
@@ -32,7 +34,7 @@ export class RunPackReleasePacker
       outputName: release.outputName,
       skipBuildingApps: this.skipBuildingApps,
       verbose: this.verbose,
-    });
+    }, this.ports);
     if (code !== 0) {
       throw new Deploy.Terminations.ReleasePackError(
         releaseName,

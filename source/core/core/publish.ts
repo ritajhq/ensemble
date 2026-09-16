@@ -1,9 +1,7 @@
 import { join } from "@std/path";
 import { exists } from "@std/fs";
 import { load as loadEnv } from "@std/dotenv";
-import { $ } from "@david/dax";
-import { findRepoRoot } from "./repo.ts";
-import { resolveDenoExecutable } from "./deno-exe.ts";
+import type { Ports } from "./ports.ts";
 import * as Pack from "./pack-context.ts";
 
 /** Untracked env file holding publish-target credentials (registry passwords, GH_TOKEN, …). Loaded into the publish kit's process environment, never onto its argv. */
@@ -33,8 +31,9 @@ export async function runPublish(
   shipName: string,
   kit: string,
   options: RunPublishOptions,
+  ports: Ports,
 ): Promise<number> {
-  const repoRoot = await findRepoRoot();
+  const repoRoot = await ports.repo.findRepoRoot();
 
   const kitDir = join(repoRoot, ".ensemble", "kits", "pack", kit);
   const kitEntry = join(kitDir, "publish.ts");
@@ -53,7 +52,7 @@ export async function runPublish(
     );
   }
 
-  const denoExe = await resolveDenoExecutable();
+  const denoExe = await ports.denoExe.resolveDenoExecutable();
   const outputName = options.outputName ?? shipName;
   const packageName = options.packageName ?? outputName;
   const version = options.version ?? "latest";
@@ -71,16 +70,28 @@ export async function runPublish(
   const env = { ...credentials, ...varOverrides };
 
   // --minimum-dependency-age 0: see the identical flag in pack.ts.
-  const result = await $`${denoExe} run -A -q --minimum-dependency-age 0 ${kitEntry}
-    --name ${shipName}
-    --output-name ${outputName}
-    --package-name ${packageName}
-    --version ${version}
-    --options ${JSON.stringify(publishOptions)}
-    --vars ${JSON.stringify(varOverrides)}`
-    .cwd(kitDir)
-    .env(env)
-    .noThrow();
-
-  return result.code;
+  return await ports.process.run(
+    denoExe,
+    [
+      "run",
+      "-A",
+      "-q",
+      "--minimum-dependency-age",
+      "0",
+      kitEntry,
+      "--name",
+      shipName,
+      "--output-name",
+      outputName,
+      "--package-name",
+      packageName,
+      "--version",
+      version,
+      "--options",
+      JSON.stringify(publishOptions),
+      "--vars",
+      JSON.stringify(varOverrides),
+    ],
+    { cwd: kitDir, env },
+  );
 }

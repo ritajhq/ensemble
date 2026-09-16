@@ -1,5 +1,6 @@
 import { Command } from "@cliffy/command";
 import * as Core from "@ensemble/core";
+import * as Host from "@ensemble/host";
 import * as CliUtil from "./util.ts";
 
 export const configCommand = new Command()
@@ -11,7 +12,7 @@ export const configCommand = new Command()
       .description("Associate an app with a build kit.")
       .arguments("<app:string> <kit:string>")
       .action(async (_options, app, kit) => {
-        const repoRoot = await Core.findRepoRoot();
+        const repoRoot = await Host.createPorts().repo.findRepoRoot();
         const config = new Core.Config.EnsembleConfigStore(repoRoot);
         await config.setAppBuildKit(app, kit);
         console.log(`Set build.${app}.kit = ${kit}`);
@@ -25,7 +26,7 @@ export const configCommand = new Command()
       )
       .arguments("<app:string> <pair:string>")
       .action(async (_options, app, pair) => {
-        const repoRoot = await Core.findRepoRoot();
+        const repoRoot = await Host.createPorts().repo.findRepoRoot();
         const config = new Core.Config.EnsembleConfigStore(repoRoot);
         const [key, value] = CliUtil.splitPair(pair);
         await config.setVar("build", app, key, value);
@@ -40,7 +41,7 @@ export const configCommand = new Command()
       )
       .arguments("<ship:string> <pair:string>")
       .action(async (_options, ship, pair) => {
-        const repoRoot = await Core.findRepoRoot();
+        const repoRoot = await Host.createPorts().repo.findRepoRoot();
         const config = new Core.Config.EnsembleConfigStore(repoRoot);
         const [key, value] = CliUtil.splitPair(pair);
         await config.setVar("pack", ship, key, value);

@@ -2,7 +2,12 @@ import { join } from "@std/path";
 import { assertEquals, assertRejects } from "@std/assert";
 import { exists } from "@std/fs";
 import { runLibNew } from "./lib-scaffold.ts";
+import type { RepoLocator } from "./ports.ts";
 import { LibDeclarationLoader } from "./lib-declaration.ts";
+
+function repoAt(repoRoot: string): RepoLocator {
+  return { findRepoRoot: () => Promise.resolve(repoRoot) };
+}
 
 // findRepoRoot walks up from Deno.cwd() looking for a ".ensemble" marker
 // before ever consulting ENSEMBLE_WORKSPACE — so, since this test itself
@@ -29,7 +34,7 @@ async function withProjectRoot(
 
 Deno.test("runLibNew: scaffolds deno.json and index.ts, with no manifest file inside the lib", async () => {
   await withProjectRoot(async (repoRoot) => {
-    await runLibNew("widgets");
+    await runLibNew("widgets", repoAt(repoRoot));
 
     const libDir = join(repoRoot, "source", "libs", "widgets");
     const denoJson = JSON.parse(
@@ -52,7 +57,7 @@ Deno.test("runLibNew: scaffolds deno.json and index.ts, with no manifest file in
 
 Deno.test("runLibNew: registers libs.<name>.package in .ensemble/config.yaml", async () => {
   await withProjectRoot(async (repoRoot) => {
-    await runLibNew("widgets");
+    await runLibNew("widgets", repoAt(repoRoot));
 
     const declaration = await new LibDeclarationLoader(repoRoot).load("widgets");
     assertEquals(declaration, { package: "widgets", publish: [] });
@@ -64,14 +69,18 @@ Deno.test("runLibNew: rejects an already-existing lib directory", async () => {
     await Deno.mkdir(join(repoRoot, "source", "libs", "widgets"), {
       recursive: true,
     });
-    await assertRejects(() => runLibNew("widgets"), Error, "already exists");
+    await assertRejects(
+      () => runLibNew("widgets", repoAt(repoRoot)),
+      Error,
+      "already exists",
+    );
   });
 });
 
 Deno.test("runLibNew: rejects an invalid lib name", async () => {
-  await withProjectRoot(async () => {
+  await withProjectRoot(async (repoRoot) => {
     await assertRejects(
-      () => runLibNew("../escape"),
+      () => runLibNew("../escape", repoAt(repoRoot)),
       Error,
       "Invalid lib name",
     );

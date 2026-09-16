@@ -6,6 +6,18 @@ import { SelfContainmentChecker } from "./lib-self-containment.ts";
 import { LibDeclarationLoader } from "./lib-declaration.ts";
 import { LibPublisher } from "./lib-publish.ts";
 import type { LibKit } from "./lib-kit.ts";
+import type { Ports } from "./ports.ts";
+
+/** `libKitFor` is always overridden by a fake in these tests, so the default's dependency on real ports never actually runs. */
+const UNUSED_PORTS: Ports = {
+  repo: { findRepoRoot: () => Promise.reject(new Error("not used")) },
+  denoExe: { resolveDenoExecutable: () => Promise.reject(new Error("not used")) },
+  process: {
+    run: () => Promise.reject(new Error("not used")),
+    exec: () => Promise.reject(new Error("not used")),
+    capture: () => Promise.reject(new Error("not used")),
+  },
+};
 
 class FakeLibKit {
   static stampCalls: { kit: string; input: Lib.Context }[] = [];
@@ -69,6 +81,7 @@ function makePublisher(
     new SelfContainmentChecker(repoRoot),
     registry,
     new LibDeclarationLoader(repoRoot),
+    UNUSED_PORTS,
     fakeLibKitFor,
     (message) => warnings.push(message),
   );

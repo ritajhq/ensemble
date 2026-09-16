@@ -1,13 +1,11 @@
 import { join } from "@std/path";
 import { ensureDir, exists } from "@std/fs";
 import { load as loadEnv } from "@std/dotenv";
-import { $, KillSignalController } from "@david/dax";
-import { findRepoRoot } from "./repo.ts";
+import type { Ports } from "./ports.ts";
 import { EnsembleConfigStore } from "./config.ts";
-import { resolveDenoExecutable } from "./deno-exe.ts";
 import type * as Build from "./build-context.ts";
 import type { BuildReporter } from "./build-reporter.ts";
-import { AnimatedBuildReporter } from "./animated-build-reporter.ts";
+import { PlainBuildReporter } from "./plain-build-reporter.ts";
 
 export interface RunBuildOptions {
   mode: Build.Mode;
@@ -15,13 +13,13 @@ export interface RunBuildOptions {
   varOverrides?: Record<string, string>;
   /** Aborting this stops the spawned build kit process — meaningful mainly with `watch: true`, which otherwise runs until killed. Used by `runDeploy`'s development-mode build-watcher orchestration to shut every watcher down once the deploy itself ends. */
   signal?: AbortSignal;
-  /** How to report this build's lifecycle to the terminal — ignored for `watch: true` (a long-lived session has no single "done" moment to resolve toward). Defaults to `AnimatedBuildReporter`; a future `--plain` flag would pass `PlainBuildReporter` here instead. */
+  /** How to report this build's lifecycle to the terminal — ignored for `watch: true` (a long-lived session has no single "done" moment to resolve toward). Defaults to `PlainBuildReporter`; the CLI passes `Host.AnimatedBuildReporter` instead for an interactive terminal. */
   reporter?: BuildReporter;
 }
 
 /** Resolves an app's configured kit and spawns it with the standard kit CLI contract. */
-export async function runBuild(name: string, options: RunBuildOptions): Promise<number> {
-  const repoRoot = await findRepoRoot();
+export async function runBuild(name: string, options: RunBuildOptions, ports: Ports): Promise<number> {
+  const repoRoot = await ports.repo.findRepoRoot();
   const workspace = join(repoRoot, "source");
 
   const sourceDir = join(workspace, "apps", name);
@@ -50,25 +48,11 @@ export async function runBuild(name: string, options: RunBuildOptions): Promise<
 
   const watchArgs = options.watch ? ["--watch"] : [];
   const targetArgs = appConfig.target ? ["--target", appConfig.target] : [];
-  const denoExe = await resolveDenoExecutable();
-
-  const killSignal = new KillSignalController();
-  const kill = () => {
-    try {
-      killSignal.kill();
-    } catch {
-      // Already exited on its own — nothing to tear down (same race
-      // WatchRunner's own teardown guards against).
-    }
-  };
-  if (options.signal) {
-    if (options.signal.aborted) kill();
-    else options.signal.addEventListener("abort", kill);
-  }
+  const denoExe = await ports.denoExe.resolveDenoExecutable();
 
   const progress = options.watch
     ? undefined
-    : (options.reporter ?? new AnimatedBuildReporter()).building(name);
+    : (options.reporter ?? new PlainBuildReporter()).building(name);
 
   // --minimum-dependency-age 0: this project's own kits depend on
   // @ensemble/*/@duesabati/* first-party packages, which Deno's default 24h
@@ -76,22 +60,35 @@ export async function runBuild(name: string, options: RunBuildOptions): Promise<
   // third-party deps) would otherwise block from resolving right after a
   // fresh release — scoped to just this invocation, not the user's own
   // project-wide deno.json policy.
-  const result = await $`${denoExe} run -A -q --minimum-dependency-age 0 ${kitEntry}
-    --source ${sourceDir}
-    --name ${name}
-    --out ${outDir}
-    --mode ${options.mode}
-    --workspace ${workspace}
-    --vars ${JSON.stringify(buildVars)}
-    ${watchArgs}
-    ${targetArgs}`
-    .cwd(kitDir)
-    .env(buildVars)
-    .signal(killSignal.signal)
-    .noThrow();
+  const code = await ports.process.run(
+    denoExe,
+    [
+      "run",
+      "-A",
+      "-q",
+      "--minimum-dependency-age",
+      "0",
+      kitEntry,
+      "--source",
+      sourceDir,
+      "--name",
+      name,
+      "--out",
+      outDir,
+      "--mode",
+      options.mode,
+      "--workspace",
+      workspace,
+      "--vars",
+      JSON.stringify(buildVars),
+      ...watchArgs,
+      ...targetArgs,
+    ],
+    { cwd: kitDir, env: buildVars, signal: options.signal },
+  );
 
-  if (result.code === 0) progress?.succeed();
+  if (code === 0) progress?.succeed();
   else progress?.fail();
 
-  return result.code;
+  return code;
 }

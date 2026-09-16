@@ -1,8 +1,8 @@
 import { join } from "@std/path";
-import { findRepoRoot } from "./repo.ts";
 import { SelfContainmentChecker } from "./lib-self-containment.ts";
 import { LibDeclarationLoader } from "./lib-declaration.ts";
 import { LibKit } from "./lib-kit.ts";
+import type { Ports } from "./ports.ts";
 import * as Vendor from "./vendor/index.ts";
 
 /**
@@ -19,8 +19,9 @@ export class LibPublisher {
     private readonly checker: SelfContainmentChecker,
     private readonly registry: Vendor.Registry,
     private readonly declarationLoader: LibDeclarationLoader,
+    private readonly ports: Ports,
     private readonly libKitFor: (kit: string) => LibKit = (kit) =>
-      new LibKit(kit),
+      new LibKit(kit, ports),
     private readonly warn: (message: string) => void = (message) =>
       console.warn(message),
   ) {}
@@ -74,8 +75,9 @@ export async function runLibPublish(
   name: string,
   kit: string,
   version: string,
+  ports: Ports,
 ): Promise<void> {
-  const repoRoot = await findRepoRoot();
+  const repoRoot = await ports.repo.findRepoRoot();
   const checker = new SelfContainmentChecker(repoRoot);
   const registry = new Vendor.FileRegistry(repoRoot);
   const declarationLoader = new LibDeclarationLoader(repoRoot);
@@ -84,6 +86,7 @@ export async function runLibPublish(
     checker,
     registry,
     declarationLoader,
+    ports,
   );
   await publisher.publish(name, kit, version);
 }

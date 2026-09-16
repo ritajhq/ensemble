@@ -1,5 +1,6 @@
 import { Command, EnumType } from "@cliffy/command";
 import { runDeploy, runExplain } from "@ensemble/core";
+import * as Host from "@ensemble/host";
 
 const explainCommand = new Command()
   .name("explain")
@@ -21,7 +22,14 @@ const explainCommand = new Command()
     { default: "latest" },
   )
   .action(async ({ artifacts, version }, name, kit, resource) => {
-    await runExplain(name, kit, resource, { artifacts, version });
+    await runExplain(
+      name,
+      kit,
+      resource,
+      { artifacts, version },
+      Host.createPorts().repo,
+      new Host.SubprocessPackKitGateway(),
+    );
   });
 
 export const deployCommand = new Command()
@@ -116,7 +124,7 @@ export const deployCommand = new Command()
         pack,
         emulateExternals,
         verbose,
-      });
+      }, Host.createPorts(), new Host.SubprocessPackKitGateway());
     },
   )
   .command("explain", explainCommand);

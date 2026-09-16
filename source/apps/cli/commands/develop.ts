@@ -1,5 +1,6 @@
 import { Command } from "@cliffy/command";
 import { runDeploy } from "@ensemble/core";
+import * as Host from "@ensemble/host";
 
 /**
  * Pure sugar for `ens deploy <name> <kit> --artifacts local --watch` — no
@@ -32,5 +33,5 @@ export const developCommand = new Command()
       pack: true,
       emulateExternals: true,
       verbose,
-    });
+    }, Host.createPorts(), new Host.SubprocessPackKitGateway());
   });

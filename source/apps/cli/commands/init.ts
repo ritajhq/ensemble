@@ -1,6 +1,7 @@
 import { Command } from "@cliffy/command";
 import { Input } from "@cliffy/prompt";
 import { runInit } from "@ensemble/core";
+import * as Host from "@ensemble/host";
 
 export const initCommand = new Command()
   .name("init")
@@ -11,6 +12,6 @@ export const initCommand = new Command()
       validate: (value) =>
         value.trim().length > 0 || "Project name can't be empty.",
     });
-    await runInit({ name });
+    await runInit({ name }, Host.createPorts().process);
     console.log(`\nScaffolded a new Ensemble project at ${name}/.`);
   });

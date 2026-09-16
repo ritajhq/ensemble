@@ -1,5 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { runPack } from "@ensemble/core";
+import * as Host from "@ensemble/host";
 import { z } from "zod";
 import { ToolResult } from "../tool-result.ts";
 import { ToolRegistration } from "../tool-registration.ts";
@@ -37,7 +38,7 @@ export class PackTools {
             watch: false,
             verbose,
             varOverrides,
-          });
+          }, Host.createPorts());
           if (code !== 0) {
             throw new Error(`Packing "${ship}" via "${kit}" failed with exit code ${code}.`);
           }
