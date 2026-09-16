@@ -1,3 +1,18 @@
+## [0.11.0] - 2026-09-16
+
+### 🚀 Features
+
+- *(release)* Push whatever the release.after hooks committed
+- *(core)* Declare @ensemble/core as a publishable core lib
+
+### 🚜 Refactor
+
+- *(core)* Declare core libs in .ensemble/config.yaml, not lib.yml
+- *(core)* Drop lib.yml entirely, track every lib in .ensemble/config.yaml
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.10.0
 ## [0.10.0] - 2026-09-16
 
 ### 🚜 Refactor
