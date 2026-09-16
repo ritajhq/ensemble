@@ -1,3 +1,16 @@
+## [0.10.0] - 2026-09-16
+
+### 🚜 Refactor
+
+- *(cli)* Make kit eject take remote as a positional argument
+- *(release)* Give release.after hooks names and run them as a list
+- *(release)* Stamp and commit core-lib version bumps before tagging
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.9.0
+- Update version to 0.9.0 in deno.json
+- *(release)* Bump library versions for 0.10.0
 ## [0.9.0] - 2026-09-16
 
 ### ⚙️ Miscellaneous Tasks
