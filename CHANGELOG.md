@@ -1,3 +1,22 @@
+## [0.6.0] - 2026-09-16
+
+### 🚀 Features
+
+- *(vendor)* Add kit/lib install, pin, update, contribute, eject, and lib publish
+
+### 🐛 Bug Fixes
+
+- *(init)* Scaffold the top-level ci folder
+- *(schema)* Update delivery.yml schema references for resource types
+- *(init)* Vendor kits at the git tag matching the installed ens version
+
+### 📚 Documentation
+
+- *(deploy)* Add JSON schema for delivery.yml autocomplete
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.5.0
 ## [0.5.0] - 2026-09-15
 
 ### 🚀 Features
