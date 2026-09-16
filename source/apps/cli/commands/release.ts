@@ -163,6 +163,20 @@ async function printReleaseCeremonyPreview(
 }
 
 /**
+ * Distinguishes why `maybeRunReleaseCeremony` stopped, since each case needs
+ * different handling from the caller:
+ * - `"completed"` — nothing to release, or everything published. Safe to run
+ *   `hooks.release.after` next.
+ * - `"declined"` — the user said no to the `Proceed?` prompt. The ceremony
+ *   never touched ships/libraries; nothing downstream (hooks included) should
+ *   run either.
+ * - `"held-off"` — packing succeeded but the user declined to push, so
+ *   publishing was skipped (some targets need the tag on the remote first).
+ *   `resume` picks this back up; hooks must not run yet.
+ */
+type CeremonyOutcome = "completed" | "declined" | "held-off";
+
+/**
  * The part of the ceremony beyond git tagging: collects every ship declared
  * across every workload's `release:` section (deduplicated — see
  * `ReleaseCeremony.collectShipReleases`) and every core library declared
@@ -173,13 +187,9 @@ async function printReleaseCeremonyPreview(
  * release to) and then publish each ship and each core library, all under
  * `tag`. A no-op if neither ships nor libraries exist. Anything to run
  * afterwards (e.g. a changelog update) is a configured `hooks.release.after`,
- * run separately.
- *
- * Returns `true` once nothing is left to do — nothing to release, the user
- * declined to proceed, or everything published — and `false` if it stopped
- * after packing because the user declined to push (nothing was published, but
- * that's the user's call, not a failure). Throws `CeremonyError` for an
- * actual pack/publish failure.
+ * run separately — but only when this returns `"completed"`; see
+ * `CeremonyOutcome`. Throws `CeremonyError` for an actual pack/publish
+ * failure.
  */
 async function maybeRunReleaseCeremony(
   repoRoot: string,
@@ -187,7 +197,7 @@ async function maybeRunReleaseCeremony(
   tag: string,
   remote: string,
   filter: ReleaseFilter = {},
-): Promise<boolean> {
+): Promise<CeremonyOutcome> {
   const { ships, coreLibs } = await collectReleases(repoRoot, filter);
   if (ships.length === 0 && coreLibs.length === 0) {
     await maybePushRelease(
@@ -197,7 +207,7 @@ async function maybeRunReleaseCeremony(
       "Nothing to build or publish for this tag.",
       false,
     );
-    return true;
+    return "completed";
   }
 
   if (ships.length > 0) {
@@ -228,7 +238,7 @@ async function maybeRunReleaseCeremony(
       "Skipping the build/publish ceremony.",
       false,
     );
-    return true;
+    return "declined";
   }
 
   const ceremony = new Core.Release.ReleaseCeremony(repoRoot);
@@ -249,7 +259,7 @@ async function maybeRunReleaseCeremony(
     console.log(
       `Packed everything, but held off on publishing — publishing (e.g. a GitHub release) needs "${tag}" on the remote first. Push it, then run "ens release resume ${tag}" to publish.`,
     );
-    return false;
+    return "held-off";
   }
 
   try {
@@ -264,16 +274,17 @@ async function maybeRunReleaseCeremony(
     ...coreLibs.map((l) => l.declaration.package),
   ];
   console.log(`Released: ${released.join(", ")}`);
-  return true;
+  return "completed";
 }
 
 /**
  * Runs the ceremony, catching `CeremonyError` instead of letting it crash the
  * process, and prints exactly one clear explanation of what state the tag was
  * left in — whether it reached the remote before the failure or not — rather
- * than the caller guessing or repeating itself. `false` means some ship or
- * library never got published (or publishing was deliberately held off); the
- * caller should point the user at `ens release resume`.
+ * than the caller guessing or repeating itself. Returns `"completed"` only
+ * when it's safe to run `hooks.release.after` next; every other outcome
+ * (declined, held-off, or a caught `CeremonyError`) means the caller should
+ * stop, and for a failure, point the user at `ens release resume`.
  */
 async function runCeremonySafely(
   repoRoot: string,
@@ -281,7 +292,7 @@ async function runCeremonySafely(
   tag: string,
   remote: string,
   filter: ReleaseFilter = {},
-): Promise<boolean> {
+): Promise<CeremonyOutcome> {
   try {
     return await maybeRunReleaseCeremony(
       repoRoot,
@@ -298,10 +309,10 @@ async function runCeremonySafely(
           ? `Tag ${tag} is already on the remote, but not everything published under it yet. Fix the issue, then run "ens release resume ${tag}" (--only/--skip to narrow it down).`
           : `Tag ${tag} is still local-only — nothing was pushed or published. Fix the issue, then run "ens release resume ${tag}" to try again.`,
       );
-      return false;
+      return "held-off";
     }
     console.error(`Release ceremony failed: ${(error as Error).message}`);
-    return false;
+    return "held-off";
   }
 }
 
@@ -371,7 +382,10 @@ export const releaseCommand = new Command()
     await stampAndCommitCoreLibs(repoRoot, release, preview.tag);
     await release.createReleaseTag(preview);
     console.log(`Created tag: ${preview.tag}`);
-    if (!await runCeremonySafely(repoRoot, release, preview.tag, remote)) {
+    if (
+      await runCeremonySafely(repoRoot, release, preview.tag, remote) !==
+        "completed"
+    ) {
       return;
     }
     await runReleaseHook(repoRoot, release, preview.tag, remote);
@@ -396,7 +410,10 @@ export const releaseCommand = new Command()
     await stampAndCommitCoreLibs(repoRoot, release, preview.tag);
     await release.createReleaseTag(preview);
     console.log(`Created tag: ${preview.tag}`);
-    if (!await runCeremonySafely(repoRoot, release, preview.tag, remote)) {
+    if (
+      await runCeremonySafely(repoRoot, release, preview.tag, remote) !==
+        "completed"
+    ) {
       return;
     }
     await runReleaseHook(repoRoot, release, preview.tag, remote);
@@ -432,7 +449,10 @@ export const releaseCommand = new Command()
       await printReleaseHookPreview(repoRoot);
       return;
     }
-    if (!await runCeremonySafely(repoRoot, release, tag, remote, filter)) {
+    if (
+      await runCeremonySafely(repoRoot, release, tag, remote, filter) !==
+        "completed"
+    ) {
       return;
     }
     await runReleaseHook(repoRoot, release, tag, remote);
