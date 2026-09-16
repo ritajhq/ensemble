@@ -284,19 +284,20 @@ async function runCeremonySafely(
   }
 }
 
-/** Runs the configured `hooks.release.after` command once a release has completed, if any is set. */
+/** Runs the configured `hooks.release.after` hooks in order, once a release has completed. */
 async function runReleaseHook(repoRoot: string, tag: string): Promise<void> {
   const hooks = new Core.Hooks.Hooks(repoRoot);
-  const command = await hooks.releaseAfter();
-  if (!command) return;
-  console.log(`Running release.after hook: ${command}`);
-  await hooks.run(command, tag);
+  for (const hook of await hooks.releaseAfter()) {
+    console.log(`Running "${hook.name}" hook...`);
+    await hooks.run(hook, tag);
+  }
 }
 
-/** Dry-run counterpart to `runReleaseHook`: reports the `hooks.release.after` command that would run, without running it. */
+/** Dry-run counterpart to `runReleaseHook`: reports the `hooks.release.after` hooks that would run, without running them. */
 async function printReleaseHookPreview(repoRoot: string): Promise<void> {
-  const command = await new Core.Hooks.Hooks(repoRoot).releaseAfter();
-  if (command) console.log(`Would then run release.after hook: ${command}`);
+  for (const hook of await new Core.Hooks.Hooks(repoRoot).releaseAfter()) {
+    console.log(`Would then run "${hook.name}" hook.`);
+  }
 }
 
 export const releaseCommand = new Command()

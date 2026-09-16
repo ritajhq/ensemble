@@ -8,11 +8,17 @@ export interface BuildAppConfig {
   target?: string;
 }
 
+/** A named shell command, so `ens` can announce which hook is running without printing its whole script. */
+export interface HookConfig {
+  name: string;
+  run: string;
+}
+
 /** Shell commands `ens` runs at defined points in its own lifecycle, configured under the top-level `hooks:` key. */
 export interface HooksConfig {
   release?: {
-    /** Runs at the repo root right after a release completes (see @ensemble/core's Hooks) — e.g. to regenerate a changelog. Gets the released tag in `$ENSEMBLE_RELEASE_TAG`. */
-    after?: string;
+    /** Runs at the repo root right after a release completes (see @ensemble/core's Hooks), in order — e.g. to regenerate a changelog. Gets the released tag in `$ENSEMBLE_RELEASE_TAG`. */
+    after?: HookConfig[];
   };
 }
 

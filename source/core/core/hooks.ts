@@ -1,5 +1,5 @@
 import { $ } from "@david/dax";
-import { EnsembleConfigStore } from "./config.ts";
+import { EnsembleConfigStore, type HookConfig } from "./config.ts";
 
 /**
  * Runs the shell commands configured under the top-level `hooks:` key in
@@ -9,25 +9,25 @@ import { EnsembleConfigStore } from "./config.ts";
 export class Hooks {
   constructor(private readonly repoRoot: string) {}
 
-  /** The configured `hooks.release.after` command, or undefined if none is set. */
-  async releaseAfter(): Promise<string | undefined> {
+  /** The configured `hooks.release.after` hooks, in the order they should run. */
+  async releaseAfter(): Promise<HookConfig[]> {
     const config = await new EnsembleConfigStore(this.repoRoot).load();
-    return config.hooks?.release?.after;
+    return config.hooks?.release?.after ?? [];
   }
 
   /**
-   * Runs a release hook command at the repo root, exposing the released tag as
+   * Runs a release hook at the repo root, exposing the released tag as
    * `$ENSEMBLE_RELEASE_TAG`. Throws on a non-zero exit — the release itself is
    * already done by the time a hook runs, so a hook failure is surfaced rather
    * than silently swallowed.
    */
-  async run(command: string, tag: string): Promise<void> {
-    const result = await $`sh -c ${command}`
+  async run(hook: HookConfig, tag: string): Promise<void> {
+    const result = await $`sh -c ${hook.run}`
       .cwd(this.repoRoot)
       .env({ ENSEMBLE_RELEASE_TAG: tag })
       .noThrow();
     if (result.code !== 0) {
-      throw new Error(`release.after hook failed (exit ${result.code}): ${command}`);
+      throw new Error(`"${hook.name}" hook failed (exit ${result.code}): ${hook.run}`);
     }
   }
 }

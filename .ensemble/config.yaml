@@ -10,7 +10,9 @@ build:
     kit: deno.bundle
 hooks:
   release:
-    after: >-
-      git-cliff --config .ensemble/configs/cliff.toml --latest --prepend
-      CHANGELOG.md && { git diff --quiet -- CHANGELOG.md || git commit
-      CHANGELOG.md -m "chore(changelog): update for $ENSEMBLE_RELEASE_TAG"; }
+    after:
+      - name: changelog
+        run: >-
+          RUST_LOG=off git-cliff --config .ensemble/configs/cliff.toml --latest
+          --prepend CHANGELOG.md && { git diff --quiet -- CHANGELOG.md || git
+          commit CHANGELOG.md -m "chore(changelog): update for $ENSEMBLE_RELEASE_TAG"; }
