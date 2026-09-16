@@ -203,6 +203,12 @@ export class ReleaseService {
     await $`git tag ${preview.tag}`.cwd(this.repoRoot);
   }
 
+  /** True if `tag` already exists locally — used by `ens release resume` to reject a tag that was never created. */
+  async hasTag(tag: string): Promise<boolean> {
+    const tags = await this.listSemVerTags();
+    return tags.some((t) => t.tag === tag);
+  }
+
   /** Deletes only the last (highest-semver) tag locally — never touches any commit. Deleting from a remote is a separate, explicit step (see deleteRemoteTag). */
   async undo(flags: UndoFlags): Promise<UndoResult> {
     const last = await this.findLastTag();
