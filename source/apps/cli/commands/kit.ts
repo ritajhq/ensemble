@@ -1,15 +1,28 @@
 import { Command, EnumType } from "@cliffy/command";
 import {
   runKitContribute,
+  runKitEject,
   runKitInstall,
+  runKitNew,
   runKitPin,
   runKitUpdate,
 } from "@ensemble/core";
 
 export const kitCommand = new Command()
   .name("kit")
-  .description("Install kits from external repositories.")
+  .description("Author, install, and manage kits under .ensemble/kits/.")
   .type("bump", new EnumType(["patch", "minor", "major"]))
+  .type("role", new EnumType(["build", "pack", "deploy", "lib"]))
+  .command(
+    "new",
+    new Command()
+      .description("Scaffold a new kit at .ensemble/kits/<role>/<name>.")
+      .arguments("<name:string> <role:role>")
+      .action(async (_, name, role) => {
+        await runKitNew(name, role as "build" | "pack" | "deploy" | "lib");
+        console.log(`Scaffolded .ensemble/kits/${role}/${name}.`);
+      }),
+  )
   .command(
     "install",
     new Command()
@@ -22,6 +35,21 @@ export const kitCommand = new Command()
         console.log(
           `Installed kit at ${entry.path} (${entry.repo}@${entry.ref}).`,
         );
+      }),
+  )
+  .command(
+    "eject",
+    new Command()
+      .description(
+        "Push a locally-authored kit to its own repository and register it as a vendored checkout.",
+      )
+      .option("--remote <url:string>", "Git remote to push the kit to.", {
+        required: true,
+      })
+      .arguments("<name:string>")
+      .action(async ({ remote }, name) => {
+        const entry = await runKitEject(name, remote);
+        console.log(`Ejected ${entry.path} to ${entry.repo}@${entry.ref}.`);
       }),
   )
   .command(

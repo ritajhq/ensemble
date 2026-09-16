@@ -3,7 +3,8 @@ import { parse as parseYaml } from "@std/yaml";
 
 export type Role = "build" | "pack" | "deploy" | "lib";
 
-const KNOWN_ROLES: readonly Role[] = ["build", "pack", "deploy", "lib"];
+/** Every known kit role — the same four `.ensemble/kits/<role>` directories `ens init` has always populated. */
+export const ROLES: readonly Role[] = ["build", "pack", "deploy", "lib"];
 
 /** The `role`/`kitSdk` fields of a kit's `kit.yml`, as read by the vendoring flow. */
 export interface Manifest {
@@ -39,11 +40,11 @@ export async function read(kitDir: string): Promise<Manifest> {
   const parsed = parseYaml(text) as Record<string, unknown> | null;
 
   const role = parsed?.role;
-  if (typeof role !== "string" || !KNOWN_ROLES.includes(role as Role)) {
+  if (typeof role !== "string" || !ROLES.includes(role as Role)) {
     throw new Error(
       `Kit manifest at ${path} has an invalid "role" (got ${
         JSON.stringify(role)
-      }); expected one of ${KNOWN_ROLES.join(", ")}.`,
+      }); expected one of ${ROLES.join(", ")}.`,
     );
   }
 
