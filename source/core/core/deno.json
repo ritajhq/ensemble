@@ -13,5 +13,6 @@
     "@david/which": "jsr:@david/which@0.4.2",
     "@ensemble/kit-sdk": "jsr:@ensemble/kit-sdk",
     "@duesabati/evento": "jsr:@duesabati/evento@1.0.0"
-  }
+  },
+  "version": "0.12.0"
 }
