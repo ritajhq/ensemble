@@ -1,3 +1,12 @@
+## [0.7.0] - 2026-09-16
+
+### 🚀 Features
+
+- *(kit)* Add kit new and eject for authoring kits in-project
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.6.0
 ## [0.6.0] - 2026-09-16
 
 ### 🚀 Features
