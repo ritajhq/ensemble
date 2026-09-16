@@ -22,9 +22,22 @@ export interface HooksConfig {
   };
 }
 
+/** One `publish:` entry for a core lib — the kit to publish through and, only for a kit with more than one named destination, which one. */
+export interface LibPublishEntry {
+  kit: string;
+  target?: string;
+}
+
+/** A core lib's declaration, configured under `libs.<name>` (resolved against `source/core/<name>`) rather than a `lib.yml` inside the lib itself — a published core lib like `@ensemble/kit-sdk` shouldn't carry ensemble-CLI-only tooling metadata alongside its real exports. Libs under `source/libs/` are unaffected: they keep their own `lib.yml` since it has to travel with them once ejected to their own repository. */
+export interface LibConfig {
+  package: string;
+  publish?: LibPublishEntry[];
+}
+
 export interface EnsembleConfig {
   build?: Record<string, BuildAppConfig>;
   hooks?: HooksConfig;
+  libs?: Record<string, LibConfig>;
 }
 
 export type VarKind = "build" | "pack";
@@ -56,6 +69,11 @@ export class EnsembleConfigStore {
     }
     const parsed = parseYaml(await Deno.readTextFile(path));
     return (parsed ?? {}) as EnsembleConfig;
+  }
+
+  /** Loads config.yaml, or {} if it doesn't exist yet — unlike load(), which requires it. */
+  async loadOrEmpty(): Promise<EnsembleConfig> {
+    return await exists(this.configPath, { isFile: true }) ? await this.load() : {};
   }
 
   /**

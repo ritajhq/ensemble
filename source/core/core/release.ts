@@ -328,7 +328,7 @@ export class ReleaseCeremony {
     return [...byName.values()];
   }
 
-  /** Discovers every `source/core/<name>/lib.yml` — the core-lib half of the same discovery step, run alongside `collectShipReleases` (Section 9 of the vendoring build plan: core libraries publish via this cascade, never `ens lib publish`). */
+  /** Discovers every core lib declared under `libs:` in `.ensemble/config.yaml`, resolved against `source/core/<name>` — the core-lib half of the same discovery step, run alongside `collectShipReleases` (Section 9 of the vendoring build plan: core libraries publish via this cascade, never `ens lib publish`). */
   async collectCoreLibReleases(): Promise<CoreLibRelease[]> {
     return await new LibDeclarationLoader(this.repoRoot).discoverCoreLibs();
   }

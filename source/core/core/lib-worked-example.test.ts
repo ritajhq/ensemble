@@ -96,12 +96,12 @@ Deno.test("worked example (core-lib path): a discovered core lib shares the same
       `version: v1\nrelease:\n  web:\n    kit: docker\n`,
     );
 
-    // The fixture core lib.
+    // The fixture core lib, declared in .ensemble/config.yaml (already
+    // created by withProjectRoot) rather than a lib.yml alongside it.
     const libRoot = join(repoRoot, "source", "core", "kit-sdk");
-    await Deno.mkdir(libRoot, { recursive: true });
     await Deno.writeTextFile(
-      join(libRoot, "lib.yml"),
-      `package: "@ensemble/kit-sdk"\npublish:\n  - kit: fake\n`,
+      join(repoRoot, ".ensemble", "config.yaml"),
+      `libs:\n  kit-sdk:\n    package: "@ensemble/kit-sdk"\n    publish:\n      - kit: fake\n`,
     );
 
     const ceremony = new ReleaseCeremony(repoRoot);

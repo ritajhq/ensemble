@@ -8,6 +8,15 @@ build:
     target: ssr
   website/server:
     kit: deno.bundle
+libs:
+  kit-sdk:
+    package: "@ensemble/kit-sdk"
+    publish:
+      - kit: jsr
+  core:
+    package: "@ensemble/core"
+    publish:
+      - kit: jsr
 hooks:
   release:
     after:

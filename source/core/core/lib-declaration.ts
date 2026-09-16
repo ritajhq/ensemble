@@ -1,6 +1,6 @@
 import { join } from "@std/path";
-import { exists } from "@std/fs";
 import { parse as parseYaml } from "@std/yaml";
+import { EnsembleConfigStore } from "./config.ts";
 
 /** One `publish:` entry in a `lib.yml` — the kit to publish through and, only for a kit with more than one named destination, which one. */
 export interface PublishEntry {
@@ -39,12 +39,14 @@ function parsePublishEntries(path: string, value: unknown): PublishEntry[] {
 }
 
 /**
- * Loads `lib.yml` declarations — one at a time (`load`), or by discovering
- * every `source/core/**\/lib.yml` (`discoverCoreLibs`), mirroring how
+ * Loads lib declarations — one at a time from a `lib.yml` (`load`, used for
+ * `source/libs/**` libraries, which carry their own `lib.yml` since it has
+ * to travel with them once ejected to their own repository), or by
+ * discovering every entry under the top-level `libs:` key in
+ * `.ensemble/config.yaml` (`discoverCoreLibs`, used for `source/core/**`
+ * libraries, which stay in this repo and shouldn't carry ensemble-CLI-only
+ * tooling metadata alongside their real exports). Mirrors how
  * `ReleaseCeremony.collectShipReleases` globs `ci/<name>/delivery.yml`.
- * Reused as-is by both core libraries (discovered here) and libs libraries
- * (loaded one at a time by `ens lib publish` — a future phase); the shape
- * and the loader are identical for both, only the discovery/cascade differs.
  */
 export class LibDeclarationLoader {
   constructor(private readonly repoRoot: string) {}
@@ -70,20 +72,24 @@ export class LibDeclarationLoader {
     };
   }
 
-  /** Every `source/core/<name>/lib.yml`, one level deep — the same layout `SelfContainmentChecker` scans for core workspace members. Core libraries that declare no `lib.yml` are simply not discovered here. */
+  /** Every entry under `libs:` in `.ensemble/config.yaml`, resolved against `source/core/<name>` — the config-driven counterpart to the per-directory `lib.yml` scan `SelfContainmentChecker` still does for `source/libs/**`. A repo with no config.yaml yet, or no `libs:` key, simply discovers nothing. */
   async discoverCoreLibs(): Promise<
     { libRoot: string; declaration: LibDeclaration }[]
   > {
-    const coreDir = join(this.repoRoot, "source", "core");
-    const results: { libRoot: string; declaration: LibDeclaration }[] = [];
-    if (!await exists(coreDir, { isDirectory: true })) return results;
-
-    for await (const entry of Deno.readDir(coreDir)) {
-      if (!entry.isDirectory) continue;
-      const libRoot = join(coreDir, entry.name);
-      if (!await exists(join(libRoot, "lib.yml"), { isFile: true })) continue;
-      results.push({ libRoot, declaration: await this.load(libRoot) });
-    }
-    return results;
+    const config = await new EnsembleConfigStore(this.repoRoot).loadOrEmpty();
+    return Object.entries(config.libs ?? {}).map(([name, libConfig]) => {
+      if (!libConfig.package) {
+        throw new Error(
+          `"libs.${name}" in .ensemble/config.yaml is missing a "package" name.`,
+        );
+      }
+      return {
+        libRoot: join(this.repoRoot, "source", "core", name),
+        declaration: {
+          package: libConfig.package,
+          publish: (libConfig.publish ?? []).map(({ kit, target }) => ({ kit, target })),
+        },
+      };
+    });
   }
 }

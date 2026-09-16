@@ -62,17 +62,18 @@ Deno.test("LibDeclarationLoader.load: missing package name rejected", async () =
   });
 });
 
-Deno.test("LibDeclarationLoader.discoverCoreLibs: finds every source/core/<name>/lib.yml one level deep", async () => {
+async function writeConfigYaml(repoRoot: string, content: string): Promise<void> {
+  await Deno.mkdir(join(repoRoot, ".ensemble"), { recursive: true });
+  await Deno.writeTextFile(join(repoRoot, ".ensemble", "config.yaml"), content);
+}
+
+Deno.test("LibDeclarationLoader.discoverCoreLibs: finds every entry under libs: in .ensemble/config.yaml, resolved against source/core/<name>", async () => {
   await withRepoRoot(async (repoRoot) => {
-    await writeLibYml(
-      join(repoRoot, "source", "core", "kit-sdk"),
-      `package: "@ensemble/kit-sdk"\n`,
+    await writeConfigYaml(
+      repoRoot,
+      `libs:\n  kit-sdk:\n    package: "@ensemble/kit-sdk"\n  core:\n    package: "@ensemble/core"\n    publish:\n      - kit: jsr\n`,
     );
-    await writeLibYml(
-      join(repoRoot, "source", "core", "core"),
-      `package: "@ensemble/core"\npublish:\n  - kit: jsr\n`,
-    );
-    // "website" has no lib.yml — never discovered.
+    // "website" isn't declared under libs: — never discovered.
     await Deno.mkdir(join(repoRoot, "source", "core", "website"), {
       recursive: true,
     });
@@ -88,14 +89,30 @@ Deno.test("LibDeclarationLoader.discoverCoreLibs: finds every source/core/<name>
       kit: "jsr",
       target: undefined,
     }]);
+    assertEquals(
+      byPackage.get("@ensemble/kit-sdk")?.libRoot,
+      join(repoRoot, "source", "core", "kit-sdk"),
+    );
   });
 });
 
-Deno.test("LibDeclarationLoader.discoverCoreLibs: no source/core directory discovers nothing", async () => {
+Deno.test("LibDeclarationLoader.discoverCoreLibs: no .ensemble/config.yaml discovers nothing", async () => {
   await withRepoRoot(async (repoRoot) => {
     assertEquals(
       await new LibDeclarationLoader(repoRoot).discoverCoreLibs(),
       [],
+    );
+  });
+});
+
+Deno.test("LibDeclarationLoader.discoverCoreLibs: a libs entry missing a package name rejects", async () => {
+  await withRepoRoot(async (repoRoot) => {
+    await writeConfigYaml(repoRoot, `libs:\n  kit-sdk: {}\n`);
+
+    await assertRejects(
+      () => new LibDeclarationLoader(repoRoot).discoverCoreLibs(),
+      Error,
+      'missing a "package"',
     );
   });
 });
