@@ -1,3 +1,19 @@
+## [0.19.0] - 2026-09-17
+
+### 🚀 Features
+
+- *(release)* Persist ceremony progress and auto-continue past packing
+
+### 🐛 Bug Fixes
+
+- *(release)* Don't re-run release hooks from resume
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.18.1
+- *(changelog)* Update for 0.18.1
+- *(changelog)* Remove duplicated 0.18.1 section
+- *(release)* Bump library versions for 0.19.0
 ## [0.18.1] - 2026-09-17
 
 ### 🐛 Bug Fixes
