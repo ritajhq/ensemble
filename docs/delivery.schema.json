@@ -228,12 +228,15 @@
       }
     },
     "developmentBlock": {
-      "description": "Developer-owned intent for `ens deploy --watch`, honored only by provisioners that support it.",
+      "description": "Developer-owned intent for `ens deploy --watch`, honored only by provisioners that support it. Sync rules are grouped by action: `sync` just copies files over, `sync+restart` additionally restarts the container so the process picks them up.",
       "type": "object",
-      "required": ["sync"],
       "additionalProperties": false,
       "properties": {
         "sync": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/syncRule" }
+        },
+        "sync+restart": {
           "type": "array",
           "items": { "$ref": "#/definitions/syncRule" }
         }
@@ -251,11 +254,6 @@
         "path": {
           "description": "Path inside the deployed container to keep current with the app's source.",
           "type": "string"
-        },
-        "action": {
-          "description": "Whether to just sync files or also restart the container. Defaults to sync.",
-          "type": "string",
-          "enum": ["sync", "sync+restart"]
         },
         "ignore": {
           "description": "Glob patterns to exclude from sync.",
