@@ -13,7 +13,7 @@ import type { MatchedResource } from "./matched-resource.ts";
 /** Test-only fakes for Phase 3's resolution agents — "everything tested with fakes, no kit, no I/O" (Section 13). Not part of the public barrel; imported directly by test files. */
 
 export class FakeProvisioner implements Provisioner {
-  readonly describe?: () => string;
+  readonly describe?: () => Promise<string>;
 
   constructor(
     private readonly predicate: (
@@ -22,10 +22,10 @@ export class FakeProvisioner implements Provisioner {
     ) => boolean,
     label?: string,
   ) {
-    if (label !== undefined) this.describe = () => label;
+    if (label !== undefined) this.describe = () => Promise.resolve(label);
   }
-  matches(resource: MatchedResource, runtime?: string): boolean {
-    return this.predicate(resource, runtime);
+  matches(resource: MatchedResource, runtime?: string): Promise<boolean> {
+    return Promise.resolve(this.predicate(resource, runtime));
   }
 }
 
@@ -80,36 +80,38 @@ export class FakeRealization implements Realization {
     category: Category,
     type: string,
     className: string,
-  ): ClassPreset | undefined {
-    return this.presets.get(`${category}.${type}.${className}`);
+  ): Promise<ClassPreset | undefined> {
+    return Promise.resolve(this.presets.get(`${category}.${type}.${className}`));
   }
 
   defaultFor(
     category: Category,
     type: string,
     concern: string,
-  ): number | boolean | string | undefined {
-    return this.defaults.get(`${category}.${type}.${concern}`);
+  ): Promise<number | boolean | string | undefined> {
+    return Promise.resolve(this.defaults.get(`${category}.${type}.${concern}`));
   }
 
   boundFor(
     category: Category,
     type: string,
     concern: string,
-  ): Bound | undefined {
-    return this.bounds.get(`${category}.${type}.${concern}`);
+  ): Promise<Bound | undefined> {
+    return Promise.resolve(this.bounds.get(`${category}.${type}.${concern}`));
   }
 
   supportsCapability(
     category: Category,
     type: string,
     capability: string,
-  ): boolean {
-    return this.capabilities.get(`${category}.${type}.${capability}`) ?? false;
+  ): Promise<boolean> {
+    return Promise.resolve(
+      this.capabilities.get(`${category}.${type}.${capability}`) ?? false,
+    );
   }
 
-  knowabilityOf(): Knowability {
-    return "static";
+  knowabilityOf(): Promise<Knowability> {
+    return Promise.resolve("static");
   }
 }
 
@@ -118,11 +120,11 @@ export class FakeKit implements Kit {
     private readonly set: ProvisionerSet,
     private readonly instance: Realization,
   ) {}
-  provisioners(): ProvisionerSet {
-    return this.set;
+  provisioners(): Promise<ProvisionerSet> {
+    return Promise.resolve(this.set);
   }
-  realization(): Realization {
-    return this.instance;
+  realization(): Promise<Realization> {
+    return Promise.resolve(this.instance);
   }
   present(): never {
     throw new Error(

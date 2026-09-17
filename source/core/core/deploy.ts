@@ -104,11 +104,13 @@ export async function runDeploy(
   options: RunDeployOptions,
   ports: Ports,
   gateway: Deploy.PackKitGateway,
+  kitLoader: Deploy.KitLoader,
 ): Promise<void> {
   const { repoRoot, workload, target, registry } = await loadDeployContext(
     name,
     kit,
     ports.repo,
+    kitLoader,
   );
 
   const locatorResolver = new Deploy.ReleaseLocatorResolver(gateway);
@@ -120,7 +122,7 @@ export async function runDeploy(
     ),
   );
   const renderer = new Deploy.Render.Renderer(
-    new Deploy.Render.ReferenceResolver(target.kit.realization()),
+    new Deploy.Render.ReferenceResolver(await target.kit.realization()),
     releaseLocator,
     registry,
   );

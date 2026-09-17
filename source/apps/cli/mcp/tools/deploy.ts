@@ -21,15 +21,17 @@ export class DeployTools {
         inputSchema: {
           name: z.string().describe("Workload name to deploy."),
           kit: z.string().describe("Deploy kit to use."),
-          artifacts: z.enum(["local", "published"]).default("published").describe(
-            "Which release locator to resolve.",
-          ),
+          artifacts: z.enum(["local", "published"]).default("published")
+            .describe(
+              "Which release locator to resolve.",
+            ),
           version: z.string().default("latest").describe(
             "Released version to resolve ${release.<name>} references to for published artifacts.",
           ),
-          termination: z.enum(["eject", "plan", "apply"]).default("apply").describe(
-            '"eject" renders and writes the artifact with no apply; "plan" renders and shows the intent-diff; "apply" (default) performs the deploy.',
-          ),
+          termination: z.enum(["eject", "plan", "apply"]).default("apply")
+            .describe(
+              '"eject" renders and writes the artifact with no apply; "plan" renders and shows the intent-diff; "apply" (default) performs the deploy.',
+            ),
           acceptCapabilityGaps: z.boolean().default(false).describe(
             "Proceed even if the target kit can't satisfy a requested capability (otherwise this hard-fails).",
           ),
@@ -45,19 +47,36 @@ export class DeployTools {
         },
       },
       (
-        { name, kit, artifacts, version, termination, acceptCapabilityGaps, pack, emulateExternals, verbose },
+        {
+          name,
+          kit,
+          artifacts,
+          version,
+          termination,
+          acceptCapabilityGaps,
+          pack,
+          emulateExternals,
+          verbose,
+        },
       ) =>
         ToolResult.from(async () => {
-          await runDeploy(name, kit, {
-            artifacts,
-            version,
-            termination,
-            acceptCapabilityGaps,
-            watch: false,
-            pack,
-            emulateExternals,
-            verbose,
-          }, Host.createPorts(), new Host.SubprocessPackKitGateway());
+          await runDeploy(
+            name,
+            kit,
+            {
+              artifacts,
+              version,
+              termination,
+              acceptCapabilityGaps,
+              watch: false,
+              pack,
+              emulateExternals,
+              verbose,
+            },
+            Host.createPorts(),
+            new Host.SubprocessPackKitGateway(),
+            new Host.SubprocessKitLoader(),
+          );
           return `Ran "${termination}" for "${name}" via "${kit}" (${artifacts}).`;
         }),
     );
@@ -72,10 +91,13 @@ export class DeployTools {
         inputSchema: {
           name: z.string().describe("Workload name."),
           kit: z.string().describe("Deploy kit to use."),
-          resource: z.string().describe('Resource to explain, as "category.name".'),
-          artifacts: z.enum(["local", "published"]).default("published").describe(
-            "Which release locator to resolve.",
+          resource: z.string().describe(
+            'Resource to explain, as "category.name".',
           ),
+          artifacts: z.enum(["local", "published"]).default("published")
+            .describe(
+              "Which release locator to resolve.",
+            ),
           version: z.string().default("latest").describe(
             "Released version to resolve ${release.<name>} references to for published artifacts.",
           ),
@@ -90,6 +112,7 @@ export class DeployTools {
             { artifacts, version },
             Host.createPorts().repo,
             new Host.SubprocessPackKitGateway(),
+            new Host.SubprocessKitLoader(),
           );
           return `Explained "${resource}" for "${name}" via "${kit}".`;
         }),
@@ -127,7 +150,18 @@ export class DeployTools {
           ),
         },
       },
-      ({ name, kit, artifacts, version, acceptCapabilityGaps, pack, emulateExternals, verbose }) =>
+      (
+        {
+          name,
+          kit,
+          artifacts,
+          version,
+          acceptCapabilityGaps,
+          pack,
+          emulateExternals,
+          verbose,
+        },
+      ) =>
         ToolResult.from(() => {
           const args = [
             "deploy",

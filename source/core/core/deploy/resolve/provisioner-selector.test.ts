@@ -1,4 +1,4 @@
-import { assertEquals, assertThrows } from "@std/assert";
+import { assertEquals, assertRejects } from "@std/assert";
 import { relationalV1 } from "../contracts/seeds/relational.ts";
 import type { MatchedResource } from "./matched-resource.ts";
 import { NoMatchingProvisionerError } from "./selected-provisioner.ts";
@@ -33,36 +33,36 @@ function matchedRelational(
 
 const selector = new ProvisionerSelector();
 
-Deno.test("ProvisionerSelector.select: first-match wins over a later matching provisioner", () => {
+Deno.test("ProvisionerSelector.select: first-match wins over a later matching provisioner", async () => {
   const first = new FakeProvisioner(() => true);
   const second = new FakeProvisioner(() => true);
   const kit = new FakeKit([first, second], new FakeRealization());
 
-  const selected = selector.select(matchedRelational(), fakeTarget(kit));
+  const selected = await selector.select(matchedRelational(), fakeTarget(kit));
   assertEquals(selected.provisioner, first);
 });
 
-Deno.test("ProvisionerSelector.select: skips a non-matching provisioner to reach a later match", () => {
+Deno.test("ProvisionerSelector.select: skips a non-matching provisioner to reach a later match", async () => {
   const skip = new FakeProvisioner(() => false);
   const match = new FakeProvisioner(() => true);
   const kit = new FakeKit([skip, match], new FakeRealization());
 
-  const selected = selector.select(matchedRelational(), fakeTarget(kit));
+  const selected = await selector.select(matchedRelational(), fakeTarget(kit));
   assertEquals(selected.provisioner, match);
 });
 
-Deno.test("ProvisionerSelector.select: throws NoMatchingProvisionerError when nothing matches", () => {
+Deno.test("ProvisionerSelector.select: throws NoMatchingProvisionerError when nothing matches", async () => {
   const kit = new FakeKit(
     [new FakeProvisioner(() => false)],
     new FakeRealization(),
   );
-  assertThrows(
+  await assertRejects(
     () => selector.select(matchedRelational(), fakeTarget(kit)),
     NoMatchingProvisionerError,
   );
 });
 
-Deno.test("ProvisionerSelector.select: reports no gaps when every requested capability is supported", () => {
+Deno.test("ProvisionerSelector.select: reports no gaps when every requested capability is supported", async () => {
   const realization = new FakeRealization().withCapability(
     "databases",
     "relational",
@@ -71,27 +71,27 @@ Deno.test("ProvisionerSelector.select: reports no gaps when every requested capa
   );
   const kit = new FakeKit([new FakeProvisioner(() => true)], realization);
 
-  const selected = selector.select(
+  const selected = await selector.select(
     matchedRelational({ capabilities: { "read-replicas": 2 } }),
     fakeTarget(kit),
   );
   assertEquals(selected.gaps, []);
 });
 
-Deno.test("ProvisionerSelector.select: reports a gap for an unsupported capability without failing the match", () => {
+Deno.test("ProvisionerSelector.select: reports a gap for an unsupported capability without failing the match", async () => {
   const kit = new FakeKit(
     [new FakeProvisioner(() => true)],
     new FakeRealization(),
   );
 
-  const selected = selector.select(
+  const selected = await selector.select(
     matchedRelational({ capabilities: { "read-replicas": 2 } }),
     fakeTarget(kit),
   );
   assertEquals(selected.gaps, [{ capability: "read-replicas", requested: 2 }]);
 });
 
-Deno.test("ProvisionerSelector.explain: reports every provisioner's own match result, by its describe() label", () => {
+Deno.test("ProvisionerSelector.explain: reports every provisioner's own match result, by its describe() label", async () => {
   const relational = new FakeProvisioner(
     (r) => r.declaration.type === "relational",
     "relational",
@@ -105,34 +105,34 @@ Deno.test("ProvisionerSelector.explain: reports every provisioner's own match re
     new FakeRealization(),
   );
 
-  const explanation = selector.explain(matchedRelational(), fakeTarget(kit));
+  const explanation = await selector.explain(matchedRelational(), fakeTarget(kit));
   assertEquals(explanation, [
     { description: "container-orchestrated", matched: false },
     { description: "relational", matched: true },
   ]);
 });
 
-Deno.test("ProvisionerSelector.explain: falls back to a positional label when a provisioner declares no describe()", () => {
+Deno.test("ProvisionerSelector.explain: falls back to a positional label when a provisioner declares no describe()", async () => {
   const kit = new FakeKit(
     [new FakeProvisioner(() => true)],
     new FakeRealization(),
   );
 
-  const explanation = selector.explain(matchedRelational(), fakeTarget(kit));
+  const explanation = await selector.explain(matchedRelational(), fakeTarget(kit));
   assertEquals(explanation, [{ description: "provisioner #1", matched: true }]);
 });
 
-Deno.test("ProvisionerSelector.explain: never throws when nothing matches (unlike select)", () => {
+Deno.test("ProvisionerSelector.explain: never throws when nothing matches (unlike select)", async () => {
   const kit = new FakeKit(
     [new FakeProvisioner(() => false, "relational")],
     new FakeRealization(),
   );
 
-  const explanation = selector.explain(matchedRelational(), fakeTarget(kit));
+  const explanation = await selector.explain(matchedRelational(), fakeTarget(kit));
   assertEquals(explanation, [{ description: "relational", matched: false }]);
 });
 
-Deno.test("ProvisionerSelector.select: a runtime-guarded provisioner binds differently depending on the target's runtime", () => {
+Deno.test("ProvisionerSelector.select: a runtime-guarded provisioner binds differently depending on the target's runtime", async () => {
   const localstack = new FakeProvisioner(
     (_r, runtime) => runtime === "localstack",
     "localstack-relational",
@@ -143,17 +143,17 @@ Deno.test("ProvisionerSelector.select: a runtime-guarded provisioner binds diffe
   );
   const kit = new FakeKit([localstack, real], new FakeRealization());
 
-  const onLocalstack = selector.select(
+  const onLocalstack = await selector.select(
     matchedRelational(),
     fakeTarget(kit, "localstack"),
   );
-  const onReal = selector.select(matchedRelational(), fakeTarget(kit));
+  const onReal = await selector.select(matchedRelational(), fakeTarget(kit));
 
   assertEquals(onLocalstack.provisioner, localstack);
   assertEquals(onReal.provisioner, real);
 });
 
-Deno.test("ProvisionerSelector.select: no target runtime means the provisioner sees runtime as undefined", () => {
+Deno.test("ProvisionerSelector.select: no target runtime means the provisioner sees runtime as undefined", async () => {
   let seenRuntime: string | undefined = "unset";
   const kit = new FakeKit(
     [
@@ -165,6 +165,6 @@ Deno.test("ProvisionerSelector.select: no target runtime means the provisioner s
     new FakeRealization(),
   );
 
-  selector.select(matchedRelational(), fakeTarget(kit));
+  await selector.select(matchedRelational(), fakeTarget(kit));
   assertEquals(seenRuntime, undefined);
 });

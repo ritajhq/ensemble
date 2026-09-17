@@ -9,22 +9,24 @@ import type { Kit } from "../../kit.ts";
  * dropped until a real `--emulate-externals` run surfaced it.
  */
 const kit: Kit = {
-  provisioners: () => [{ matches: () => true }],
-  realization: () => ({
-    classPreset: () => undefined,
-    defaultFor: () => undefined,
-    boundFor: () => undefined,
-    supportsCapability: () => false,
-    knowabilityOf: () => "static",
-  }),
-  present: () => ({ filename: "fixture.txt", content: "" }),
-  applyCommand: () => ["fixture-apply"],
-  watchCommand: () => ["fixture-watch"],
-  emulateExternals: () => [{
-    name: "fixture-external",
-    check: ["fixture-check"],
-    create: ["fixture-create"],
-  }],
+  provisioners: () => Promise.resolve([{ matches: () => Promise.resolve(true) }]),
+  realization: () =>
+    Promise.resolve({
+      classPreset: () => Promise.resolve(undefined),
+      defaultFor: () => Promise.resolve(undefined),
+      boundFor: () => Promise.resolve(undefined),
+      supportsCapability: () => Promise.resolve(false),
+      knowabilityOf: () => Promise.resolve("static"),
+    }),
+  present: () => Promise.resolve({ filename: "fixture.txt", content: "" }),
+  applyCommand: () => Promise.resolve(["fixture-apply"]),
+  watchCommand: () => Promise.resolve(["fixture-watch"]),
+  emulateExternals: () =>
+    Promise.resolve([{
+      name: "fixture-external",
+      check: ["fixture-check"],
+      create: ["fixture-create"],
+    }]),
 };
 
 export default kit;

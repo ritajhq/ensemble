@@ -19,7 +19,7 @@ import type { ResolvedReference } from "./resolved-reference.ts";
 export class ReferenceResolver {
   constructor(private readonly realization: Realization) {}
 
-  resolve(reference: Reference, ledger: OutputsLedger): ResolvedReference {
+  async resolve(reference: Reference, ledger: OutputsLedger): Promise<ResolvedReference> {
     if (reference.category === "release") {
       return { mode: "baked", value: ledger.releaseOutput(reference.name) };
     }
@@ -28,7 +28,7 @@ export class ReferenceResolver {
     const type = ledger.typeOf(category, reference.name);
     const output = reference.output!;
     const value = ledger.outputFor(category, reference.name, output);
-    const knowability = this.realization.knowabilityOf(category, type, output);
+    const knowability = await this.realization.knowabilityOf(category, type, output);
 
     return knowability === "static"
       ? { mode: "baked", value }

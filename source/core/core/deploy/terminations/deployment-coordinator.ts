@@ -112,7 +112,7 @@ export class DeploymentCoordinator {
   ): Promise<DeployResult> {
     this.referenceValidator.validate(workload);
 
-    const { requests, selections, gaps } = this.resolver.resolve(
+    const { requests, selections, gaps } = await this.resolver.resolve(
       workload,
       target,
     );
@@ -122,7 +122,7 @@ export class DeploymentCoordinator {
     }
 
     const graph = this.graphBuilder.build(workload);
-    const artifacts = this.renderer.render(
+    const artifacts = await this.renderer.render(
       workload,
       requests,
       selections,

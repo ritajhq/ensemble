@@ -23,6 +23,7 @@ export async function runExplain(
   options: RunExplainOptions,
   repo: RepoLocator,
   gateway: Deploy.PackKitGateway,
+  kitLoader: Deploy.KitLoader,
 ): Promise<void> {
   const [category, resourceName] = resource.split(".");
   if (!category || !resourceName) {
@@ -31,7 +32,12 @@ export async function runExplain(
     );
   }
 
-  const { workload, target, registry } = await loadDeployContext(name, kit, repo);
+  const { workload, target, registry } = await loadDeployContext(
+    name,
+    kit,
+    repo,
+    kitLoader,
+  );
 
   const locatorResolver = new Deploy.ReleaseLocatorResolver(gateway);
   const releaseLocator = new Deploy.PreresolvedReleaseLocator(
@@ -42,13 +48,13 @@ export async function runExplain(
     ),
   );
   const renderer = new Deploy.Render.Renderer(
-    new Deploy.Render.ReferenceResolver(target.kit.realization()),
+    new Deploy.Render.ReferenceResolver(await target.kit.realization()),
     releaseLocator,
     registry,
   );
 
   const explainer = new Deploy.Explain.Explainer(registry, renderer);
-  const explanation = explainer.explain(
+  const explanation = await explainer.explain(
     workload,
     target,
     options.artifacts,

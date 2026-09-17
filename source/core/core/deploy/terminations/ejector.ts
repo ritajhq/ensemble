@@ -19,7 +19,7 @@ export class Ejector {
     graph: DependencyGraph,
     kit: Kit,
   ): Promise<PresentedArtifact> {
-    const presented = kit.present(artifacts, graph);
+    const presented = await kit.present(artifacts, graph);
     await this.sink.write(presented);
     return presented;
   }

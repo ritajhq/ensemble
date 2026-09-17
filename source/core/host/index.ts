@@ -13,6 +13,7 @@ export {
 export { AnimatedBuildReporter } from "./animated-build-reporter.ts";
 export { AnimatedPackReporter } from "./animated-pack-reporter.ts";
 export { SubprocessPackKitGateway } from "./pack-kit-gateway.ts";
+export { SubprocessKitLoader } from "./subprocess-kit-loader.ts";
 export { GitPackageSource } from "./git-package-source.ts";
 
 /**

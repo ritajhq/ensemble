@@ -1,4 +1,4 @@
-import { assertEquals, assertThrows } from "@std/assert";
+import { assertEquals, assertRejects } from "@std/assert";
 import { Parser } from "../manifest/parser.ts";
 import { ContractError } from "../contracts/errors.ts";
 import { ContractCatalog } from "../contracts/registry.ts";
@@ -49,83 +49,94 @@ function fakeKit(
   > = {},
 ): Kit {
   return {
-    provisioners: () => [
-      {
-        matches: (r) => r.declaration.type === "relational",
-        describe: () => "relational",
-        provision: (request) => ({
-          fragment: {
-            category: request.category,
-            name: request.name,
-            content: {},
-          },
-          outputs: {
-            host: request.name,
-            port: 5432,
-            user: request.params.user,
-            database: request.params.database,
-            url:
-              `postgres://${request.params.user}@${request.name}:5432/${request.params.database}`,
-          },
-        }),
-      },
-      {
-        matches: (r) => r.declaration.type === "container-orchestrated",
-        describe: () => "container-orchestrated",
-        provision: (request) => ({
-          fragment: {
-            category: request.category,
-            name: request.name,
-            content: {},
-          },
-          outputs: {},
-        }),
-      },
-    ],
-    realization: () => ({
-      classPreset: (category, type, className) =>
-        category === "databases" && type === "relational" &&
-          className === "critical"
-          ? {
-            concernValues: {
-              backupRetention: 35,
-              multiAz: true,
-              deletionProtection: true,
-            },
-          }
-          : undefined,
-      defaultFor: (category, type, concern) =>
-        category === "databases" && type === "relational" &&
-          concern === "storageSize"
-          ? overrides.storageSizeDefault
-          : undefined,
-      boundFor: () => undefined,
-      supportsCapability: (category, type, capability) =>
-        category === "databases" && type === "relational" &&
-        capability === "read-replicas" &&
-        (overrides.readReplicasSupported ?? false),
-      knowabilityOf: () => "static",
-    }),
-    present: () => ({ filename: "x", content: "x" }),
-    applyCommand: () => ["true"],
+    provisioners: () =>
+      Promise.resolve([
+        {
+          matches: (r) => Promise.resolve(r.declaration.type === "relational"),
+          describe: () => Promise.resolve("relational"),
+          provision: (request) =>
+            Promise.resolve({
+              fragment: {
+                category: request.category,
+                name: request.name,
+                content: {},
+              },
+              outputs: {
+                host: request.name,
+                port: 5432,
+                user: request.params.user,
+                database: request.params.database,
+                url:
+                  `postgres://${request.params.user}@${request.name}:5432/${request.params.database}`,
+              },
+            }),
+        },
+        {
+          matches: (r) =>
+            Promise.resolve(r.declaration.type === "container-orchestrated"),
+          describe: () => Promise.resolve("container-orchestrated"),
+          provision: (request) =>
+            Promise.resolve({
+              fragment: {
+                category: request.category,
+                name: request.name,
+                content: {},
+              },
+              outputs: {},
+            }),
+        },
+      ]),
+    realization: () =>
+      Promise.resolve({
+        classPreset: (category, type, className) =>
+          Promise.resolve(
+            category === "databases" && type === "relational" &&
+              className === "critical"
+              ? {
+                concernValues: {
+                  backupRetention: 35,
+                  multiAz: true,
+                  deletionProtection: true,
+                },
+              }
+              : undefined,
+          ),
+        defaultFor: (category, type, concern) =>
+          Promise.resolve(
+            category === "databases" && type === "relational" &&
+              concern === "storageSize"
+              ? overrides.storageSizeDefault
+              : undefined,
+          ),
+        boundFor: () => Promise.resolve(undefined),
+        supportsCapability: (category, type, capability) =>
+          Promise.resolve(
+            category === "databases" && type === "relational" &&
+              capability === "read-replicas" &&
+              (overrides.readReplicasSupported ?? false),
+          ),
+        knowabilityOf: () => Promise.resolve("static"),
+      }),
+    present: () => Promise.resolve({ filename: "x", content: "x" }),
+    applyCommand: () => Promise.resolve(["true"]),
   };
 }
 
-function buildExplainer(kit: Kit) {
+async function buildExplainer(kit: Kit) {
   const renderer = new Renderer(
-    new ReferenceResolver(kit.realization()),
+    new ReferenceResolver(await kit.realization()),
     releaseLocator,
     registry,
   );
   return new Explainer(registry, renderer);
 }
 
-Deno.test("Explainer.explain: names which provisioner matched and which didn't", () => {
+Deno.test("Explainer.explain: names which provisioner matched and which didn't", async () => {
   const workload = new Parser().parse(APPENDIX_A);
   const kit = fakeKit();
   const target: Target = { kit };
 
-  const explanation = buildExplainer(kit).explain(
+  const explanation = await (await buildExplainer(kit)).explain(
     workload,
     target,
     "published",
@@ -140,12 +151,12 @@ Deno.test("Explainer.explain: names which provisioner matched and which didn't",
   ]);
 });
 
-Deno.test("Explainer.explain: reports provenance for every resolved value", () => {
+Deno.test("Explainer.explain: reports provenance for every resolved value", async () => {
   const workload = new Parser().parse(APPENDIX_A);
   const kit = fakeKit();
   const target: Target = { kit };
 
-  const explanation = buildExplainer(kit).explain(
+  const explanation = await (await buildExplainer(kit)).explain(
     workload,
     target,
     "published",
@@ -163,12 +174,12 @@ Deno.test("Explainer.explain: reports provenance for every resolved value", () =
   });
 });
 
-Deno.test("Explainer.explain: flags a value that resolved purely from a kit default", () => {
+Deno.test("Explainer.explain: flags a value that resolved purely from a kit default", async () => {
   const workload = new Parser().parse(APPENDIX_A);
   const kit = fakeKit({ storageSizeDefault: 50 });
   const target: Target = { kit };
 
-  const explanation = buildExplainer(kit).explain(
+  const explanation = await (await buildExplainer(kit)).explain(
     workload,
     target,
     "published",
@@ -183,12 +194,12 @@ Deno.test("Explainer.explain: flags a value that resolved purely from a kit defa
   assertEquals(explanation.flaggedDefaults, ["storageSize"]);
 });
 
-Deno.test("Explainer.explain: reports no flagged defaults when nothing resolved that way", () => {
+Deno.test("Explainer.explain: reports no flagged defaults when nothing resolved that way", async () => {
   const workload = new Parser().parse(APPENDIX_A);
   const kit = fakeKit();
   const target: Target = { kit };
 
-  const explanation = buildExplainer(kit).explain(
+  const explanation = await (await buildExplainer(kit)).explain(
     workload,
     target,
     "published",
@@ -199,7 +210,7 @@ Deno.test("Explainer.explain: reports no flagged defaults when nothing resolved 
   assertEquals(explanation.flaggedDefaults, []);
 });
 
-Deno.test("Explainer.explain: reports an accepted capability gap without failing", () => {
+Deno.test("Explainer.explain: reports an accepted capability gap without failing", async () => {
   const workload = new Parser().parse(
     APPENDIX_A.replace(
       "class: critical",
@@ -209,7 +220,7 @@ Deno.test("Explainer.explain: reports an accepted capability gap without failing
   const kit = fakeKit({ readReplicasSupported: false });
   const target: Target = { kit };
 
-  const explanation = buildExplainer(kit).explain(
+  const explanation = await (await buildExplainer(kit)).explain(
     workload,
     target,
     "published",
@@ -223,7 +234,7 @@ Deno.test("Explainer.explain: reports an accepted capability gap without failing
   }]);
 });
 
-Deno.test("Explainer.explain: reports no gap when the capability is satisfied", () => {
+Deno.test("Explainer.explain: reports no gap when the capability is satisfied", async () => {
   const workload = new Parser().parse(
     APPENDIX_A.replace(
       "class: critical",
@@ -233,7 +244,7 @@ Deno.test("Explainer.explain: reports no gap when the capability is satisfied", 
   const kit = fakeKit({ readReplicasSupported: true });
   const target: Target = { kit };
 
-  const explanation = buildExplainer(kit).explain(
+  const explanation = await (await buildExplainer(kit)).explain(
     workload,
     target,
     "published",
@@ -244,12 +255,12 @@ Deno.test("Explainer.explain: reports no gap when the capability is satisfied", 
   assertEquals(explanation.capabilityGaps, []);
 });
 
-Deno.test("Explainer.explain: reports the resource's real resolved outputs with knowability", () => {
+Deno.test("Explainer.explain: reports the resource's real resolved outputs with knowability", async () => {
   const workload = new Parser().parse(APPENDIX_A);
   const kit = fakeKit();
   const target: Target = { kit };
 
-  const explanation = buildExplainer(kit).explain(
+  const explanation = await (await buildExplainer(kit)).explain(
     workload,
     target,
     "published",
@@ -267,14 +278,14 @@ Deno.test("Explainer.explain: reports the resource's real resolved outputs with 
   });
 });
 
-Deno.test("Explainer.explain: throws ResourceNotFoundError for an undeclared resource", () => {
+Deno.test("Explainer.explain: throws ResourceNotFoundError for an undeclared resource", async () => {
   const workload = new Parser().parse(APPENDIX_A);
   const kit = fakeKit();
   const target: Target = { kit };
 
-  assertThrows(
-    () =>
-      buildExplainer(kit).explain(
+  await assertRejects(
+    async () =>
+      await (await buildExplainer(kit)).explain(
         workload,
         target,
         "published",
@@ -285,7 +296,7 @@ Deno.test("Explainer.explain: throws ResourceNotFoundError for an undeclared res
   );
 });
 
-Deno.test("Explainer.explain: throws ContractError for a reference to an undeclared output", () => {
+Deno.test("Explainer.explain: throws ContractError for a reference to an undeclared output", async () => {
   const workload = new Parser().parse(
     APPENDIX_A.replace(
       "DATABASE_URL: ${databases.primary.url}",
@@ -295,9 +306,9 @@ Deno.test("Explainer.explain: throws ContractError for a reference to an undecla
   const kit = fakeKit();
   const target: Target = { kit };
 
-  assertThrows(
-    () =>
-      buildExplainer(kit).explain(
+  await assertRejects(
+    async () =>
+      await (await buildExplainer(kit)).explain(
         workload,
         target,
         "published",

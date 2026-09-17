@@ -35,7 +35,7 @@ export class ExternalsEmulator {
       );
     }
 
-    for (const emulation of kit.emulateExternals(workload)) {
+    for (const emulation of await kit.emulateExternals(workload)) {
       const alreadyExists = await this.run(emulation.check, { silent: true });
       if (alreadyExists) continue;
 

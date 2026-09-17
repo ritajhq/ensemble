@@ -10,15 +10,15 @@ import type { ResolvedValue, ResolvedValues } from "./resolved-values.ts";
  * recording provenance and — on a clamp — a warning at every step.
  */
 export class ValueNegotiator {
-  negotiate(resource: MatchedResource, target: Target): ResolvedValues {
-    const realization = target.kit.realization();
+  async negotiate(resource: MatchedResource, target: Target): Promise<ResolvedValues> {
+    const realization = await target.kit.realization();
     const values: Record<string, ResolvedValue> = {};
     const warnings: string[] = [];
 
     for (const concern of resource.contract.resolvableConcerns) {
-      const resolved = this.resolveConcern(resource, realization, concern);
+      const resolved = await this.resolveConcern(resource, realization, concern);
       if (!resolved) continue;
-      values[concern] = this.clamp(
+      values[concern] = await this.clamp(
         resource,
         realization,
         concern,
@@ -30,18 +30,18 @@ export class ValueNegotiator {
     return { values, warnings };
   }
 
-  private resolveConcern(
+  private async resolveConcern(
     resource: MatchedResource,
     realization: Realization,
     concern: string,
-  ): ResolvedValue | undefined {
+  ): Promise<ResolvedValue | undefined> {
     const capabilityValue = resource.declaration.capabilities?.[concern];
     if (capabilityValue !== undefined) {
       return { value: capabilityValue, provenance: "capability" };
     }
 
     if (resource.declaration.class !== undefined) {
-      const preset = realization.classPreset(
+      const preset = await realization.classPreset(
         resource.category,
         resource.declaration.type,
         resource.declaration.class,
@@ -52,7 +52,7 @@ export class ValueNegotiator {
       }
     }
 
-    const defaultValue = realization.defaultFor(
+    const defaultValue = await realization.defaultFor(
       resource.category,
       resource.declaration.type,
       concern,
@@ -62,15 +62,15 @@ export class ValueNegotiator {
       : { value: defaultValue, provenance: "default" };
   }
 
-  private clamp(
+  private async clamp(
     resource: MatchedResource,
     realization: Realization,
     concern: string,
     resolved: ResolvedValue,
     warnings: string[],
-  ): ResolvedValue {
+  ): Promise<ResolvedValue> {
     if (typeof resolved.value !== "number") return resolved;
-    const bound = realization.boundFor(
+    const bound = await realization.boundFor(
       resource.category,
       resource.declaration.type,
       concern,

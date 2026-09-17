@@ -21,6 +21,7 @@ export async function loadDeployContext(
   name: string,
   kit: string,
   repo: RepoLocator,
+  kitLoader: Deploy.KitLoader,
 ): Promise<DeployContext> {
   const repoRoot = await repo.findRepoRoot();
 
@@ -39,9 +40,7 @@ export async function loadDeployContext(
     );
   }
   const sidecarConfigPath = join(repoRoot, "ci", name, `${kit}.config.yml`);
-  const loaded = await new Deploy.KitLoader().load(vendoredKitDir, [
-    sidecarConfigPath,
-  ]);
+  const loaded = await kitLoader.load(vendoredKitDir, [sidecarConfigPath]);
 
   return {
     repoRoot,

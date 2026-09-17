@@ -32,7 +32,7 @@ function matchedRelational(
 
 const negotiator = new ValueNegotiator();
 
-Deno.test("ValueNegotiator.negotiate: falls back to the platform default with no class or capability", () => {
+Deno.test("ValueNegotiator.negotiate: falls back to the platform default with no class or capability", async () => {
   const realization = new FakeRealization().withDefault(
     "databases",
     "relational",
@@ -43,7 +43,7 @@ Deno.test("ValueNegotiator.negotiate: falls back to the platform default with no
     new FakeKit([new FakeProvisioner(() => true)], realization),
   );
 
-  const resolved = negotiator.negotiate(matchedRelational(), target);
+  const resolved = await negotiator.negotiate(matchedRelational(), target);
   assertEquals(resolved.values.backupRetention, {
     value: 7,
     provenance: "default",
@@ -51,7 +51,7 @@ Deno.test("ValueNegotiator.negotiate: falls back to the platform default with no
   assertEquals(resolved.warnings, []);
 });
 
-Deno.test("ValueNegotiator.negotiate: a class preset outranks the platform default", () => {
+Deno.test("ValueNegotiator.negotiate: a class preset outranks the platform default", async () => {
   const realization = new FakeRealization()
     .withDefault("databases", "relational", "backupRetention", 7)
     .withClassPreset("databases", "relational", "critical", {
@@ -59,7 +59,7 @@ Deno.test("ValueNegotiator.negotiate: a class preset outranks the platform defau
     });
   const target = fakeTarget(new FakeKit([], realization));
 
-  const resolved = negotiator.negotiate(
+  const resolved = await negotiator.negotiate(
     matchedRelational({ class: "critical" }),
     target,
   );
@@ -69,7 +69,7 @@ Deno.test("ValueNegotiator.negotiate: a class preset outranks the platform defau
   });
 });
 
-Deno.test("ValueNegotiator.negotiate: a developer capability outranks both the class preset and the default", () => {
+Deno.test("ValueNegotiator.negotiate: a developer capability outranks both the class preset and the default", async () => {
   const realization = new FakeRealization()
     .withDefault("databases", "relational", "read-replicas", 0)
     .withClassPreset("databases", "relational", "critical", {
@@ -77,7 +77,7 @@ Deno.test("ValueNegotiator.negotiate: a developer capability outranks both the c
     });
   const target = fakeTarget(new FakeKit([], realization));
 
-  const resolved = negotiator.negotiate(
+  const resolved = await negotiator.negotiate(
     matchedRelational({
       class: "critical",
       capabilities: { "read-replicas": 3 },
@@ -90,13 +90,13 @@ Deno.test("ValueNegotiator.negotiate: a developer capability outranks both the c
   });
 });
 
-Deno.test("ValueNegotiator.negotiate: clamps a value that exceeds the platform bound and warns", () => {
+Deno.test("ValueNegotiator.negotiate: clamps a value that exceeds the platform bound and warns", async () => {
   const realization = new FakeRealization()
     .withDefault("databases", "relational", "read-replicas", 0)
     .withBound("databases", "relational", "read-replicas", { max: 2 });
   const target = fakeTarget(new FakeKit([], realization));
 
-  const resolved = negotiator.negotiate(
+  const resolved = await negotiator.negotiate(
     matchedRelational({ capabilities: { "read-replicas": 5 } }),
     target,
   );
@@ -109,7 +109,7 @@ Deno.test("ValueNegotiator.negotiate: clamps a value that exceeds the platform b
   ]);
 });
 
-Deno.test("ValueNegotiator.negotiate: clamps below the platform's minimum bound too", () => {
+Deno.test("ValueNegotiator.negotiate: clamps below the platform's minimum bound too", async () => {
   const realization = new FakeRealization().withBound(
     "databases",
     "relational",
@@ -118,7 +118,7 @@ Deno.test("ValueNegotiator.negotiate: clamps below the platform's minimum bound 
   );
   const target = fakeTarget(new FakeKit([], realization));
 
-  const resolved = negotiator.negotiate(
+  const resolved = await negotiator.negotiate(
     matchedRelational({
       capabilities: { backupRetention: 1 as unknown as number },
     }),
@@ -130,7 +130,7 @@ Deno.test("ValueNegotiator.negotiate: clamps below the platform's minimum bound 
   });
 });
 
-Deno.test("ValueNegotiator.negotiate: never clamps a boolean-valued concern", () => {
+Deno.test("ValueNegotiator.negotiate: never clamps a boolean-valued concern", async () => {
   const realization = new FakeRealization()
     .withClassPreset("databases", "relational", "critical", {
       concernValues: { multiAz: true },
@@ -138,17 +138,17 @@ Deno.test("ValueNegotiator.negotiate: never clamps a boolean-valued concern", ()
     .withBound("databases", "relational", "multiAz", { max: 0 });
   const target = fakeTarget(new FakeKit([], realization));
 
-  const resolved = negotiator.negotiate(
+  const resolved = await negotiator.negotiate(
     matchedRelational({ class: "critical" }),
     target,
   );
   assertEquals(resolved.values.multiAz, { value: true, provenance: "preset" });
 });
 
-Deno.test("ValueNegotiator.negotiate: a concern with no preset, default, or capability is simply absent", () => {
+Deno.test("ValueNegotiator.negotiate: a concern with no preset, default, or capability is simply absent", async () => {
   const realization = new FakeRealization();
   const target = fakeTarget(new FakeKit([], realization));
 
-  const resolved = negotiator.negotiate(matchedRelational(), target);
+  const resolved = await negotiator.negotiate(matchedRelational(), target);
   assertEquals(resolved.values, {});
 });

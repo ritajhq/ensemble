@@ -56,7 +56,7 @@ export class WorkloadResolver {
     this.matcher = new ContractMatcher(registry);
   }
 
-  resolve(workload: Workload, target: Target): WorkloadResolution {
+  async resolve(workload: Workload, target: Target): Promise<WorkloadResolution> {
     const matches = new Map<string, MatchedResource>();
     const selections = new Map<string, SelectedProvisioner>();
     const values = new Map<string, ResolvedValues>();
@@ -71,10 +71,10 @@ export class WorkloadResolver {
       ) {
         const key = `${category}.${name}`;
         const matched = this.matcher.match(category, name, declaration);
-        const selection = this.selector.select(matched, target);
+        const selection = await this.selector.select(matched, target);
         for (const gap of selection.gaps) gaps.push({ resource: key, gap });
 
-        const resolvedValues = this.negotiator.negotiate(matched, target);
+        const resolvedValues = await this.negotiator.negotiate(matched, target);
 
         matches.set(key, matched);
         selections.set(key, selection);

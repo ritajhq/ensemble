@@ -26,22 +26,22 @@ export interface Realization {
     category: Category,
     type: string,
     className: string,
-  ): ClassPreset | undefined;
+  ): Promise<ClassPreset | undefined>;
   defaultFor(
     category: Category,
     type: string,
     concern: string,
-  ): number | boolean | string | undefined;
+  ): Promise<number | boolean | string | undefined>;
   boundFor(
     category: Category,
     type: string,
     concern: string,
-  ): Bound | undefined;
+  ): Promise<Bound | undefined>;
   supportsCapability(
     category: Category,
     type: string,
     capability: string,
-  ): boolean;
+  ): Promise<boolean>;
   /** Not consumed until Phase 5's `ReferenceResolver` — declared now so `Realization`'s shape doesn't change once Render lands. */
-  knowabilityOf(category: Category, type: string, output: string): Knowability;
+  knowabilityOf(category: Category, type: string, output: string): Promise<Knowability>;
 }

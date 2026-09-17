@@ -24,46 +24,46 @@ export class LayeredRealization implements Realization {
     private readonly underlying: Realization,
   ) {}
 
-  classPreset(
+  async classPreset(
     category: Category,
     type: string,
     className: string,
-  ): ClassPreset | undefined {
+  ): Promise<ClassPreset | undefined> {
     const override = this.overrides[`${category}.${type}`]?.classPresets
       ?.[className];
     if (override) return { concernValues: override };
-    return this.underlying.classPreset(category, type, className);
+    return await this.underlying.classPreset(category, type, className);
   }
 
-  defaultFor(
+  async defaultFor(
     category: Category,
     type: string,
     concern: string,
-  ): number | boolean | string | undefined {
+  ): Promise<number | boolean | string | undefined> {
     const override = this.overrides[`${category}.${type}`]?.defaults?.[concern];
     if (override !== undefined) return override;
-    return this.underlying.defaultFor(category, type, concern);
+    return await this.underlying.defaultFor(category, type, concern);
   }
 
-  boundFor(
+  async boundFor(
     category: Category,
     type: string,
     concern: string,
-  ): Bound | undefined {
+  ): Promise<Bound | undefined> {
     const override = this.overrides[`${category}.${type}`]?.bounds?.[concern];
     if (override) return override;
-    return this.underlying.boundFor(category, type, concern);
+    return await this.underlying.boundFor(category, type, concern);
   }
 
   supportsCapability(
     category: Category,
     type: string,
     capability: string,
-  ): boolean {
+  ): Promise<boolean> {
     return this.underlying.supportsCapability(category, type, capability);
   }
 
-  knowabilityOf(category: Category, type: string, output: string): Knowability {
+  knowabilityOf(category: Category, type: string, output: string): Promise<Knowability> {
     return this.underlying.knowabilityOf(category, type, output);
   }
 }

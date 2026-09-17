@@ -28,7 +28,13 @@ export { KitConfigMerger } from "./config-merger.ts";
 export { parseKitConfig } from "./config-file.ts";
 export { ConfiguredProvisioner } from "./configured-provisioner.ts";
 export { LayeredRealization } from "./layered-realization.ts";
-export { KitLoader, KitLoadError, type LoadedKit } from "./loader.ts";
+export { KitConfigLayering } from "./config-layering.ts";
+export {
+  InProcessKitLoader,
+  KitLoadError,
+  type KitLoader,
+  type LoadedKit,
+} from "./loader.ts";
 export {
   type ArtifactLocator,
   PreresolvedReleaseLocator,

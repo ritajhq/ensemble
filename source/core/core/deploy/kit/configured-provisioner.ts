@@ -13,28 +13,28 @@ import type { ProvisionerConfigEntry } from "./config.ts";
 export class ConfiguredProvisioner implements Provisioner {
   constructor(private readonly entry: ProvisionerConfigEntry) {}
 
-  describe(): string {
+  describe(): Promise<string> {
     const implementation = this.entry.implementation.kind;
-    return `${
-      this.entry.id ?? this.entry.type
-    } (project-declared, ${implementation})`;
+    return Promise.resolve(
+      `${this.entry.id ?? this.entry.type} (project-declared, ${implementation})`,
+    );
   }
 
-  matches(resource: MatchedResource): boolean {
-    if (resource.declaration.type !== this.entry.type) return false;
+  matches(resource: MatchedResource): Promise<boolean> {
+    if (resource.declaration.type !== this.entry.type) return Promise.resolve(false);
     if (
       this.entry.category !== undefined &&
       resource.category !== this.entry.category
-    ) return false;
+    ) return Promise.resolve(false);
     if (
       this.entry.class !== undefined &&
       resource.declaration.class !== this.entry.class
-    ) return false;
+    ) return Promise.resolve(false);
     if (
       this.entry.capabilities !== undefined &&
       !this.hasAllCapabilities(resource)
-    ) return false;
-    return true;
+    ) return Promise.resolve(false);
+    return Promise.resolve(true);
   }
 
   private hasAllCapabilities(resource: MatchedResource): boolean {

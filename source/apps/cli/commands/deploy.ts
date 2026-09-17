@@ -29,6 +29,7 @@ const explainCommand = new Command()
       { artifacts, version },
       Host.createPorts().repo,
       new Host.SubprocessPackKitGateway(),
+      new Host.SubprocessKitLoader(),
     );
   });
 
@@ -115,16 +116,23 @@ export const deployCommand = new Command()
         Deno.exit(1);
       }
       const termination = eject ? "eject" : plan ? "plan" : "apply";
-      await runDeploy(name, kit, {
-        artifacts,
-        version,
-        termination,
-        acceptCapabilityGaps,
-        watch,
-        pack,
-        emulateExternals,
-        verbose,
-      }, Host.createPorts(), new Host.SubprocessPackKitGateway());
+      await runDeploy(
+        name,
+        kit,
+        {
+          artifacts,
+          version,
+          termination,
+          acceptCapabilityGaps,
+          watch,
+          pack,
+          emulateExternals,
+          verbose,
+        },
+        Host.createPorts(),
+        new Host.SubprocessPackKitGateway(),
+        new Host.SubprocessKitLoader(),
+      );
     },
   )
   .command("explain", explainCommand);

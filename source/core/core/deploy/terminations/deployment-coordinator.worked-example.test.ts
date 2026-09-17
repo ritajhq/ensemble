@@ -56,37 +56,43 @@ function fakeKit(
   onWatchInvoked?: () => void,
 ): Kit {
   return {
-    provisioners: () => [
-      {
-        matches: (resource) =>
-          resource.declaration.type === "container-orchestrated",
-        provision: (request) => ({
-          fragment: {
-            category: request.category,
-            name: request.name,
-            content: { image: request.params.image },
-          },
-          outputs: {},
-        }),
-      },
-    ],
-    realization: () => ({
-      classPreset: () => undefined,
-      defaultFor: () => undefined,
-      boundFor: () => undefined,
-      supportsCapability: () => false,
-      knowabilityOf: () => "static",
-    }),
-    present: (artifacts) => ({
-      filename: "compose.yaml",
-      content: JSON.stringify(artifacts.fragments),
-    }),
-    applyCommand,
+    provisioners: () =>
+      Promise.resolve([
+        {
+          matches: (resource) =>
+            Promise.resolve(
+              resource.declaration.type === "container-orchestrated",
+            ),
+          provision: (request) =>
+            Promise.resolve({
+              fragment: {
+                category: request.category,
+                name: request.name,
+                content: { image: request.params.image },
+              },
+              outputs: {},
+            }),
+        },
+      ]),
+    realization: () =>
+      Promise.resolve({
+        classPreset: () => Promise.resolve(undefined),
+        defaultFor: () => Promise.resolve(undefined),
+        boundFor: () => Promise.resolve(undefined),
+        supportsCapability: () => Promise.resolve(false),
+        knowabilityOf: () => Promise.resolve("static" as const),
+      }),
+    present: (artifacts) =>
+      Promise.resolve({
+        filename: "compose.yaml",
+        content: JSON.stringify(artifacts.fragments),
+      }),
+    applyCommand: (path, name) => Promise.resolve(applyCommand(path, name)),
     ...(watchCommand
       ? {
         watchCommand: (path: string, name: string) => {
           onWatchInvoked?.();
-          return watchCommand(path, name);
+          return Promise.resolve(watchCommand(path, name));
         },
       }
       : {}),
@@ -109,7 +115,7 @@ async function buildCoordinator(
     await locatorResolver.resolveAll(workload, artifacts, version),
   );
   const renderer = new Renderer(
-    new ReferenceResolver(kit.realization()),
+    new ReferenceResolver(await kit.realization()),
     releaseLocator,
     registry,
   );

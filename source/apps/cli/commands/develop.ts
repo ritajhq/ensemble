@@ -24,14 +24,21 @@ export const developCommand = new Command()
     { default: false },
   )
   .action(async ({ kit, verbose }, name) => {
-    await runDeploy(name, kit, {
-      artifacts: "local",
-      version: "latest",
-      termination: "apply",
-      acceptCapabilityGaps: false,
-      watch: true,
-      pack: true,
-      emulateExternals: true,
-      verbose,
-    }, Host.createPorts(), new Host.SubprocessPackKitGateway());
+    await runDeploy(
+      name,
+      kit,
+      {
+        artifacts: "local",
+        version: "latest",
+        termination: "apply",
+        acceptCapabilityGaps: false,
+        watch: true,
+        pack: true,
+        emulateExternals: true,
+        verbose,
+      },
+      Host.createPorts(),
+      new Host.SubprocessPackKitGateway(),
+      new Host.SubprocessKitLoader(),
+    );
   });

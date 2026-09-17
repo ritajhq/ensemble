@@ -1,4 +1,4 @@
-import { assertEquals, assertNotStrictEquals, assertThrows } from "@std/assert";
+import { assertEquals, assertNotStrictEquals, assertRejects } from "@std/assert";
 import { Parser } from "../manifest/parser.ts";
 import { DependencyGraphBuilder } from "../resolve/dependency-graph.ts";
 import type { ProvisioningRequest } from "../resolve/provisioning-request.ts";
@@ -40,12 +40,12 @@ deploy:
     db-password: { source: environment }
 `;
 
-function fakeRelationalProvision(request: ResolvedRequest): ProvisionOutcome {
+function fakeRelationalProvision(request: ResolvedRequest): Promise<ProvisionOutcome> {
   const secretVar = String(request.params.passwordSecret).toUpperCase().replace(
     /-/g,
     "_",
   );
-  return {
+  return Promise.resolve({
     fragment: {
       category: request.category,
       name: request.name,
@@ -62,18 +62,18 @@ function fakeRelationalProvision(request: ResolvedRequest): ProvisionOutcome {
       url:
         `postgres://${request.params.user}:\${${secretVar}}@${request.name}:5432/${request.params.database}`,
     },
-  };
+  });
 }
 
-function fakeComputeProvision(request: ResolvedRequest): ProvisionOutcome {
-  return {
+function fakeComputeProvision(request: ResolvedRequest): Promise<ProvisionOutcome> {
+  return Promise.resolve({
     fragment: {
       category: request.category,
       name: request.name,
       content: { image: request.params.image, environment: request.params.env },
     },
     outputs: {},
-  };
+  });
 }
 
 function buildPipeline(manifestText: string) {
@@ -106,11 +106,17 @@ function buildPipeline(manifestText: string) {
 
   const selections = new Map<string, SelectedProvisioner>([
     ["databases.primary", {
-      provisioner: { matches: () => true, provision: fakeRelationalProvision },
+      provisioner: {
+        matches: () => Promise.resolve(true),
+        provision: fakeRelationalProvision,
+      },
       gaps: [],
     }],
     ["compute.api", {
-      provisioner: { matches: () => true, provision: fakeComputeProvision },
+      provisioner: {
+        matches: () => Promise.resolve(true),
+        provision: fakeComputeProvision,
+      },
       gaps: [],
     }],
   ]);
@@ -125,12 +131,12 @@ function buildPipeline(manifestText: string) {
   return { renderer, workload, requests, selections, graph };
 }
 
-Deno.test("Renderer.render: bakes a static database output into the compute's env, in dependency order", () => {
+Deno.test("Renderer.render: bakes a static database output into the compute's env, in dependency order", async () => {
   const { renderer, workload, requests, selections, graph } = buildPipeline(
     APPENDIX_A,
   );
 
-  const artifacts = renderer.render(
+  const artifacts = await renderer.render(
     workload,
     requests,
     selections,
@@ -146,19 +152,19 @@ Deno.test("Renderer.render: bakes a static database output into the compute's en
   );
 });
 
-Deno.test("Renderer.render: bakes the release sugar into the compute's image, per artifacts source", () => {
+Deno.test("Renderer.render: bakes the release sugar into the compute's image, per artifacts source", async () => {
   const { renderer, workload, requests, selections, graph } = buildPipeline(
     APPENDIX_A,
   );
 
-  const published = renderer.render(
+  const published = await renderer.render(
     workload,
     requests,
     selections,
     graph,
     "published",
   );
-  const local = renderer.render(
+  const local = await renderer.render(
     workload,
     requests,
     selections,
@@ -173,12 +179,12 @@ Deno.test("Renderer.render: bakes the release sugar into the compute's image, pe
   assertEquals(image(local.fragments), "ens-local/web:dev");
 });
 
-Deno.test("Renderer.render: fragments appear in dependency order (database before compute)", () => {
+Deno.test("Renderer.render: fragments appear in dependency order (database before compute)", async () => {
   const { renderer, workload, requests, selections, graph } = buildPipeline(
     APPENDIX_A,
   );
 
-  const artifacts = renderer.render(
+  const artifacts = await renderer.render(
     workload,
     requests,
     selections,
@@ -188,28 +194,34 @@ Deno.test("Renderer.render: fragments appear in dependency order (database befor
   assertEquals(artifacts.fragments.map((f) => f.name), ["primary", "api"]);
 });
 
-Deno.test("Renderer.render: throws when a resource has no matching provisioning request/selection", () => {
+Deno.test("Renderer.render: throws when a resource has no matching provisioning request/selection", async () => {
   const { renderer, workload, selections, graph } = buildPipeline(APPENDIX_A);
   const emptyRequests = new Map<string, ProvisioningRequest>();
 
-  assertThrows(
+  await assertRejects(
     () =>
       renderer.render(workload, emptyRequests, selections, graph, "published"),
     RendererError,
   );
 });
 
-Deno.test("Renderer.render: throws when the selected provisioner has no provision() body", () => {
+Deno.test("Renderer.render: throws when the selected provisioner has no provision() body", async () => {
   const { renderer, workload, requests, graph } = buildPipeline(APPENDIX_A);
   const selectionsWithoutProvision = new Map<string, SelectedProvisioner>([
-    ["databases.primary", { provisioner: { matches: () => true }, gaps: [] }],
+    [
+      "databases.primary",
+      { provisioner: { matches: () => Promise.resolve(true) }, gaps: [] },
+    ],
     ["compute.api", {
-      provisioner: { matches: () => true, provision: fakeComputeProvision },
+      provisioner: {
+        matches: () => Promise.resolve(true),
+        provision: fakeComputeProvision,
+      },
       gaps: [],
     }],
   ]);
 
-  assertThrows(
+  await assertRejects(
     () =>
       renderer.render(
         workload,
@@ -222,7 +234,7 @@ Deno.test("Renderer.render: throws when the selected provisioner has no provisio
   );
 });
 
-Deno.test("Renderer.render: a dynamic output's native wiring passes through to the referencing fragment untouched — never a guessed concrete value (G3, honest plan output)", () => {
+Deno.test("Renderer.render: a dynamic output's native wiring passes through to the referencing fragment untouched — never a guessed concrete value (G3, honest plan output)", async () => {
   const workload = new Parser().parse(APPENDIX_A);
   const graph = new DependencyGraphBuilder().build(workload);
 
@@ -253,8 +265,8 @@ Deno.test("Renderer.render: a dynamic output's native wiring passes through to t
   const dynamicWiring = { "Fn::GetAtt": ["Primary", "Endpoint.Address"] };
   function awsLikeRelationalProvision(
     request: ResolvedRequest,
-  ): ProvisionOutcome {
-    return {
+  ): Promise<ProvisionOutcome> {
+    return Promise.resolve({
       fragment: { category: request.category, name: request.name, content: {} },
       outputs: {
         host: dynamicWiring,
@@ -263,26 +275,29 @@ Deno.test("Renderer.render: a dynamic output's native wiring passes through to t
         database: request.params.database,
         url: dynamicWiring,
       },
-    };
+    });
   }
 
   const selections = new Map<string, SelectedProvisioner>([
     ["databases.primary", {
       provisioner: {
-        matches: () => true,
+        matches: () => Promise.resolve(true),
         provision: awsLikeRelationalProvision,
       },
       gaps: [],
     }],
     ["compute.api", {
-      provisioner: { matches: () => true, provision: fakeComputeProvision },
+      provisioner: {
+        matches: () => Promise.resolve(true),
+        provision: fakeComputeProvision,
+      },
       gaps: [],
     }],
   ]);
 
   class AllDynamicRealization extends FakeRealization {
-    override knowabilityOf(): Knowability {
-      return "dynamic";
+    override knowabilityOf(): Promise<Knowability> {
+      return Promise.resolve("dynamic");
     }
   }
 
@@ -296,7 +311,7 @@ Deno.test("Renderer.render: a dynamic output's native wiring passes through to t
     registry,
   );
 
-  const artifacts = renderer.render(
+  const artifacts = await renderer.render(
     workload,
     requests,
     selections,
@@ -312,29 +327,33 @@ Deno.test("Renderer.render: a dynamic output's native wiring passes through to t
   );
 });
 
-Deno.test("Renderer.render: throws when a provisioner produces fewer outputs than its contract declares (Section 6 portability)", () => {
+Deno.test("Renderer.render: throws when a provisioner produces fewer outputs than its contract declares (Section 6 portability)", async () => {
   const { renderer, workload, requests, graph } = buildPipeline(APPENDIX_A);
   const incompleteRelationalProvision: typeof fakeRelationalProvision = (
     request,
-  ) => ({
-    fragment: { category: request.category, name: request.name, content: {} },
-    outputs: { host: request.name, url: "u" }, // missing port/user/database
-  });
+  ) =>
+    Promise.resolve({
+      fragment: { category: request.category, name: request.name, content: {} },
+      outputs: { host: request.name, url: "u" }, // missing port/user/database
+    });
   const selections = new Map<string, SelectedProvisioner>([
     ["databases.primary", {
       provisioner: {
-        matches: () => true,
+        matches: () => Promise.resolve(true),
         provision: incompleteRelationalProvision,
       },
       gaps: [],
     }],
     ["compute.api", {
-      provisioner: { matches: () => true, provision: fakeComputeProvision },
+      provisioner: {
+        matches: () => Promise.resolve(true),
+        provision: fakeComputeProvision,
+      },
       gaps: [],
     }],
   ]);
 
-  const error = assertThrows(
+  const error = await assertRejects(
     () => renderer.render(workload, requests, selections, graph, "published"),
     RendererError,
   );
@@ -344,29 +363,33 @@ Deno.test("Renderer.render: throws when a provisioner produces fewer outputs tha
   );
 });
 
-Deno.test("Renderer.render: throws when a provisioner produces an output its contract doesn't declare", () => {
+Deno.test("Renderer.render: throws when a provisioner produces an output its contract doesn't declare", async () => {
   const { renderer, workload, requests, graph } = buildPipeline(APPENDIX_A);
   const overproducingComputeProvision: typeof fakeComputeProvision = (
     request,
-  ) => ({
-    fragment: { category: request.category, name: request.name, content: {} },
-    outputs: { url: "not declared by container-orchestrated.v1" },
-  });
+  ) =>
+    Promise.resolve({
+      fragment: { category: request.category, name: request.name, content: {} },
+      outputs: { url: "not declared by container-orchestrated.v1" },
+    });
   const selections = new Map<string, SelectedProvisioner>([
     ["databases.primary", {
-      provisioner: { matches: () => true, provision: fakeRelationalProvision },
+      provisioner: {
+        matches: () => Promise.resolve(true),
+        provision: fakeRelationalProvision,
+      },
       gaps: [],
     }],
     ["compute.api", {
       provisioner: {
-        matches: () => true,
+        matches: () => Promise.resolve(true),
         provision: overproducingComputeProvision,
       },
       gaps: [],
     }],
   ]);
 
-  const error = assertThrows(
+  const error = await assertRejects(
     () => renderer.render(workload, requests, selections, graph, "published"),
     RendererError,
   );
@@ -376,7 +399,7 @@ Deno.test("Renderer.render: throws when a provisioner produces an output its con
   );
 });
 
-Deno.test("Renderer.render: bakes an external reference straight off the workload, not through the ledger", () => {
+Deno.test("Renderer.render: bakes an external reference straight off the workload, not through the ledger", async () => {
   const manifest = `
 version: v1
 deploy:
@@ -403,19 +426,22 @@ deploy:
       values: {},
     }],
   ]);
-  function echoNetworksProvision(request: ResolvedRequest): ProvisionOutcome {
-    return {
+  function echoNetworksProvision(request: ResolvedRequest): Promise<ProvisionOutcome> {
+    return Promise.resolve({
       fragment: {
         category: request.category,
         name: request.name,
         content: { networks: request.params.networks },
       },
       outputs: {},
-    };
+    });
   }
   const selections = new Map<string, SelectedProvisioner>([
     ["compute.api", {
-      provisioner: { matches: () => true, provision: echoNetworksProvision },
+      provisioner: {
+        matches: () => Promise.resolve(true),
+        provision: echoNetworksProvision,
+      },
       gaps: [],
     }],
   ]);
@@ -426,7 +452,7 @@ deploy:
     registry,
   );
 
-  const artifacts = renderer.render(
+  const artifacts = await renderer.render(
     workload,
     requests,
     selections,
@@ -440,7 +466,7 @@ deploy:
   );
 });
 
-Deno.test("Renderer.render: two consumers of the same dynamic output each get their own object, never a shared reference", () => {
+Deno.test("Renderer.render: two consumers of the same dynamic output each get their own object, never a shared reference", async () => {
   const manifest = `
 version: v1
 deploy:
@@ -470,8 +496,8 @@ deploy:
   const dynamicUrl = { "Fn::Sub": ["postgres://..."] };
   function dynamicRelationalProvision(
     request: ResolvedRequest,
-  ): ProvisionOutcome {
-    return {
+  ): Promise<ProvisionOutcome> {
+    return Promise.resolve({
       fragment: { category: request.category, name: request.name, content: {} },
       outputs: {
         host: dynamicUrl,
@@ -480,7 +506,7 @@ deploy:
         database: request.params.database,
         url: dynamicUrl,
       },
-    };
+    });
   }
 
   const requests = new Map<string, ProvisioningRequest>([
@@ -515,24 +541,30 @@ deploy:
   const selections = new Map<string, SelectedProvisioner>([
     ["databases.primary", {
       provisioner: {
-        matches: () => true,
+        matches: () => Promise.resolve(true),
         provision: dynamicRelationalProvision,
       },
       gaps: [],
     }],
     ["compute.api", {
-      provisioner: { matches: () => true, provision: fakeComputeProvision },
+      provisioner: {
+        matches: () => Promise.resolve(true),
+        provision: fakeComputeProvision,
+      },
       gaps: [],
     }],
     ["compute.worker", {
-      provisioner: { matches: () => true, provision: fakeComputeProvision },
+      provisioner: {
+        matches: () => Promise.resolve(true),
+        provision: fakeComputeProvision,
+      },
       gaps: [],
     }],
   ]);
 
   class AllDynamicRealization extends FakeRealization {
-    override knowabilityOf(): Knowability {
-      return "dynamic";
+    override knowabilityOf(): Promise<Knowability> {
+      return Promise.resolve("dynamic");
     }
   }
   const releaseLocator = new StubReleaseLocator({
@@ -545,7 +577,7 @@ deploy:
     registry,
   );
 
-  const artifacts = renderer.render(
+  const artifacts = await renderer.render(
     workload,
     requests,
     selections,

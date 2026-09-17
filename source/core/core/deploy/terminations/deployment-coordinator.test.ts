@@ -82,48 +82,55 @@ function fakeKit(
   emulateExternals?: Kit["emulateExternals"],
 ): Kit {
   return {
-    provisioners: () => [
-      {
-        matches: (resource) => resource.declaration.type === "relational",
-        provision: (request) => ({
-          fragment: {
-            category: request.category,
-            name: request.name,
-            content: {},
-          },
-          outputs: {
-            host: request.name,
-            port: 5432,
-            user: request.params.user,
-            database: request.params.database,
-            url: "u",
-          },
-        }),
-      },
-      {
-        matches: (resource) =>
-          resource.declaration.type === "container-orchestrated",
-        provision: (request) => ({
-          fragment: {
-            category: request.category,
-            name: request.name,
-            content: {},
-          },
-          outputs: {},
-        }),
-      },
-    ],
-    realization: () => realization,
-    present: () => ({ filename: "compose.yaml", content: presentedContent }),
-    applyCommand: (path) => [...applyCommand, path],
+    provisioners: () =>
+      Promise.resolve([
+        {
+          matches: (resource) =>
+            Promise.resolve(resource.declaration.type === "relational"),
+          provision: (request) =>
+            Promise.resolve({
+              fragment: {
+                category: request.category,
+                name: request.name,
+                content: {},
+              },
+              outputs: {
+                host: request.name,
+                port: 5432,
+                user: request.params.user,
+                database: request.params.database,
+                url: "u",
+              },
+            }),
+        },
+        {
+          matches: (resource) =>
+            Promise.resolve(
+              resource.declaration.type === "container-orchestrated",
+            ),
+          provision: (request) =>
+            Promise.resolve({
+              fragment: {
+                category: request.category,
+                name: request.name,
+                content: {},
+              },
+              outputs: {},
+            }),
+        },
+      ]),
+    realization: () => Promise.resolve(realization),
+    present: () =>
+      Promise.resolve({ filename: "compose.yaml", content: presentedContent }),
+    applyCommand: (path) => Promise.resolve([...applyCommand, path]),
     ...(watchCommand
-      ? { watchCommand: (path: string) => [...watchCommand, path] }
+      ? { watchCommand: (path: string) => Promise.resolve([...watchCommand, path]) }
       : {}),
     ...(emulateExternals ? { emulateExternals } : {}),
   };
 }
 
-function buildCoordinator(
+async function buildCoordinator(
   kit: Kit,
   sink: FakeArtifactSink,
   cache: FakeRenderCache,
@@ -135,7 +142,7 @@ function buildCoordinator(
     published: { web: { ref: "registry.ritaj.app/web:1.4.2" } },
   });
   const renderer = new Renderer(
-    new ReferenceResolver(kit.realization()),
+    new ReferenceResolver(await kit.realization()),
     releaseLocator,
     registry,
   );
@@ -161,7 +168,7 @@ async function deployAppendixA(
   const workload = new Parser().parse(manifest);
   const sink = new FakeArtifactSink();
   const cache = new FakeRenderCache();
-  const coordinator = buildCoordinator(kit, sink, cache);
+  const coordinator = await buildCoordinator(kit, sink, cache);
   const target: Target = { kit };
   const result = await coordinator.deploy("phase6-test", workload, target, {
     artifacts: "local",
@@ -276,7 +283,7 @@ Deno.test("DeploymentCoordinator.deploy: a published apply fails when the availa
     verify: () =>
       Promise.resolve({ available: false, detail: "not found in registry" }),
   };
-  const coordinator = buildCoordinator(kit, sink, cache, unavailableGateway);
+  const coordinator = await buildCoordinator(kit, sink, cache, unavailableGateway);
   const target: Target = { kit };
 
   await assertRejects(
@@ -309,7 +316,7 @@ Deno.test("DeploymentCoordinator.deploy: the availability preflight never runs f
       return Promise.resolve({ available: false });
     },
   };
-  const coordinator = buildCoordinator(kit, sink, cache, countingGateway);
+  const coordinator = await buildCoordinator(kit, sink, cache, countingGateway);
   const target: Target = { kit };
   const baseOptions = {
     acceptCapabilityGaps: false,
@@ -377,7 +384,7 @@ Deno.test("DeploymentCoordinator.deploy: a local apply packs each referenced rel
       return Promise.resolve();
     },
   };
-  const coordinator = buildCoordinator(
+  const coordinator = await buildCoordinator(
     kit,
     sink,
     cache,
@@ -411,7 +418,7 @@ Deno.test("DeploymentCoordinator.deploy: pack: false skips packing for a local a
       return Promise.resolve();
     },
   };
-  const coordinator = buildCoordinator(
+  const coordinator = await buildCoordinator(
     kit,
     sink,
     cache,
@@ -445,7 +452,7 @@ Deno.test("DeploymentCoordinator.deploy: a published apply never packs, even wit
       return Promise.resolve();
     },
   };
-  const coordinator = buildCoordinator(
+  const coordinator = await buildCoordinator(
     kit,
     sink,
     cache,
@@ -479,7 +486,7 @@ Deno.test("DeploymentCoordinator.deploy: eject/plan never pack, even for local a
       return Promise.resolve();
     },
   };
-  const coordinator = buildCoordinator(
+  const coordinator = await buildCoordinator(
     kit,
     sink,
     cache,
@@ -517,7 +524,7 @@ Deno.test("DeploymentCoordinator.deploy: a pack failure aborts before the termin
     pack: (name) =>
       Promise.reject(new ReleasePackError(name, `packing "${name}" failed`)),
   };
-  const coordinator = buildCoordinator(
+  const coordinator = await buildCoordinator(
     kit,
     sink,
     cache,
@@ -548,7 +555,7 @@ Deno.test("DeploymentCoordinator.deploy: --watch runs the kit's watch command in
   const kit = fakeKit("watched content", ["true"], ["true"]);
   const sink = new FakeArtifactSink();
   const cache = new FakeRenderCache();
-  const coordinator = buildCoordinator(kit, sink, cache);
+  const coordinator = await buildCoordinator(kit, sink, cache);
   const target: Target = { kit };
 
   const result = await coordinator.deploy("t", workload, target, {
@@ -573,7 +580,7 @@ Deno.test("DeploymentCoordinator.deploy: --watch against a kit with no watch com
   const kit = fakeKit("x"); // no watchCommand given — can't watch, like aws today
   const sink = new FakeArtifactSink();
   const cache = new FakeRenderCache();
-  const coordinator = buildCoordinator(kit, sink, cache);
+  const coordinator = await buildCoordinator(kit, sink, cache);
   const target: Target = { kit };
 
   await assertRejects(
@@ -596,11 +603,11 @@ Deno.test("DeploymentCoordinator.deploy: emulateExternals: false never touches t
   let emulateCalls = 0;
   const kit = fakeKit("x", ["true"], undefined, () => {
     emulateCalls++;
-    return [];
+    return Promise.resolve([]);
   });
   const sink = new FakeArtifactSink();
   const cache = new FakeRenderCache();
-  const coordinator = buildCoordinator(kit, sink, cache);
+  const coordinator = await buildCoordinator(kit, sink, cache);
   const target: Target = { kit };
 
   await coordinator.deploy("t", workload, target, {
@@ -622,11 +629,11 @@ Deno.test("DeploymentCoordinator.deploy: emulateExternals: true runs the kit's e
   const kit = fakeKit("applied content", ["true"], undefined, (w) => {
     emulateCalls++;
     assertEquals(w, workload);
-    return [];
+    return Promise.resolve([]);
   });
   const sink = new FakeArtifactSink();
   const cache = new FakeRenderCache();
-  const coordinator = buildCoordinator(kit, sink, cache);
+  const coordinator = await buildCoordinator(kit, sink, cache);
   const target: Target = { kit };
 
   await coordinator.deploy("t", workload, target, {
@@ -647,7 +654,7 @@ Deno.test("DeploymentCoordinator.deploy: emulateExternals: true against a kit wi
   const kit = fakeKit("x"); // no emulateExternals given — can't emulate, like aws today
   const sink = new FakeArtifactSink();
   const cache = new FakeRenderCache();
-  const coordinator = buildCoordinator(kit, sink, cache);
+  const coordinator = await buildCoordinator(kit, sink, cache);
   const target: Target = { kit };
 
   await assertRejects(
@@ -667,9 +674,10 @@ Deno.test("DeploymentCoordinator.deploy: emulateExternals: true against a kit wi
 
 Deno.test("DeploymentCoordinator.deploy: a failed emulation aborts before packing or the terminal step run", async () => {
   const workload = new Parser().parse(APPENDIX_A);
-  const kit = fakeKit("x", ["true"], undefined, () => [
-    { name: "edge-net", check: ["false"], create: ["false"] },
-  ]);
+  const kit = fakeKit("x", ["true"], undefined, () =>
+    Promise.resolve([
+      { name: "edge-net", check: ["false"], create: ["false"] },
+    ]));
   const sink = new FakeArtifactSink();
   const cache = new FakeRenderCache();
   let packCalls = 0;
@@ -679,7 +687,7 @@ Deno.test("DeploymentCoordinator.deploy: a failed emulation aborts before packin
       return Promise.resolve();
     },
   };
-  const coordinator = buildCoordinator(
+  const coordinator = await buildCoordinator(
     kit,
     sink,
     cache,
@@ -713,7 +721,7 @@ Deno.test("DeploymentCoordinator.deploy: eject/plan never invoke the emulate-ext
   const kit = fakeKit("x");
   const sink = new FakeArtifactSink();
   const cache = new FakeRenderCache();
-  const coordinator = buildCoordinator(kit, sink, cache);
+  const coordinator = await buildCoordinator(kit, sink, cache);
   const target: Target = { kit };
   const baseOptions = {
     artifacts: "local",
@@ -744,7 +752,7 @@ Deno.test("DeploymentCoordinator.deploy: eject/plan never invoke the watch step,
   const kit = fakeKit("x");
   const sink = new FakeArtifactSink();
   const cache = new FakeRenderCache();
-  const coordinator = buildCoordinator(kit, sink, cache);
+  const coordinator = await buildCoordinator(kit, sink, cache);
   const target: Target = { kit };
   const baseOptions = {
     artifacts: "local",

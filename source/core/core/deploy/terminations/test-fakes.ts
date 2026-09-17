@@ -15,20 +15,20 @@ export class FakePresentingKit implements Kit {
     private readonly command: readonly string[] = ["true"],
     private readonly watch: readonly string[] | undefined = undefined,
   ) {}
-  provisioners(): ProvisionerSet {
-    return [];
+  provisioners(): Promise<ProvisionerSet> {
+    return Promise.resolve([]);
   }
-  realization(): Realization {
+  realization(): Promise<Realization> {
     throw new Error("not needed by these tests");
   }
-  present(): PresentedArtifact {
-    return this.presented;
+  present(): Promise<PresentedArtifact> {
+    return Promise.resolve(this.presented);
   }
-  applyCommand(artifactPath: string): readonly string[] {
-    return [...this.command, artifactPath];
+  applyCommand(artifactPath: string): Promise<readonly string[]> {
+    return Promise.resolve([...this.command, artifactPath]);
   }
-  watchCommand(artifactPath: string): readonly string[] | undefined {
-    return this.watch ? [...this.watch, artifactPath] : undefined;
+  watchCommand(artifactPath: string): Promise<readonly string[] | undefined> {
+    return Promise.resolve(this.watch ? [...this.watch, artifactPath] : undefined);
   }
 }
 

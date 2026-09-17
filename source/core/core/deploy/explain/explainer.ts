@@ -71,17 +71,17 @@ export class Explainer {
   ) {}
 
   /** Throws `ContractError` for any reference that targets an undeclared release/resource/output, `ResourceNotFoundError` if `category.name` isn't declared in the workload. Any other resolution failure (an unknown type, no matching provisioner) propagates as-is — a real deploy would fail for the same reason, regardless of which resource is being explained. */
-  explain(
+  async explain(
     workload: Workload,
     target: Target,
     artifacts: ArtifactsSource,
     category: Category,
     name: string,
-  ): ResourceExplanation {
+  ): Promise<ResourceExplanation> {
     this.referenceValidator.validate(workload);
 
     const key = `${category}.${name}`;
-    const resolution = this.resolver.resolve(workload, target);
+    const resolution = await this.resolver.resolve(workload, target);
 
     const matched = resolution.matches.get(key);
     const selection = resolution.selections.get(key);
@@ -93,7 +93,7 @@ export class Explainer {
     }
 
     const graph = this.graphBuilder.build(workload);
-    const { ledger } = this.renderer.renderWithLedger(
+    const { ledger } = await this.renderer.renderWithLedger(
       workload,
       resolution.requests,
       resolution.selections,
@@ -101,11 +101,11 @@ export class Explainer {
       artifacts,
     );
 
-    const realization = target.kit.realization();
+    const realization = await target.kit.realization();
     const outputs: Record<string, OutputExplanation> = {};
     for (const outputKey of matched.contract.outputs) {
       outputs[outputKey] = {
-        knowability: realization.knowabilityOf(
+        knowability: await realization.knowabilityOf(
           category,
           matched.declaration.type,
           outputKey,
@@ -123,7 +123,7 @@ export class Explainer {
       name,
       type: matched.declaration.type,
       contractId: matched.contract.id,
-      provisionerMatches: this.selector.explain(matched, target),
+      provisionerMatches: await this.selector.explain(matched, target),
       values: values.values,
       flaggedDefaults,
       capabilityGaps: selection.gaps,

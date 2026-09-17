@@ -3,7 +3,7 @@ import { FakeRealization } from "../resolve/test-fakes.ts";
 import { LayeredRealization } from "./layered-realization.ts";
 import type { TargetValuesConfig } from "./config.ts";
 
-Deno.test("LayeredRealization: falls through to the underlying realization with no overrides", () => {
+Deno.test("LayeredRealization: falls through to the underlying realization with no overrides", async () => {
   const underlying = new FakeRealization()
     .withDefault("databases", "relational", "backupRetention", 7)
     .withBound("databases", "relational", "read-replicas", { max: 5 })
@@ -14,22 +14,24 @@ Deno.test("LayeredRealization: falls through to the underlying realization with 
   const layered = new LayeredRealization({}, underlying);
 
   assertEquals(
-    layered.defaultFor("databases", "relational", "backupRetention"),
+    await layered.defaultFor("databases", "relational", "backupRetention"),
     7,
   );
-  assertEquals(layered.boundFor("databases", "relational", "read-replicas"), {
-    max: 5,
-  });
-  assertEquals(layered.classPreset("databases", "relational", "critical"), {
-    concernValues: { backupRetention: 35 },
-  });
   assertEquals(
-    layered.supportsCapability("databases", "relational", "read-replicas"),
+    await layered.boundFor("databases", "relational", "read-replicas"),
+    { max: 5 },
+  );
+  assertEquals(
+    await layered.classPreset("databases", "relational", "critical"),
+    { concernValues: { backupRetention: 35 } },
+  );
+  assertEquals(
+    await layered.supportsCapability("databases", "relational", "read-replicas"),
     true,
   );
 });
 
-Deno.test("LayeredRealization: an overridden bound wins over the underlying kit's bound", () => {
+Deno.test("LayeredRealization: an overridden bound wins over the underlying kit's bound", async () => {
   const underlying = new FakeRealization().withBound(
     "databases",
     "relational",
@@ -41,12 +43,13 @@ Deno.test("LayeredRealization: an overridden bound wins over the underlying kit'
   };
   const layered = new LayeredRealization(overrides, underlying);
 
-  assertEquals(layered.boundFor("databases", "relational", "read-replicas"), {
-    max: 2,
-  });
+  assertEquals(
+    await layered.boundFor("databases", "relational", "read-replicas"),
+    { max: 2 },
+  );
 });
 
-Deno.test("LayeredRealization: an overridden default wins over the underlying kit's default", () => {
+Deno.test("LayeredRealization: an overridden default wins over the underlying kit's default", async () => {
   const underlying = new FakeRealization().withDefault(
     "databases",
     "relational",
@@ -59,12 +62,12 @@ Deno.test("LayeredRealization: an overridden default wins over the underlying ki
   const layered = new LayeredRealization(overrides, underlying);
 
   assertEquals(
-    layered.defaultFor("databases", "relational", "backupRetention"),
+    await layered.defaultFor("databases", "relational", "backupRetention"),
     14,
   );
 });
 
-Deno.test("LayeredRealization: an overridden class preset replaces the underlying preset entirely", () => {
+Deno.test("LayeredRealization: an overridden class preset replaces the underlying preset entirely", async () => {
   const underlying = new FakeRealization().withClassPreset(
     "databases",
     "relational",
@@ -80,12 +83,13 @@ Deno.test("LayeredRealization: an overridden class preset replaces the underlyin
   };
   const layered = new LayeredRealization(overrides, underlying);
 
-  assertEquals(layered.classPreset("databases", "relational", "critical"), {
-    concernValues: { backupRetention: 14 },
-  });
+  assertEquals(
+    await layered.classPreset("databases", "relational", "critical"),
+    { concernValues: { backupRetention: 14 } },
+  );
 });
 
-Deno.test("LayeredRealization: a class not overridden falls through untouched", () => {
+Deno.test("LayeredRealization: a class not overridden falls through untouched", async () => {
   const underlying = new FakeRealization().withClassPreset(
     "databases",
     "relational",
@@ -101,12 +105,13 @@ Deno.test("LayeredRealization: a class not overridden falls through untouched", 
   };
   const layered = new LayeredRealization(overrides, underlying);
 
-  assertEquals(layered.classPreset("databases", "relational", "standard"), {
-    concernValues: { backupRetention: 7 },
-  });
+  assertEquals(
+    await layered.classPreset("databases", "relational", "standard"),
+    { concernValues: { backupRetention: 7 } },
+  );
 });
 
-Deno.test("LayeredRealization: capability support and output knowability always pass through", () => {
+Deno.test("LayeredRealization: capability support and output knowability always pass through", async () => {
   const underlying = new FakeRealization().withCapability(
     "databases",
     "relational",
@@ -116,11 +121,11 @@ Deno.test("LayeredRealization: capability support and output knowability always 
   const layered = new LayeredRealization({}, underlying);
 
   assertEquals(
-    layered.supportsCapability("databases", "relational", "read-replicas"),
+    await layered.supportsCapability("databases", "relational", "read-replicas"),
     true,
   );
   assertEquals(
-    layered.knowabilityOf("databases", "relational", "host"),
+    await layered.knowabilityOf("databases", "relational", "host"),
     "static",
   );
 });

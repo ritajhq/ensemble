@@ -1,6 +1,6 @@
 import { fromFileUrl } from "@std/path";
 import { assertEquals, assertRejects } from "@std/assert";
-import { KitLoader, KitLoadError } from "./loader.ts";
+import { InProcessKitLoader, KitLoadError } from "./loader.ts";
 
 const fixtureKitDir = fromFileUrl(
   new URL("./testdata/fixture-kit", import.meta.url),
@@ -24,13 +24,17 @@ const missingConfig = fromFileUrl(
   new URL("./testdata/does-not-exist.config.yml", import.meta.url),
 );
 
-const loader = new KitLoader();
+const loader = new InProcessKitLoader();
 
 Deno.test("KitLoader.load: loads a vendored kit with no sidecar config", async () => {
   const loaded = await loader.load(fixtureKitDir);
-  assertEquals(loaded.kit.provisioners().length, 1);
+  assertEquals((await loaded.kit.provisioners()).length, 1);
   assertEquals(
-    loaded.kit.realization().knowabilityOf("databases", "relational", "host"),
+    await (await loaded.kit.realization()).knowabilityOf(
+      "databases",
+      "relational",
+      "host",
+    ),
     "static",
   );
 });
@@ -41,14 +45,14 @@ Deno.test("KitLoader.load: throws KitLoadError when the vendored dir has no main
 
 Deno.test("KitLoader.load: silently skips a sidecar path that doesn't exist", async () => {
   const loaded = await loader.load(fixtureKitDir, [missingConfig]);
-  assertEquals(loaded.kit.provisioners().length, 1);
+  assertEquals((await loaded.kit.provisioners()).length, 1);
 });
 
 Deno.test("KitLoader.load: layers sidecar config over the kit's own defaults, later path wins a conflict", async () => {
   const loaded = await loader.load(fixtureKitDir, [baseConfig, localConfig]);
 
   assertEquals(
-    loaded.kit.realization().boundFor(
+    await (await loaded.kit.realization()).boundFor(
       "databases",
       "relational",
       "read-replicas",
@@ -60,7 +64,7 @@ Deno.test("KitLoader.load: layers sidecar config over the kit's own defaults, la
 Deno.test("KitLoader.load: project-declared provisioners come before the kit's own, in declaration order", async () => {
   const loaded = await loader.load(fixtureKitDir, [baseConfig, localConfig]);
 
-  assertEquals(loaded.kit.provisioners().length, 2);
+  assertEquals((await loaded.kit.provisioners()).length, 2);
 });
 
 Deno.test("KitLoader.load: no sidecar selection config means an undefined runtime", async () => {
@@ -83,12 +87,12 @@ Deno.test("KitLoader.load: a later sidecar layer's runtime overrides an earlier 
 
 Deno.test("KitLoader.load: forwards watchCommand from a kit that declares it", async () => {
   const loaded = await loader.load(fixtureKitDir);
-  assertEquals(loaded.kit.watchCommand?.("path", "name"), ["fixture-watch"]);
+  assertEquals(await loaded.kit.watchCommand?.("path", "name"), ["fixture-watch"]);
 });
 
 Deno.test("KitLoader.load: forwards emulateExternals from a kit that declares it — regression for the capability silently dropped by configure()'s wrapper", async () => {
   const loaded = await loader.load(fixtureKitDir);
-  assertEquals(loaded.kit.emulateExternals?.({}), [{
+  assertEquals(await loaded.kit.emulateExternals?.({}), [{
     name: "fixture-external",
     check: ["fixture-check"],
     create: ["fixture-create"],

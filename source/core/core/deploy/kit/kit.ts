@@ -16,9 +16,9 @@ import type { Realization } from "./realization.ts";
  * `Ejector`/`Planner`/`Applier` (Phase 6) can stay target-agnostic.
  */
 export interface Kit {
-  provisioners(): ProvisionerSet;
-  realization(): Realization;
-  present(artifacts: Artifacts, graph: DependencyGraph): PresentedArtifact;
+  provisioners(): Promise<ProvisionerSet>;
+  realization(): Promise<Realization>;
+  present(artifacts: Artifacts, graph: DependencyGraph): Promise<PresentedArtifact>;
   /**
    * The argv to run against `artifactPath` (the file `present`'s output was
    * written to) to actually apply it — `["docker", "compose", "-f",
@@ -29,7 +29,7 @@ export interface Kit {
    * already guaranteed unique and stable across runs, so kits use it rather
    * than inventing their own.
    */
-  applyCommand(artifactPath: string, name: string): readonly string[];
+  applyCommand(artifactPath: string, name: string): Promise<readonly string[]>;
   /**
    * The argv for a long-lived watch command over `artifactPath`, mirroring
    * `applyCommand` — `["docker", "compose", "-f", artifactPath, "-p", name,
@@ -41,7 +41,7 @@ export interface Kit {
   watchCommand?(
     artifactPath: string,
     name: string,
-  ): readonly string[] | undefined;
+  ): Promise<readonly string[] | undefined>;
   /**
    * `--emulate-externals`'s hook: for each `deploy.external` entry this kit
    * knows how to stand up locally, a `check`/`create` command pair (Section
@@ -53,5 +53,5 @@ export interface Kit {
    * kit that does implement it, but is handed an `external` entry of a type
    * it has no emulation for, throws rather than silently skipping it.
    */
-  emulateExternals?(workload: Workload): readonly ExternalEmulation[];
+  emulateExternals?(workload: Workload): Promise<readonly ExternalEmulation[]>;
 }

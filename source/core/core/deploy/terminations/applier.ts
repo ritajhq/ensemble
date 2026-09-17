@@ -32,10 +32,10 @@ export class Applier {
     kit: Kit,
     name: string,
   ): Promise<void> {
-    const presented = kit.present(artifacts, graph);
+    const presented = await kit.present(artifacts, graph);
     await this.sink.write(presented);
 
-    const [command, ...args] = kit.applyCommand(
+    const [command, ...args] = await kit.applyCommand(
       this.sink.pathFor(presented),
       name,
     );

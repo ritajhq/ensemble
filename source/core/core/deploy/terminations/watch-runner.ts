@@ -40,10 +40,10 @@ export class WatchRunner {
     name: string,
     signal?: AbortSignal,
   ): Promise<void> {
-    const presented = kit.present(artifacts, graph);
+    const presented = await kit.present(artifacts, graph);
     await this.sink.write(presented);
 
-    const command = kit.watchCommand?.(this.sink.pathFor(presented), name);
+    const command = await kit.watchCommand?.(this.sink.pathFor(presented), name);
     if (!command) {
       throw new WatchNotSupportedError(
         "This kit has no watch command for the current target — pick a runtime/target that supports watching.",

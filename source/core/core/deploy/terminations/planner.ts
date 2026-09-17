@@ -22,7 +22,7 @@ export class Planner {
     graph: DependencyGraph,
     kit: Kit,
   ): Promise<IntentDiff> {
-    const presented = kit.present(artifacts, graph);
+    const presented = await kit.present(artifacts, graph);
     const previous = await this.cache.readLast();
     const diff = this.differ.diff(previous, presented.content);
     await this.cache.writeLast(presented.content);

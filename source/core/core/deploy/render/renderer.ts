@@ -50,36 +50,36 @@ export class Renderer {
     private readonly syntax: ReferenceSyntax = new ReferenceParser(),
   ) {}
 
-  render(
+  async render(
     workload: Workload,
     requests: ReadonlyMap<string, ProvisioningRequest>,
     selections: ReadonlyMap<string, SelectedProvisioner>,
     graph: DependencyGraph,
     artifactsSource: ArtifactsSource,
-  ): Artifacts {
-    return this.renderWithLedger(
+  ): Promise<Artifacts> {
+    return (await this.renderWithLedger(
       workload,
       requests,
       selections,
       graph,
       artifactsSource,
-    ).artifacts;
+    )).artifacts;
   }
 
   /** Same render pass as `render`, also handing back the `OutputsLedger` it built — `ens deploy explain` (Phase 8) needs a resource's real resolved outputs, which only exist once the whole workload has actually been rendered in dependency order. `render` stays the normal entry point; this is for callers that need to inspect the ledger afterward. */
-  renderWithLedger(
+  async renderWithLedger(
     workload: Workload,
     requests: ReadonlyMap<string, ProvisioningRequest>,
     selections: ReadonlyMap<string, SelectedProvisioner>,
     graph: DependencyGraph,
     artifactsSource: ArtifactsSource,
-  ): { artifacts: Artifacts; ledger: OutputsLedger } {
+  ): Promise<{ artifacts: Artifacts; ledger: OutputsLedger }> {
     const ledger = new OutputsLedger();
     const fragments: ArtifactFragment[] = [];
 
     for (const batch of graph.batches()) {
       for (const id of batch) {
-        const fragment = this.renderOne(
+        const fragment = await this.renderOne(
           id,
           workload,
           requests,
@@ -94,14 +94,14 @@ export class Renderer {
     return { artifacts: { fragments }, ledger };
   }
 
-  private renderOne(
+  private async renderOne(
     id: ResourceId,
     workload: Workload,
     requests: ReadonlyMap<string, ProvisioningRequest>,
     selections: ReadonlyMap<string, SelectedProvisioner>,
     ledger: OutputsLedger,
     artifactsSource: ArtifactsSource,
-  ): ArtifactFragment | undefined {
+  ): Promise<ArtifactFragment | undefined> {
     if (id.category === "release") {
       ledger.recordRelease(
         id.name,
@@ -127,9 +127,9 @@ export class Renderer {
       );
     }
 
-    const params = this.resolveValue(request.params, ledger, workload) as
+    const params = await this.resolveValue(request.params, ledger, workload) as
       Readonly<Record<string, unknown>>;
-    const outcome = selection.provisioner.provision({
+    const outcome = await selection.provisioner.provision({
       category: request.category,
       name: request.name,
       type: request.type,
@@ -169,26 +169,28 @@ export class Renderer {
     );
   }
 
-  private resolveValue(
+  private async resolveValue(
     value: unknown,
     ledger: OutputsLedger,
     workload: Workload,
-  ): unknown {
+  ): Promise<unknown> {
     const reference = this.syntax.parse(value);
     if (reference) {
       return reference.category === "external"
         ? this.resolveExternalReference(reference, workload)
-        : this.bakeOrDefer(reference, ledger);
+        : await this.bakeOrDefer(reference, ledger);
     }
     if (Array.isArray(value)) {
-      return value.map((item) => this.resolveValue(item, ledger, workload));
+      return await Promise.all(
+        value.map((item) => this.resolveValue(item, ledger, workload)),
+      );
     }
     if (typeof value === "object" && value !== null) {
       const resolved: Record<string, unknown> = {};
       for (
         const [key, nested] of Object.entries(value as Record<string, unknown>)
       ) {
-        resolved[key] = this.resolveValue(nested, ledger, workload);
+        resolved[key] = await this.resolveValue(nested, ledger, workload);
       }
       return resolved;
     }
@@ -211,8 +213,8 @@ export class Renderer {
     return declaration[reference.output! as "type" | "name"];
   }
 
-  private bakeOrDefer(reference: Reference, ledger: OutputsLedger): unknown {
-    const resolved = this.referenceResolver.resolve(reference, ledger);
+  private async bakeOrDefer(reference: Reference, ledger: OutputsLedger): Promise<unknown> {
+    const resolved = await this.referenceResolver.resolve(reference, ledger);
     const resolvedValue = resolved.mode === "baked"
       ? resolved.value
       : resolved.wiring;
