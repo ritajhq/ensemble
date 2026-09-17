@@ -1,3 +1,14 @@
+## [0.15.0] - 2026-09-17
+
+### 🐛 Bug Fixes
+
+- *(cli)* Include deno.lock in the core-lib version-bump commit, since stamping's subprocess spawns drift it too
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.14.0
+- Update lock
+- *(release)* Bump library versions for 0.15.0
 ## [0.14.0] - 2026-09-17
 
 ### 🐛 Bug Fixes
