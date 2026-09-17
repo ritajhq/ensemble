@@ -1,3 +1,14 @@
+## [0.17.0] - 2026-09-17
+
+### 🐛 Bug Fixes
+
+- *(lib-kit)* Forward JSR_TOKEN as --token when publishing to JSR
+- *(release,pack)* Thread animated pack/build reporters through the release ceremony
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.16.0
+- *(release)* Bump library versions for 0.17.0
 ## [0.16.0] - 2026-09-17
 
 ### 🐛 Bug Fixes
