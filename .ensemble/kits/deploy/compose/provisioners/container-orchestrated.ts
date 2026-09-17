@@ -9,12 +9,15 @@ function portMappings(ports: unknown): string[] {
 }
 
 /**
- * Translates the portable `development.sync` schema into compose's own
- * `develop.watch` entries — one per sync rule, `app` (an ens app identifier,
- * e.g. "website/server") becoming `path` and the manifest's own `path`
- * (the container target) becoming `target`, matching docker compose's own
- * field names. `undefined` when there's no `development` param or its
- * `sync` list is empty (nothing to watch). Emitted unconditionally whenever
+ * Translates the portable `development` schema (rules grouped by action —
+ * `sync` vs `sync+restart`) into compose's own `develop.watch` entries — one
+ * per sync rule, `app` (an ens app identifier, e.g. "website/server")
+ * becoming `path`, the manifest's own `path` (the container target) becoming
+ * `target`, and the rule's group becoming compose's own `action`, matching
+ * docker compose's field names one-for-one (compose's `action` accepts
+ * exactly "sync"/"sync+restart" among others, the same two values ens's
+ * schema uses). `undefined` when there's no `development` param or neither
+ * group has any rules (nothing to watch). Emitted unconditionally whenever
  * present — rendering doesn't know or care whether `--watch` was asked for
  * (Section 6: flag-independent).
  */
@@ -23,13 +26,20 @@ function developBlock(
 ): Record<string, unknown> | undefined {
   if (development === undefined) return undefined;
   const block = KitSdk.Deploy.parseDevelopmentBlock(development);
-  if (block.sync.length === 0) return undefined;
+  const rules = [
+    ...block.sync.map((rule) => ({ rule, action: "sync" as const })),
+    ...block["sync+restart"].map((rule) => ({
+      rule,
+      action: "sync+restart" as const,
+    })),
+  ];
+  if (rules.length === 0) return undefined;
 
   return {
-    watch: block.sync.map((rule) => ({
+    watch: rules.map(({ rule, action }) => ({
       path: rule.app,
       target: rule.path,
-      action: rule.action,
+      action,
       ...(rule.ignore.length > 0 ? { ignore: [...rule.ignore] } : {}),
     })),
   };

@@ -223,9 +223,9 @@ deploy:
         sync:
           - app: website/server
             path: /app/server
+        sync+restart:
           - app: website/content
             path: /app/content
-            action: sync+restart
             ignore: ["*.test.ts"]
 `;
 
