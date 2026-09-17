@@ -7,10 +7,12 @@ export interface PublishRunner {
   run(libRoot: string): Promise<void>;
 }
 
-/** The real runner: `deno publish` against `libRoot`. `--allow-dirty` is a safety net for incidental repo dirt (e.g. pack artifacts) rather than load-bearing — the release ceremony commits `deno.json`'s stamped `name`/`version` before this ever runs. */
+/** The real runner: `deno publish` against `libRoot`. `--allow-dirty` is a safety net for incidental repo dirt (e.g. pack artifacts) rather than load-bearing — the release ceremony commits `deno.json`'s stamped `name`/`version` before this ever runs. `deno publish` doesn't read any token from the environment on its own — it needs `--token` explicitly, or falls back to interactive browser auth — so `JSR_TOKEN`, if set, is forwarded that way (CI convention; unset locally just falls through to interactive auth). */
 export class DenoPublishRunner implements PublishRunner {
   async run(libRoot: string): Promise<void> {
-    await $`deno publish --allow-dirty`.cwd(libRoot);
+    const token = Deno.env.get("JSR_TOKEN");
+    const tokenArgs = token ? ["--token", token] : [];
+    await $`deno publish --allow-dirty ${tokenArgs}`.cwd(libRoot);
   }
 }
 
