@@ -1,6 +1,8 @@
 import * as Deploy from "./deploy/index.ts";
 import { runPack } from "./pack.ts";
 import type { Ports } from "./ports.ts";
+import type { PackReporter } from "./pack-reporter.ts";
+import type { BuildReporter } from "./build-reporter.ts";
 
 /**
  * The real `ReleasePacker`: wraps the existing `runPack` (the same
@@ -10,8 +12,7 @@ import type { Ports } from "./ports.ts";
  * reason `SubprocessPackKitGateway` does: `runPack` needs `@david/dax` and
  * repo/config-file access, which kit-sdk can't depend on.
  */
-export class RunPackReleasePacker
-  implements Deploy.Terminations.ReleasePacker {
+export class RunPackReleasePacker implements Deploy.Terminations.ReleasePacker {
   /**
    * `skipBuildingApps`: apps this packer should never build itself, because
    * a caller-owned companion process already keeps them fresh (e.g. `ens
@@ -23,6 +24,8 @@ export class RunPackReleasePacker
     private readonly ports: Ports,
     private readonly skipBuildingApps: ReadonlySet<string> = new Set(),
     private readonly verbose = false,
+    private readonly reporter?: PackReporter,
+    private readonly buildReporter?: BuildReporter,
   ) {}
 
   async pack(
@@ -34,6 +37,8 @@ export class RunPackReleasePacker
       outputName: release.outputName,
       skipBuildingApps: this.skipBuildingApps,
       verbose: this.verbose,
+      reporter: this.reporter,
+      buildReporter: this.buildReporter,
     }, this.ports);
     if (code !== 0) {
       throw new Deploy.Terminations.ReleasePackError(

@@ -128,6 +128,8 @@ export const deployCommand = new Command()
           pack,
           emulateExternals,
           verbose,
+          reporter: new Host.AnimatedPackReporter(),
+          buildReporter: new Host.AnimatedBuildReporter(),
         },
         Host.createPorts(),
         new Host.SubprocessPackKitGateway(),

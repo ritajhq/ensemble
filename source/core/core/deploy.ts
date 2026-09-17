@@ -4,6 +4,8 @@ import { loadDeployContext } from "./deploy-context.ts";
 import { RunPackReleasePacker } from "./release-packer.ts";
 import { runBuild } from "./build.ts";
 import type { Ports } from "./ports.ts";
+import type { PackReporter } from "./pack-reporter.ts";
+import type { BuildReporter } from "./build-reporter.ts";
 
 export type DeployTermination = "eject" | "plan" | "apply";
 
@@ -21,6 +23,10 @@ export interface RunDeployOptions {
   emulateExternals: boolean;
   /** Let a local apply's pack step show the kit's own build-tool output (e.g. `docker buildx build`'s progress log) instead of hiding it behind the pack spinner. Ignored for published artifacts, which never pack. */
   verbose: boolean;
+  /** How to report a local apply's pack step to the terminal — same semantics as `RunPackOptions.reporter` (ignored for `watch: true` or `verbose: true`). Defaults to `PlainPackReporter`; the CLI passes `Host.AnimatedPackReporter` instead for an interactive terminal. */
+  reporter?: PackReporter;
+  /** How to report a local apply's pre-pack build step(s) to the terminal — same semantics as `RunPackOptions.buildReporter`. Defaults to `PlainBuildReporter`; the CLI passes `Host.AnimatedBuildReporter` instead for an interactive terminal. */
+  buildReporter?: BuildReporter;
 }
 
 /**
@@ -43,7 +49,10 @@ class CompanionBuildWatchers {
     private readonly failureBox: { failure?: unknown },
   ) {}
 
-  static start(apps: ReadonlySet<string>, ports: Ports): CompanionBuildWatchers {
+  static start(
+    apps: ReadonlySet<string>,
+    ports: Ports,
+  ): CompanionBuildWatchers {
     const controller = new AbortController();
     const sigintListener = () => controller.abort();
     Deno.addSignalListener("SIGINT", sigintListener);
@@ -154,7 +163,13 @@ export async function runDeploy(
     new Deploy.Terminations.Applier(sink, cache),
     new Deploy.Terminations.ReleaseAvailabilityPreflight(gateway),
     new Deploy.Terminations.LocalArtifactsPacker(
-      new RunPackReleasePacker(ports, watchedApps, options.verbose),
+      new RunPackReleasePacker(
+        ports,
+        watchedApps,
+        options.verbose,
+        options.reporter,
+        options.buildReporter,
+      ),
     ),
     new Deploy.Terminations.WatchRunner(sink),
     new Deploy.Terminations.ExternalsEmulator(),

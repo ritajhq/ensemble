@@ -36,6 +36,8 @@ export const developCommand = new Command()
         pack: true,
         emulateExternals: true,
         verbose,
+        reporter: new Host.AnimatedPackReporter(),
+        buildReporter: new Host.AnimatedBuildReporter(),
       },
       Host.createPorts(),
       new Host.SubprocessPackKitGateway(),
