@@ -175,6 +175,16 @@ Deno.test("CoreLibReleaseCascade.stamp: repins a dependent core lib's imports on
       "@ensemble/core": "jsr:@ensemble/core@^0.14.0",
       "@std/path": "jsr:@std/path@1.1.6",
     });
+
+    // core's own version must already be bumped before kit-sdk's stamp
+    // subprocess ever runs — otherwise that subprocess would see kit-sdk's
+    // freshly repinned `^0.14.0` import next to a workspace copy of core
+    // still on disk at 0.13.0, the same mismatch pinInterLibDependencies
+    // exists to prevent, just aimed at core's own manifest instead.
+    const coreDenoJson = JSON.parse(
+      await Deno.readTextFile(join(coreLibRoot, "deno.json")),
+    );
+    assertEquals(coreDenoJson.version, "0.14.0");
   } finally {
     await Deno.remove(repoRoot, { recursive: true });
   }

@@ -30,6 +30,7 @@ export class CoreLibReleaseCascade {
     version: string,
     libs: readonly CoreLibRelease[],
   ): Promise<void> {
+    await this.stampOwnVersions(version, libs);
     await this.pinInterLibDependencies(version, libs);
     for (const { libRoot, declaration } of libs) {
       for (const entry of declaration.publish) {
@@ -40,6 +41,43 @@ export class CoreLibReleaseCascade {
           target: entry.target,
         });
       }
+    }
+  }
+
+  /**
+   * Writes `version` straight into every discovered core library's own
+   * `deno.json`, before any lib kit subprocess runs — including that same
+   * library's own `stamp`. A lib kit invocation always resolves its full
+   * module graph (via `@ensemble/kit-sdk`) just to start up, and that graph
+   * reads every workspace member's on-disk version; if the very first
+   * library's own subprocess ran before this, it would see a workspace
+   * where `pinInterLibDependencies` already repinned its dependents to the
+   * new version but its own manifest still carries the old one — the same
+   * kind of mismatch `pinInterLibDependencies` exists to prevent, just
+   * pointed at itself. Ordinarily redundant with what the `jsr` lib kit's
+   * own `stamp` does to the same file, but not every lib kit necessarily
+   * stamps a `deno.json` (a hypothetical `npm` kit would stamp its own
+   * `package.json` instead), so this can't replace the per-kit stamp step —
+   * only run ahead of it, for the sake of workspace resolution alone.
+   */
+  private async stampOwnVersions(
+    version: string,
+    libs: readonly CoreLibRelease[],
+  ): Promise<void> {
+    for (const { libRoot, declaration } of libs) {
+      const denoJsonPath = join(libRoot, "deno.json");
+      if (!await exists(denoJsonPath, { isFile: true })) continue;
+
+      const denoJson = JSON.parse(await Deno.readTextFile(denoJsonPath)) as Record<
+        string,
+        unknown
+      >;
+      denoJson.name = declaration.package;
+      denoJson.version = version;
+      await Deno.writeTextFile(
+        denoJsonPath,
+        `${JSON.stringify(denoJson, null, 2)}\n`,
+      );
     }
   }
 
