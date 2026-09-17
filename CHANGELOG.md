@@ -1,3 +1,14 @@
+## [0.16.0] - 2026-09-17
+
+### 🐛 Bug Fixes
+
+- *(core)* Load deploy kits via one-shot subprocess spawns instead of in-process import
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.15.0
+- Update lock
+- *(release)* Bump library versions for 0.16.0
 ## [0.15.0] - 2026-09-17
 
 ### 🐛 Bug Fixes
