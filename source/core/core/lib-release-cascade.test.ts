@@ -130,6 +130,56 @@ Deno.test("CoreLibReleaseCascade.publish: a library with no publish entries publ
   assertEquals(FakeLibKit.publishCalls, []);
 });
 
+Deno.test("CoreLibReleaseCascade.stamp: repins a dependent core lib's imports on its sibling to the new version", async () => {
+  FakeLibKit.stampCalls = [];
+  const repoRoot = await Deno.makeTempDir({
+    prefix: "ensemble-lib-release-cascade-pin-",
+  });
+  try {
+    const coreLibRoot = join(repoRoot, "source", "core", "core");
+    const kitSdkLibRoot = join(repoRoot, "source", "core", "kit-sdk");
+    await Deno.mkdir(coreLibRoot, { recursive: true });
+    await Deno.mkdir(kitSdkLibRoot, { recursive: true });
+    await Deno.writeTextFile(
+      join(coreLibRoot, "deno.json"),
+      JSON.stringify({ name: "@ensemble/core", version: "0.13.0" }) + "\n",
+    );
+    await Deno.writeTextFile(
+      join(kitSdkLibRoot, "deno.json"),
+      JSON.stringify({
+        name: "@ensemble/kit-sdk",
+        version: "0.13.0",
+        imports: {
+          "@ensemble/core": "jsr:@ensemble/core@^0.13.0",
+          "@std/path": "jsr:@std/path@1.1.6",
+        },
+      }) + "\n",
+    );
+
+    const cascade = new CoreLibReleaseCascade(UNUSED_PORTS, fakeLibKitFor);
+    await cascade.stamp("0.14.0", [
+      {
+        libRoot: coreLibRoot,
+        declaration: { package: "@ensemble/core", publish: [] },
+      },
+      {
+        libRoot: kitSdkLibRoot,
+        declaration: { package: "@ensemble/kit-sdk", publish: [] },
+      },
+    ]);
+
+    const kitSdkDenoJson = JSON.parse(
+      await Deno.readTextFile(join(kitSdkLibRoot, "deno.json")),
+    );
+    assertEquals(kitSdkDenoJson.imports, {
+      "@ensemble/core": "jsr:@ensemble/core@^0.14.0",
+      "@std/path": "jsr:@std/path@1.1.6",
+    });
+  } finally {
+    await Deno.remove(repoRoot, { recursive: true });
+  }
+});
+
 Deno.test("worked example: a discovered core lib publishes alongside ships under the same computed version", async () => {
   FakeLibKit.publishCalls = [];
   const repoRoot = await Deno.makeTempDir({

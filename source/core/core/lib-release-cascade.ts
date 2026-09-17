@@ -1,3 +1,5 @@
+import { join } from "@std/path";
+import { exists } from "@std/fs";
 import type { LibDeclaration } from "./lib-declaration.ts";
 import { LibKit } from "./lib-kit.ts";
 import type { Ports } from "./ports.ts";
@@ -28,6 +30,7 @@ export class CoreLibReleaseCascade {
     version: string,
     libs: readonly CoreLibRelease[],
   ): Promise<void> {
+    await this.pinInterLibDependencies(version, libs);
     for (const { libRoot, declaration } of libs) {
       for (const entry of declaration.publish) {
         await this.libKitFor(entry.kit).stamp({
@@ -37,6 +40,52 @@ export class CoreLibReleaseCascade {
           target: entry.target,
         });
       }
+    }
+  }
+
+  /**
+   * Repins every discovered core library's own `imports` that point at
+   * *another* discovered core library, to `version` — before any lib kit
+   * runs. A lib kit invocation (e.g. `jsr`'s) spawns a subprocess whose
+   * module graph resolves the target library's own dependencies as part of
+   * just starting up; once one core library's workspace version moves past
+   * what a sibling still pins (e.g. `^0.13.0` after the sibling bumped to
+   * `0.14.0`), Deno stops linking the sibling locally and falls back to
+   * whatever that version resolves to on the real registry — which for a
+   * library not yet published there (as opposed to one merely behind) fails
+   * outright. Doing every repin up front, before the stamp loop below runs
+   * any subprocess, keeps the workspace internally consistent throughout.
+   */
+  private async pinInterLibDependencies(
+    version: string,
+    libs: readonly CoreLibRelease[],
+  ): Promise<void> {
+    const packages = new Set(libs.map((lib) => lib.declaration.package));
+    for (const { libRoot } of libs) {
+      const denoJsonPath = join(libRoot, "deno.json");
+      if (!await exists(denoJsonPath, { isFile: true })) continue;
+
+      const denoJson = JSON.parse(await Deno.readTextFile(denoJsonPath)) as {
+        imports?: Record<string, string>;
+      };
+      const imports = denoJson.imports;
+      if (!imports) continue;
+
+      let changed = false;
+      for (const [specifier, target] of Object.entries(imports)) {
+        const dependency = [...packages].find((pkg) => target.startsWith(`jsr:${pkg}@`));
+        if (!dependency) continue;
+        const pinned = `jsr:${dependency}@^${version}`;
+        if (target === pinned) continue;
+        imports[specifier] = pinned;
+        changed = true;
+      }
+      if (!changed) continue;
+
+      await Deno.writeTextFile(
+        denoJsonPath,
+        `${JSON.stringify(denoJson, null, 2)}\n`,
+      );
     }
   }
 
