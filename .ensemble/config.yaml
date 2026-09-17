@@ -9,16 +9,16 @@ build:
   website/server:
     kit: deno.bundle
 coreLibs:
-  kit-sdk:
-    package: "@ensemble/kit-sdk"
-    publish:
-      - kit: jsr
   core:
     package: "@ensemble/core"
     publish:
       - kit: jsr
   host:
     package: "@ensemble/host"
+    publish:
+      - kit: jsr
+  kit-sdk:
+    package: "@ensemble/kit-sdk"
     publish:
       - kit: jsr
 hooks:
