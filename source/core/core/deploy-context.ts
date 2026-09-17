@@ -1,34 +1,35 @@
 import { join } from "@std/path";
 import { exists } from "@std/fs";
-import * as KitSdk from "@ensemble/kit-sdk";
-import { findRepoRoot } from "./repo.ts";
+import * as Deploy from "./deploy/index.ts";
+import type { RepoLocator } from "./ports.ts";
 
-const RESOURCE_CONTRACTS: readonly KitSdk.Deploy.Contracts.ResourceContract[] =
+const RESOURCE_CONTRACTS: readonly Deploy.Contracts.ResourceContract[] =
   [
-    KitSdk.Deploy.Contracts.relationalV1,
-    KitSdk.Deploy.Contracts.containerOrchestratedV1,
+    Deploy.Contracts.relationalV1,
+    Deploy.Contracts.containerOrchestratedV1,
   ];
 
 export interface DeployContext {
   readonly repoRoot: string;
-  readonly workload: KitSdk.Deploy.Workload;
-  readonly target: KitSdk.Deploy.Target;
-  readonly registry: KitSdk.Deploy.Contracts.Registry;
+  readonly workload: Deploy.Workload;
+  readonly target: Deploy.Target;
+  readonly registry: Deploy.Contracts.Registry;
 }
 
 /** Resolves a deployment's manifest and kit by name — the one place `ens deploy` and `ens deploy explain` share this lookup (`ci/<name>/delivery.yml`, `.ensemble/kits/deploy/<kit>/`), so the two commands can't drift on how a deployment is found. */
 export async function loadDeployContext(
   name: string,
   kit: string,
+  repo: RepoLocator,
 ): Promise<DeployContext> {
-  const repoRoot = await findRepoRoot();
+  const repoRoot = await repo.findRepoRoot();
 
   const manifestPath = join(repoRoot, "ci", name, "delivery.yml");
   if (!await exists(manifestPath, { isFile: true })) {
     throw new Error(`Delivery manifest not found at ${manifestPath}`);
   }
-  const workload = await new KitSdk.Deploy.Manifest.Loader(
-    new KitSdk.Deploy.Manifest.Parser(),
+  const workload = await new Deploy.Manifest.Loader(
+    new Deploy.Manifest.Parser(),
   ).loadFile(manifestPath);
 
   const vendoredKitDir = join(repoRoot, ".ensemble", "kits", "deploy", kit);
@@ -38,7 +39,7 @@ export async function loadDeployContext(
     );
   }
   const sidecarConfigPath = join(repoRoot, "ci", name, `${kit}.config.yml`);
-  const loaded = await new KitSdk.Deploy.KitLoader().load(vendoredKitDir, [
+  const loaded = await new Deploy.KitLoader().load(vendoredKitDir, [
     sidecarConfigPath,
   ]);
 
@@ -46,6 +47,6 @@ export async function loadDeployContext(
     repoRoot,
     workload,
     target: { kit: loaded.kit, runtime: loaded.runtime },
-    registry: new KitSdk.Deploy.Contracts.Catalog(RESOURCE_CONTRACTS),
+    registry: new Deploy.Contracts.Catalog(RESOURCE_CONTRACTS),
   };
 }

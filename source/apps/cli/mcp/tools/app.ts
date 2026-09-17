@@ -1,5 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { runAppCreate } from "@ensemble/core";
+import * as Host from "@ensemble/host";
 import { z } from "zod";
 import { ToolResult } from "../tool-result.ts";
 import { ToolRegistration } from "../tool-registration.ts";
@@ -23,7 +24,7 @@ export class AppTools {
       },
       ({ kit, name, target }) =>
         ToolResult.from(async () => {
-          await runAppCreate({ kit, name, target });
+          await runAppCreate({ kit, name, target }, Host.createPorts());
           return `Scaffolded source/apps/${name} with kit "${kit}".`;
         }),
     );

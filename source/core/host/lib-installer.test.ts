@@ -2,10 +2,11 @@ import { join } from "@std/path";
 import { assert, assertEquals, assertRejects } from "@std/assert";
 import { exists } from "@std/fs";
 import { $ } from "@david/dax";
-import { FileRegistry } from "./registry.ts";
+import { Config, Vendor } from "@ensemble/core";
 import { GitPackageSource } from "./git-package-source.ts";
-import { LibInstaller } from "./lib-installer.ts";
-import { EnsembleConfigStore } from "../config.ts";
+
+const { FileRegistry, LibInstaller } = Vendor;
+const { EnsembleConfigStore } = Config;
 
 async function makeSourceLibRepo(
   files: Record<string, string>,

@@ -1,6 +1,7 @@
 import { Command, EnumType } from "@cliffy/command";
 import { Confirm } from "@cliffy/prompt";
 import * as Core from "@ensemble/core";
+import * as Host from "@ensemble/host";
 
 async function confirmUncommittedChanges(
   release: Core.Release.ReleaseService,
@@ -79,11 +80,12 @@ function filterByName<T>(
 
 async function collectReleases(
   repoRoot: string,
+  ports: Core.Ports,
   filter: ReleaseFilter,
 ): Promise<
   { ships: Core.Release.ShipRelease[]; coreLibs: Core.CoreLibRelease[] }
 > {
-  const ceremony = new Core.Release.ReleaseCeremony(repoRoot);
+  const ceremony = new Core.Release.ReleaseCeremony(repoRoot, ports);
   const ships = filterByName(
     await ceremony.collectShipReleases(),
     (s) => s.name,
@@ -105,12 +107,13 @@ async function collectReleases(
  */
 async function stampAndCommitCoreLibs(
   repoRoot: string,
+  ports: Core.Ports,
   release: Core.Release.ReleaseService,
   tag: string,
 ): Promise<void> {
-  const { coreLibs } = await collectReleases(repoRoot, {});
+  const { coreLibs } = await collectReleases(repoRoot, ports, {});
   if (coreLibs.length === 0) return;
-  await new Core.Release.ReleaseCeremony(repoRoot).stampCoreLibs(coreLibs, tag);
+  await new Core.Release.ReleaseCeremony(repoRoot, ports).stampCoreLibs(coreLibs, tag);
   await release.commitIfChanged(
     coreLibs.map((lib) => lib.libRoot),
     `chore(release): bump library versions for ${tag}`,
@@ -139,10 +142,11 @@ function describeCoreLibRelease(lib: Core.CoreLibRelease, tag: string): string {
 /** Dry-run counterpart to `maybeRunReleaseCeremony`: reports what building/packing/publishing the tag would trigger, without doing any of it. */
 async function printReleaseCeremonyPreview(
   repoRoot: string,
+  ports: Core.Ports,
   tag: string,
   filter: ReleaseFilter = {},
 ): Promise<void> {
-  const { ships, coreLibs } = await collectReleases(repoRoot, filter);
+  const { ships, coreLibs } = await collectReleases(repoRoot, ports, filter);
   if (ships.length > 0) {
     console.log(`Would then build, pack, and publish ${ships.length} ship(s):`);
     for (const ship of ships) {
@@ -193,12 +197,13 @@ type CeremonyOutcome = "completed" | "declined" | "held-off";
  */
 async function maybeRunReleaseCeremony(
   repoRoot: string,
+  ports: Core.Ports,
   release: Core.Release.ReleaseService,
   tag: string,
   remote: string,
   filter: ReleaseFilter = {},
 ): Promise<CeremonyOutcome> {
-  const { ships, coreLibs } = await collectReleases(repoRoot, filter);
+  const { ships, coreLibs } = await collectReleases(repoRoot, ports, filter);
   if (ships.length === 0 && coreLibs.length === 0) {
     await maybePushRelease(
       release,
@@ -241,7 +246,7 @@ async function maybeRunReleaseCeremony(
     return "declined";
   }
 
-  const ceremony = new Core.Release.ReleaseCeremony(repoRoot);
+  const ceremony = new Core.Release.ReleaseCeremony(repoRoot, ports);
   try {
     await ceremony.packShips(ships);
   } catch (error) {
@@ -288,6 +293,7 @@ async function maybeRunReleaseCeremony(
  */
 async function runCeremonySafely(
   repoRoot: string,
+  ports: Core.Ports,
   release: Core.Release.ReleaseService,
   tag: string,
   remote: string,
@@ -296,6 +302,7 @@ async function runCeremonySafely(
   try {
     return await maybeRunReleaseCeremony(
       repoRoot,
+      ports,
       release,
       tag,
       remote,
@@ -324,11 +331,12 @@ async function runCeremonySafely(
  */
 async function runReleaseHook(
   repoRoot: string,
+  ports: Core.Ports,
   release: Core.Release.ReleaseService,
   tag: string,
   remote: string,
 ): Promise<void> {
-  const hooks = new Core.Hooks.Hooks(repoRoot);
+  const hooks = new Core.Hooks.Hooks(repoRoot, ports.process);
   const releaseHooks = await hooks.releaseAfter();
   if (releaseHooks.length === 0) return;
   for (const hook of releaseHooks) {
@@ -339,8 +347,8 @@ async function runReleaseHook(
 }
 
 /** Dry-run counterpart to `runReleaseHook`: reports the `hooks.release.after` hooks that would run, without running them. */
-async function printReleaseHookPreview(repoRoot: string): Promise<void> {
-  for (const hook of await new Core.Hooks.Hooks(repoRoot).releaseAfter()) {
+async function printReleaseHookPreview(repoRoot: string, ports: Core.Ports): Promise<void> {
+  for (const hook of await new Core.Hooks.Hooks(repoRoot, ports.process).releaseAfter()) {
     console.log(`Would then run "${hook.name}" hook.`);
   }
 }
@@ -369,26 +377,27 @@ export const releaseCommand = new Command()
   .type("bump", new EnumType(["patch", "minor", "major"]))
   .arguments("<bump:bump>")
   .action(async ({ dryRun, preRelease, meta, remote }, bump) => {
-    const repoRoot = await Core.findRepoRoot();
-    const release = new Core.Release.ReleaseService(repoRoot);
+    const ports = Host.createPorts();
+    const repoRoot = await ports.repo.findRepoRoot();
+    const release = new Core.Release.ReleaseService(repoRoot, ports.process);
     if (!dryRun && !await confirmUncommittedChanges(release)) return;
     const preview = await release.next(bump, { dryRun, preRelease, meta });
     printPreview(dryRun ? "Would create" : "Will create", preview);
     if (dryRun) {
-      await printReleaseCeremonyPreview(repoRoot, preview.tag);
-      await printReleaseHookPreview(repoRoot);
+      await printReleaseCeremonyPreview(repoRoot, ports, preview.tag);
+      await printReleaseHookPreview(repoRoot, ports);
       return;
     }
-    await stampAndCommitCoreLibs(repoRoot, release, preview.tag);
+    await stampAndCommitCoreLibs(repoRoot, ports, release, preview.tag);
     await release.createReleaseTag(preview);
     console.log(`Created tag: ${preview.tag}`);
     if (
-      await runCeremonySafely(repoRoot, release, preview.tag, remote) !==
+      await runCeremonySafely(repoRoot, ports, release, preview.tag, remote) !==
         "completed"
     ) {
       return;
     }
-    await runReleaseHook(repoRoot, release, preview.tag, remote);
+    await runReleaseHook(repoRoot, ports, release, preview.tag, remote);
   })
   .reset()
   .command(
@@ -397,26 +406,27 @@ export const releaseCommand = new Command()
   )
   .arguments("<version:string>")
   .action(async ({ dryRun, preRelease, meta, remote }, version) => {
-    const repoRoot = await Core.findRepoRoot();
-    const release = new Core.Release.ReleaseService(repoRoot);
+    const ports = Host.createPorts();
+    const repoRoot = await ports.repo.findRepoRoot();
+    const release = new Core.Release.ReleaseService(repoRoot, ports.process);
     if (!dryRun && !await confirmUncommittedChanges(release)) return;
     const preview = await release.set(version, { dryRun, preRelease, meta });
     printPreview(dryRun ? "Would create" : "Will create", preview);
     if (dryRun) {
-      await printReleaseCeremonyPreview(repoRoot, preview.tag);
-      await printReleaseHookPreview(repoRoot);
+      await printReleaseCeremonyPreview(repoRoot, ports, preview.tag);
+      await printReleaseHookPreview(repoRoot, ports);
       return;
     }
-    await stampAndCommitCoreLibs(repoRoot, release, preview.tag);
+    await stampAndCommitCoreLibs(repoRoot, ports, release, preview.tag);
     await release.createReleaseTag(preview);
     console.log(`Created tag: ${preview.tag}`);
     if (
-      await runCeremonySafely(repoRoot, release, preview.tag, remote) !==
+      await runCeremonySafely(repoRoot, ports, release, preview.tag, remote) !==
         "completed"
     ) {
       return;
     }
-    await runReleaseHook(repoRoot, release, preview.tag, remote);
+    await runReleaseHook(repoRoot, ports, release, preview.tag, remote);
   })
   .reset()
   .command(
@@ -433,8 +443,9 @@ export const releaseCommand = new Command()
   )
   .arguments("<tag:string>")
   .action(async ({ dryRun, remote, only, skip }, tag) => {
-    const repoRoot = await Core.findRepoRoot();
-    const release = new Core.Release.ReleaseService(repoRoot);
+    const ports = Host.createPorts();
+    const repoRoot = await ports.repo.findRepoRoot();
+    const release = new Core.Release.ReleaseService(repoRoot, ports.process);
     if (!await release.hasTag(tag)) {
       throw new Error(
         `No local tag "${tag}" — create it first with "ens release next" or "ens release set".`,
@@ -445,23 +456,24 @@ export const releaseCommand = new Command()
       skip: skip?.split(",").map((name) => name.trim()),
     };
     if (dryRun) {
-      await printReleaseCeremonyPreview(repoRoot, tag, filter);
-      await printReleaseHookPreview(repoRoot);
+      await printReleaseCeremonyPreview(repoRoot, ports, tag, filter);
+      await printReleaseHookPreview(repoRoot, ports);
       return;
     }
     if (
-      await runCeremonySafely(repoRoot, release, tag, remote, filter) !==
+      await runCeremonySafely(repoRoot, ports, release, tag, remote, filter) !==
         "completed"
     ) {
       return;
     }
-    await runReleaseHook(repoRoot, release, tag, remote);
+    await runReleaseHook(repoRoot, ports, release, tag, remote);
   })
   .reset()
   .command("undo", "Deletes the last tag. Does not touch any commit.")
   .action(async ({ dryRun, remote }) => {
-    const repoRoot = await Core.findRepoRoot();
-    const release = new Core.Release.ReleaseService(repoRoot);
+    const ports = Host.createPorts();
+    const repoRoot = await ports.repo.findRepoRoot();
+    const release = new Core.Release.ReleaseService(repoRoot, ports.process);
     const result = await release.undo({ dryRun });
     console.log(`${dryRun ? "Would delete" : "Deleted"} tag: ${result.tag}`);
     if (dryRun) return;

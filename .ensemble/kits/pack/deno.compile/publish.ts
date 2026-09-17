@@ -3,7 +3,7 @@ import { exists } from "@std/fs";
 import { parse as parseYaml } from "@std/yaml";
 import { $ } from "@david/dax";
 import * as KitSdk from "@ensemble/kit-sdk";
-import { findRepoRoot } from "@ensemble/core";
+import { findRepoRoot } from "@ensemble/kit-sdk";
 
 const ctx = KitSdk.Pack.getPublishContext();
 

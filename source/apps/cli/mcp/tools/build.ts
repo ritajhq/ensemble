@@ -1,5 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { runBuild } from "@ensemble/core";
+import * as Host from "@ensemble/host";
 import { z } from "zod";
 import { ToolResult } from "../tool-result.ts";
 import { ToolRegistration } from "../tool-registration.ts";
@@ -25,7 +26,7 @@ export class BuildTools {
       },
       ({ name, mode, varOverrides }) =>
         ToolResult.from(async () => {
-          const code = await runBuild(name, { mode, watch: false, varOverrides });
+          const code = await runBuild(name, { mode, watch: false, varOverrides }, Host.createPorts());
           if (code !== 0) throw new Error(`Build of "${name}" failed with exit code ${code}.`);
           return `Built "${name}" (${mode}).`;
         }),

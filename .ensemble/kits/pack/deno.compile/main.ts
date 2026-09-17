@@ -3,7 +3,7 @@ import { ensureDir, exists } from "@std/fs";
 import { parse as parseYaml } from "@std/yaml";
 import { $ } from "@david/dax";
 import * as KitSdk from "@ensemble/kit-sdk";
-import { resolveDenoExecutable } from "@ensemble/core";
+import { resolveDenoExecutable } from "@ensemble/kit-sdk";
 
 const ctx = KitSdk.Pack.getContext();
 

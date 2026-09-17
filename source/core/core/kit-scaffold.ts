@@ -1,6 +1,6 @@
 import { join } from "@std/path";
 import { ensureDir, exists } from "@std/fs";
-import { findRepoRoot } from "./repo.ts";
+import type { RepoLocator } from "./ports.ts";
 import * as KitManifest from "./vendor/kit-manifest.ts";
 
 const KIT_NAME_PATTERN = /^[a-zA-Z0-9](?:[a-zA-Z0-9._-]*[a-zA-Z0-9])?$/;
@@ -30,6 +30,7 @@ const STUB_ENTRYPOINT_TEMPLATE = `export {};\n`;
 export async function runKitNew(
   name: string,
   role: KitManifest.Role,
+  repo: RepoLocator,
 ): Promise<void> {
   const trimmed = name.trim();
   if (!KIT_NAME_PATTERN.test(trimmed)) {
@@ -45,7 +46,7 @@ export async function runKitNew(
     );
   }
 
-  const repoRoot = await findRepoRoot();
+  const repoRoot = await repo.findRepoRoot();
   const kitDir = join(repoRoot, ".ensemble", "kits", role, trimmed);
   if (await exists(kitDir)) {
     throw new Error(`"${kitDir}" already exists.`);

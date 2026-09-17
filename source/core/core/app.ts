@@ -1,9 +1,7 @@
 import { join } from "@std/path";
 import { exists } from "@std/fs";
-import { $ } from "@david/dax";
-import { findRepoRoot } from "./repo.ts";
+import type { Ports } from "./ports.ts";
 import { EnsembleConfigStore } from "./config.ts";
-import { resolveDenoExecutable } from "./deno-exe.ts";
 
 const APP_NAME_PATTERN = /^[a-zA-Z0-9](?:[a-zA-Z0-9._\-/]*[a-zA-Z0-9])?$/;
 
@@ -22,7 +20,7 @@ export interface RunAppCreateOptions {
  * EnsembleConfigStore.setAppBuildKit — so the app is immediately buildable
  * with `ens build <name>`.
  */
-export async function runAppCreate(options: RunAppCreateOptions): Promise<void> {
+export async function runAppCreate(options: RunAppCreateOptions, ports: Ports): Promise<void> {
   const name = options.name.trim();
   if (!APP_NAME_PATTERN.test(name)) {
     throw new Error(
@@ -31,7 +29,7 @@ export async function runAppCreate(options: RunAppCreateOptions): Promise<void> 
     );
   }
 
-  const repoRoot = await findRepoRoot();
+  const repoRoot = await ports.repo.findRepoRoot();
   const kitDir = join(repoRoot, ".ensemble", "kits", "build", options.kit);
   const scaffoldEntry = join(kitDir, "scaffold.ts");
   if (!await exists(scaffoldEntry, { isFile: true })) {
@@ -43,16 +41,29 @@ export async function runAppCreate(options: RunAppCreateOptions): Promise<void> 
     throw new Error(`"${sourceDir}" already exists.`);
   }
 
-  const denoExe = await resolveDenoExecutable();
+  const denoExe = await ports.denoExe.resolveDenoExecutable();
   const targetArgs = options.target ? ["--target", options.target] : [];
   // --minimum-dependency-age 0: see the identical flag in build.ts — kits
   // depend on first-party @ensemble/*/@duesabati/* packages that a fresh
   // release can otherwise trip Deno's default 24h supply-chain guard on.
-  const result =
-    await $`${denoExe} run -A -q --minimum-dependency-age 0 ${scaffoldEntry} --dest ${sourceDir} --name ${name} ${targetArgs}`
-      .cwd(kitDir)
-      .noThrow();
-  if (result.code !== 0) {
+  const code = await ports.process.run(
+    denoExe,
+    [
+      "run",
+      "-A",
+      "-q",
+      "--minimum-dependency-age",
+      "0",
+      scaffoldEntry,
+      "--dest",
+      sourceDir,
+      "--name",
+      name,
+      ...targetArgs,
+    ],
+    { cwd: kitDir },
+  );
+  if (code !== 0) {
     throw new Error(`Scaffolding "${name}" with kit "${options.kit}" failed.`);
   }
 

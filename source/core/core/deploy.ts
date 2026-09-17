@@ -1,14 +1,14 @@
 import { basename, join } from "@std/path";
-import * as KitSdk from "@ensemble/kit-sdk";
+import * as Deploy from "./deploy/index.ts";
 import { loadDeployContext } from "./deploy-context.ts";
-import { SubprocessPackKitGateway } from "./pack-kit-gateway.ts";
 import { RunPackReleasePacker } from "./release-packer.ts";
 import { runBuild } from "./build.ts";
+import type { Ports } from "./ports.ts";
 
 export type DeployTermination = "eject" | "plan" | "apply";
 
 export interface RunDeployOptions {
-  artifacts: KitSdk.Deploy.ArtifactsSource;
+  artifacts: Deploy.ArtifactsSource;
   /** Which released version `${release.<name>}` resolves to for published artifacts — meaningless for local artifacts, where the local tag is always used regardless. */
   version: string;
   termination: DeployTermination;
@@ -43,7 +43,7 @@ class CompanionBuildWatchers {
     private readonly failureBox: { failure?: unknown },
   ) {}
 
-  static start(apps: ReadonlySet<string>): CompanionBuildWatchers {
+  static start(apps: ReadonlySet<string>, ports: Ports): CompanionBuildWatchers {
     const controller = new AbortController();
     const sigintListener = () => controller.abort();
     Deno.addSignalListener("SIGINT", sigintListener);
@@ -55,7 +55,7 @@ class CompanionBuildWatchers {
         mode: "development",
         watch: true,
         signal: controller.signal,
-      }).catch((error) => {
+      }, ports).catch((error) => {
         // Attached right here rather than left to `stop()`'s later
         // `Promise.allSettled` — a startup failure (e.g. no build config for
         // the app) rejects almost immediately, well before `stop()` runs,
@@ -102,23 +102,25 @@ export async function runDeploy(
   name: string,
   kit: string,
   options: RunDeployOptions,
+  ports: Ports,
+  gateway: Deploy.PackKitGateway,
 ): Promise<void> {
   const { repoRoot, workload, target, registry } = await loadDeployContext(
     name,
     kit,
+    ports.repo,
   );
 
-  const gateway = new SubprocessPackKitGateway();
-  const locatorResolver = new KitSdk.Deploy.ReleaseLocatorResolver(gateway);
-  const releaseLocator = new KitSdk.Deploy.PreresolvedReleaseLocator(
+  const locatorResolver = new Deploy.ReleaseLocatorResolver(gateway);
+  const releaseLocator = new Deploy.PreresolvedReleaseLocator(
     await locatorResolver.resolveAll(
       workload,
       options.artifacts,
       options.version,
     ),
   );
-  const renderer = new KitSdk.Deploy.Render.Renderer(
-    new KitSdk.Deploy.Render.ReferenceResolver(target.kit.realization()),
+  const renderer = new Deploy.Render.Renderer(
+    new Deploy.Render.ReferenceResolver(target.kit.realization()),
     releaseLocator,
     registry,
   );
@@ -133,31 +135,31 @@ export async function runDeploy(
   const deploymentName = `${basename(repoRoot)}-${name}`;
 
   const outputsDir = join(repoRoot, "source", "artifacts", "deploy", name);
-  const sink = new KitSdk.Deploy.Terminations.FileArtifactSink(outputsDir);
-  const cache = new KitSdk.Deploy.Terminations.FileRenderCache(
+  const sink = new Deploy.Terminations.FileArtifactSink(outputsDir);
+  const cache = new Deploy.Terminations.FileRenderCache(
     join(repoRoot, ".ensemble", "deploy", name, "last-rendered.txt"),
   );
 
   const watchedApps = options.watch
-    ? KitSdk.Deploy.discoverWatchedApps(workload)
+    ? Deploy.discoverWatchedApps(workload)
     : new Set<string>();
 
-  const coordinator = new KitSdk.Deploy.Terminations.DeploymentCoordinator(
+  const coordinator = new Deploy.Terminations.DeploymentCoordinator(
     registry,
     renderer,
-    new KitSdk.Deploy.Terminations.Ejector(sink),
-    new KitSdk.Deploy.Terminations.Planner(cache),
-    new KitSdk.Deploy.Terminations.Applier(sink, cache),
-    new KitSdk.Deploy.Terminations.ReleaseAvailabilityPreflight(gateway),
-    new KitSdk.Deploy.Terminations.LocalArtifactsPacker(
-      new RunPackReleasePacker(watchedApps, options.verbose),
+    new Deploy.Terminations.Ejector(sink),
+    new Deploy.Terminations.Planner(cache),
+    new Deploy.Terminations.Applier(sink, cache),
+    new Deploy.Terminations.ReleaseAvailabilityPreflight(gateway),
+    new Deploy.Terminations.LocalArtifactsPacker(
+      new RunPackReleasePacker(ports, watchedApps, options.verbose),
     ),
-    new KitSdk.Deploy.Terminations.WatchRunner(sink),
-    new KitSdk.Deploy.Terminations.ExternalsEmulator(),
+    new Deploy.Terminations.WatchRunner(sink),
+    new Deploy.Terminations.ExternalsEmulator(),
   );
 
   const buildWatchers = watchedApps.size > 0
-    ? CompanionBuildWatchers.start(watchedApps)
+    ? CompanionBuildWatchers.start(watchedApps, ports)
     : undefined;
 
   try {
@@ -189,7 +191,7 @@ export async function runDeploy(
 }
 
 function presentResult(
-  result: KitSdk.Deploy.Terminations.DeployResult,
+  result: Deploy.Terminations.DeployResult,
   name: string,
   watched: boolean,
 ): void {

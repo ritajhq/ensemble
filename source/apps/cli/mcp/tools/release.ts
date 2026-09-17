@@ -1,5 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as Core from "@ensemble/core";
+import * as Host from "@ensemble/host";
 import { z } from "zod";
 import { ToolResult } from "../tool-result.ts";
 import { ToolRegistration } from "../tool-registration.ts";
@@ -24,9 +25,10 @@ function filterByName<T>(items: T[], nameOf: (item: T) => string, filter: Releas
 
 async function collectReleases(
   repoRoot: string,
+  ports: Core.Ports,
   filter: ReleaseFilter,
 ): Promise<{ ships: Core.Release.ShipRelease[]; coreLibs: Core.CoreLibRelease[] }> {
-  const ceremony = new Core.Release.ReleaseCeremony(repoRoot);
+  const ceremony = new Core.Release.ReleaseCeremony(repoRoot, ports);
   const ships = filterByName(await ceremony.collectShipReleases(), (s) => s.name, filter);
   const coreLibs = filterByName(
     await ceremony.collectCoreLibReleases(),
@@ -59,19 +61,20 @@ function describeReleaseScope(
  */
 async function tagAndRunCeremony(
   repoRoot: string,
+  ports: Core.Ports,
   release: Core.Release.ReleaseService,
   preview: Core.Release.ReleasePreview,
   remote: string,
   dryRun: boolean,
 ): Promise<string> {
-  const { ships, coreLibs } = await collectReleases(repoRoot, {});
+  const { ships, coreLibs } = await collectReleases(repoRoot, ports, {});
   const scope = describeReleaseScope(ships, coreLibs);
   if (dryRun) {
     return `Would create tag: ${preview.tag} (from ${preview.lastTag ?? "no previous tag"})\n${scope}`;
   }
 
   if (coreLibs.length > 0) {
-    await new Core.Release.ReleaseCeremony(repoRoot).stampCoreLibs(coreLibs, preview.tag);
+    await new Core.Release.ReleaseCeremony(repoRoot, ports).stampCoreLibs(coreLibs, preview.tag);
     await release.commitIfChanged(
       coreLibs.map((lib) => lib.libRoot),
       `chore(release): bump library versions for ${preview.tag}`,
@@ -79,14 +82,14 @@ async function tagAndRunCeremony(
   }
   await release.createReleaseTag(preview);
 
-  const ceremony = new Core.Release.ReleaseCeremony(repoRoot);
+  const ceremony = new Core.Release.ReleaseCeremony(repoRoot, ports);
   if (ships.length > 0) await ceremony.packShips(ships);
   await release.pushCommits(remote);
   await release.pushTag(preview.tag, remote);
   if (ships.length > 0) await ceremony.publishShips(ships, preview.tag);
   if (coreLibs.length > 0) await ceremony.releaseCoreLibs(coreLibs, preview.tag);
 
-  const hooks = new Core.Hooks.Hooks(repoRoot);
+  const hooks = new Core.Hooks.Hooks(repoRoot, ports.process);
   const releaseHooks = await hooks.releaseAfter();
   for (const hook of releaseHooks) await hooks.run(hook, preview.tag);
   if (releaseHooks.length > 0) await release.pushCommits(remote);
@@ -137,11 +140,12 @@ export class ReleaseTools {
       },
       ({ bump, dryRun, preRelease, meta, remote, confirmUncommittedChanges }) =>
         ToolResult.from(async () => {
-          const repoRoot = await Core.findRepoRoot();
-          const release = new Core.Release.ReleaseService(repoRoot);
+          const ports = Host.createPorts();
+          const repoRoot = await ports.repo.findRepoRoot();
+          const release = new Core.Release.ReleaseService(repoRoot, ports.process);
           await requireCommittedOrConfirmed(release, dryRun, confirmUncommittedChanges);
           const preview = await release.next(bump, { dryRun, preRelease, meta });
-          return await tagAndRunCeremony(repoRoot, release, preview, remote, dryRun);
+          return await tagAndRunCeremony(repoRoot, ports, release, preview, remote, dryRun);
         }),
     );
 
@@ -166,11 +170,12 @@ export class ReleaseTools {
       },
       ({ version, dryRun, preRelease, meta, remote, confirmUncommittedChanges }) =>
         ToolResult.from(async () => {
-          const repoRoot = await Core.findRepoRoot();
-          const release = new Core.Release.ReleaseService(repoRoot);
+          const ports = Host.createPorts();
+          const repoRoot = await ports.repo.findRepoRoot();
+          const release = new Core.Release.ReleaseService(repoRoot, ports.process);
           await requireCommittedOrConfirmed(release, dryRun, confirmUncommittedChanges);
           const preview = await release.set(version, { dryRun, preRelease, meta });
-          return await tagAndRunCeremony(repoRoot, release, preview, remote, dryRun);
+          return await tagAndRunCeremony(repoRoot, ports, release, preview, remote, dryRun);
         }),
     );
 
@@ -192,26 +197,27 @@ export class ReleaseTools {
       },
       ({ tag, dryRun, remote, only, skip }) =>
         ToolResult.from(async () => {
-          const repoRoot = await Core.findRepoRoot();
-          const release = new Core.Release.ReleaseService(repoRoot);
+          const ports = Host.createPorts();
+          const repoRoot = await ports.repo.findRepoRoot();
+          const release = new Core.Release.ReleaseService(repoRoot, ports.process);
           if (!await release.hasTag(tag)) {
             throw new Error(
               `No local tag "${tag}" — create it first with ensemble_release_next or ensemble_release_set.`,
             );
           }
           const filter: ReleaseFilter = { only, skip };
-          const { ships, coreLibs } = await collectReleases(repoRoot, filter);
+          const { ships, coreLibs } = await collectReleases(repoRoot, ports, filter);
           const scope = describeReleaseScope(ships, coreLibs);
           if (dryRun) return `Would resume ${tag}:\n${scope}`;
 
-          const ceremony = new Core.Release.ReleaseCeremony(repoRoot);
+          const ceremony = new Core.Release.ReleaseCeremony(repoRoot, ports);
           if (ships.length > 0) await ceremony.packShips(ships);
           await release.pushCommits(remote);
           await release.pushTag(tag, remote);
           if (ships.length > 0) await ceremony.publishShips(ships, tag);
           if (coreLibs.length > 0) await ceremony.releaseCoreLibs(coreLibs, tag);
 
-          const hooks = new Core.Hooks.Hooks(repoRoot);
+          const hooks = new Core.Hooks.Hooks(repoRoot, ports.process);
           const releaseHooks = await hooks.releaseAfter();
           for (const hook of releaseHooks) await hooks.run(hook, tag);
           if (releaseHooks.length > 0) await release.pushCommits(remote);
@@ -240,8 +246,9 @@ export class ReleaseTools {
       },
       ({ dryRun, remote, deleteFromRemote }) =>
         ToolResult.from(async () => {
-          const repoRoot = await Core.findRepoRoot();
-          const release = new Core.Release.ReleaseService(repoRoot);
+          const ports = Host.createPorts();
+          const repoRoot = await ports.repo.findRepoRoot();
+          const release = new Core.Release.ReleaseService(repoRoot, ports.process);
           const result = await release.undo({ dryRun });
           if (dryRun) return `Would delete tag: ${result.tag}`;
           if (!deleteFromRemote) return `Deleted tag: ${result.tag}`;

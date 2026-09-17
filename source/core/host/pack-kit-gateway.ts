@@ -1,7 +1,7 @@
 import { join } from "@std/path";
 import { exists } from "@std/fs";
 import { $ } from "@david/dax";
-import type * as KitSdk from "@ensemble/kit-sdk";
+import type { Deploy } from "@ensemble/core";
 import { findRepoRoot } from "./repo.ts";
 import { resolveDenoExecutable } from "./deno-exe.ts";
 
@@ -13,11 +13,11 @@ import { resolveDenoExecutable } from "./deno-exe.ts";
  * deno-executable resolution, which kit-sdk (a leaf package `@ensemble/core`
  * depends on, never the reverse) can't depend on.
  */
-export class SubprocessPackKitGateway implements KitSdk.Deploy.PackKitGateway {
+export class SubprocessPackKitGateway implements Deploy.PackKitGateway {
   async describe(
     releaseName: string,
-    release: KitSdk.Deploy.Release,
-    artifacts: KitSdk.Deploy.ArtifactsSource,
+    release: Deploy.Release,
+    artifacts: Deploy.ArtifactsSource,
     version: string,
   ): Promise<string> {
     const kitDir = await this.resolveEntrypoint(release.kit, "describe");
@@ -34,10 +34,10 @@ export class SubprocessPackKitGateway implements KitSdk.Deploy.PackKitGateway {
 
   async verify(
     releaseName: string,
-    release: KitSdk.Deploy.Release,
-    artifacts: KitSdk.Deploy.ArtifactsSource,
+    release: Deploy.Release,
+    artifacts: Deploy.ArtifactsSource,
     version: string,
-  ): Promise<KitSdk.Deploy.ReleaseAvailability> {
+  ): Promise<Deploy.ReleaseAvailability> {
     const kitDir = await this.resolveEntrypoint(release.kit, "verify");
     const denoExe = await resolveDenoExecutable();
 
@@ -70,8 +70,8 @@ export class SubprocessPackKitGateway implements KitSdk.Deploy.PackKitGateway {
 
   private contextArgs(
     releaseName: string,
-    release: KitSdk.Deploy.Release,
-    artifacts: KitSdk.Deploy.ArtifactsSource,
+    release: Deploy.Release,
+    artifacts: Deploy.ArtifactsSource,
     version: string,
   ): string[] {
     const outputName = release.outputName ?? releaseName;

@@ -1,6 +1,6 @@
 import { join } from "@std/path";
 import { assert, assertEquals, assertRejects } from "@std/assert";
-import type * as KitSdk from "@ensemble/kit-sdk";
+import type * as Lib from "./lib-context.ts";
 import { runLibNew } from "./lib-scaffold.ts";
 import { SelfContainmentChecker } from "./lib-self-containment.ts";
 import { LibDeclarationLoader } from "./lib-declaration.ts";
@@ -11,17 +11,33 @@ import { ReleaseCeremony } from "./release.ts";
 import type { LibKit } from "./lib-kit.ts";
 import type { PackageSource, PullRequestRef } from "./vendor/package-source.ts";
 import { FileRegistry } from "./vendor/registry.ts";
+import type { Ports } from "./ports.ts";
+
+function repoAt(repoRoot: string): Ports["repo"] {
+  return { findRepoRoot: () => Promise.resolve(repoRoot) };
+}
+
+/** `libKitFor` is always overridden by a fake in these tests, so the default's dependency on real ports never actually runs; `ReleaseCeremony`'s pack/publish paths aren't exercised here either. */
+const UNUSED_PORTS: Ports = {
+  repo: { findRepoRoot: () => Promise.reject(new Error("not used")) },
+  denoExe: { resolveDenoExecutable: () => Promise.reject(new Error("not used")) },
+  process: {
+    run: () => Promise.reject(new Error("not used")),
+    exec: () => Promise.reject(new Error("not used")),
+    capture: () => Promise.reject(new Error("not used")),
+  },
+};
 
 class FakeLibKit {
-  static calls: { kit: string; input: KitSdk.Lib.Context }[] = [];
+  static calls: { kit: string; input: Lib.Context }[] = [];
 
   constructor(private readonly kit: string) {}
 
-  stamp(_input: KitSdk.Lib.Context): Promise<void> {
+  stamp(_input: Lib.Context): Promise<void> {
     return Promise.resolve();
   }
 
-  publish(input: KitSdk.Lib.Context): Promise<void> {
+  publish(input: Lib.Context): Promise<void> {
     FakeLibKit.calls.push({ kit: this.kit, input });
     return Promise.resolve();
   }
@@ -104,7 +120,7 @@ Deno.test("worked example (core-lib path): a discovered core lib shares the same
       `coreLibs:\n  kit-sdk:\n    package: "@ensemble/kit-sdk"\n    publish:\n      - kit: fake\n`,
     );
 
-    const ceremony = new ReleaseCeremony(repoRoot);
+    const ceremony = new ReleaseCeremony(repoRoot, UNUSED_PORTS);
 
     const ships = await ceremony.collectShipReleases();
     assertEquals(ships.map((s) => s.name), ["web"]);
@@ -116,7 +132,7 @@ Deno.test("worked example (core-lib path): a discovered core lib shares the same
 
     // Same computed version a ship cascade in the same release run would use.
     const sharedVersion = "3.1.4";
-    await new CoreLibReleaseCascade(fakeLibKitFor).publish(
+    await new CoreLibReleaseCascade(UNUSED_PORTS, fakeLibKitFor).publish(
       sharedVersion,
       coreLibs,
     );
@@ -151,7 +167,7 @@ Deno.test("worked example (libs-library path): scaffold, publish unejected (warn
 
     // 1. Scaffold the fixture lib — this alone registers libs.widgets.package
     // in .ensemble/config.yaml, with no manifest file inside libRoot itself.
-    await runLibNew("widgets");
+    await runLibNew("widgets", repoAt(repoRoot));
 
     // Give it a publish entry — the bare scaffold declares none yet.
     await Deno.writeTextFile(
@@ -167,6 +183,7 @@ Deno.test("worked example (libs-library path): scaffold, publish unejected (warn
       checker,
       registry,
       declarationLoader,
+      UNUSED_PORTS,
       fakeLibKitFor,
       (message) => earlyWarnings.push(message),
     );
@@ -251,6 +268,7 @@ Deno.test("worked example (libs-library path): scaffold, publish unejected (warn
       checker,
       registry,
       declarationLoader,
+      UNUSED_PORTS,
       fakeLibKitFor,
       (message) => laterWarnings.push(message),
     );

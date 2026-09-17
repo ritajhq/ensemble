@@ -2150,7 +2150,6 @@
       ".ensemble/kits/build/deno.bundle": {
         "dependencies": [
           "jsr:@david/dax@0.42.0",
-          "jsr:@ensemble/core@*",
           "jsr:@ensemble/kit-sdk@*",
           "jsr:@std/fs@1.0.24",
           "jsr:@std/path@1.1.6"
@@ -2159,7 +2158,6 @@
       ".ensemble/kits/build/react": {
         "dependencies": [
           "jsr:@david/dax@0.42.0",
-          "jsr:@ensemble/core@*",
           "jsr:@ensemble/kit-sdk@*",
           "jsr:@std/fs@1.0.24",
           "jsr:@std/path@1.1.6"
@@ -2194,7 +2192,6 @@
       ".ensemble/kits/pack/deno.compile": {
         "dependencies": [
           "jsr:@david/dax@0.42.0",
-          "jsr:@ensemble/core@*",
           "jsr:@ensemble/kit-sdk@*",
           "jsr:@std/fs@1.0.24",
           "jsr:@std/path@1.1.6",
@@ -2214,6 +2211,7 @@
           "jsr:@cliffy/command@1.2.1",
           "jsr:@cliffy/prompt@1.2.1",
           "jsr:@ensemble/core@*",
+          "jsr:@ensemble/host@*",
           "jsr:@std/assert@1.0.14",
           "jsr:@std/dotenv@0.225.5",
           "jsr:@std/fmt@1.0.10",
@@ -2253,11 +2251,9 @@
       },
       "source/core/core": {
         "dependencies": [
-          "jsr:@david/dax@0.42.0",
-          "jsr:@david/which@0.4.2",
           "jsr:@duesabati/evento@1.0.0",
-          "jsr:@ensemble/kit-sdk@*",
           "jsr:@std/assert@1.0.14",
+          "jsr:@std/cli@1.0.32",
           "jsr:@std/dotenv@0.225.5",
           "jsr:@std/fmt@1.0.10",
           "jsr:@std/fs@1.0.24",
@@ -2265,13 +2261,21 @@
           "jsr:@std/yaml@1.1.2"
         ]
       },
+      "source/core/host": {
+        "dependencies": [
+          "jsr:@david/dax@0.42.0",
+          "jsr:@david/which@0.4.2",
+          "jsr:@ensemble/core@*",
+          "jsr:@std/assert@1.0.14",
+          "jsr:@std/fmt@1.0.10",
+          "jsr:@std/fs@1.0.24",
+          "jsr:@std/path@1.1.6"
+        ]
+      },
       "source/core/kit-sdk": {
         "dependencies": [
-          "jsr:@std/assert@^1.0.19",
-          "jsr:@std/cli@1.0.32",
-          "jsr:@std/fs@1.0.24",
-          "jsr:@std/path@1.1.6",
-          "jsr:@std/yaml@1.1.2"
+          "jsr:@ensemble/core@*",
+          "jsr:@ensemble/host@*"
         ]
       },
       "source/core/website": {

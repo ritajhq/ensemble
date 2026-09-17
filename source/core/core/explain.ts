@@ -1,9 +1,9 @@
-import * as KitSdk from "@ensemble/kit-sdk";
+import * as Deploy from "./deploy/index.ts";
 import { loadDeployContext } from "./deploy-context.ts";
-import { SubprocessPackKitGateway } from "./pack-kit-gateway.ts";
+import type { RepoLocator } from "./ports.ts";
 
 export interface RunExplainOptions {
-  artifacts: KitSdk.Deploy.ArtifactsSource;
+  artifacts: Deploy.ArtifactsSource;
   /** Only meaningful if the explained resource's dependency chain reaches a `${release.<name>}` reference for published artifacts — same convention as `ens deploy --version`. */
   version: string;
 }
@@ -21,6 +21,8 @@ export async function runExplain(
   kit: string,
   resource: string,
   options: RunExplainOptions,
+  repo: RepoLocator,
+  gateway: Deploy.PackKitGateway,
 ): Promise<void> {
   const [category, resourceName] = resource.split(".");
   if (!category || !resourceName) {
@@ -29,37 +31,35 @@ export async function runExplain(
     );
   }
 
-  const { workload, target, registry } = await loadDeployContext(name, kit);
+  const { workload, target, registry } = await loadDeployContext(name, kit, repo);
 
-  const locatorResolver = new KitSdk.Deploy.ReleaseLocatorResolver(
-    new SubprocessPackKitGateway(),
-  );
-  const releaseLocator = new KitSdk.Deploy.PreresolvedReleaseLocator(
+  const locatorResolver = new Deploy.ReleaseLocatorResolver(gateway);
+  const releaseLocator = new Deploy.PreresolvedReleaseLocator(
     await locatorResolver.resolveAll(
       workload,
       options.artifacts,
       options.version,
     ),
   );
-  const renderer = new KitSdk.Deploy.Render.Renderer(
-    new KitSdk.Deploy.Render.ReferenceResolver(target.kit.realization()),
+  const renderer = new Deploy.Render.Renderer(
+    new Deploy.Render.ReferenceResolver(target.kit.realization()),
     releaseLocator,
     registry,
   );
 
-  const explainer = new KitSdk.Deploy.Explain.Explainer(registry, renderer);
+  const explainer = new Deploy.Explain.Explainer(registry, renderer);
   const explanation = explainer.explain(
     workload,
     target,
     options.artifacts,
-    category as KitSdk.Deploy.Category,
+    category as Deploy.Category,
     resourceName,
   );
 
   present(explanation);
 }
 
-function present(explanation: KitSdk.Deploy.Explain.ResourceExplanation): void {
+function present(explanation: Deploy.Explain.ResourceExplanation): void {
   console.log(
     `Resource: ${explanation.category}.${explanation.name} (${explanation.contractId})\n`,
   );

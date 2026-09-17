@@ -1,7 +1,12 @@
 import { join } from "@std/path";
 import { assertEquals, assertRejects } from "@std/assert";
 import { runKitNew } from "./kit-scaffold.ts";
+import type { RepoLocator } from "./ports.ts";
 import * as KitManifest from "./vendor/kit-manifest.ts";
+
+function repoAt(repoRoot: string): RepoLocator {
+  return { findRepoRoot: () => Promise.resolve(repoRoot) };
+}
 
 // findRepoRoot walks up from Deno.cwd() looking for a ".ensemble" marker
 // before ever consulting ENSEMBLE_WORKSPACE — so, since this test itself
@@ -28,7 +33,7 @@ async function withProjectRoot(
 
 Deno.test("runKitNew: scaffolds kit.yml, deno.json, and main.ts for a build kit", async () => {
   await withProjectRoot(async (repoRoot) => {
-    await runKitNew("widgets", "build");
+    await runKitNew("widgets", "build", repoAt(repoRoot));
 
     const kitDir = join(repoRoot, ".ensemble", "kits", "build", "widgets");
     assertEquals(
@@ -52,7 +57,7 @@ Deno.test("runKitNew: scaffolds kit.yml, deno.json, and main.ts for a build kit"
 
 Deno.test("runKitNew: a pack kit also scaffolds publish.ts", async () => {
   await withProjectRoot(async (repoRoot) => {
-    await runKitNew("widgets", "pack");
+    await runKitNew("widgets", "pack", repoAt(repoRoot));
 
     const kitDir = join(repoRoot, ".ensemble", "kits", "pack", "widgets");
     assertEquals(
@@ -68,7 +73,7 @@ Deno.test("runKitNew: a pack kit also scaffolds publish.ts", async () => {
 
 Deno.test("runKitNew: the scaffolded kit.yml parses cleanly", async () => {
   await withProjectRoot(async (repoRoot) => {
-    await runKitNew("widgets", "deploy");
+    await runKitNew("widgets", "deploy", repoAt(repoRoot));
 
     const kitDir = join(repoRoot, ".ensemble", "kits", "deploy", "widgets");
     const manifest = await KitManifest.read(kitDir);
@@ -82,7 +87,7 @@ Deno.test("runKitNew: rejects an already-existing kit directory", async () => {
       recursive: true,
     });
     await assertRejects(
-      () => runKitNew("widgets", "lib"),
+      () => runKitNew("widgets", "lib", repoAt(repoRoot)),
       Error,
       "already exists",
     );
@@ -90,9 +95,9 @@ Deno.test("runKitNew: rejects an already-existing kit directory", async () => {
 });
 
 Deno.test("runKitNew: rejects an invalid kit name", async () => {
-  await withProjectRoot(async () => {
+  await withProjectRoot(async (repoRoot) => {
     await assertRejects(
-      () => runKitNew("../escape", "build"),
+      () => runKitNew("../escape", "build", repoAt(repoRoot)),
       Error,
       "Invalid kit name",
     );
@@ -100,10 +105,10 @@ Deno.test("runKitNew: rejects an invalid kit name", async () => {
 });
 
 Deno.test("runKitNew: rejects an invalid role", async () => {
-  await withProjectRoot(async () => {
+  await withProjectRoot(async (repoRoot) => {
     // deno-lint-ignore no-explicit-any
     await assertRejects(
-      () => runKitNew("widgets", "nonsense" as any),
+      () => runKitNew("widgets", "nonsense" as any, repoAt(repoRoot)),
       Error,
       "Invalid kit role",
     );

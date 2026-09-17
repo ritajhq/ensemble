@@ -1,24 +1,36 @@
 import { join } from "@std/path";
 import { assertEquals, assertRejects } from "@std/assert";
-import type * as KitSdk from "@ensemble/kit-sdk";
+import type * as Lib from "./lib-context.ts";
 import { FileRegistry } from "./vendor/registry.ts";
 import { SelfContainmentChecker } from "./lib-self-containment.ts";
 import { LibDeclarationLoader } from "./lib-declaration.ts";
 import { LibPublisher } from "./lib-publish.ts";
 import type { LibKit } from "./lib-kit.ts";
+import type { Ports } from "./ports.ts";
+
+/** `libKitFor` is always overridden by a fake in these tests, so the default's dependency on real ports never actually runs. */
+const UNUSED_PORTS: Ports = {
+  repo: { findRepoRoot: () => Promise.reject(new Error("not used")) },
+  denoExe: { resolveDenoExecutable: () => Promise.reject(new Error("not used")) },
+  process: {
+    run: () => Promise.reject(new Error("not used")),
+    exec: () => Promise.reject(new Error("not used")),
+    capture: () => Promise.reject(new Error("not used")),
+  },
+};
 
 class FakeLibKit {
-  static stampCalls: { kit: string; input: KitSdk.Lib.Context }[] = [];
-  static calls: { kit: string; input: KitSdk.Lib.Context }[] = [];
+  static stampCalls: { kit: string; input: Lib.Context }[] = [];
+  static calls: { kit: string; input: Lib.Context }[] = [];
 
   constructor(private readonly kit: string) {}
 
-  stamp(input: KitSdk.Lib.Context): Promise<void> {
+  stamp(input: Lib.Context): Promise<void> {
     FakeLibKit.stampCalls.push({ kit: this.kit, input });
     return Promise.resolve();
   }
 
-  publish(input: KitSdk.Lib.Context): Promise<void> {
+  publish(input: Lib.Context): Promise<void> {
     FakeLibKit.calls.push({ kit: this.kit, input });
     return Promise.resolve();
   }
@@ -69,6 +81,7 @@ function makePublisher(
     new SelfContainmentChecker(repoRoot),
     registry,
     new LibDeclarationLoader(repoRoot),
+    UNUSED_PORTS,
     fakeLibKitFor,
     (message) => warnings.push(message),
   );

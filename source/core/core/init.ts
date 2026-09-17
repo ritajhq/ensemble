@@ -1,6 +1,6 @@
 import { join } from "@std/path";
 import { copy, ensureDir, exists } from "@std/fs";
-import { $ } from "@david/dax";
+import type { ProcessRunner } from "./ports.ts";
 import { formatVersionTag, SelfUpdateService } from "./version.ts";
 
 const ENSEMBLE_REPO_URL = "https://github.com/ritajhq/ensemble.git";
@@ -93,14 +93,15 @@ Run any command with \`--help\` for its full option list.
  * kits always match the CLI that scaffolded them, rather than whatever's
  * newest on `main`.
  */
-async function fetchKits(destDir: string, ref: string): Promise<void> {
+async function fetchKits(destDir: string, ref: string, process: ProcessRunner): Promise<void> {
   const scratchDir = await Deno.makeTempDir({ prefix: "ensemble-init-kits-" });
   try {
-    await $`git init -q`.cwd(scratchDir);
-    await $`git remote add origin ${ENSEMBLE_REPO_URL}`.cwd(scratchDir);
-    await $`git sparse-checkout init --no-cone`.cwd(scratchDir);
-    await $`git sparse-checkout set /.ensemble/kits/*`.cwd(scratchDir);
-    await $`git pull --depth 1 origin ${ref} -q`.cwd(scratchDir);
+    const git = (args: string[]) => process.exec("git", args, { cwd: scratchDir });
+    await git(["init", "-q"]);
+    await git(["remote", "add", "origin", ENSEMBLE_REPO_URL]);
+    await git(["sparse-checkout", "init", "--no-cone"]);
+    await git(["sparse-checkout", "set", "/.ensemble/kits/*"]);
+    await git(["pull", "--depth", "1", "origin", ref, "-q"]);
     await copy(join(scratchDir, ".ensemble", "kits"), destDir);
   } finally {
     await Deno.remove(scratchDir, { recursive: true });
@@ -113,7 +114,7 @@ async function fetchKits(destDir: string, ref: string): Promise<void> {
  * kits into .ensemble/kits (via a throwaway sparse checkout, not a vendored
  * clone).
  */
-export async function runInit(options: RunInitOptions): Promise<void> {
+export async function runInit(options: RunInitOptions, process: ProcessRunner): Promise<void> {
   const projectDir = join(Deno.cwd(), options.name);
   if (await exists(projectDir)) {
     throw new Error(`"${projectDir}" already exists.`);
@@ -126,7 +127,7 @@ export async function runInit(options: RunInitOptions): Promise<void> {
   const ensembleDir = join(projectDir, ".ensemble");
   await ensureDir(ensembleDir);
   await Deno.writeTextFile(join(ensembleDir, "config.yaml"), CONFIG_TEMPLATE);
-  await fetchKits(join(ensembleDir, "kits"), kitsRef);
+  await fetchKits(join(ensembleDir, "kits"), kitsRef, process);
 
   for (const dir of SKELETON_DIRS) {
     await ensureDir(join(projectDir, dir));
@@ -151,5 +152,5 @@ export async function runInit(options: RunInitOptions): Promise<void> {
     README_TEMPLATE.replace("%NAME%", options.name),
   );
 
-  await $`git init`.cwd(projectDir);
+  await process.exec("git", ["init"], { cwd: projectDir });
 }

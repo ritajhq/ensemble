@@ -1,5 +1,6 @@
 import { Command } from "@cliffy/command";
 import { runPack } from "@ensemble/core";
+import * as Host from "@ensemble/host";
 import * as CliUtil from "./util.ts";
 
 export const packCommand = new Command()
@@ -29,6 +30,7 @@ export const packCommand = new Command()
       watch: Boolean(watch),
       verbose: Boolean(verbose),
       varOverrides: CliUtil.parseVarOverrides(vars ?? []),
-    });
+      reporter: new Host.AnimatedPackReporter(),
+    }, Host.createPorts());
     if (code !== 0) Deno.exit(code);
   });

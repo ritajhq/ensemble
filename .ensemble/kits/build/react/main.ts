@@ -2,7 +2,7 @@ import { dirname, fromFileUrl, join } from "@std/path";
 import { ensureDir, exists, expandGlob } from "@std/fs";
 import { $ } from "@david/dax";
 import * as KitSdk from "@ensemble/kit-sdk";
-import { resolveDenoExecutable, terminateChildrenOnSignal } from "@ensemble/core";
+import { resolveDenoExecutable, terminateChildrenOnSignal } from "@ensemble/kit-sdk";
 
 const TAILWIND_RELEASE_BASE =
   "https://github.com/tailwindlabs/tailwindcss/releases/latest/download";

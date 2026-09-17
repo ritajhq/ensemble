@@ -1,5 +1,6 @@
 import type { LibDeclaration } from "./lib-declaration.ts";
 import { LibKit } from "./lib-kit.ts";
+import type { Ports } from "./ports.ts";
 
 /** One core library discovered for a release run, alongside its declaration. */
 export interface CoreLibRelease {
@@ -17,8 +18,9 @@ export interface CoreLibRelease {
  */
 export class CoreLibReleaseCascade {
   constructor(
+    private readonly ports: Ports,
     private readonly libKitFor: (kit: string) => LibKit = (kit) =>
-      new LibKit(kit),
+      new LibKit(kit, ports),
   ) {}
 
   /** Stamps every discovered core library's manifest with `version`, ahead of the release commit that gets tagged — see `ReleaseCeremony.stampCoreLibs`. */

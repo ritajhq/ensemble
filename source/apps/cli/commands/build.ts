@@ -1,5 +1,6 @@
 import { Command, EnumType } from "@cliffy/command";
 import { runBuild } from "@ensemble/core";
+import * as Host from "@ensemble/host";
 import * as CliUtil from "./util.ts";
 
 export const buildCommand = new Command()
@@ -17,6 +18,7 @@ export const buildCommand = new Command()
       mode,
       watch: Boolean(watch),
       varOverrides: CliUtil.parseVarOverrides(vars ?? []),
-    });
+      reporter: new Host.AnimatedBuildReporter(),
+    }, Host.createPorts());
     if (code !== 0) Deno.exit(code);
   });

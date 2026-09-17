@@ -7,6 +7,7 @@ import {
   runKitPin,
   runKitUpdate,
 } from "@ensemble/core";
+import * as Host from "@ensemble/host";
 
 export const kitCommand = new Command()
   .name("kit")
@@ -19,7 +20,11 @@ export const kitCommand = new Command()
       .description("Scaffold a new kit at .ensemble/kits/<role>/<name>.")
       .arguments("<name:string> <role:role>")
       .action(async (_, name, role) => {
-        await runKitNew(name, role as "build" | "pack" | "deploy" | "lib");
+        await runKitNew(
+          name,
+          role as "build" | "pack" | "deploy" | "lib",
+          Host.createPorts().repo,
+        );
         console.log(`Scaffolded .ensemble/kits/${role}/${name}.`);
       }),
   )
@@ -31,7 +36,11 @@ export const kitCommand = new Command()
       )
       .arguments("<url:string>")
       .action(async (_, url) => {
-        const entry = await runKitInstall(url);
+        const entry = await runKitInstall(
+          url,
+          Host.createPorts().repo,
+          new Host.GitPackageSource(),
+        );
         console.log(
           `Installed kit at ${entry.path} (${entry.repo}@${entry.ref}).`,
         );
@@ -45,7 +54,12 @@ export const kitCommand = new Command()
       )
       .arguments("<name:string> <remote:string>")
       .action(async (_, name, remote) => {
-        const entry = await runKitEject(name, remote);
+        const entry = await runKitEject(
+          name,
+          remote,
+          Host.createPorts().repo,
+          new Host.GitPackageSource(),
+        );
         console.log(`Ejected ${entry.path} to ${entry.repo}@${entry.ref}.`);
       }),
   )
@@ -55,7 +69,12 @@ export const kitCommand = new Command()
       .description("Move an installed kit's checkout to a different ref.")
       .arguments("<name:string> <ref:string>")
       .action(async (_, name, ref) => {
-        const entry = await runKitPin(name, ref);
+        const entry = await runKitPin(
+          name,
+          ref,
+          Host.createPorts().repo,
+          new Host.GitPackageSource(),
+        );
         console.log(`Pinned ${entry.path} to ${entry.repo}@${entry.ref}.`);
       }),
   )
@@ -69,6 +88,8 @@ export const kitCommand = new Command()
       .action(async (_, name, bump) => {
         const entry = await runKitUpdate(
           name,
+          Host.createPorts().repo,
+          new Host.GitPackageSource(),
           bump as "patch" | "minor" | "major" | undefined,
         );
         console.log(`Updated ${entry.path} to ${entry.repo}@${entry.ref}.`);
@@ -82,7 +103,11 @@ export const kitCommand = new Command()
       )
       .arguments("<name:string>")
       .action(async (_, name) => {
-        const pr = await runKitContribute(name);
+        const pr = await runKitContribute(
+          name,
+          Host.createPorts().repo,
+          new Host.GitPackageSource(),
+        );
         console.log(`Opened pull request: ${pr.url}`);
       }),
   );
