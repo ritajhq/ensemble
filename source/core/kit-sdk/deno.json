@@ -4,7 +4,7 @@
   "license": "MIT",
   "exports": "./index.ts",
   "imports": {
-    "@ensemble/core": "jsr:@ensemble/core",
-    "@ensemble/host": "jsr:@ensemble/host"
+    "@ensemble/core": "jsr:@ensemble/core@^0.13.0",
+    "@ensemble/host": "jsr:@ensemble/host@^0.13.0"
   }
 }
