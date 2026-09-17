@@ -10,18 +10,6 @@
 - *(release)* Bump library versions for 0.18.0
 - *(changelog)* Update for 0.18.0
 - *(release)* Bump library versions for 0.18.1
-## [0.18.1] - 2026-09-17
-
-### 🐛 Bug Fixes
-
-- *(deploy)* Group development sync rules by action
-- *(schema)* Group development sync rules by action
-
-### ⚙️ Miscellaneous Tasks
-
-- *(release)* Bump library versions for 0.18.0
-- *(changelog)* Update for 0.18.0
-- *(release)* Bump library versions for 0.18.1
 ## [0.18.0] - 2026-09-17
 
 ### ⚙️ Miscellaneous Tasks
