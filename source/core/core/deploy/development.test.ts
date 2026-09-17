@@ -15,24 +15,33 @@ Deno.test("parseDevelopmentBlock: a single sync rule with defaults", () => {
     sync: [{
       app: "website/server",
       path: "/app/server",
-      action: "sync",
       ignore: [],
     }],
+    "sync+restart": [],
   });
 });
 
-Deno.test("parseDevelopmentBlock: an explicit sync+restart action and ignore globs", () => {
+Deno.test("parseDevelopmentBlock: a sync+restart rule and ignore globs", () => {
   const block = parseDevelopmentBlock({
-    sync: [{
+    "sync+restart": [{
       app: "website/server",
       path: "/app/server",
-      action: "sync+restart",
       ignore: ["*.test.ts", "node_modules"],
     }],
   });
 
-  assertEquals(block.sync[0].action, "sync+restart");
-  assertEquals(block.sync[0].ignore, ["*.test.ts", "node_modules"]);
+  assertEquals(block["sync+restart"][0].ignore, ["*.test.ts", "node_modules"]);
+  assertEquals(block.sync, []);
+});
+
+Deno.test("parseDevelopmentBlock: both sync and sync+restart rules together", () => {
+  const block = parseDevelopmentBlock({
+    sync: [{ app: "website/ui", path: "/app/content" }],
+    "sync+restart": [{ app: "website/server", path: "/app/server" }],
+  });
+
+  assertEquals(block.sync.length, 1);
+  assertEquals(block["sync+restart"].length, 1);
 });
 
 Deno.test("parseDevelopmentBlock: multiple sync rules", () => {
@@ -62,12 +71,9 @@ Deno.test("parseDevelopmentBlock: throws on an unknown top-level key", () => {
   );
 });
 
-Deno.test("parseDevelopmentBlock: throws when sync is missing", () => {
-  assertThrows(
-    () => parseDevelopmentBlock({}),
-    DevelopmentBlockError,
-    'development requires "sync"',
-  );
+Deno.test("parseDevelopmentBlock: an entirely empty block is valid (nothing to sync)", () => {
+  const block = parseDevelopmentBlock({});
+  assertEquals(block, { sync: [], "sync+restart": [] });
 });
 
 Deno.test("parseDevelopmentBlock: throws when sync isn't a list", () => {
@@ -75,6 +81,14 @@ Deno.test("parseDevelopmentBlock: throws when sync isn't a list", () => {
     () => parseDevelopmentBlock({ sync: "nope" }),
     DevelopmentBlockError,
     "development.sync must be a list",
+  );
+});
+
+Deno.test("parseDevelopmentBlock: throws when sync+restart isn't a list", () => {
+  assertThrows(
+    () => parseDevelopmentBlock({ "sync+restart": "nope" }),
+    DevelopmentBlockError,
+    "development.sync+restart must be a list",
   );
 });
 
@@ -90,10 +104,10 @@ Deno.test("parseDevelopmentBlock: throws on an unknown sync rule key", () => {
   assertThrows(
     () =>
       parseDevelopmentBlock({
-        sync: [{ app: "a", path: "/a", watch: true }],
+        sync: [{ app: "a", path: "/a", action: "sync+restart" }],
       }),
     DevelopmentBlockError,
-    'development.sync[0] has no key "watch"',
+    'development.sync[0] has no key "action"',
   );
 });
 
@@ -113,17 +127,6 @@ Deno.test("parseDevelopmentBlock: throws when path is missing", () => {
   );
 });
 
-Deno.test("parseDevelopmentBlock: throws on an invalid action value", () => {
-  assertThrows(
-    () =>
-      parseDevelopmentBlock({
-        sync: [{ app: "a", path: "/a", action: "rebuild" }],
-      }),
-    DevelopmentBlockError,
-    'development.sync[0] "action" must be "sync" or "sync+restart"',
-  );
-});
-
 Deno.test("parseDevelopmentBlock: throws when ignore isn't a list of strings", () => {
   assertThrows(
     () =>
@@ -137,7 +140,7 @@ Deno.test("parseDevelopmentBlock: throws when ignore isn't a list of strings", (
 
 Deno.test("parseDevelopmentBlock: an empty sync list is valid (a watchable resource with nothing to sync)", () => {
   const block = parseDevelopmentBlock({ sync: [] });
-  assertEquals(block, { sync: [] });
+  assertEquals(block, { sync: [], "sync+restart": [] });
 });
 
 Deno.test("discoverWatchedApps: collects every app across every resource's sync rules, deduped", () => {
@@ -158,7 +161,9 @@ Deno.test("discoverWatchedApps: collects every app across every resource's sync 
         type: "container-orchestrated",
         params: {
           // Same app as api's — must only appear once in the result.
-          development: { sync: [{ app: "website/server", path: "/app" }] },
+          development: {
+            "sync+restart": [{ app: "website/server", path: "/app" }],
+          },
         },
       },
     },
