@@ -1,3 +1,4 @@
+import { join } from "@std/path";
 import { Command, EnumType } from "@cliffy/command";
 import { Confirm } from "@cliffy/prompt";
 import * as Core from "@ensemble/core";
@@ -103,7 +104,12 @@ async function collectReleases(
  * Stamps every core library's manifest with `tag` and commits the result —
  * unconditionally, like tag creation itself — so the tag ends up pointing at
  * a commit that actually carries the version bump. Must run before
- * `release.createReleaseTag`, never after.
+ * `release.createReleaseTag`, never after. Includes the repo-root
+ * `deno.lock` alongside each library's own directory: stamping spawns a
+ * `deno run` subprocess per lib kit (see `LibKit.run`), and every such
+ * invocation resolves the workspace's module graph against the
+ * freshly-bumped versions, which Deno writes straight into `deno.lock` as a
+ * side effect — left out here, that drift would just sit uncommitted.
  */
 async function stampAndCommitCoreLibs(
   repoRoot: string,
@@ -115,7 +121,7 @@ async function stampAndCommitCoreLibs(
   if (coreLibs.length === 0) return;
   await new Core.Release.ReleaseCeremony(repoRoot, ports).stampCoreLibs(coreLibs, tag);
   await release.commitIfChanged(
-    coreLibs.map((lib) => lib.libRoot),
+    [...coreLibs.map((lib) => lib.libRoot), join(repoRoot, "deno.lock")],
     `chore(release): bump library versions for ${tag}`,
   );
 }

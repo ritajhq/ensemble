@@ -1,3 +1,4 @@
+import { join } from "@std/path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as Core from "@ensemble/core";
 import * as Host from "@ensemble/host";
@@ -75,8 +76,12 @@ async function tagAndRunCeremony(
 
   if (coreLibs.length > 0) {
     await new Core.Release.ReleaseCeremony(repoRoot, ports).stampCoreLibs(coreLibs, preview.tag);
+    // Includes deno.lock alongside each lib's own directory: stamping spawns
+    // a deno run subprocess per lib kit, and every such invocation resolves
+    // the workspace's module graph against the freshly-bumped versions,
+    // which Deno writes straight into deno.lock as a side effect.
     await release.commitIfChanged(
-      coreLibs.map((lib) => lib.libRoot),
+      [...coreLibs.map((lib) => lib.libRoot), join(repoRoot, "deno.lock")],
       `chore(release): bump library versions for ${preview.tag}`,
     );
   }
