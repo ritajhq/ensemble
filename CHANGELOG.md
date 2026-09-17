@@ -1,3 +1,19 @@
+## [0.14.0] - 2026-09-17
+
+### 🐛 Bug Fixes
+
+- *(core)* Pin versions as required by jsr
+- *(core)* Repin sibling core-lib imports before stamping, so a version bump doesn't break workspace resolution
+- *(core)* Bump every core lib's own version before any lib kit subprocess runs, so the first stamp doesn't see a stale workspace copy
+
+### 🚜 Refactor
+
+- *(core)* Move coreLibs/libs config under a unified publish.core/publish.libs list schema
+
+### ⚙️ Miscellaneous Tasks
+
+- Update lock
+- *(release)* Bump library versions for 0.14.0
 ## [0.11.0] - 2026-09-16
 
 ### 🚀 Features
