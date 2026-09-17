@@ -1,5 +1,5 @@
 import { join } from "@std/path";
-import { exists } from "@std/fs";
+import { ensureDir, exists } from "@std/fs";
 import * as Deploy from "./deploy/index.ts";
 import { runPack } from "./pack.ts";
 import type { PackReporter } from "./pack-reporter.ts";
@@ -101,7 +101,9 @@ export class ReleaseService {
   }
 
   private async listSemVerTags(): Promise<{ tag: string; version: SemVer }[]> {
-    const output = await this.process.capture("git", ["tag", "--list"], { cwd: this.repoRoot });
+    const output = await this.process.capture("git", ["tag", "--list"], {
+      cwd: this.repoRoot,
+    });
     return output
       .split("\n")
       .map((line) => line.trim())
@@ -159,9 +161,13 @@ export class ReleaseService {
 
   /** True if the working tree has uncommitted changes (staged, unstaged, or untracked). */
   async hasUncommittedChanges(): Promise<boolean> {
-    const output = await this.process.capture("git", ["status", "--porcelain"], {
-      cwd: this.repoRoot,
-    });
+    const output = await this.process.capture(
+      "git",
+      ["status", "--porcelain"],
+      {
+        cwd: this.repoRoot,
+      },
+    );
     return output.trim().length > 0;
   }
 
@@ -251,6 +257,67 @@ export class ReleaseService {
     }
     await this.git(["tag", "-d", last.tag]);
     return { tag: last.tag };
+  }
+}
+
+/**
+ * Per-tag progress through the release ceremony: which ships got
+ * packed/published, which core libraries got published, whether the tag
+ * reached the remote, and whether `hooks.release.after` already ran. `ens
+ * release resume` reads this to pick up exactly where a failed run left
+ * off — most importantly, so the release hook (e.g. the changelog) never
+ * fires twice for the same tag.
+ */
+export interface ReleaseState {
+  readonly tag: string;
+  readonly pushed: boolean;
+  readonly packedShips: readonly string[];
+  readonly publishedShips: readonly string[];
+  readonly publishedCoreLibs: readonly string[];
+  readonly hookRan: boolean;
+}
+
+function emptyReleaseState(tag: string): ReleaseState {
+  return {
+    tag,
+    pushed: false,
+    packedShips: [],
+    publishedShips: [],
+    publishedCoreLibs: [],
+    hookRan: false,
+  };
+}
+
+/**
+ * Stores one release's ceremony progress as a JSON file under
+ * `.ensemble/release/<tag>.json`. A file left behind always means that
+ * tag's ceremony didn't finish; `clear` removes it once packing,
+ * publishing, and the release hook have all completed for that tag — so an
+ * absent file always means "nothing left to resume here."
+ */
+export class ReleaseStateStore {
+  constructor(private readonly repoRoot: string) {}
+
+  private path(tag: string): string {
+    return join(this.repoRoot, ".ensemble", "release", `${tag}.json`);
+  }
+
+  /** Reads back `tag`'s progress, or a freshly empty state if nothing's been recorded for it yet. */
+  async read(tag: string): Promise<ReleaseState> {
+    const path = this.path(tag);
+    if (!await exists(path, { isFile: true })) return emptyReleaseState(tag);
+    return JSON.parse(await Deno.readTextFile(path)) as ReleaseState;
+  }
+
+  async write(state: ReleaseState): Promise<void> {
+    const path = this.path(state.tag);
+    await ensureDir(join(path, ".."));
+    await Deno.writeTextFile(path, `${JSON.stringify(state, null, 2)}\n`);
+  }
+
+  /** Removes `tag`'s progress file. A no-op if nothing was ever recorded. */
+  async clear(tag: string): Promise<void> {
+    await Deno.remove(this.path(tag)).catch(() => {});
   }
 }
 
@@ -375,8 +442,13 @@ export class ReleaseCeremony {
   async releaseCoreLibs(
     libs: readonly CoreLibRelease[],
     version: string,
+    onPublished?: (lib: CoreLibRelease) => void | Promise<void>,
   ): Promise<void> {
-    await new CoreLibReleaseCascade(this.ports).publish(version, libs);
+    await new CoreLibReleaseCascade(this.ports).publish(
+      version,
+      libs,
+      onPublished,
+    );
   }
 
   /**
@@ -390,6 +462,7 @@ export class ReleaseCeremony {
   async packShips(
     ships: readonly ShipRelease[],
     reporters: { pack?: PackReporter; build?: BuildReporter } = {},
+    onPacked?: (ship: ShipRelease) => void | Promise<void>,
   ): Promise<void> {
     for (const ship of ships) {
       const packCode = await runPack(ship.name, ship.kit, {
@@ -403,6 +476,7 @@ export class ReleaseCeremony {
           `Packing ship "${ship.name}" failed with code ${packCode}.`,
         );
       }
+      await onPacked?.(ship);
     }
   }
 
@@ -410,6 +484,7 @@ export class ReleaseCeremony {
   async publishShips(
     ships: readonly ShipRelease[],
     version: string,
+    onPublished?: (ship: ShipRelease) => void | Promise<void>,
   ): Promise<void> {
     for (const ship of ships) {
       if (!ship.publish) continue;
@@ -425,6 +500,7 @@ export class ReleaseCeremony {
           `Publishing ship "${ship.name}" failed with code ${publishCode}.`,
         );
       }
+      await onPublished?.(ship);
     }
   }
 }

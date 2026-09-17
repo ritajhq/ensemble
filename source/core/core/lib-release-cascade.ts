@@ -68,7 +68,9 @@ export class CoreLibReleaseCascade {
       const denoJsonPath = join(libRoot, "deno.json");
       if (!await exists(denoJsonPath, { isFile: true })) continue;
 
-      const denoJson = JSON.parse(await Deno.readTextFile(denoJsonPath)) as Record<
+      const denoJson = JSON.parse(
+        await Deno.readTextFile(denoJsonPath),
+      ) as Record<
         string,
         unknown
       >;
@@ -111,7 +113,9 @@ export class CoreLibReleaseCascade {
 
       let changed = false;
       for (const [specifier, target] of Object.entries(imports)) {
-        const dependency = [...packages].find((pkg) => target.startsWith(`jsr:${pkg}@`));
+        const dependency = [...packages].find((pkg) =>
+          target.startsWith(`jsr:${pkg}@`)
+        );
         if (!dependency) continue;
         const pinned = `jsr:${dependency}@^${version}`;
         if (target === pinned) continue;
@@ -130,8 +134,10 @@ export class CoreLibReleaseCascade {
   async publish(
     version: string,
     libs: readonly CoreLibRelease[],
+    onPublished?: (lib: CoreLibRelease) => void | Promise<void>,
   ): Promise<void> {
-    for (const { libRoot, declaration } of libs) {
+    for (const lib of libs) {
+      const { libRoot, declaration } = lib;
       for (const entry of declaration.publish) {
         await this.libKitFor(entry.kit).publish({
           libRoot,
@@ -140,6 +146,7 @@ export class CoreLibReleaseCascade {
           target: entry.target,
         });
       }
+      await onPublished?.(lib);
     }
   }
 }
