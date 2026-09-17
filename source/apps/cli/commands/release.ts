@@ -440,7 +440,7 @@ export const releaseCommand = new Command()
   .reset()
   .command(
     "resume",
-    "Re-run the build/pack/publish ceremony for a tag that's already been created — for finishing a release after a partial failure.",
+    "Re-run the build/pack/publish ceremony for a tag that's already been created — for finishing a release after a partial failure. Never re-runs hooks.release.after (e.g. the changelog) — those ran once already on the original next/set invocation.",
   )
   .option(
     "--only <names:string>",
@@ -466,16 +466,9 @@ export const releaseCommand = new Command()
     };
     if (dryRun) {
       await printReleaseCeremonyPreview(repoRoot, ports, tag, filter);
-      await printReleaseHookPreview(repoRoot, ports);
       return;
     }
-    if (
-      await runCeremonySafely(repoRoot, ports, release, tag, remote, filter) !==
-        "completed"
-    ) {
-      return;
-    }
-    await runReleaseHook(repoRoot, ports, release, tag, remote);
+    await runCeremonySafely(repoRoot, ports, release, tag, remote, filter);
   })
   .reset()
   .command("undo", "Deletes the last tag. Does not touch any commit.")
