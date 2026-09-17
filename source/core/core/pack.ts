@@ -8,6 +8,7 @@ import { runBuild } from "./build.ts";
 import { resolvePackDependencies } from "./pack-dependencies.ts";
 import type { PackReporter } from "./pack-reporter.ts";
 import { PlainPackReporter } from "./plain-pack-reporter.ts";
+import type { BuildReporter } from "./build-reporter.ts";
 
 export interface RunPackOptions {
   /** Defaults to the first mode declared in the kit's kit.yml, or "default" if it has none. */
@@ -30,6 +31,8 @@ export interface RunPackOptions {
   verbose?: boolean;
   /** How to report this pack's lifecycle to the terminal — ignored for `watch: true` or `verbose: true` (both have nothing sensible for a spinner to resolve against: a `--watch` kit never exits, and verbose output competes with it for the same line). Defaults to `PlainPackReporter`; the CLI passes `Host.AnimatedPackReporter` instead for an interactive terminal. */
   reporter?: PackReporter;
+  /** How to report the pre-pack build step(s) (see `resolvePackDependencies`) to the terminal. Defaults to `PlainBuildReporter`; the CLI passes `Host.AnimatedBuildReporter` instead for an interactive terminal — the same pairing `ens build` itself uses. */
+  buildReporter?: BuildReporter;
 }
 
 /**
@@ -100,7 +103,11 @@ export async function runPack(
   const dependencies = await resolvePackDependencies(shipName, kit, apps, ports);
   for (const app of dependencies) {
     if (options.skipBuildingApps?.has(app)) continue;
-    const buildCode = await runBuild(app, { mode: "production", watch: false }, ports);
+    const buildCode = await runBuild(app, {
+      mode: "production",
+      watch: false,
+      reporter: options.buildReporter,
+    }, ports);
     if (buildCode !== 0) {
       return buildCode;
     }

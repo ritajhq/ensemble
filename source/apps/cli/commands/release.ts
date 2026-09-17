@@ -254,7 +254,10 @@ async function maybeRunReleaseCeremony(
 
   const ceremony = new Core.Release.ReleaseCeremony(repoRoot, ports);
   try {
-    await ceremony.packShips(ships);
+    await ceremony.packShips(ships, {
+      pack: new Host.AnimatedPackReporter(),
+      build: new Host.AnimatedBuildReporter(),
+    });
   } catch (error) {
     throw new CeremonyError((error as Error).message, false);
   }

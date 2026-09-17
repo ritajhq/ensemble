@@ -2,6 +2,8 @@ import { join } from "@std/path";
 import { exists } from "@std/fs";
 import * as Deploy from "./deploy/index.ts";
 import { runPack } from "./pack.ts";
+import type { PackReporter } from "./pack-reporter.ts";
+import type { BuildReporter } from "./build-reporter.ts";
 import { runPublish } from "./publish.ts";
 import { LibDeclarationLoader } from "./lib-declaration.ts";
 import {
@@ -385,11 +387,16 @@ export class ReleaseCeremony {
    * a late pack failure shouldn't be discovered after an earlier ship has
    * already been published.
    */
-  async packShips(ships: readonly ShipRelease[]): Promise<void> {
+  async packShips(
+    ships: readonly ShipRelease[],
+    reporters: { pack?: PackReporter; build?: BuildReporter } = {},
+  ): Promise<void> {
     for (const ship of ships) {
       const packCode = await runPack(ship.name, ship.kit, {
         mode: ship.mode,
         outputName: ship.outputName,
+        reporter: reporters.pack,
+        buildReporter: reporters.build,
       }, this.ports);
       if (packCode !== 0) {
         throw new Error(

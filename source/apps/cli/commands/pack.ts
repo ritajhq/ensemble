@@ -31,6 +31,7 @@ export const packCommand = new Command()
       verbose: Boolean(verbose),
       varOverrides: CliUtil.parseVarOverrides(vars ?? []),
       reporter: new Host.AnimatedPackReporter(),
+      buildReporter: new Host.AnimatedBuildReporter(),
     }, Host.createPorts());
     if (code !== 0) Deno.exit(code);
   });
