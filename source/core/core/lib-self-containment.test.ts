@@ -27,11 +27,11 @@ async function writeMember(
     const libName = member.relativePath.split("/").pop()!;
     await Deno.mkdir(join(repoRoot, ".ensemble"), { recursive: true });
     const configPath = join(repoRoot, ".ensemble", "config.yaml");
-    const existing = await Deno.readTextFile(configPath).catch(() => "libs:\n");
+    const existing = await Deno.readTextFile(configPath).catch(() => "publish:\n  libs:\n");
     const withoutTrailingNewline = existing.endsWith("\n") ? existing : `${existing}\n`;
     await Deno.writeTextFile(
       configPath,
-      `${withoutTrailingNewline}  ${libName}:\n    package: "${member.name}"\n`,
+      `${withoutTrailingNewline}    - name: ${libName}\n      package: "${member.name}"\n`,
     );
   }
 }
@@ -79,7 +79,7 @@ Deno.test("SelfContainmentChecker.check: an import into source/core is always a 
   );
 });
 
-Deno.test("SelfContainmentChecker.check: an import into a sibling lib declared under libs: is allowed", async () => {
+Deno.test("SelfContainmentChecker.check: an import into a sibling lib declared under publish.libs: is allowed", async () => {
   await withWorkspace(
     [
       { relativePath: "source/libs/base", name: "@x/base", declared: true },
@@ -100,7 +100,7 @@ Deno.test("SelfContainmentChecker.check: an import into a sibling lib declared u
   );
 });
 
-Deno.test("SelfContainmentChecker.check: an import into a sibling lib not declared under libs: is a violation naming why", async () => {
+Deno.test("SelfContainmentChecker.check: an import into a sibling lib not declared under publish.libs: is a violation naming why", async () => {
   await withWorkspace(
     [
       { relativePath: "source/libs/base", name: "@x/base" }, // not declared

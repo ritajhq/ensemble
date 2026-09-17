@@ -55,7 +55,7 @@ Deno.test("runLibNew: scaffolds deno.json and index.ts, with no manifest file in
   });
 });
 
-Deno.test("runLibNew: registers libs.<name>.package in .ensemble/config.yaml", async () => {
+Deno.test("runLibNew: registers a publish.libs[] entry with the lib's package in .ensemble/config.yaml", async () => {
   await withProjectRoot(async (repoRoot) => {
     await runLibNew("widgets", repoAt(repoRoot));
 

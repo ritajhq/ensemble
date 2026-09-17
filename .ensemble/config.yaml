@@ -8,19 +8,20 @@ build:
     target: ssr
   website/server:
     kit: deno.bundle
-coreLibs:
+publish:
   core:
-    package: "@ensemble/core"
-    publish:
-      - kit: jsr
-  host:
-    package: "@ensemble/host"
-    publish:
-      - kit: jsr
-  kit-sdk:
-    package: "@ensemble/kit-sdk"
-    publish:
-      - kit: jsr
+    - name: core
+      package: "@ensemble/core"
+      publish:
+        - kit: jsr
+    - name: host
+      package: "@ensemble/host"
+      publish:
+        - kit: jsr
+    - name: kit-sdk
+      package: "@ensemble/kit-sdk"
+      publish:
+        - kit: jsr
 hooks:
   release:
     after:

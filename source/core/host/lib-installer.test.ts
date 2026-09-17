@@ -60,7 +60,10 @@ Deno.test("LibInstaller.install: a clean lib installs, registers, and is declare
 
     const name = entry.path.split("/").pop()!;
     const config = await new EnsembleConfigStore(project.dir).load();
-    assertEquals(config.libs?.[name]?.package, "@x/widgets");
+    assertEquals(
+      config.publish?.libs?.find((lib) => lib.name === name)?.package,
+      "@x/widgets",
+    );
   } finally {
     await source.cleanup();
     await project.cleanup();

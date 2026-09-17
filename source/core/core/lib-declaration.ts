@@ -13,10 +13,10 @@ export interface LibDeclaration {
   readonly publish: readonly PublishEntry[];
 }
 
-function toDeclaration(configKey: "libs" | "coreLibs", name: string, libConfig: LibConfig): LibDeclaration {
+function toDeclaration(configKey: "libs" | "core", libConfig: LibConfig): LibDeclaration {
   if (!libConfig.package) {
     throw new Error(
-      `"${configKey}.${name}" in .ensemble/config.yaml is missing a "package" name.`,
+      `"publish.${configKey}" entry "${libConfig.name}" in .ensemble/config.yaml is missing a "package" name.`,
     );
   }
   return {
@@ -29,35 +29,36 @@ function toDeclaration(configKey: "libs" | "coreLibs", name: string, libConfig: 
  * Resolves lib declarations from `.ensemble/config.yaml` — never from a
  * manifest inside the library's own directory, so a library never carries
  * ensemble-CLI-only tooling metadata alongside its real exports. A
- * `source/libs/<name>` library is looked up by name under `libs:` (`load`,
- * the same way `ens build` looks up `build.<name>`); every `source/core/**`
- * library is discovered under `coreLibs:` (`discoverCoreLibs`), mirroring
- * how `ReleaseCeremony.collectShipReleases` globs `ci/<name>/delivery.yml`.
+ * `source/libs/<name>` library is looked up by name under `publish.libs`
+ * (`load`, the same way `ens build` looks up `build.<name>`); every
+ * `source/core/**` library is discovered under `publish.core`
+ * (`discoverCoreLibs`), mirroring how `ReleaseCeremony.collectShipReleases`
+ * globs `ci/<name>/delivery.yml`.
  */
 export class LibDeclarationLoader {
   constructor(private readonly repoRoot: string) {}
 
-  /** Looks up `libs.<name>` — the declaration for a `source/libs/<name>` library. */
+  /** Looks up the `publish.libs[]` entry named `name` — the declaration for a `source/libs/<name>` library. */
   async load(name: string): Promise<LibDeclaration> {
     const config = await new EnsembleConfigStore(this.repoRoot).loadOrEmpty();
-    const libConfig = config.libs?.[name];
+    const libConfig = config.publish?.libs?.find((lib) => lib.name === name);
     if (!libConfig) {
       throw new Error(
         `No lib configuration found for "${name}" ` +
-          `(expected a "libs.${name}.package" entry in .ensemble/config.yaml)`,
+          `(expected a "publish.libs[]" entry named "${name}" in .ensemble/config.yaml)`,
       );
     }
-    return toDeclaration("libs", name, libConfig);
+    return toDeclaration("libs", libConfig);
   }
 
-  /** Every entry under `coreLibs:` in `.ensemble/config.yaml`, resolved against `source/core/<name>`. A repo with no config.yaml yet, or no `coreLibs:` key, simply discovers nothing. */
+  /** Every entry under `publish.core:` in `.ensemble/config.yaml`, resolved against `source/core/<name>`. A repo with no config.yaml yet, or no `publish.core:` key, simply discovers nothing. */
   async discoverCoreLibs(): Promise<
     { libRoot: string; declaration: LibDeclaration }[]
   > {
     const config = await new EnsembleConfigStore(this.repoRoot).loadOrEmpty();
-    return Object.entries(config.coreLibs ?? {}).map(([name, libConfig]) => ({
-      libRoot: join(this.repoRoot, "source", "core", name),
-      declaration: toDeclaration("coreLibs", name, libConfig),
+    return (config.publish?.core ?? []).map((libConfig) => ({
+      libRoot: join(this.repoRoot, "source", "core", libConfig.name),
+      declaration: toDeclaration("core", libConfig),
     }));
   }
 }

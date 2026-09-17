@@ -29,23 +29,30 @@ export interface LibPublishEntry {
 }
 
 /**
- * A lib's declaration — package name and where it publishes — tracked
- * purely as tooling config, the same way `BuildAppConfig` tracks an app's
- * build kit rather than the app declaring it internally. Never written
- * inside the library's own directory: `libs.<name>` (resolved against
- * `source/libs/<name>`) for a portable library, `coreLibs.<name>`
- * (resolved against `source/core/<name>`) for a core one.
+ * A lib's declaration — its name (resolved against `source/libs/<name>` for
+ * a portable library, `source/core/<name>` for a core one), the package
+ * name it publishes under, and where it publishes — tracked purely as
+ * tooling config, the same way `BuildAppConfig` tracks an app's build kit
+ * rather than the app declaring it internally. Never written inside the
+ * library's own directory: entries live in the top-level `publish.libs`
+ * list for a portable library, `publish.core` for a core one.
  */
 export interface LibConfig {
+  name: string;
   package: string;
   publish?: LibPublishEntry[];
+}
+
+/** Every library `ens` knows how to release, grouped by kind under the top-level `publish:` key. */
+export interface PublishConfig {
+  core?: LibConfig[];
+  libs?: LibConfig[];
 }
 
 export interface EnsembleConfig {
   build?: Record<string, BuildAppConfig>;
   hooks?: HooksConfig;
-  libs?: Record<string, LibConfig>;
-  coreLibs?: Record<string, LibConfig>;
+  publish?: PublishConfig;
 }
 
 export type VarKind = "build" | "pack";
@@ -166,11 +173,11 @@ export class EnsembleConfigStore {
   }
 
   /**
-   * Sets libs.<name>.package in .ensemble/config.yaml, creating the file if
-   * it doesn't exist yet and preserving any other existing entries
-   * (including a pre-existing .publish list, if this lib already has one) —
-   * so a scaffolded or installed lib is immediately known without
-   * hand-editing config.yaml.
+   * Sets the `package` of the `publish.libs[]` entry named `name` in
+   * .ensemble/config.yaml (adding the entry if none exists yet), creating
+   * the file if it doesn't exist and preserving any other existing entries
+   * (including a pre-existing entry's `.publish` list) — so a scaffolded or
+   * installed lib is immediately known without hand-editing config.yaml.
    */
   async setLibPackage(name: string, packageName: string): Promise<void> {
     const path = this.configPath;
@@ -178,11 +185,17 @@ export class EnsembleConfigStore {
       ? ((parseYaml(await Deno.readTextFile(path)) ?? {}) as EnsembleConfig)
       : {};
 
+    const libs = existingConfig.publish?.libs ?? [];
+    const existingEntry = libs.find((lib) => lib.name === name);
+    const updatedEntry: LibConfig = { ...existingEntry, name, package: packageName };
+
     const config: EnsembleConfig = {
       ...existingConfig,
-      libs: {
-        ...existingConfig.libs,
-        [name]: { ...existingConfig.libs?.[name], package: packageName },
+      publish: {
+        ...existingConfig.publish,
+        libs: existingEntry
+          ? libs.map((lib) => (lib.name === name ? updatedEntry : lib))
+          : [...libs, updatedEntry],
       },
     };
     await Deno.writeTextFile(path, stringifyYaml(config as unknown as Record<string, unknown>));

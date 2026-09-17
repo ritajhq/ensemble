@@ -60,7 +60,7 @@ function workspaceLinkPackageName(target: string): string | undefined {
  * resolve to something a real, external consumer could also resolve —
  * never into `source/core/**` (hard block, no exception, ever), and into a
  * sibling `source/libs/<other>` only when that sibling has made the same
- * portability commitment by being declared under `libs:` in
+ * portability commitment by being declared under `publish.libs:` in
  * `.ensemble/config.yaml`. Pure given the workspace's on-disk state: it
  * only reads `deno.json` files and `.ensemble/config.yaml`, it never
  * mutates anything. Only ever invoked against `source/libs/*` paths — core
@@ -108,7 +108,10 @@ export class SelfContainmentChecker {
       const sibling = libsMembers.find((member) => member.name === packageName);
       if (sibling) {
         if (sibling.relativePath === thisLibRelativePath) continue;
-        const siblingDeclared = Boolean(config.libs?.[basename(sibling.relativePath)]);
+        const siblingName = basename(sibling.relativePath);
+        const siblingDeclared = Boolean(
+          config.publish?.libs?.some((lib) => lib.name === siblingName),
+        );
         if (!siblingDeclared) {
           violations.push({
             importSpecifier: specifier,

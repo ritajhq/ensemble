@@ -20,11 +20,11 @@ async function writeConfigYaml(repoRoot: string, content: string): Promise<void>
   await Deno.writeTextFile(join(repoRoot, ".ensemble", "config.yaml"), content);
 }
 
-Deno.test("LibDeclarationLoader.load: parses package and publish entries from libs.<name>", async () => {
+Deno.test("LibDeclarationLoader.load: parses package and publish entries from publish.libs[]", async () => {
   await withRepoRoot(async (repoRoot) => {
     await writeConfigYaml(
       repoRoot,
-      `libs:\n  widgets:\n    package: "@x/widgets"\n    publish:\n      - kit: jsr\n      - kit: npm\n        target: private-registry\n`,
+      `publish:\n  libs:\n    - name: widgets\n      package: "@x/widgets"\n      publish:\n        - kit: jsr\n        - kit: npm\n          target: private-registry\n`,
     );
 
     const declaration = await new LibDeclarationLoader(repoRoot).load("widgets");
@@ -40,7 +40,7 @@ Deno.test("LibDeclarationLoader.load: parses package and publish entries from li
 
 Deno.test("LibDeclarationLoader.load: a libs entry with no publish entries loads with an empty list", async () => {
   await withRepoRoot(async (repoRoot) => {
-    await writeConfigYaml(repoRoot, `libs:\n  widgets:\n    package: "widgets"\n`);
+    await writeConfigYaml(repoRoot, `publish:\n  libs:\n    - name: widgets\n      package: "widgets"\n`);
 
     const declaration = await new LibDeclarationLoader(repoRoot).load("widgets");
     assertEquals(declaration, { package: "widgets", publish: [] });
@@ -59,7 +59,7 @@ Deno.test("LibDeclarationLoader.load: an undeclared lib rejects", async () => {
 
 Deno.test("LibDeclarationLoader.load: a libs entry missing a package name rejects", async () => {
   await withRepoRoot(async (repoRoot) => {
-    await writeConfigYaml(repoRoot, `libs:\n  widgets: {}\n`);
+    await writeConfigYaml(repoRoot, `publish:\n  libs:\n    - name: widgets\n`);
 
     await assertRejects(
       () => new LibDeclarationLoader(repoRoot).load("widgets"),
@@ -69,13 +69,13 @@ Deno.test("LibDeclarationLoader.load: a libs entry missing a package name reject
   });
 });
 
-Deno.test("LibDeclarationLoader.discoverCoreLibs: finds every entry under coreLibs: in .ensemble/config.yaml, resolved against source/core/<name>", async () => {
+Deno.test("LibDeclarationLoader.discoverCoreLibs: finds every entry under publish.core: in .ensemble/config.yaml, resolved against source/core/<name>", async () => {
   await withRepoRoot(async (repoRoot) => {
     await writeConfigYaml(
       repoRoot,
-      `coreLibs:\n  kit-sdk:\n    package: "@ensemble/kit-sdk"\n  core:\n    package: "@ensemble/core"\n    publish:\n      - kit: jsr\n`,
+      `publish:\n  core:\n    - name: kit-sdk\n      package: "@ensemble/kit-sdk"\n    - name: core\n      package: "@ensemble/core"\n      publish:\n        - kit: jsr\n`,
     );
-    // "website" isn't declared under coreLibs: — never discovered.
+    // "website" isn't declared under publish.core: — never discovered.
     await Deno.mkdir(join(repoRoot, "source", "core", "website"), {
       recursive: true,
     });
@@ -109,7 +109,7 @@ Deno.test("LibDeclarationLoader.discoverCoreLibs: no .ensemble/config.yaml disco
 
 Deno.test("LibDeclarationLoader.discoverCoreLibs: a coreLibs entry missing a package name rejects", async () => {
   await withRepoRoot(async (repoRoot) => {
-    await writeConfigYaml(repoRoot, `coreLibs:\n  kit-sdk: {}\n`);
+    await writeConfigYaml(repoRoot, `publish:\n  core:\n    - name: kit-sdk\n`);
 
     await assertRejects(
       () => new LibDeclarationLoader(repoRoot).discoverCoreLibs(),

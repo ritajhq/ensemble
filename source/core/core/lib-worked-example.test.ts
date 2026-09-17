@@ -117,7 +117,7 @@ Deno.test("worked example (core-lib path): a discovered core lib shares the same
     const libRoot = join(repoRoot, "source", "core", "kit-sdk");
     await Deno.writeTextFile(
       join(repoRoot, ".ensemble", "config.yaml"),
-      `coreLibs:\n  kit-sdk:\n    package: "@ensemble/kit-sdk"\n    publish:\n      - kit: fake\n`,
+      `publish:\n  core:\n    - name: kit-sdk\n      package: "@ensemble/kit-sdk"\n      publish:\n        - kit: fake\n`,
     );
 
     const ceremony = new ReleaseCeremony(repoRoot, UNUSED_PORTS);
@@ -172,7 +172,7 @@ Deno.test("worked example (libs-library path): scaffold, publish unejected (warn
     // Give it a publish entry — the bare scaffold declares none yet.
     await Deno.writeTextFile(
       join(repoRoot, ".ensemble", "config.yaml"),
-      `libs:\n  widgets:\n    package: "widgets"\n    publish:\n      - kit: fake\n`,
+      `publish:\n  libs:\n    - name: widgets\n      package: "widgets"\n      publish:\n        - kit: fake\n`,
     );
 
     // 2. Publish it, still unejected, before any violation exists — earlier

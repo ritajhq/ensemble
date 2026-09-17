@@ -24,8 +24,8 @@ const INDEX_TS_TEMPLATE = `export {};\n`;
 /**
  * Scaffolds a new library at `source/libs/<name>`: a workspace-member
  * `deno.json` (name, version `0.0.1`, exporting `./index.ts`) and a stub
- * `index.ts`, then registers `libs.<name>.package` in `.ensemble/config.yaml`
- * via `EnsembleConfigStore.setLibPackage` — so the lib is immediately
+ * `index.ts`, then registers a `publish.libs[]` entry for it in
+ * `.ensemble/config.yaml` via `EnsembleConfigStore.setLibPackage` — so the lib is immediately
  * publishable with `ens lib publish`, with no manifest file living inside
  * the library's own directory. `source/libs/**` is already a workspace
  * member glob (set up by `ens init`), so no separate workspace registration

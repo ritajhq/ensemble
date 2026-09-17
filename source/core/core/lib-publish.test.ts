@@ -95,7 +95,7 @@ Deno.test("LibPublisher.publish: an unejected lib warns but still publishes", as
     await writeLib(
       repoRoot,
       "widgets",
-      `libs:\n  widgets:\n    package: "@x/widgets"\n    publish:\n      - kit: jsr\n`,
+      `publish:\n  libs:\n    - name: widgets\n      package: "@x/widgets"\n      publish:\n        - kit: jsr\n`,
     );
     const warnings: string[] = [];
     const { publisher } = makePublisher(repoRoot, warnings);
@@ -125,7 +125,7 @@ Deno.test("LibPublisher.publish: an ejected lib publishes silently, no warning",
     await writeLib(
       repoRoot,
       "widgets",
-      `libs:\n  widgets:\n    package: "@x/widgets"\n    publish:\n      - kit: jsr\n`,
+      `publish:\n  libs:\n    - name: widgets\n      package: "@x/widgets"\n      publish:\n        - kit: jsr\n`,
     );
     const warnings: string[] = [];
     const { publisher, registry } = makePublisher(repoRoot, warnings);
@@ -157,7 +157,7 @@ Deno.test("LibPublisher.publish: a self-containment violation blocks publish eve
     await writeLib(
       repoRoot,
       "widgets",
-      `libs:\n  widgets:\n    package: "@x/widgets"\n    publish:\n      - kit: jsr\n`,
+      `publish:\n  libs:\n    - name: widgets\n      package: "@x/widgets"\n      publish:\n        - kit: jsr\n`,
       { "@ensemble/kit-sdk": "jsr:@ensemble/kit-sdk" },
     );
     const warnings: string[] = [];
@@ -186,7 +186,7 @@ Deno.test("LibPublisher.publish: publishing through an undeclared kit rejects", 
     await writeLib(
       repoRoot,
       "widgets",
-      `libs:\n  widgets:\n    package: "@x/widgets"\n    publish:\n      - kit: jsr\n`,
+      `publish:\n  libs:\n    - name: widgets\n      package: "@x/widgets"\n      publish:\n        - kit: jsr\n`,
     );
     const warnings: string[] = [];
     const { publisher } = makePublisher(repoRoot, warnings);
