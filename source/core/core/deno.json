@@ -19,5 +19,5 @@
     "@std/dotenv": "jsr:@std/dotenv@0.225.5",
     "@duesabati/evento": "jsr:@duesabati/evento@1.0.0"
   },
-  "version": "0.15.0"
+  "version": "0.16.0"
 }
