@@ -1,3 +1,9 @@
+## [0.18.0] - 2026-09-17
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.17.0
+- *(release)* Bump library versions for 0.18.0
 ## [0.17.0] - 2026-09-17
 
 ### 🐛 Bug Fixes
