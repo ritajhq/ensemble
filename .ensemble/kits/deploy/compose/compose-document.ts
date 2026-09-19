@@ -1,16 +1,8 @@
 import * as KitSdk from "@ensemble/kit-sdk";
 
-/** The categories that produce their own compose service — everything a `depends_on` edge could actually point at (release/secrets/variables/external never do, see render/renderer.ts's `UNRENDERED_CATEGORIES` and Section 12's release-as-image-tag-only model). */
-const SERVICE_CATEGORIES: readonly string[] = [
-  "compute",
-  "storage",
-  "databases",
-  "messaging",
-  "networking",
-];
-
 interface ComposeFragmentContent {
-  readonly service: Record<string, unknown>;
+  /** Absent for a resource with no compose service of its own — `storage.volume` (Section 5's `SERVICE_CATEGORIES` lists `storage` as a category that *can* produce one, not that every type in it does; a named volume is declared, never run). */
+  readonly service?: Record<string, unknown>;
   readonly volumes?: Readonly<Record<string, unknown>>;
 }
 
@@ -20,13 +12,20 @@ interface ComposeFragmentContent {
  * `primary` before `api` — dependency order, not alphabetical), each with
  * `depends_on` derived from the `DependencyGraph`'s reference edges (Section
  * 8's "compose depends_on" example of target-native apply ordering) filtered
- * to only the edges that point at another service; a top-level `volumes:`
- * collecting every fragment's own named volume, omitted entirely when
- * nothing declared one; and a top-level `networks:` naming every network any
- * service attaches to as `external: true` — the only way a network name
- * reaches a service today is a `${external.*}` reference (Section 5: ens
- * provisions no network of its own), so every one collected here is by
- * definition someone else's, never ens's to define.
+ * to only the edges that point at a resource that actually produced a
+ * compose service of its own — `storage.volume` (`provisioners/
+ * storage-volume.ts`) is declared, not run, so a compute mounting one gets no
+ * `depends_on` entry for it, only the top-level `volumes:` block it feeds
+ * (below). Fragments render in dependency order (a batch's own resources
+ * never depend on a later batch's), so by the time a dependent's own
+ * `dependsOn` is computed, every dependency it could point at has already
+ * been classified. A top-level `volumes:` collects every fragment's own
+ * named volume, omitted entirely when nothing declared one; a top-level
+ * `networks:` names every network any service attaches to as
+ * `external: true` — the only way a network name reaches a service today is
+ * a `${external.*}` reference (Section 5: ens provisions no network of its
+ * own), so every one collected here is by definition someone else's, never
+ * ens's to define.
  */
 export function assembleComposeDocument(
   artifacts: KitSdk.Deploy.Render.Artifacts,
@@ -35,6 +34,7 @@ export function assembleComposeDocument(
   const services: Record<string, unknown> = {};
   const volumes: Record<string, unknown> = {};
   const networks: Record<string, unknown> = {};
+  const serviceKeys = new Set<string>();
 
   for (const fragment of artifacts.fragments) {
     const content = fragment.content as ComposeFragmentContent;
@@ -42,18 +42,23 @@ export function assembleComposeDocument(
       category: fragment.category,
       name: fragment.name,
     })
-      .filter((dependency) => SERVICE_CATEGORIES.includes(dependency.category))
+      .filter((dependency) =>
+        serviceKeys.has(`${dependency.category}.${dependency.name}`)
+      )
       .map((dependency) => dependency.name)
       .sort();
 
-    services[fragment.name] = dependsOn.length > 0
-      ? { ...content.service, depends_on: dependsOn }
-      : content.service;
-    Object.assign(volumes, content.volumes ?? {});
+    if (content.service) {
+      services[fragment.name] = dependsOn.length > 0
+        ? { ...content.service, depends_on: dependsOn }
+        : content.service;
+      serviceKeys.add(`${fragment.category}.${fragment.name}`);
 
-    for (const name of (content.service.networks as string[] | undefined) ?? []) {
-      networks[name] = { external: true };
+      for (const name of (content.service.networks as string[] | undefined) ?? []) {
+        networks[name] = { external: true };
+      }
     }
+    Object.assign(volumes, content.volumes ?? {});
   }
 
   const document: Record<string, unknown> = { services };

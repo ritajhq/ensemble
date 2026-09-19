@@ -28,9 +28,9 @@
           "additionalProperties": { "$ref": "#/definitions/containerOrchestratedResource" }
         },
         "storage": {
-          "description": "Storage resources.",
+          "description": "Storage resources (e.g. volume).",
           "type": "object",
-          "additionalProperties": { "$ref": "#/definitions/resourceDeclaration" }
+          "additionalProperties": { "$ref": "#/definitions/storageVolumeResource" }
         },
         "databases": {
           "description": "Database resources (e.g. relational).",
@@ -168,7 +168,51 @@
           "type": "array",
           "items": { "type": "string" }
         },
+        "mounts": {
+          "description": "Storage volumes to attach, usually referencing a storage.volume entry's ${storage.<name>.name} output.",
+          "type": "array",
+          "items": { "$ref": "#/definitions/mountEntry" }
+        },
         "development": { "$ref": "#/definitions/developmentBlock" }
+      }
+    },
+    "storageVolumeResource": {
+      "description": "A `storage.volume.v1` entry (kit-sdk/deploy/contracts/seeds/storage-volume.ts) — a persistent, named volume with no shape of its own; a compute attaches to it via `mounts`, referencing this entry's `${storage.<name>.name}` output.",
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "volume"
+        },
+        "class": {
+          "description": "Optional resource class (e.g. critical) affecting how a kit realizes it.",
+          "type": "string"
+        },
+        "capabilities": {
+          "description": "Optional negotiated capabilities requested from the deploy kit.",
+          "type": "object",
+          "additionalProperties": { "type": ["boolean", "number"] }
+        }
+      }
+    },
+    "mountEntry": {
+      "type": "object",
+      "required": ["source", "path"],
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "description": "The volume to attach, usually ${storage.<name>.name}.",
+          "type": "string"
+        },
+        "path": {
+          "description": "Path inside the container to mount the volume at.",
+          "type": "string"
+        },
+        "readOnly": {
+          "description": "Mount the volume read-only. Defaults to false.",
+          "type": "boolean"
+        }
       }
     },
     "relationalResource": {

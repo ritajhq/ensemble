@@ -4,6 +4,7 @@ import * as KitSdk from "@ensemble/kit-sdk";
 import { composeRealization } from "./realization.ts";
 import { containerOrchestratedProvisioner } from "./provisioners/container-orchestrated.ts";
 import { relationalProvisioner } from "./provisioners/relational.ts";
+import { storageVolumeProvisioner } from "./provisioners/storage-volume.ts";
 import { assembleComposeDocument } from "./compose-document.ts";
 import { externalNetworkEmulations } from "./external-networks.ts";
 
@@ -26,18 +27,25 @@ function artifactsDirFor(artifactPath: string): string {
 }
 
 const kit: KitSdk.Deploy.Kit = {
-  provisioners:
-    () => [containerOrchestratedProvisioner(), relationalProvisioner()],
+  // deno-lint-ignore require-await
+  provisioners: async () => [
+    containerOrchestratedProvisioner(),
+    relationalProvisioner(),
+    storageVolumeProvisioner(),
+  ],
   realization: composeRealization,
-  present: (artifacts, graph) => ({
+  // deno-lint-ignore require-await
+  present: async (artifacts, graph) => ({
     filename: "compose.yaml",
     content: stringifyYaml(assembleComposeDocument(artifacts, graph)),
   }),
-  applyCommand: (
+  // deno-lint-ignore require-await
+  applyCommand: async (
     artifactPath,
     name,
   ) => ["docker", "compose", "-f", artifactPath, "-p", name, "up", "-d"],
-  watchCommand: (artifactPath, name) => [
+  // deno-lint-ignore require-await
+  watchCommand: async (artifactPath, name) => [
     "docker",
     "compose",
     "-f",

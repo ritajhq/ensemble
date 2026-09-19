@@ -42,28 +42,34 @@ const RELATIONAL_CLASS_PRESETS: Readonly<Record<string, ClassPreset>> = {
  * `primary.host` is knowable at plan time because it's just the compose
  * service name, never a provider-allocated value (G3).
  */
-export function composeRealization(): KitSdk.Deploy.Realization {
+// deno-lint-ignore require-await
+export async function composeRealization(): Promise<KitSdk.Deploy.Realization> {
   return {
-    classPreset(
+    // deno-lint-ignore require-await
+    async classPreset(
       category: Category,
       type: string,
       className: string,
-    ): ClassPreset | undefined {
+    ): Promise<ClassPreset | undefined> {
       if (category === "databases" && type === "relational") {
         return RELATIONAL_CLASS_PRESETS[className];
       }
       return undefined;
     },
-    defaultFor(): number | boolean | string | undefined {
+    // deno-lint-ignore require-await
+    async defaultFor(): Promise<number | boolean | string | undefined> {
       return undefined;
     },
-    boundFor(): Bound | undefined {
+    // deno-lint-ignore require-await
+    async boundFor(): Promise<Bound | undefined> {
       return undefined;
     },
-    supportsCapability(): boolean {
+    // deno-lint-ignore require-await
+    async supportsCapability(): Promise<boolean> {
       return false;
     },
-    knowabilityOf(): Knowability {
+    // deno-lint-ignore require-await
+    async knowabilityOf(): Promise<Knowability> {
       return "static";
     },
   };

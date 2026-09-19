@@ -15,9 +15,11 @@ const POSTGRES_PORT = 5432;
  */
 export function relationalProvisioner(): KitSdk.Deploy.Provisioner {
   return {
-    matches: (resource) => resource.declaration.type === "relational",
-    describe: () => "relational (postgres container + volume)",
-    provision: (request) => {
+    // deno-lint-ignore require-await
+    matches: async (resource) => resource.declaration.type === "relational",
+    // deno-lint-ignore require-await
+    describe: async () => "relational (postgres container + volume)",
+    provision: async (request) => {
       const passwordWiring = composeSecretWiring(
         String(request.params.passwordSecret),
         request.secrets,

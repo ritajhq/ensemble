@@ -39,9 +39,11 @@ function readReplicaResources(
 
 export function relationalProvisioner(): KitSdk.Deploy.Provisioner {
   return {
-    matches: (resource) => resource.declaration.type === "relational",
-    describe: () => "relational (AWS::RDS::DBInstance)",
-    provision: (request) => {
+    // deno-lint-ignore require-await
+    matches: async (resource) => resource.declaration.type === "relational",
+    // deno-lint-ignore require-await
+    describe: async () => "relational (AWS::RDS::DBInstance)",
+    provision: async (request) => {
       const logicalId = pascalCase(request.name);
       const secretParamName = pascalCase(String(request.params.passwordSecret));
 

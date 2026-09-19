@@ -9,6 +9,22 @@ function portMappings(ports: unknown): string[] {
 }
 
 /**
+ * A `mounts` entry (`{ source, path, readOnly? }`, `source` already resolved
+ * from its `${storage.<name>.name}` reference to the volume's own name by
+ * render time) as compose's own `"SOURCE:TARGET[:ro]"` volume-mapping
+ * string. `[]` when there's no `mounts` param at all — same "absent, not
+ * empty" convention `portMappings` uses for `ports`.
+ */
+function mountVolumes(mounts: unknown): string[] {
+  if (!Array.isArray(mounts)) return [];
+  return (mounts as Array<
+    { source: string; path: string; readOnly?: boolean }
+  >).map(({ source, path, readOnly }) =>
+    readOnly ? `${source}:${path}:ro` : `${source}:${path}`
+  );
+}
+
+/**
  * Translates the portable `development` schema (rules grouped by action —
  * `sync` vs `sync+restart`) into compose's own `develop.watch` entries — one
  * per sync rule, `app` (an ens app identifier, e.g. "website/server")
@@ -47,21 +63,24 @@ function developBlock(
 
 /**
  * Fulfills `container-orchestrated` on compose: an image, its environment,
- * published ports, any networks it attaches to, and — when the resource
- * declares one — its `develop.watch` sync wiring. `replicas` has no
- * compose-native equivalent outside swarm mode, so it's silently dropped
- * rather than rendered as something misleading — Appendix A's own golden
- * output has no trace of it either. Declares no outputs (Phase 2's
- * `container-orchestrated.v1` contract declares none): a compute's ports are
- * referenced directly off its own `ports` param, not through a
- * provisioner-declared output.
+ * published ports, any networks it attaches to, any `mounts` as service-level
+ * `volumes:` entries, and — when the resource declares one — its
+ * `develop.watch` sync wiring. `replicas` has no compose-native equivalent
+ * outside swarm mode, so it's silently dropped rather than rendered as
+ * something misleading — Appendix A's own golden output has no trace of it
+ * either. Declares no outputs (Phase 2's `container-orchestrated.v1` contract
+ * declares none): a compute's ports are referenced directly off its own
+ * `ports` param, not through a provisioner-declared output.
  */
 export function containerOrchestratedProvisioner(): KitSdk.Deploy.Provisioner {
   return {
-    matches: (resource) =>
+    // deno-lint-ignore require-await
+    matches: async (resource) =>
       resource.declaration.type === "container-orchestrated",
-    describe: () => "container-orchestrated (compose service)",
-    provision: (request) => {
+    // deno-lint-ignore require-await
+    describe: async () => "container-orchestrated (compose service)",
+    // deno-lint-ignore require-await
+    provision: async (request) => {
       const develop = developBlock(request.params.development);
       return {
         fragment: {
@@ -76,6 +95,9 @@ export function containerOrchestratedProvisioner(): KitSdk.Deploy.Provisioner {
               environment: request.params.env ?? {},
               ...(request.params.networks
                 ? { networks: request.params.networks }
+                : {}),
+              ...(request.params.mounts
+                ? { volumes: mountVolumes(request.params.mounts) }
                 : {}),
               ...(develop ? { develop } : {}),
             },

@@ -13,3 +13,4 @@ export {
 export { ReferenceValidator } from "./reference-validator.ts";
 export { containerOrchestratedV1 } from "./seeds/container-orchestrated.ts";
 export { relationalV1 } from "./seeds/relational.ts";
+export { storageVolumeV1 } from "./seeds/storage-volume.ts";

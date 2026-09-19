@@ -7,7 +7,7 @@ import { assembleComposeDocument } from "./compose-document.ts";
 
 const FIXTURE = fromFileUrl(
   new URL(
-    "../../../../source/core/kit-sdk/deploy/testdata/fixtures/worked-example/delivery.yml",
+    "../../../../source/core/core/deploy/testdata/fixtures/worked-example/delivery.yml",
     import.meta.url,
   ),
 );
@@ -15,6 +15,7 @@ const FIXTURE = fromFileUrl(
 const registry = new KitSdk.Deploy.Contracts.Catalog([
   KitSdk.Deploy.Contracts.relationalV1,
   KitSdk.Deploy.Contracts.containerOrchestratedV1,
+  KitSdk.Deploy.Contracts.storageVolumeV1,
 ]);
 
 /**
@@ -37,10 +38,6 @@ async function renderFixture(
   return renderWorkload(workload, kit, releaseLocator, artifactsSource);
 }
 
-// Stays async (render itself is synchronous) so a throw inside is a
-// rejection assertRejects() can catch, not an exception escaping the call
-// before any promise exists.
-// deno-lint-ignore require-await
 async function renderWorkload(
   workload: KitSdk.Deploy.Workload,
   kit: KitSdk.Deploy.Kit,
@@ -59,13 +56,13 @@ async function renderWorkload(
     KitSdk.Deploy.Resolve.SelectedProvisioner
   >();
 
-  for (const category of ["compute", "databases"] as const) {
+  for (const category of ["compute", "storage", "databases"] as const) {
     for (
       const [name, declaration] of Object.entries(workload[category] ?? {})
     ) {
       const matched = matcher.match(category, name, declaration);
-      const selection = selector.select(matched, target);
-      const values = negotiator.negotiate(matched, target);
+      const selection = await selector.select(matched, target);
+      const values = await negotiator.negotiate(matched, target);
       const request = assembler.assemble(matched, values);
       requests.set(`${category}.${name}`, request);
       selections.set(`${category}.${name}`, selection);
@@ -76,14 +73,14 @@ async function renderWorkload(
     workload,
   );
   const referenceResolver = new KitSdk.Deploy.Render.ReferenceResolver(
-    kit.realization(),
+    await kit.realization(),
   );
   const renderer = new KitSdk.Deploy.Render.Renderer(
     referenceResolver,
     releaseLocator,
     registry,
   );
-  const artifacts = renderer.render(
+  const artifacts = await renderer.render(
     workload,
     requests,
     selections,
@@ -168,14 +165,14 @@ Deno.test("compose kit: present() serializes to compose.yaml, parseable back to 
     "local",
   );
 
-  const presented = composeKit.present(artifacts, graph);
+  const presented = await composeKit.present(artifacts, graph);
   assertEquals(presented.filename, "compose.yaml");
   assertEquals(presented.content.includes("postgres:16"), true);
 });
 
-Deno.test("compose kit: applyCommand runs docker compose up scoped by the deployment's own project name", () => {
+Deno.test("compose kit: applyCommand runs docker compose up scoped by the deployment's own project name", async () => {
   assertEquals(
-    composeKit.applyCommand("/tmp/compose.yaml", "phase7-smoke-test"),
+    await composeKit.applyCommand("/tmp/compose.yaml", "phase7-smoke-test"),
     [
       "docker",
       "compose",
@@ -189,9 +186,9 @@ Deno.test("compose kit: applyCommand runs docker compose up scoped by the deploy
   );
 });
 
-Deno.test("compose kit: watchCommand runs docker compose watch scoped by the deployment's own project name, with --project-directory pointed at source/artifacts/ (what the container actually runs)", () => {
+Deno.test("compose kit: watchCommand runs docker compose watch scoped by the deployment's own project name, with --project-directory pointed at source/artifacts/ (what the container actually runs)", async () => {
   assertEquals(
-    composeKit.watchCommand?.(
+    await composeKit.watchCommand?.(
       "/repo/source/artifacts/deploy/phase7-smoke-test/compose.yaml",
       "phase7-smoke-test",
     ),
@@ -306,12 +303,12 @@ Deno.test("compose kit: a compute referencing an external network renders it on 
   assertEquals(document.networks, { "edge-net": { external: true } });
 });
 
-Deno.test("compose kit: emulateExternals reports a docker network inspect/create pair per external network", () => {
+Deno.test("compose kit: emulateExternals reports a docker network inspect/create pair per external network", async () => {
   const workload = new KitSdk.Deploy.Manifest.Parser().parse(
     WITH_EXTERNAL_NETWORK,
   );
 
-  assertEquals(composeKit.emulateExternals?.(workload), [{
+  assertEquals(await composeKit.emulateExternals?.(workload), [{
     name: "edge-net",
     check: ["docker", "network", "inspect", "edge-net"],
     create: ["docker", "network", "create", "edge-net"],
@@ -334,6 +331,80 @@ Deno.test("compose kit: no networks param renders no networks key anywhere", asy
   assertEquals("networks" in document, false);
 });
 
+const WITH_MOUNTS = `
+version: v1
+release:
+  web: { kit: docker }
+deploy:
+  compute:
+    api:
+      type: container-orchestrated
+      image: \${release.web}
+      replicas: 1
+      mounts:
+        - source: \${storage.uploads.name}
+          path: /var/lib/uploads
+        - source: \${storage.cache.name}
+          path: /var/lib/cache
+          readOnly: true
+  storage:
+    uploads:
+      type: volume
+    cache:
+      type: volume
+`;
+
+Deno.test("compose kit: mounts render as service-level volume mappings (readOnly appending :ro) and a top-level named volume per storage.volume entry", async () => {
+  const workload = new KitSdk.Deploy.Manifest.Parser().parse(WITH_MOUNTS);
+  const { artifacts, graph } = await renderWorkload(
+    workload,
+    composeKit,
+    releaseLocator,
+    "local",
+  );
+  const document = assembleComposeDocument(artifacts, graph) as {
+    services: Record<string, { volumes?: string[]; depends_on?: string[] }>;
+    volumes?: Record<string, unknown>;
+  };
+
+  assertEquals(document.services.api.volumes, [
+    "uploads:/var/lib/uploads",
+    "cache:/var/lib/cache:ro",
+  ]);
+  assertEquals(document.volumes, { uploads: {}, cache: {} });
+});
+
+Deno.test("compose kit: a storage.volume dependency gets no depends_on entry (a named volume isn't a service to wait for)", async () => {
+  const workload = new KitSdk.Deploy.Manifest.Parser().parse(WITH_MOUNTS);
+  const { artifacts, graph } = await renderWorkload(
+    workload,
+    composeKit,
+    releaseLocator,
+    "local",
+  );
+  const document = assembleComposeDocument(artifacts, graph) as {
+    services: Record<string, { depends_on?: string[] }>;
+  };
+
+  assertEquals("depends_on" in document.services.api, false);
+  assertEquals("uploads" in document.services, false);
+  assertEquals("cache" in document.services, false);
+});
+
+Deno.test("compose kit: no mounts param renders no volumes key on the service", async () => {
+  const { artifacts, graph } = await renderFixture(
+    FIXTURE,
+    composeKit,
+    releaseLocator,
+    "local",
+  );
+  const document = assembleComposeDocument(artifacts, graph) as {
+    services: Record<string, { volumes?: unknown }>;
+  };
+
+  assertEquals("volumes" in document.services.api, false);
+});
+
 Deno.test("compose kit: an invalid development block fails render with a clear error", async () => {
   const workload = new KitSdk.Deploy.Manifest.Parser().parse(
     WITH_DEVELOPMENT_BLOCK.replace("sync+restart", "rebuild-everything"),
@@ -342,7 +413,7 @@ Deno.test("compose kit: an invalid development block fails render with a clear e
   await assertRejects(
     () => renderWorkload(workload, composeKit, releaseLocator, "local"),
     KitSdk.Deploy.DevelopmentBlockError,
-    'must be "sync" or "sync+restart"',
+    'development has no key "rebuild-everything"',
   );
 });
 
@@ -357,11 +428,11 @@ Deno.test("compose kit: up -d still applies correctly over a watch-bearing artif
     "local",
   );
 
-  const presented = composeKit.present(artifacts, graph);
+  const presented = await composeKit.present(artifacts, graph);
   assertEquals(presented.content.includes("develop:"), true);
   assertEquals(presented.content.includes("watch:"), true);
   assertEquals(
-    composeKit.applyCommand("/tmp/compose.yaml", "t"),
+    await composeKit.applyCommand("/tmp/compose.yaml", "t"),
     ["docker", "compose", "-f", "/tmp/compose.yaml", "-p", "t", "up", "-d"],
   );
 });
@@ -381,7 +452,7 @@ Deno.test("compose kit: rendering the same workload twice produces byte-identica
   );
 
   assertEquals(
-    composeKit.present(first.artifacts, first.graph).content,
-    composeKit.present(second.artifacts, second.graph).content,
+    (await composeKit.present(first.artifacts, first.graph)).content,
+    (await composeKit.present(second.artifacts, second.graph)).content,
   );
 });

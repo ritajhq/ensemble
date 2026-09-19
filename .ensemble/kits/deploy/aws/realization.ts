@@ -50,44 +50,50 @@ const RELATIONAL_DYNAMIC_OUTPUTS: readonly string[] = ["host", "url"];
  * passthrough params). Unlike compose, aws genuinely supports read replicas,
  * so that capability is declared satisfied.
  */
-export function awsRealization(): KitSdk.Deploy.Realization {
+// deno-lint-ignore require-await
+export async function awsRealization(): Promise<KitSdk.Deploy.Realization> {
   return {
-    classPreset(
+    // deno-lint-ignore require-await
+    async classPreset(
       category: Category,
       type: string,
       className: string,
-    ): ClassPreset | undefined {
+    ): Promise<ClassPreset | undefined> {
       if (category === "databases" && type === "relational") {
         return RELATIONAL_CLASS_PRESETS[className];
       }
       return undefined;
     },
-    defaultFor(): number | boolean | string | undefined {
+    // deno-lint-ignore require-await
+    async defaultFor(): Promise<number | boolean | string | undefined> {
       return undefined;
     },
-    boundFor(
+    // deno-lint-ignore require-await
+    async boundFor(
       category: Category,
       type: string,
       concern: string,
-    ): Bound | undefined {
+    ): Promise<Bound | undefined> {
       if (category === "databases" && type === "relational") {
         return RELATIONAL_BOUNDS[concern];
       }
       return undefined;
     },
-    supportsCapability(
+    // deno-lint-ignore require-await
+    async supportsCapability(
       category: Category,
       type: string,
       capability: string,
-    ): boolean {
+    ): Promise<boolean> {
       return category === "databases" && type === "relational" &&
         capability === "read-replicas";
     },
-    knowabilityOf(
+    // deno-lint-ignore require-await
+    async knowabilityOf(
       category: Category,
       type: string,
       output: string,
-    ): Knowability {
+    ): Promise<Knowability> {
       if (
         category === "databases" && type === "relational" &&
         RELATIONAL_DYNAMIC_OUTPUTS.includes(output)

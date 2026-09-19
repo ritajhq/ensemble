@@ -7,7 +7,7 @@ import { assembleCloudFormationDocument } from "./cloudformation-document.ts";
 
 const FIXTURE = fromFileUrl(
   new URL(
-    "../../../../source/core/kit-sdk/deploy/testdata/fixtures/worked-example/delivery.yml",
+    "../../../../source/core/core/deploy/testdata/fixtures/worked-example/delivery.yml",
     import.meta.url,
   ),
 );
@@ -51,8 +51,8 @@ async function renderWorkload(
       const [name, declaration] of Object.entries(workload[category] ?? {})
     ) {
       const matched = matcher.match(category, name, declaration);
-      const selection = selector.select(matched, target);
-      const values = negotiator.negotiate(matched, target);
+      const selection = await selector.select(matched, target);
+      const values = await negotiator.negotiate(matched, target);
       const request = assembler.assemble(matched, values);
       requests.set(`${category}.${name}`, request);
       selections.set(`${category}.${name}`, selection);
@@ -63,14 +63,14 @@ async function renderWorkload(
     workload,
   );
   const referenceResolver = new KitSdk.Deploy.Render.ReferenceResolver(
-    kit.realization(),
+    await kit.realization(),
   );
   const renderer = new KitSdk.Deploy.Render.Renderer(
     referenceResolver,
     releaseLocator,
     registry,
   );
-  const artifacts = renderer.render(
+  const artifacts = await renderer.render(
     workload,
     requests,
     selections,
@@ -158,8 +158,9 @@ Deno.test("aws kit: matches Appendix A's documented content exactly", async () =
   });
 });
 
-Deno.test("aws kit: backupRetention's bound matches RDS's own real limit (35 days) — Appendix A's \"within bound\"", () => {
-  const bound = awsKit.realization().boundFor(
+Deno.test("aws kit: backupRetention's bound matches RDS's own real limit (35 days) — Appendix A's \"within bound\"", async () => {
+  const realization = await awsKit.realization();
+  const bound = await realization.boundFor(
     "databases",
     "relational",
     "backupRetention",
@@ -174,7 +175,7 @@ Deno.test("aws kit: presents a valid template.yaml", async () => {
     releaseLocator,
     "published",
   );
-  const presented = awsKit.present(
+  const presented = await awsKit.present(
     artifacts,
     new KitSdk.Deploy.Resolve.DependencyGraphBuilder().build({} as never),
   );
@@ -189,7 +190,7 @@ Deno.test("aws kit: present() never emits YAML anchors/aliases, even though DbPa
     releaseLocator,
     "published",
   );
-  const presented = awsKit.present(
+  const presented = await awsKit.present(
     artifacts,
     new KitSdk.Deploy.Resolve.DependencyGraphBuilder().build({} as never),
   );
@@ -201,8 +202,8 @@ Deno.test("aws kit: present() never emits YAML anchors/aliases, even though DbPa
   assertEquals(/[&*]ref_\d/.test(presented.content), false);
 });
 
-Deno.test("aws kit: applyCommand runs cloudformation deploy scoped by the deployment's own stack name", () => {
-  assertEquals(awsKit.applyCommand("/tmp/template.yaml", "phase7-smoke-test"), [
+Deno.test("aws kit: applyCommand runs cloudformation deploy scoped by the deployment's own stack name", async () => {
+  assertEquals(await awsKit.applyCommand("/tmp/template.yaml", "phase7-smoke-test"), [
     "aws",
     "cloudformation",
     "deploy",
@@ -230,8 +231,8 @@ Deno.test("aws kit: rendering the same workload twice produces byte-identical pr
   );
 
   assertEquals(
-    awsKit.present(first.artifacts, first.graph).content,
-    awsKit.present(second.artifacts, second.graph).content,
+    (await awsKit.present(first.artifacts, first.graph)).content,
+    (await awsKit.present(second.artifacts, second.graph)).content,
   );
 });
 
@@ -281,12 +282,12 @@ deploy:
     db-password: { source: environment }
 `;
 
-Deno.test("capabilities end-to-end: aws satisfies read-replicas (no gap) and actually creates the replica resources", () => {
+Deno.test("capabilities end-to-end: aws satisfies read-replicas (no gap) and actually creates the replica resources", async () => {
   const workload = new KitSdk.Deploy.Manifest.Parser().parse(
     WITH_READ_REPLICAS,
   );
   const target: KitSdk.Deploy.Target = { kit: awsKit };
-  const resolution = new KitSdk.Deploy.Resolve.WorkloadResolver(registry)
+  const resolution = await new KitSdk.Deploy.Resolve.WorkloadResolver(registry)
     .resolve(workload, target);
 
   assertEquals(resolution.gaps, []);
@@ -298,8 +299,8 @@ Deno.test("capabilities end-to-end: aws satisfies read-replicas (no gap) and act
   const graph = new KitSdk.Deploy.Resolve.DependencyGraphBuilder().build(
     workload,
   );
-  const rendered = new KitSdk.Deploy.Render.Renderer(
-    new KitSdk.Deploy.Render.ReferenceResolver(awsKit.realization()),
+  const rendered = await new KitSdk.Deploy.Render.Renderer(
+    new KitSdk.Deploy.Render.ReferenceResolver(await awsKit.realization()),
     releaseLocator,
     registry,
   ).render(
@@ -330,7 +331,7 @@ Deno.test("capabilities end-to-end: compose reports a gap for the same read-repl
     WITH_READ_REPLICAS,
   );
   const target: KitSdk.Deploy.Target = { kit: composeKitModule.default };
-  const resolution = new KitSdk.Deploy.Resolve.WorkloadResolver(registry)
+  const resolution = await new KitSdk.Deploy.Resolve.WorkloadResolver(registry)
     .resolve(workload, target);
 
   assertEquals(resolution.gaps, [

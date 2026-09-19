@@ -8,9 +8,10 @@ import * as KitSdk from "@ensemble/kit-sdk";
  * there yet. An entry declaring any other `type` has no compose emulation to
  * offer, so this throws rather than silently skipping it.
  */
-export function externalNetworkEmulations(
+// deno-lint-ignore require-await
+export async function externalNetworkEmulations(
   workload: KitSdk.Deploy.Workload,
-): readonly KitSdk.Deploy.ExternalEmulation[] {
+): Promise<readonly KitSdk.Deploy.ExternalEmulation[]> {
   return Object.entries(workload.external ?? {}).map(([name, declaration]) => {
     if (declaration.type !== "network") {
       throw new Error(

@@ -6,14 +6,19 @@ import { relationalProvisioner } from "./provisioners/relational.ts";
 import { assembleCloudFormationDocument } from "./cloudformation-document.ts";
 
 const kit: KitSdk.Deploy.Kit = {
-  provisioners:
-    () => [containerOrchestratedProvisioner(), relationalProvisioner()],
+  // deno-lint-ignore require-await
+  provisioners: async () => [
+    containerOrchestratedProvisioner(),
+    relationalProvisioner(),
+  ],
   realization: awsRealization,
-  present: (artifacts) => ({
+  // deno-lint-ignore require-await
+  present: async (artifacts) => ({
     filename: "template.yaml",
     content: stringifyYaml(assembleCloudFormationDocument(artifacts)),
   }),
-  applyCommand: (artifactPath, name) => [
+  // deno-lint-ignore require-await
+  applyCommand: async (artifactPath, name) => [
     "aws",
     "cloudformation",
     "deploy",

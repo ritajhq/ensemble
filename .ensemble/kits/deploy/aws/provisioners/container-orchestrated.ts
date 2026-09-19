@@ -21,10 +21,13 @@ function containerEnvironment(
  */
 export function containerOrchestratedProvisioner(): KitSdk.Deploy.Provisioner {
   return {
-    matches: (resource) =>
+    // deno-lint-ignore require-await
+    matches: async (resource) =>
       resource.declaration.type === "container-orchestrated",
-    describe: () => "container-orchestrated (AWS::ECS::TaskDefinition)",
-    provision: (request) => ({
+    // deno-lint-ignore require-await
+    describe: async () => "container-orchestrated (AWS::ECS::TaskDefinition)",
+    // deno-lint-ignore require-await
+    provision: async (request) => ({
       fragment: {
         category: request.category,
         name: request.name,
