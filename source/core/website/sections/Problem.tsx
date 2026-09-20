@@ -34,10 +34,10 @@ export function Problem() {
           Why do you need Ensemble
         </h2>
         <p className="mx-auto mt-3 max-w-2xl text-center text-base leading-relaxed text-slate-600">
-          The only way to go fast is to go well, having a tidy workspace with
+          The only way to go fast is to go well,and this holds true even with LLMs agents, having a tidy workspace with
           clear names and responsibilities is the key to building, packaging,
           and deploying your apps with confidence. Ensemble helps you to manage
-          each aspect by defining the concepts that govern those steps.
+          each aspect by defining the concepts and contracts that govern those steps.
         </p>
 
         <div className="mt-12 grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8">
