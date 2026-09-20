@@ -9,4 +9,5 @@ export { LibTools } from "./lib.ts";
 export { PackTools } from "./pack.ts";
 export { PublishTools } from "./publish.ts";
 export { ReleaseTools } from "./release.ts";
+export { StatusTools } from "./status.ts";
 export { WatchTools } from "./watch.ts";

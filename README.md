@@ -271,6 +271,18 @@ ens version update patch    # or minor / major
 ens version set 1.4.0
 ```
 
+### `ens status`
+
+Lists every app (with its build kit), installed kit per role, publishable
+library, and workload (with its ships and declared deploy resources) —
+every name the other commands above expect as an argument, gathered from
+`.ensemble/config.yaml`, `.ensemble/kits/`, and `ci/*/delivery.yml` in one
+pass, without having to open any of them by hand.
+
+```sh
+ens status
+```
+
 ## Local development
 
 Bringing a whole workload up on your machine is the same source → build → pack →

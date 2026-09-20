@@ -49,8 +49,9 @@ both get packed). `<name>` throughout this doc and the CLI (`ens build <app>`,
   build/pack kits and in-process-loading deploy kits.
 - `core/kit-sdk/` — the helper library kits import to speak their contract. For
   build/pack that's parsing their own CLI invocation (`build-context.ts`,
-  `pack-context.ts`, `scaffold-context.ts`); `deploy/` is a richer, in-process
-  SDK (the deploy domain model — see the Deploy section below).
+  `pack-context.ts`, `scaffold-context.ts`); for deploy it's a thin re-export
+  shim onto `core/core/deploy` (the actual deploy domain model — see the
+  Deploy section below).
 
 ## The CLI surface
 
@@ -81,6 +82,11 @@ it here, just the mental model per command:
   default build/pack vars.
 - **`ens release` / `ens version`** — semver git-tag management, dry-run by
   default for anything destructive.
+- **`ens status`** — read-only: lists every app/kit/library/workload name the
+  commands above expect as an argument, gathered from `.ensemble/config.yaml`,
+  `.ensemble/kits/<role>/`, and `ci/<name>/delivery.yml`. Run this first
+  instead of grepping those locations by hand when you don't already know the
+  exact name to pass.
 
 ## Kits: the build/pack contract
 
@@ -110,8 +116,10 @@ Existing kits to look at as reference implementations:
 
 A delivery manifest (`ci/<name>/delivery.yml`) is a YAML file with two
 top-level sections — `release` and `deploy`. The deploy domain model lives in
-[source/core/kit-sdk/deploy](../source/core/kit-sdk/deploy) (heavily commented —
+[source/core/core/deploy](../source/core/core/deploy) (heavily commented —
 read it directly for edge cases), parsed by `parse.ts` into a `Workload`.
+`source/core/kit-sdk/deploy` does not exist as a directory — `kit-sdk` only
+re-exports this module under `KitSdk.Deploy` for kits to import.
 
 - **`release`** — one entry per ship (`kit`, `mode`, optional `publish:`),
   describing how the ship packs and (optionally) publishes. A compute references
@@ -142,7 +150,7 @@ the surrounding pipeline. Environment selection is not an `ens` concept —
 
 Unlike build/pack kits (subprocesses speaking a CLI contract), a deploy kit is
 loaded **in-process**: its `main.ts` default-exports a configured
-`KitSdk.Deploy.Kit` (see [kit.ts](../source/core/kit-sdk/deploy/kit.ts)),
+`KitSdk.Deploy.Kit` (see [kit.ts](../source/core/core/deploy/kit/kit.ts)),
 `Configure`d with `up`/`down` procedures. Each procedure receives the *whole*
 resolved `Workload` (not narrowed per-entry — only the kit knows how its target
 needs every entry assembled together, e.g. one compose.yaml with correct
@@ -151,8 +159,14 @@ and a `KitContext` (`name` — the deployment name, used e.g. as the compose
 project name; `volumePath`; `artifactsPath`). The `instanceof
 KitSdk.Deploy.Kit` check means a kit's `@ensemble/kit-sdk` must resolve to the
 same module the `ens` binary embeds — for a vendored kit, point it at the
-vendored source. The reference implementation is
-[.ensemble/kits/deploy/compose](../.ensemble/kits/deploy/compose).
+vendored source. There are two deploy kits to look at:
+[.ensemble/kits/deploy/compose](../.ensemble/kits/deploy/compose) (docker
+compose — the fullest reference implementation) and
+[.ensemble/kits/deploy/aws](../.ensemble/kits/deploy/aws) (CloudFormation —
+ECS task definitions, RDS instances). Provisioner support is uneven by
+design — each kit documents its own drops in the provisioner's comment: aws
+silently drops `ports`/`networks`, but a `storage.volume` targeting aws
+hard-fails instead of dropping, since aws has no provisioner for it yet.
 
 ## Commit scope conventions
 

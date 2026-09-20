@@ -13,6 +13,7 @@ import { mcpCommand } from "./commands/mcp.ts";
 import { packCommand } from "./commands/pack.ts";
 import { publishCommand } from "./commands/publish.ts";
 import { releaseCommand } from "./commands/release.ts";
+import { statusCommand } from "./commands/status.ts";
 import { formatVersion, versionCommand } from "./commands/version.ts";
 
 try {
@@ -37,6 +38,7 @@ try {
     .command("develop", developCommand)
     .command("config", configCommand)
     .command("release", releaseCommand)
+    .command("status", statusCommand)
     .command("mcp", mcpCommand)
     .command("version", versionCommand)
     .parse(Deno.args);

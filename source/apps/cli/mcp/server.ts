@@ -20,6 +20,7 @@ const TOOL_REGISTRARS: (new () => ToolRegistrar)[] = [
   Tools.KitTools,
   Tools.LibTools,
   Tools.ReleaseTools,
+  Tools.StatusTools,
 ];
 
 /** Exposes `ens`'s commands as MCP tools over stdio, for an LLM agent host (e.g. an editor's MCP client) to call directly instead of shelling out to the CLI. */

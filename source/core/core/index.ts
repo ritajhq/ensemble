@@ -52,6 +52,7 @@ export {
   type RunDeployOptions,
 } from "./deploy.ts";
 export { runExplain, type RunExplainOptions } from "./explain.ts";
+export { runStatus } from "./status.ts";
 export { RunPackReleasePacker } from "./release-packer.ts";
 
 export * as Config from "./config.ts";
