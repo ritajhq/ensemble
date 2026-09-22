@@ -33,7 +33,7 @@ deploy:
       image: ${release.git-sync}
       replicas: 1
       ports:
-        http: 8080
+        http: 8001
       networks:
         - ${external.edge.name}
       env:
