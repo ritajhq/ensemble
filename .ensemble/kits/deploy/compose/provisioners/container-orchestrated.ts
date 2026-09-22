@@ -1,4 +1,5 @@
 import * as KitSdk from "@ensemble/kit-sdk";
+import { composeSecretWiring } from "../secret-wiring.ts";
 
 /** Named ports (`{ http: 8080 }`) as compose's `"HOST:CONTAINER"` port-mapping strings — same port on both sides, since the manifest declares one number per name, not a separate host port. */
 function portMappings(ports: unknown): string[] {
@@ -21,6 +22,26 @@ function mountVolumes(mounts: unknown): string[] {
     { source: string; path: string; readOnly?: boolean }
   >).map(({ source, path, readOnly }) =>
     readOnly ? `${source}:${path}:ro` : `${source}:${path}`
+  );
+}
+
+/**
+ * An `envSecrets` map (`{ WEBHOOK_SECRET: "docs-webhook-secret" }`) resolved
+ * into literal environment entries, each value compose's own `${VAR}`
+ * interpolation placeholder via `composeSecretWiring` — same helper
+ * `relational`'s `passwordSecret` already uses, generalized to any env var
+ * name a compute names. `{}` when there's no `envSecrets` param, same
+ * "absent, not empty" convention as `portMappings`/`mountVolumes`.
+ */
+function envSecretVariables(
+  envSecrets: unknown,
+  secrets: Readonly<Record<string, KitSdk.Deploy.SecretDeclaration>>,
+): Record<string, string> {
+  if (typeof envSecrets !== "object" || envSecrets === null) return {};
+  return Object.fromEntries(
+    Object.entries(envSecrets as Record<string, string>).map((
+      [envVar, secretName],
+    ) => [envVar, composeSecretWiring(secretName, secrets)]),
   );
 }
 
@@ -62,10 +83,12 @@ function developBlock(
 }
 
 /**
- * Fulfills `container-orchestrated` on compose: an image, its environment,
- * published ports, any networks it attaches to, any `mounts` as service-level
- * `volumes:` entries, and — when the resource declares one — its
- * `develop.watch` sync wiring. `replicas` has no compose-native equivalent
+ * Fulfills `container-orchestrated` on compose: an image, its environment
+ * (`env` plus any `envSecrets`, each resolved to compose's own `${VAR}`
+ * interpolation placeholder), published ports, any networks it attaches to,
+ * any `mounts` as service-level `volumes:` entries, and — when the resource
+ * declares one — its `develop.watch` sync wiring. `replicas` has no
+ * compose-native equivalent
  * outside swarm mode, so it's silently dropped rather than rendered as
  * something misleading — Appendix A's own golden output has no trace of it
  * either. Declares no outputs (Phase 2's `container-orchestrated.v1` contract
@@ -92,7 +115,13 @@ export function containerOrchestratedProvisioner(): KitSdk.Deploy.Provisioner {
               ...(request.params.ports
                 ? { ports: portMappings(request.params.ports) }
                 : {}),
-              environment: request.params.env ?? {},
+              environment: {
+                ...(request.params.env as Record<string, string> ?? {}),
+                ...envSecretVariables(
+                  request.params.envSecrets,
+                  request.secrets,
+                ),
+              },
               ...(request.params.networks
                 ? { networks: request.params.networks }
                 : {}),

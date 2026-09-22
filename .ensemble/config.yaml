@@ -1,6 +1,8 @@
 build:
   cli:
     kit: deno.bundle
+  git-sync:
+    kit: deno.bundle
   demo/spa:
     kit: react
   website/content:

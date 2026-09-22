@@ -38,6 +38,19 @@ import { ResourceContract } from "../contract.ts";
  * Fargate has no `sourcePath`) so isn't modeled — the `development` block's
  * sync rules already cover the local dev-loop case this would otherwise
  * duplicate.
+ *
+ * `envSecrets` is a map of environment variable name to declared secret name
+ * (`{ WEBHOOK_SECRET: "docs-webhook-secret" }`), the same "name a secret,
+ * provisioner resolves it" convention `relational.v1`'s `passwordSecret`
+ * field already established — generalized here to any container compute
+ * rather than one bespoke field, now that a second concrete need (a webhook
+ * consumer other than a database) has proved the shape. Shallow at the
+ * contract level, same as `mounts`/`development`: a provisioner resolves each
+ * value through its own secret-wiring convention (e.g. compose's
+ * `composeSecretWiring`), not this contract. Kept separate from `env` rather
+ * than letting `env` values reference a secret, since `env`'s values are
+ * passed through untouched (Section 7 bin=param) while a secret name needs
+ * provisioner-side resolution first.
  */
 export const containerOrchestratedV1: ResourceContract = new ResourceContract(
   "compute",
@@ -51,6 +64,7 @@ export const containerOrchestratedV1: ResourceContract = new ResourceContract(
     { name: "development", required: false, type: "object" },
     { name: "networks", required: false, type: "array" },
     { name: "mounts", required: false, type: "array" },
+    { name: "envSecrets", required: false, type: "object" },
   ],
   [],
   [],

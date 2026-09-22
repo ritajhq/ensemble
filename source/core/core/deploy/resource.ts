@@ -19,12 +19,16 @@ export interface SecretDeclaration {
 }
 
 /**
- * A `variables` entry — developer-owned, valueless in the manifest, supplied at
- * deploy time. The plan gives no fixed shape for this category, so it stays a
- * permissive passthrough bag (see Phase 1 report: flagged as an open question).
+ * A `variables` entry — a deploy-time value read from `ens deploy`'s own
+ * process env (naming convention: `Renderer`'s `environmentVariableName`,
+ * same uppercase/dash-to-underscore convention `secrets` uses), falling back
+ * to `default` when unset. Unlike a secret, a variable's actual value is
+ * safe to bake directly into the rendered artifact — `Renderer` resolves
+ * `${variables.<name>.value}` the same way it resolves an `external`
+ * reference: straight off the declaration, no provisioner involved.
  */
 export interface VariableDeclaration {
-  readonly params: Readonly<Record<string, unknown>>;
+  readonly default?: string;
 }
 
 /** An `external` entry — a resource ens does not provision, only references. */

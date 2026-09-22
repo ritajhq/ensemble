@@ -4,6 +4,8 @@ version: v1
 release:
   website:
     kit: docker
+  git-sync:
+    kit: docker
 
 deploy:
   compute:
@@ -15,12 +17,49 @@ deploy:
         http: 8000
       networks:
         - ${external.edge.name}
+      mounts:
+        - source: ${storage.docs-content.name}
+          path: /data
+          readOnly: true
       development:
         sync:
           - app: website/server
             path: /app/server
           - app: website/content
             path: /app/content
+
+    git-sync:
+      type: container-orchestrated
+      image: ${release.git-sync}
+      replicas: 1
+      ports:
+        http: 8080
+      networks:
+        - ${external.edge.name}
+      env:
+        SYNC_DEST: /data
+        REPOS: ${variables.repos.value}
+      envSecrets:
+        WEBHOOK_SECRET_DOCS: docs-webhook-secret
+      mounts:
+        - source: ${storage.docs-content.name}
+          path: /data
+      development:
+        sync:
+          - app: git-sync
+            path: /app
+
+  storage:
+    docs-content:
+      type: volume
+
+  secrets:
+    docs-webhook-secret:
+      source: environment
+
+  variables:
+    repos:
+      default: '[{"id":"docs","repo":"ritajhq/ensemble","ref":"main","path":"docs"}]'
 
   external:
     edge:
