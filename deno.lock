@@ -2249,6 +2249,11 @@
           "npm:react@19.2.8"
         ]
       },
+      "source/apps/git-sync": {
+        "dependencies": [
+          "jsr:@std/path@1.1.6"
+        ]
+      },
       "source/apps/website/content": {
         "dependencies": [
           "jsr:@ensemble/website@*",
