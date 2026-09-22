@@ -12,6 +12,19 @@
     "@types/react": "npm:@types/react@19",
     "@types/react-dom": "npm:@types/react-dom@19",
     "@std/path": "jsr:@std/path@1.1.6",
-    "@ensemble/website": "jsr:@ensemble/website"
+    "@std/fs": "jsr:@std/fs@1.0.24",
+    "@ensemble/website": "jsr:@ensemble/website",
+    "unified": "npm:unified@11",
+    "remark-parse": "npm:remark-parse@11",
+    "remark-gfm": "npm:remark-gfm@4",
+    "remark-rehype": "npm:remark-rehype@11",
+    "rehype-slug": "npm:rehype-slug@6",
+    "rehype-stringify": "npm:rehype-stringify@10",
+    "@shikijs/rehype": "npm:@shikijs/rehype@1",
+    "unist-util-visit": "npm:unist-util-visit@5",
+    "mdast-util-to-string": "npm:mdast-util-to-string@4",
+    "hast-util-to-string": "npm:hast-util-to-string@3",
+    "mdast": "npm:@types/mdast@4",
+    "hast": "npm:@types/hast@3"
   }
 }
