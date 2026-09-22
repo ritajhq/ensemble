@@ -4,6 +4,8 @@ version: v1
 release:
   website:
     kit: docker
+  git-sync:
+    kit: docker
 
 deploy:
   compute:
@@ -15,12 +17,50 @@ deploy:
         http: 8000
       networks:
         - ${external.edge.name}
+      mounts:
+        - source: ${storage.docs-content.name}
+          path: /data
+          readOnly: true
       development:
         sync:
           - app: website/server
             path: /app/server
           - app: website/content
             path: /app/content
+
+    git-sync:
+      type: container-orchestrated
+      image: ${release.git-sync}
+      replicas: 1
+      ports:
+        http: 8080
+      networks:
+        - ${external.edge.name}
+      env:
+        SYNC_DEST: /data
+      # REPOS isn't secret, but `secrets` (unlike `variables`, which no
+      # provisioner reads yet) is the only category actually wired to
+      # deliver a deploy-time value from process env into the container.
+      envSecrets:
+        REPOS: docs-repos-config
+        WEBHOOK_SECRET_DOCS: docs-webhook-secret
+      mounts:
+        - source: ${storage.docs-content.name}
+          path: /data
+      development:
+        sync:
+          - app: git-sync
+            path: /app
+
+  storage:
+    docs-content:
+      type: volume
+
+  secrets:
+    docs-repos-config:
+      source: environment
+    docs-webhook-secret:
+      source: environment
 
   external:
     edge:
