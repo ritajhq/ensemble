@@ -1,4 +1,21 @@
 services:
+  git-sync:
+    image: 'git-sync:latest'
+    ports:
+      - '8001:8001'
+    environment:
+      SYNC_DEST: /data
+      REPOS: '[{"id":"docs","repo":"ritajhq/ensemble","ref":"main","path":"docs"}]'
+      WEBHOOK_SECRET_DOCS: '${DOCS_WEBHOOK_SECRET}'
+    networks:
+      - edge
+    volumes:
+      - 'docs-content:/data'
+    develop:
+      watch:
+        - path: git-sync
+          target: /app
+          action: sync
   server:
     image: 'website:latest'
     ports:
@@ -6,6 +23,8 @@ services:
     environment: {}
     networks:
       - edge
+    volumes:
+      - 'docs-content:/data:ro'
     develop:
       watch:
         - path: website/server
@@ -14,6 +33,8 @@ services:
         - path: website/content
           target: /app/content
           action: sync
+volumes:
+  docs-content: {}
 networks:
   edge:
     external: true
