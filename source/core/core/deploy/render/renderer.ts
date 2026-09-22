@@ -127,8 +127,11 @@ export class Renderer {
       );
     }
 
-    const params = await this.resolveValue(request.params, ledger, workload) as
-      Readonly<Record<string, unknown>>;
+    const params = await this.resolveValue(
+      request.params,
+      ledger,
+      workload,
+    ) as Readonly<Record<string, unknown>>;
     const outcome = await selection.provisioner.provision({
       category: request.category,
       name: request.name,
@@ -176,9 +179,13 @@ export class Renderer {
   ): Promise<unknown> {
     const reference = this.syntax.parse(value);
     if (reference) {
-      return reference.category === "external"
-        ? this.resolveExternalReference(reference, workload)
-        : await this.bakeOrDefer(reference, ledger);
+      if (reference.category === "external") {
+        return this.resolveExternalReference(reference, workload);
+      }
+      if (reference.category === "variables") {
+        return this.resolveVariableReference(reference, workload);
+      }
+      return await this.bakeOrDefer(reference, ledger);
     }
     if (Array.isArray(value)) {
       return await Promise.all(
@@ -213,7 +220,41 @@ export class Renderer {
     return declaration[reference.output! as "type" | "name"];
   }
 
-  private async bakeOrDefer(reference: Reference, ledger: OutputsLedger): Promise<unknown> {
+  /**
+   * `variables` entries are manifest-declared, provisioner-free, same as
+   * `external` — but unlike a `secrets` value (which must stay opaque all
+   * the way to the target's own runtime, G4), a variable's value is safe for
+   * ens itself to read and bake directly into the rendered artifact
+   * (Section 8: a static reference becomes its concrete baked value). Reads
+   * `ens deploy`'s own process env under the variable's name (same
+   * uppercase/dash-to-underscore convention `secrets` uses), falling back to
+   * the declaration's own `default`. Trusts `ReferenceValidator` already
+   * confirmed the variable exists and the field is "value", same trust
+   * `resolveExternalReference` places in it.
+   */
+  private resolveVariableReference(
+    reference: Reference,
+    workload: Workload,
+  ): string {
+    const declaration = workload.variables![reference.name];
+    const envVar = this.environmentVariableName(reference.name);
+    const fromEnv = Deno.env.get(envVar);
+    if (fromEnv !== undefined) return fromEnv;
+    if (declaration.default !== undefined) return declaration.default;
+
+    throw new RendererError(
+      `variables.${reference.name} has no value: "${envVar}" isn't set in the environment and no default is declared.`,
+    );
+  }
+
+  private environmentVariableName(name: string): string {
+    return name.toUpperCase().replace(/-/g, "_");
+  }
+
+  private async bakeOrDefer(
+    reference: Reference,
+    ledger: OutputsLedger,
+  ): Promise<unknown> {
     const resolved = await this.referenceResolver.resolve(reference, ledger);
     const resolvedValue = resolved.mode === "baked"
       ? resolved.value

@@ -98,6 +98,10 @@ export class ReferenceValidator {
       this.validateExternalReference(workload, path, reference);
       return;
     }
+    if (category === "variables") {
+      this.validateVariableReference(workload, path, reference);
+      return;
+    }
 
     const target = (workload[category] as
       | Record<string, { type: string; params: Record<string, unknown> }>
@@ -142,6 +146,25 @@ export class ReferenceValidator {
     if (output !== "type" && output !== "name") {
       throw new ContractError(
         `${path} references undeclared field "${output}" on external.${reference.name} (declared fields: type, name).`,
+      );
+    }
+  }
+
+  /** `variables` entries have no contract either — the same reasoning as `external` (Section 5: developer-supplied data, no provisioner) — a reference names one of `VariableDeclaration`'s own fields, of which `value` (the resolved value: process env, or `default`) is the only one a reference can target. */
+  private validateVariableReference(
+    workload: Workload,
+    path: string,
+    reference: Reference,
+  ): void {
+    if (!workload.variables?.[reference.name]) {
+      throw new ContractError(
+        `${path} references undeclared resource "variables.${reference.name}".`,
+      );
+    }
+    const output = reference.output!;
+    if (output !== "value") {
+      throw new ContractError(
+        `${path} references undeclared field "${output}" on variables.${reference.name} (declared fields: value).`,
       );
     }
   }

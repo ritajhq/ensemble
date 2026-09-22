@@ -211,16 +211,41 @@ Deno.test("parse: release entries require kit", () => {
   );
 });
 
-Deno.test("parse: variables are a permissive passthrough bag", () => {
+Deno.test("parse: a variable's only field is its default", () => {
   const workload = parser.parse(`
 version: v1
 deploy:
   variables:
     region: { default: us-east-1 }
 `);
-  assertEquals(workload.variables?.region, {
-    params: { default: "us-east-1" },
-  });
+  assertEquals(workload.variables?.region, { default: "us-east-1" });
+});
+
+Deno.test("parse: a variable needs no default at all", () => {
+  const workload = parser.parse(`
+version: v1
+deploy:
+  variables:
+    repos: {}
+`);
+  assertEquals(workload.variables?.repos, { default: undefined });
+});
+
+Deno.test("parse: rejects an unknown variable key", () => {
+  const error = assertThrows(
+    () =>
+      parser.parse(`
+version: v1
+deploy:
+  variables:
+    region: { defualt: us-east-1 }
+`),
+    ManifestError,
+  );
+  assertEquals(
+    error.message,
+    'manifest.deploy.variables.region has an unknown key "defualt". Did you mean "default"?',
+  );
 });
 
 Deno.test("parse: rejects a non-mapping manifest", () => {

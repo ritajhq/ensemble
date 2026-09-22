@@ -15,6 +15,7 @@ const ENVELOPE_KEYS = ["version", "release", "deploy"] as const;
 const RELEASE_KEYS = ["kit", "mode", "outputName", "publish"] as const;
 const PUBLISH_KEYS = ["target", "name", "options"] as const;
 const SECRET_KEYS = ["source"] as const;
+const VARIABLE_KEYS = ["default"] as const;
 const EXTERNAL_KEYS = ["type", "name"] as const;
 const RESOURCE_COMMON_KEYS = ["type", "class", "capabilities"] as const;
 
@@ -133,7 +134,13 @@ export class Parser {
 
   private parseVariable(value: unknown, path: string): VariableDeclaration {
     this.assertPlainObject(value, path);
-    return { params: value as Record<string, unknown> };
+    const raw = value as Record<string, unknown>;
+    this.rejectUnknownKeys(raw, VARIABLE_KEYS, path);
+
+    if (raw.default !== undefined && typeof raw.default !== "string") {
+      throw new ManifestError(`${path}.default must be a string.`);
+    }
+    return { default: raw.default as string | undefined };
   }
 
   private parseExternal(value: unknown, path: string): ExternalDeclaration {
