@@ -42,6 +42,13 @@ A `container-orchestrated` compute's `ports` map is itself the reference
 surface for its ports (`${compute.<name>.<port-name>}`) rather than a
 separate `outputs` list.
 
+`relationalResource` also accepts an optional `init` — a list of
+repo-relative SQL/shell file paths run against a fresh database on
+startup. `compose` mounts each one read-only into postgres's own
+`docker-entrypoint-initdb.d`, in filename order; `aws` drops it silently,
+same as `ports`/`networks` elsewhere, since an already-provisioned RDS
+instance has no equivalent hook.
+
 ## Generic resource shapes
 
 Everything else — `messaging`, `networking`, and any `databases`/`compute`

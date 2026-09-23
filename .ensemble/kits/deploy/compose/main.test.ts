@@ -405,6 +405,59 @@ Deno.test("compose kit: no mounts param renders no volumes key on the service", 
   assertEquals("volumes" in document.services.api, false);
 });
 
+const WITH_INIT_SCRIPTS = `
+version: v1
+deploy:
+  databases:
+    database:
+      type: relational
+      engine: postgres
+      version: "16"
+      user: appuser
+      database: appdb
+      passwordSecret: db-password
+      init:
+        - /repo/ci/portal/db/init-app.sql
+        - /repo/ci/portal/db/init-world.sql.gz
+  secrets:
+    db-password: { source: environment }
+`;
+
+Deno.test("compose kit: init scripts render as read-only bind mounts into docker-entrypoint-initdb.d, named after each file", async () => {
+  const workload = new KitSdk.Deploy.Manifest.Parser().parse(WITH_INIT_SCRIPTS);
+  const { artifacts, graph } = await renderWorkload(
+    workload,
+    composeKit,
+    releaseLocator,
+    "local",
+  );
+  const document = assembleComposeDocument(artifacts, graph) as {
+    services: Record<string, { volumes?: string[] }>;
+  };
+
+  assertEquals(document.services.database.volumes, [
+    "/repo/ci/portal/db/init-app.sql:/docker-entrypoint-initdb.d/init-app.sql:ro",
+    "/repo/ci/portal/db/init-world.sql.gz:/docker-entrypoint-initdb.d/init-world.sql.gz:ro",
+  ]);
+});
+
+Deno.test("compose kit: init scripts on a non-critical database still mount, with no restart/persistent-volume side effect", async () => {
+  const workload = new KitSdk.Deploy.Manifest.Parser().parse(WITH_INIT_SCRIPTS);
+  const { artifacts, graph } = await renderWorkload(
+    workload,
+    composeKit,
+    releaseLocator,
+    "local",
+  );
+  const document = assembleComposeDocument(artifacts, graph) as {
+    services: Record<string, { restart?: string }>;
+    volumes?: Record<string, unknown>;
+  };
+
+  assertEquals("restart" in document.services.database, false);
+  assertEquals(document.volumes, undefined);
+});
+
 Deno.test("compose kit: an invalid development block fails render with a clear error", async () => {
   const workload = new KitSdk.Deploy.Manifest.Parser().parse(
     WITH_DEVELOPMENT_BLOCK.replace("sync+restart", "rebuild-everything"),
