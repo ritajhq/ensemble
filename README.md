@@ -314,12 +314,12 @@ done
 per-environment values it needs as `variables` and `secrets`; `ens deploy` reads
 them from its own process env (it selects no environment itself — that's the
 pipeline's job, and locally it's you). For local runs, commit the known-good dev
-values to `ci/<name>/delivery.env` — `ens deploy`/`develop` loads that file
+values to `ci/<name>/variables.env` — `ens deploy`/`develop` loads that file
 before the deploy kit runs, so `ens develop <name>` just works with nothing
 exported:
 
 ```ini
-# ci/portal/delivery.env — keys are the manifest's variable/secret names
+# ci/portal/variables.env — keys are the manifest's variable/secret names
 pguser=portal
 pgdatabase=portal
 pgpassword=devpassword
