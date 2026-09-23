@@ -66,17 +66,17 @@ function environmentVariableName(name: string): string {
 }
 
 /**
- * `ci/<name>/delivery.env`, sibling to the manifest itself, is dev-only
+ * `ci/<name>/variables.env`, sibling to the manifest itself, is dev-only
  * DEFAULTS for `variables`/`secrets` declared `source: environment` — optional,
  * silently absent for any project that doesn't have one. A real pipeline
  * exports its own real values before invoking `ens`, and those must always
  * win, so a key already present in `Deno.env` is never overwritten here.
  */
-export async function loadDeliveryEnvDefaults(
+export async function loadVariablesEnvDefaults(
   repoRoot: string,
   name: string,
 ): Promise<void> {
-  const envPath = join(repoRoot, "ci", name, "delivery.env");
+  const envPath = join(repoRoot, "ci", name, "variables.env");
   if (!await exists(envPath, { isFile: true })) return;
 
   const fileVars = await loadEnvFile({ envPath, export: false });
@@ -103,7 +103,7 @@ export async function loadDeployContext(
   kitLoader: Deploy.KitLoader,
 ): Promise<DeployContext> {
   const repoRoot = await repo.findRepoRoot();
-  await loadDeliveryEnvDefaults(repoRoot, name);
+  await loadVariablesEnvDefaults(repoRoot, name);
 
   const manifestPath = join(repoRoot, "ci", name, "delivery.yml");
   if (!await exists(manifestPath, { isFile: true })) {

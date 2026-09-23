@@ -2,7 +2,7 @@ import { assertEquals, assertStrictEquals } from "@std/assert";
 import { join } from "@std/path";
 import type { ResourceDeclaration, Workload } from "./deploy/index.ts";
 import {
-  loadDeliveryEnvDefaults,
+  loadVariablesEnvDefaults,
   resolveRelationalInitPaths,
 } from "./deploy-context.ts";
 
@@ -101,7 +101,7 @@ async function withTempRepo(
     if (envFileContent !== undefined) {
       const dir = join(repoRoot, "ci", name);
       await Deno.mkdir(dir, { recursive: true });
-      await Deno.writeTextFile(join(dir, "delivery.env"), envFileContent);
+      await Deno.writeTextFile(join(dir, "variables.env"), envFileContent);
     }
     await run(repoRoot);
   } finally {
@@ -126,31 +126,31 @@ async function withoutEnv(
   }
 }
 
-Deno.test("loadDeliveryEnvDefaults: sets Deno.env from a sibling delivery.env, converting a lowercase key to its uppercase form", async () => {
+Deno.test("loadVariablesEnvDefaults: sets Deno.env from a sibling variables.env, converting a lowercase key to its uppercase form", async () => {
   await withoutEnv(["FRONTEND_BASE_URL"], async () => {
     await withTempRepo("portal", "frontend_base_url=/\n", async (repoRoot) => {
-      await loadDeliveryEnvDefaults(repoRoot, "portal");
+      await loadVariablesEnvDefaults(repoRoot, "portal");
       assertEquals(Deno.env.get("FRONTEND_BASE_URL"), "/");
     });
   });
 });
 
-Deno.test("loadDeliveryEnvDefaults: a value already exported in the environment wins over the file's own default", async () => {
+Deno.test("loadVariablesEnvDefaults: a value already exported in the environment wins over the file's own default", async () => {
   await withoutEnv(["FRONTEND_BASE_URL"], async () => {
     Deno.env.set("FRONTEND_BASE_URL", "https://real.example");
     await withTempRepo(
       "portal",
       "frontend_base_url=/dev-only\n",
       async (repoRoot) => {
-        await loadDeliveryEnvDefaults(repoRoot, "portal");
+        await loadVariablesEnvDefaults(repoRoot, "portal");
         assertEquals(Deno.env.get("FRONTEND_BASE_URL"), "https://real.example");
       },
     );
   });
 });
 
-Deno.test("loadDeliveryEnvDefaults: no delivery.env file for this deployment is a silent no-op", async () => {
+Deno.test("loadVariablesEnvDefaults: no variables.env file for this deployment is a silent no-op", async () => {
   await withTempRepo("portal", undefined, async (repoRoot) => {
-    await loadDeliveryEnvDefaults(repoRoot, "portal");
+    await loadVariablesEnvDefaults(repoRoot, "portal");
   });
 });
