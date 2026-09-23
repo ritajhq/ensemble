@@ -59,7 +59,7 @@ deploy:
 
   variables:
     repos:
-      default: '[{"id":"docs","repo":"ritajhq/ensemble","ref":"main","path":"docs"}]'
+      default: '[{"id":"docs","repo":"ritajhq/ensemble","ref":"main","path":"docs"},{"id":"docs","repo":"ritajhq/ensemble","ref":"main","path":"docs", "trigger":"manual"}]'
 
   external:
     edge:
