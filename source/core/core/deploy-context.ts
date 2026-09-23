@@ -7,6 +7,8 @@ const RESOURCE_CONTRACTS: readonly Deploy.Contracts.ResourceContract[] = [
   Deploy.Contracts.relationalV1,
   Deploy.Contracts.containerOrchestratedV1,
   Deploy.Contracts.storageVolumeV1,
+  Deploy.Contracts.gatewayV1,
+  Deploy.Contracts.objectStorageV1,
 ];
 
 /**

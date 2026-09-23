@@ -5,6 +5,8 @@ import { composeRealization } from "./realization.ts";
 import { containerOrchestratedProvisioner } from "./provisioners/container-orchestrated.ts";
 import { relationalProvisioner } from "./provisioners/relational.ts";
 import { storageVolumeProvisioner } from "./provisioners/storage-volume.ts";
+import { gatewayProvisioner } from "./provisioners/gateway.ts";
+import { objectStorageProvisioner } from "./provisioners/object-storage.ts";
 import { assembleComposeDocument } from "./compose-document.ts";
 import { externalNetworkEmulations } from "./external-networks.ts";
 
@@ -32,6 +34,8 @@ const kit: KitSdk.Deploy.Kit = {
     containerOrchestratedProvisioner(),
     relationalProvisioner(),
     storageVolumeProvisioner(),
+    gatewayProvisioner(),
+    objectStorageProvisioner(),
   ],
   realization: composeRealization,
   // deno-lint-ignore require-await

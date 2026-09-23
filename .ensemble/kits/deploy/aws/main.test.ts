@@ -15,6 +15,7 @@ const FIXTURE = fromFileUrl(
 const registry = new KitSdk.Deploy.Contracts.Catalog([
   KitSdk.Deploy.Contracts.relationalV1,
   KitSdk.Deploy.Contracts.containerOrchestratedV1,
+  KitSdk.Deploy.Contracts.objectStorageV1,
 ]);
 
 /**
@@ -203,17 +204,20 @@ Deno.test("aws kit: present() never emits YAML anchors/aliases, even though DbPa
 });
 
 Deno.test("aws kit: applyCommand runs cloudformation deploy scoped by the deployment's own stack name", async () => {
-  assertEquals(await awsKit.applyCommand("/tmp/template.yaml", "phase7-smoke-test"), [
-    "aws",
-    "cloudformation",
-    "deploy",
-    "--template-file",
-    "/tmp/template.yaml",
-    "--stack-name",
-    "phase7-smoke-test",
-    "--capabilities",
-    "CAPABILITY_NAMED_IAM",
-  ]);
+  assertEquals(
+    await awsKit.applyCommand("/tmp/template.yaml", "phase7-smoke-test"),
+    [
+      "aws",
+      "cloudformation",
+      "deploy",
+      "--template-file",
+      "/tmp/template.yaml",
+      "--stack-name",
+      "phase7-smoke-test",
+      "--capabilities",
+      "CAPABILITY_NAMED_IAM",
+    ],
+  );
 });
 
 Deno.test("aws kit: rendering the same workload twice produces byte-identical presented content (G5)", async () => {
@@ -322,6 +326,80 @@ Deno.test("capabilities end-to-end: aws satisfies read-replicas (no gap) and act
   assertEquals(document.Resources.PrimaryReplica1, {
     Type: "AWS::RDS::DBInstance",
     Properties: { SourceDBInstanceIdentifier: { Ref: "Primary" } },
+  });
+});
+
+const WITH_OBJECT_STORAGE = `
+version: v1
+release:
+  web: { kit: docker }
+deploy:
+  storage:
+    bucket:
+      type: object-storage
+      bucket: my-bucket
+  compute:
+    api:
+      type: container-orchestrated
+      image: \${release.web}
+      replicas: 1
+      env:
+        BUCKET_ENDPOINT: \${storage.bucket.url}
+        BUCKET_NAME: \${storage.bucket.bucket}
+`;
+
+Deno.test("aws kit: object storage renders as a plain S3 bucket, dropping the compose-only credential params entirely", async () => {
+  const workload = new KitSdk.Deploy.Manifest.Parser().parse(
+    WITH_OBJECT_STORAGE,
+  );
+  const target: KitSdk.Deploy.Target = { kit: awsKit };
+  const resolution = await new KitSdk.Deploy.Resolve.WorkloadResolver(registry)
+    .resolve(workload, target);
+  const graph = new KitSdk.Deploy.Resolve.DependencyGraphBuilder().build(
+    workload,
+  );
+  const rendered = await new KitSdk.Deploy.Render.Renderer(
+    new KitSdk.Deploy.Render.ReferenceResolver(await awsKit.realization()),
+    releaseLocator,
+    registry,
+  ).render(
+    workload,
+    resolution.requests,
+    resolution.selections,
+    graph,
+    "published",
+  );
+
+  const document = assembleCloudFormationDocument(rendered) as {
+    Resources: Record<string, unknown>;
+  };
+  assertEquals(document.Resources.Bucket, {
+    Type: "AWS::S3::Bucket",
+    Properties: { BucketName: "my-bucket" },
+  });
+
+  assertEquals(document.Resources.ApiTask, {
+    Type: "AWS::ECS::TaskDefinition",
+    Properties: {
+      ContainerDefinitions: [
+        {
+          Name: "api",
+          Image: "123456.dkr.ecr.amazonaws.com/web:1.4.2",
+          Environment: [
+            {
+              Name: "BUCKET_ENDPOINT",
+              Value: {
+                "Fn::Sub": [
+                  "https://my-bucket.s3.${AWS::Region}.amazonaws.com",
+                  {},
+                ],
+              },
+            },
+            { Name: "BUCKET_NAME", Value: "my-bucket" },
+          ],
+        },
+      ],
+    },
   });
 });
 

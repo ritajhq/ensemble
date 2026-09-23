@@ -28,9 +28,14 @@
           "additionalProperties": { "$ref": "#/definitions/containerOrchestratedResource" }
         },
         "storage": {
-          "description": "Storage resources (e.g. volume).",
+          "description": "Storage resources (volume, or object-storage).",
           "type": "object",
-          "additionalProperties": { "$ref": "#/definitions/storageVolumeResource" }
+          "additionalProperties": {
+            "oneOf": [
+              { "$ref": "#/definitions/storageVolumeResource" },
+              { "$ref": "#/definitions/objectStorageResource" }
+            ]
+          }
         },
         "databases": {
           "description": "Database resources (e.g. relational).",
@@ -43,9 +48,14 @@
           "additionalProperties": { "$ref": "#/definitions/resourceDeclaration" }
         },
         "networking": {
-          "description": "Networking resources.",
+          "description": "Networking resources (gateway, implemented only on compose today, or any other generic kind).",
           "type": "object",
-          "additionalProperties": { "$ref": "#/definitions/resourceDeclaration" }
+          "additionalProperties": {
+            "oneOf": [
+              { "$ref": "#/definitions/gatewayResource" },
+              { "$ref": "#/definitions/resourceDeclaration" }
+            ]
+          }
         },
         "secrets": {
           "description": "Secrets sourced externally (file or environment), never minted by ens.",
@@ -215,6 +225,38 @@
         }
       }
     },
+    "objectStorageResource": {
+      "description": "An `object-storage.v1` entry (kit-sdk/deploy/contracts/seeds/object-storage.ts) — an S3-compatible bucket. `accessKeySecret`/`secretKeySecret` are required on compose (Garage has no other way to get static credentials) but silently dropped on aws (IAM mints its own, it can't import a caller-chosen pair) — see the contract's own comment.",
+      "type": "object",
+      "required": ["type", "bucket"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "object-storage"
+        },
+        "class": {
+          "description": "Optional resource class (e.g. critical) — on compose, only `critical` gets a persistent volume for the bucket's data.",
+          "type": "string"
+        },
+        "capabilities": {
+          "description": "Optional negotiated capabilities requested from the deploy kit.",
+          "type": "object",
+          "additionalProperties": { "type": ["boolean", "number"] }
+        },
+        "bucket": {
+          "description": "The bucket name.",
+          "type": "string"
+        },
+        "accessKeySecret": {
+          "description": "Name of a secrets entry supplying the S3 access key ID. Required on compose, dropped on aws.",
+          "type": "string"
+        },
+        "secretKeySecret": {
+          "description": "Name of a secrets entry supplying the S3 secret access key. Required on compose, dropped on aws.",
+          "type": "string"
+        }
+      }
+    },
     "relationalResource": {
       "description": "A `relational.v1` database entry (kit-sdk/deploy/contracts/seeds/relational.ts).",
       "type": "object",
@@ -308,6 +350,82 @@
           "description": "Glob patterns to exclude from sync.",
           "type": "array",
           "items": { "type": "string" }
+        }
+      }
+    },
+    "gatewayResource": {
+      "description": "A `gateway.v1` entry (kit-sdk/deploy/contracts/seeds/gateway.ts) — an HTTP ingress that host/path-routes to compute targets. Implemented only on compose today (nginx); declaring one targeting aws has no provisioner to satisfy it.",
+      "type": "object",
+      "required": ["type", "network", "routes"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "gateway"
+        },
+        "class": {
+          "description": "Optional resource class (e.g. critical) affecting how a kit realizes it.",
+          "type": "string"
+        },
+        "capabilities": {
+          "description": "Optional negotiated capabilities requested from the deploy kit.",
+          "type": "object",
+          "additionalProperties": { "type": ["boolean", "number"] }
+        },
+        "network": {
+          "description": "The (typically external) network this gateway joins, usually ${external.<name>.name}.",
+          "type": "string"
+        },
+        "routes": {
+          "description": "Host/path routes to compute targets.",
+          "type": "array",
+          "items": { "$ref": "#/definitions/gatewayRoute" }
+        },
+        "tls": {
+          "description": "Accepted but not yet implemented by the compose provisioner, which always serves plain HTTP regardless of its value.",
+          "type": "string"
+        }
+      }
+    },
+    "gatewayRoute": {
+      "type": "object",
+      "required": ["host", "path", "target"],
+      "additionalProperties": false,
+      "properties": {
+        "host": {
+          "description": "The Host header this route matches.",
+          "type": "string"
+        },
+        "path": {
+          "description": "A plain prefix string (the full request URI is forwarded unchanged), or { match, strip: true } to strip the matched prefix before forwarding.",
+          "oneOf": [
+            { "type": "string" },
+            { "$ref": "#/definitions/gatewayRoutePath" }
+          ]
+        },
+        "target": {
+          "type": "object",
+          "required": ["service", "port"],
+          "additionalProperties": false,
+          "description": "The compute to route to. `service` is a plain compute name (never a reference); `port` is usually ${compute.<name>.<port>} — split apart because that reference alone always bakes to a bare port number, never the compute's own name.",
+          "properties": {
+            "service": { "type": "string" },
+            "port": { "type": ["number", "string"] }
+          }
+        }
+      }
+    },
+    "gatewayRoutePath": {
+      "type": "object",
+      "required": ["match"],
+      "additionalProperties": false,
+      "properties": {
+        "match": {
+          "description": "Path prefix to match, e.g. \"/api/*\".",
+          "type": "string"
+        },
+        "strip": {
+          "description": "Strip the matched prefix before forwarding to the target. Defaults to false.",
+          "type": "boolean"
         }
       }
     },

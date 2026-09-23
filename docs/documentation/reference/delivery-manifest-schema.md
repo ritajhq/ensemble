@@ -29,14 +29,16 @@ version of the same model.
 
 ## Fully-typed resource shapes
 
-Three resource kinds have a dedicated schema definition, matching a seeded
+Five resource kinds have a dedicated schema definition, matching a seeded
 `ResourceContract`:
 
 | Schema definition | Category | `type` | Required fields | Declared outputs |
 |---|---|---|---|---|
 | `containerOrchestratedResource` | `compute` | `container-orchestrated` | `image`, `replicas` | (none listed — see note below) |
 | `storageVolumeResource` | `storage` | `volume` | _(none beyond `type`)_ | `name` |
+| `objectStorageResource` | `storage` | `object-storage` | `bucket` | `url`, `bucket` |
 | `relationalResource` | `databases` | `relational` | `engine`, `version`, `user`, `database`, `passwordSecret` | `host`, `port`, `user`, `database`, `url` |
+| `gatewayResource` | `networking` | `gateway` | `network`, `routes` | (none — nothing references `${networking.*}` yet) |
 
 A `container-orchestrated` compute's `ports` map is itself the reference
 surface for its ports (`${compute.<name>.<port-name>}`) rather than a
@@ -49,15 +51,37 @@ startup. `compose` mounts each one read-only into postgres's own
 same as `ports`/`networks` elsewhere, since an already-provisioned RDS
 instance has no equivalent hook.
 
+`objectStorageResource` also accepts optional `accessKeySecret`/
+`secretKeySecret` — names of `secrets` entries supplying static S3
+credentials. `compose` (Garage) requires both, since Garage has no other way
+to get static credentials; `aws` (a plain `AWS::S3::Bucket`) drops both
+silently, since IAM always mints its own access keys rather than importing a
+caller-chosen pair — a manifest targeting aws only can omit them.
+
+`gatewayResource` is implemented only on `compose` (nginx) today — declaring
+one targeting aws has no provisioner to satisfy it, the same kind of
+deliberate gap `storage.volume` had before it had a second target. Its
+`routes` array is shallow at the schema level (each entry's real shape,
+`{ host, path, target: { service, port } }`, is documented but not deeply
+validated): `path` is either a plain prefix string (the full request URI is
+forwarded unchanged) or `{ match, strip: true }` to strip the matched prefix
+before forwarding; `target.service` names the compute to route to as a plain
+string, and `target.port` is usually `${compute.<name>.<port>}` — split
+apart rather than one combined reference, since a compute-port reference
+alone always bakes to a bare number, never the compute's own name. `tls` is
+accepted but not yet rendered — the compose provisioner always serves plain
+HTTP regardless of its value.
+
 ## Generic resource shapes
 
-Everything else — `messaging`, `networking`, and any `databases`/`compute`
-kind beyond the three above (a `key-value` database, a `load-balancer`,
-...) — validates only against `resourceDeclaration`: `{ type, class?,
-capabilities? }`. Its real fields are whatever a deploy kit's provisioner
-expects; this schema doesn't check them, since no contract is registered
-for that kind yet. Don't assume a kind not in the table above has any
-particular field until you've checked the deploy kit you're targeting.
+Everything else — `messaging`, any `networking` kind other than `gateway`,
+and any `databases`/`compute` kind beyond the ones above (a `key-value`
+database, a `load-balancer`, ...) — validates only against
+`resourceDeclaration`: `{ type, class?, capabilities? }`. Its real fields
+are whatever a deploy kit's provisioner expects; this schema doesn't check
+them, since no contract is registered for that kind yet. Don't assume a kind
+not in the table above has any particular field until you've checked the
+deploy kit you're targeting.
 
 ## `secrets`, `variables`, `external`
 
