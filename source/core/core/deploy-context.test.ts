@@ -1,7 +1,10 @@
 import { assertEquals, assertStrictEquals } from "@std/assert";
 import { join } from "@std/path";
 import type { ResourceDeclaration, Workload } from "./deploy/index.ts";
-import { resolveRelationalInitPaths } from "./deploy-context.ts";
+import {
+  loadDeliveryEnvDefaults,
+  resolveRelationalInitPaths,
+} from "./deploy-context.ts";
 
 const REPO_ROOT = "/repo";
 
@@ -86,4 +89,68 @@ Deno.test("resolveRelationalInitPaths: only the relational resources with an ini
 
   const resolved = resolveRelationalInitPaths(workload, REPO_ROOT);
   assertStrictEquals(resolved.databases!.cache, workload.databases!.cache);
+});
+
+async function withTempRepo(
+  name: string,
+  envFileContent: string | undefined,
+  run: (repoRoot: string) => Promise<void>,
+): Promise<void> {
+  const repoRoot = await Deno.makeTempDir();
+  try {
+    if (envFileContent !== undefined) {
+      const dir = join(repoRoot, "ci", name);
+      await Deno.mkdir(dir, { recursive: true });
+      await Deno.writeTextFile(join(dir, "delivery.env"), envFileContent);
+    }
+    await run(repoRoot);
+  } finally {
+    await Deno.remove(repoRoot, { recursive: true });
+  }
+}
+
+async function withoutEnv(
+  vars: readonly string[],
+  run: () => Promise<void>,
+): Promise<void> {
+  const previous = new Map(vars.map((v) => [v, Deno.env.get(v)]));
+  for (const v of vars) Deno.env.delete(v);
+  try {
+    await run();
+  } finally {
+    for (const v of vars) {
+      const value = previous.get(v);
+      if (value === undefined) Deno.env.delete(v);
+      else Deno.env.set(v, value);
+    }
+  }
+}
+
+Deno.test("loadDeliveryEnvDefaults: sets Deno.env from a sibling delivery.env, converting a lowercase key to its uppercase form", async () => {
+  await withoutEnv(["FRONTEND_BASE_URL"], async () => {
+    await withTempRepo("portal", "frontend_base_url=/\n", async (repoRoot) => {
+      await loadDeliveryEnvDefaults(repoRoot, "portal");
+      assertEquals(Deno.env.get("FRONTEND_BASE_URL"), "/");
+    });
+  });
+});
+
+Deno.test("loadDeliveryEnvDefaults: a value already exported in the environment wins over the file's own default", async () => {
+  await withoutEnv(["FRONTEND_BASE_URL"], async () => {
+    Deno.env.set("FRONTEND_BASE_URL", "https://real.example");
+    await withTempRepo(
+      "portal",
+      "frontend_base_url=/dev-only\n",
+      async (repoRoot) => {
+        await loadDeliveryEnvDefaults(repoRoot, "portal");
+        assertEquals(Deno.env.get("FRONTEND_BASE_URL"), "https://real.example");
+      },
+    );
+  });
+});
+
+Deno.test("loadDeliveryEnvDefaults: no delivery.env file for this deployment is a silent no-op", async () => {
+  await withTempRepo("portal", undefined, async (repoRoot) => {
+    await loadDeliveryEnvDefaults(repoRoot, "portal");
+  });
 });

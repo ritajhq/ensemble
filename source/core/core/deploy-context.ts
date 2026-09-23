@@ -1,5 +1,6 @@
 import { join } from "@std/path";
 import { exists } from "@std/fs";
+import { load as loadEnvFile } from "@std/dotenv";
 import * as Deploy from "./deploy/index.ts";
 import type { RepoLocator } from "./ports.ts";
 
@@ -51,6 +52,42 @@ export function resolveRelationalInitPaths(
   return changed ? { ...workload, databases: resolved } : workload;
 }
 
+/**
+ * `variables`/`secrets` with `source: environment` are read straight off
+ * `Deno.env` at render time (Renderer.resolveVariableReference,
+ * composeSecretWiring) under an uppercase, dash-to-underscore name — so a
+ * dev-only defaults file needs to apply that exact same transform before
+ * setting anything, or a lowercase `frontend_base_url` key would sit in
+ * `Deno.env` right next to the `FRONTEND_BASE_URL` the render pipeline
+ * actually looks up and never be seen.
+ */
+function environmentVariableName(name: string): string {
+  return name.toUpperCase().replace(/-/g, "_");
+}
+
+/**
+ * `ci/<name>/delivery.env`, sibling to the manifest itself, is dev-only
+ * DEFAULTS for `variables`/`secrets` declared `source: environment` — optional,
+ * silently absent for any project that doesn't have one. A real pipeline
+ * exports its own real values before invoking `ens`, and those must always
+ * win, so a key already present in `Deno.env` is never overwritten here.
+ */
+export async function loadDeliveryEnvDefaults(
+  repoRoot: string,
+  name: string,
+): Promise<void> {
+  const envPath = join(repoRoot, "ci", name, "delivery.env");
+  if (!await exists(envPath, { isFile: true })) return;
+
+  const fileVars = await loadEnvFile({ envPath, export: false });
+  for (const [key, value] of Object.entries(fileVars)) {
+    const envVar = environmentVariableName(key);
+    if (Deno.env.get(envVar) === undefined) {
+      Deno.env.set(envVar, value);
+    }
+  }
+}
+
 export interface DeployContext {
   readonly repoRoot: string;
   readonly workload: Deploy.Workload;
@@ -66,6 +103,7 @@ export async function loadDeployContext(
   kitLoader: Deploy.KitLoader,
 ): Promise<DeployContext> {
   const repoRoot = await repo.findRepoRoot();
+  await loadDeliveryEnvDefaults(repoRoot, name);
 
   const manifestPath = join(repoRoot, "ci", name, "delivery.yml");
   if (!await exists(manifestPath, { isFile: true })) {
