@@ -41,6 +41,9 @@ const RELATIONAL_BOUNDS: Readonly<Record<string, Bound>> = {
 
 const RELATIONAL_DYNAMIC_OUTPUTS: readonly string[] = ["host", "url"];
 
+/** An `AWS::S3::Bucket`'s domain embeds the stack's own deploy region (`../provisioners/object-storage.ts`'s own `Fn::Sub` on `${AWS::Region}`) — never knowable at render time, unlike `bucket` (a passthrough of the manifest's own literal param). */
+const OBJECT_STORAGE_DYNAMIC_OUTPUTS: readonly string[] = ["url"];
+
 /**
  * The aws kit's realization: `relational` presets expand `class` into real
  * RDS properties (unlike compose, where `multiAz`/`deletionProtection` had
@@ -97,6 +100,12 @@ export async function awsRealization(): Promise<KitSdk.Deploy.Realization> {
       if (
         category === "databases" && type === "relational" &&
         RELATIONAL_DYNAMIC_OUTPUTS.includes(output)
+      ) {
+        return "dynamic";
+      }
+      if (
+        category === "storage" && type === "object-storage" &&
+        OBJECT_STORAGE_DYNAMIC_OUTPUTS.includes(output)
       ) {
         return "dynamic";
       }

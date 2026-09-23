@@ -143,7 +143,13 @@ export class Renderer {
     });
 
     this.validateOutputs(id, request.type, outcome.outputs);
-    ledger.record(id.category, id.name, request.type, outcome.outputs);
+    ledger.record(
+      id.category,
+      id.name,
+      request.type,
+      outcome.outputs,
+      this.portsOf(id.category, params),
+    );
     return outcome.fragment;
   }
 
@@ -170,6 +176,18 @@ export class Renderer {
         parts.join("; ")
       }).`,
     );
+  }
+
+  /** `container-orchestrated.v1`'s own reference surface: only `compute` resources declare ports today, and only their resolved `ports` param (never a provisioner output) is what `${compute.<name>.<port>}` addresses. */
+  private portsOf(
+    category: string,
+    params: Readonly<Record<string, unknown>>,
+  ): Readonly<Record<string, unknown>> {
+    if (category !== "compute") return {};
+    const ports = params.ports;
+    return typeof ports === "object" && ports !== null
+      ? ports as Readonly<Record<string, unknown>>
+      : {};
   }
 
   private async resolveValue(

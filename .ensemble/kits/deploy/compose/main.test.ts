@@ -4,6 +4,7 @@ import { assertSnapshot } from "@std/testing/snapshot";
 import * as KitSdk from "@ensemble/kit-sdk";
 import composeKit from "./main.ts";
 import { assembleComposeDocument } from "./compose-document.ts";
+import { garageBootstrapScript } from "./provisioners/garage-config.ts";
 
 const FIXTURE = fromFileUrl(
   new URL(
@@ -16,6 +17,8 @@ const registry = new KitSdk.Deploy.Contracts.Catalog([
   KitSdk.Deploy.Contracts.relationalV1,
   KitSdk.Deploy.Contracts.containerOrchestratedV1,
   KitSdk.Deploy.Contracts.storageVolumeV1,
+  KitSdk.Deploy.Contracts.gatewayV1,
+  KitSdk.Deploy.Contracts.objectStorageV1,
 ]);
 
 /**
@@ -405,6 +408,59 @@ Deno.test("compose kit: no mounts param renders no volumes key on the service", 
   assertEquals("volumes" in document.services.api, false);
 });
 
+const WITH_INIT_SCRIPTS = `
+version: v1
+deploy:
+  databases:
+    database:
+      type: relational
+      engine: postgres
+      version: "16"
+      user: appuser
+      database: appdb
+      passwordSecret: db-password
+      init:
+        - /repo/ci/portal/db/init-app.sql
+        - /repo/ci/portal/db/init-world.sql.gz
+  secrets:
+    db-password: { source: environment }
+`;
+
+Deno.test("compose kit: init scripts render as read-only bind mounts into docker-entrypoint-initdb.d, named after each file", async () => {
+  const workload = new KitSdk.Deploy.Manifest.Parser().parse(WITH_INIT_SCRIPTS);
+  const { artifacts, graph } = await renderWorkload(
+    workload,
+    composeKit,
+    releaseLocator,
+    "local",
+  );
+  const document = assembleComposeDocument(artifacts, graph) as {
+    services: Record<string, { volumes?: string[] }>;
+  };
+
+  assertEquals(document.services.database.volumes, [
+    "/repo/ci/portal/db/init-app.sql:/docker-entrypoint-initdb.d/init-app.sql:ro",
+    "/repo/ci/portal/db/init-world.sql.gz:/docker-entrypoint-initdb.d/init-world.sql.gz:ro",
+  ]);
+});
+
+Deno.test("compose kit: init scripts on a non-critical database still mount, with no restart/persistent-volume side effect", async () => {
+  const workload = new KitSdk.Deploy.Manifest.Parser().parse(WITH_INIT_SCRIPTS);
+  const { artifacts, graph } = await renderWorkload(
+    workload,
+    composeKit,
+    releaseLocator,
+    "local",
+  );
+  const document = assembleComposeDocument(artifacts, graph) as {
+    services: Record<string, { restart?: string }>;
+    volumes?: Record<string, unknown>;
+  };
+
+  assertEquals("restart" in document.services.database, false);
+  assertEquals(document.volumes, undefined);
+});
+
 Deno.test("compose kit: an invalid development block fails render with a clear error", async () => {
   const workload = new KitSdk.Deploy.Manifest.Parser().parse(
     WITH_DEVELOPMENT_BLOCK.replace("sync+restart", "rebuild-everything"),
@@ -434,6 +490,200 @@ Deno.test("compose kit: up -d still applies correctly over a watch-bearing artif
   assertEquals(
     await composeKit.applyCommand("/tmp/compose.yaml", "t"),
     ["docker", "compose", "-f", "/tmp/compose.yaml", "-p", "t", "up", "-d"],
+  );
+});
+
+const WITH_OBJECT_STORAGE = `
+version: v1
+release:
+  web: { kit: docker }
+deploy:
+  storage:
+    bucket:
+      type: object-storage
+      bucket: my-bucket
+      accessKeySecret: s3-access-key
+      secretKeySecret: s3-secret-key
+      class: critical
+  compute:
+    api:
+      type: container-orchestrated
+      image: \${release.web}
+      replicas: 1
+      env:
+        BUCKET_ENDPOINT: \${storage.bucket.url}
+        BUCKET_NAME: \${storage.bucket.bucket}
+  secrets:
+    s3-access-key: { source: environment }
+    s3-secret-key: { source: environment }
+`;
+
+Deno.test("compose kit: object storage renders as a Garage service seeded with the declared credentials, referenceable by other resources", async () => {
+  const workload = new KitSdk.Deploy.Manifest.Parser().parse(
+    WITH_OBJECT_STORAGE,
+  );
+  const { artifacts, graph } = await renderWorkload(
+    workload,
+    composeKit,
+    releaseLocator,
+    "local",
+  );
+  const document = assembleComposeDocument(artifacts, graph) as {
+    services: Record<string, {
+      image: string;
+      entrypoint?: string[];
+      ports?: string[];
+      environment?: Record<string, string>;
+      configs?: unknown[];
+      volumes?: string[];
+    }>;
+    volumes?: Record<string, unknown>;
+    configs?: Record<string, { content: string }>;
+  };
+
+  assertEquals(document.services.bucket.image, "dxflrs/garage:v1.0.1");
+  assertEquals(document.services.bucket.entrypoint, [
+    "/bin/sh",
+    "/bootstrap.sh",
+  ]);
+  assertEquals(document.services.bucket.ports, ["3900:3900"]);
+  assertEquals(document.services.bucket.environment, {
+    ACCESS_KEY: "${S3_ACCESS_KEY}",
+    SECRET_KEY: "${S3_SECRET_KEY}",
+    BUCKET: "my-bucket",
+  });
+  assertEquals(document.services.bucket.configs, [
+    { source: "bucket-garage-toml", target: "/etc/garage.toml" },
+    { source: "bucket-garage-bootstrap", target: "/bootstrap.sh" },
+  ]);
+  assertEquals(document.services.bucket.volumes, [
+    "bucket-data:/var/lib/garage",
+  ]);
+  assertEquals(document.volumes, { "bucket-data": {} });
+
+  const toml = document.configs!["bucket-garage-toml"].content;
+  assertEquals(toml.includes('api_bind_addr = "[::]:3900"'), true);
+  assertEquals(toml.includes("rpc_secret ="), true);
+  assertEquals(
+    document.configs!["bucket-garage-bootstrap"].content,
+    garageBootstrapScript(),
+  );
+
+  assertEquals(document.services.api.environment, {
+    BUCKET_ENDPOINT: "http://bucket:3900",
+    BUCKET_NAME: "my-bucket",
+  });
+});
+
+const WITH_OBJECT_STORAGE_MISSING_CREDENTIALS = `
+version: v1
+deploy:
+  storage:
+    bucket:
+      type: object-storage
+      bucket: my-bucket
+`;
+
+Deno.test("compose kit: object storage without declared credentials fails render with a clear error (aws can drop them, Garage can't)", async () => {
+  const workload = new KitSdk.Deploy.Manifest.Parser().parse(
+    WITH_OBJECT_STORAGE_MISSING_CREDENTIALS,
+  );
+
+  await assertRejects(
+    () => renderWorkload(workload, composeKit, releaseLocator, "local"),
+    Error,
+    'needs "accessKeySecret"',
+  );
+});
+
+const WITH_GATEWAY = `
+version: v1
+release:
+  web: { kit: docker }
+deploy:
+  external:
+    edge:
+      type: network
+      name: edge
+  compute:
+    api:
+      type: container-orchestrated
+      image: \${release.web}
+      replicas: 1
+      ports:
+        http: 8080
+  networking:
+    gateway:
+      type: gateway
+      network: \${external.edge.name}
+      routes:
+        - host: example.localhost
+          path: /api/*
+          target:
+            service: api
+            port: \${compute.api.http}
+        - host: example.localhost
+          path:
+            match: /strip/*
+            strip: true
+          target:
+            service: api
+            port: \${compute.api.http}
+`;
+
+/** `renderWorkload`'s own loop only covers `compute`/`storage`/`databases` (every other test in this file only ever needed those) — `networking` needs the full `WorkloadResolver` instead, same tool `aws/main.test.ts`'s own `WITH_READ_REPLICAS` tests already reach for on a custom workload. */
+async function renderNetworkingWorkload(workload: KitSdk.Deploy.Workload) {
+  const target: KitSdk.Deploy.Target = { kit: composeKit };
+  const resolution = await new KitSdk.Deploy.Resolve.WorkloadResolver(registry)
+    .resolve(workload, target);
+  const graph = new KitSdk.Deploy.Resolve.DependencyGraphBuilder().build(
+    workload,
+  );
+  const artifacts = await new KitSdk.Deploy.Render.Renderer(
+    new KitSdk.Deploy.Render.ReferenceResolver(await composeKit.realization()),
+    releaseLocator,
+    registry,
+  ).render(
+    workload,
+    resolution.requests,
+    resolution.selections,
+    graph,
+    "local",
+  );
+  return { artifacts, graph };
+}
+
+Deno.test("compose kit: a gateway renders as an nginx service with generated nginx.conf, joined to its declared network", async () => {
+  const workload = new KitSdk.Deploy.Manifest.Parser().parse(WITH_GATEWAY);
+  const { artifacts, graph } = await renderNetworkingWorkload(workload);
+  const document = assembleComposeDocument(artifacts, graph) as {
+    services: Record<string, {
+      image: string;
+      ports?: string[];
+      networks?: string[];
+      configs?: unknown[];
+    }>;
+    networks?: Record<string, unknown>;
+    configs?: Record<string, { content: string }>;
+  };
+
+  assertEquals(document.services.gateway.image, "nginx:1.27-alpine");
+  assertEquals(document.services.gateway.ports, ["80:80"]);
+  assertEquals(document.services.gateway.networks, ["edge"]);
+  assertEquals(document.services.gateway.configs, [
+    { source: "gateway-nginx-conf", target: "/etc/nginx/nginx.conf" },
+  ]);
+  assertEquals(document.networks, { edge: { external: true } });
+
+  const conf = document.configs!["gateway-nginx-conf"].content;
+  assertEquals(conf.includes("server_name example.localhost;"), true);
+  assertEquals(
+    conf.includes("location /api/ {\n      proxy_pass http://api:8080;"),
+    true,
+  );
+  assertEquals(
+    conf.includes("location /strip/ {\n      proxy_pass http://api:8080/;"),
+    true,
   );
 });
 

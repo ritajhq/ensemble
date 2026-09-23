@@ -3,12 +3,53 @@ import { exists } from "@std/fs";
 import * as Deploy from "./deploy/index.ts";
 import type { RepoLocator } from "./ports.ts";
 
-const RESOURCE_CONTRACTS: readonly Deploy.Contracts.ResourceContract[] =
-  [
-    Deploy.Contracts.relationalV1,
-    Deploy.Contracts.containerOrchestratedV1,
-    Deploy.Contracts.storageVolumeV1,
-  ];
+const RESOURCE_CONTRACTS: readonly Deploy.Contracts.ResourceContract[] = [
+  Deploy.Contracts.relationalV1,
+  Deploy.Contracts.containerOrchestratedV1,
+  Deploy.Contracts.storageVolumeV1,
+  Deploy.Contracts.gatewayV1,
+  Deploy.Contracts.objectStorageV1,
+];
+
+/**
+ * `relational.v1`'s optional `init` param (Section 6 of its own contract
+ * comment) is a list of project-relative file paths — the only param on any
+ * contract today that names a file rather than passing data through
+ * untouched, so it's the only one needing repo-relative resolution. A
+ * provisioner never receives `repoRoot` (G6: the render pass is pure, no
+ * filesystem/environment context of its own), so this is resolved here
+ * instead — the one place both the freshly parsed `workload` and `repoRoot`
+ * are already in scope together, before either ever reaches the render
+ * pipeline. Leaves every other resource, and every other param, untouched.
+ */
+export function resolveRelationalInitPaths(
+  workload: Deploy.Workload,
+  repoRoot: string,
+): Deploy.Workload {
+  const databases = workload.databases;
+  if (!databases) return workload;
+
+  const resolved: Record<string, Deploy.ResourceDeclaration> = {};
+  let changed = false;
+  for (const [name, declaration] of Object.entries(databases)) {
+    const init = declaration.params.init;
+    if (declaration.type !== "relational" || !Array.isArray(init)) {
+      resolved[name] = declaration;
+      continue;
+    }
+    changed = true;
+    resolved[name] = {
+      ...declaration,
+      params: {
+        ...declaration.params,
+        init: init.map((path) =>
+          typeof path === "string" ? join(repoRoot, path) : path
+        ),
+      },
+    };
+  }
+  return changed ? { ...workload, databases: resolved } : workload;
+}
 
 export interface DeployContext {
   readonly repoRoot: string;
@@ -30,9 +71,12 @@ export async function loadDeployContext(
   if (!await exists(manifestPath, { isFile: true })) {
     throw new Error(`Delivery manifest not found at ${manifestPath}`);
   }
-  const workload = await new Deploy.Manifest.Loader(
-    new Deploy.Manifest.Parser(),
-  ).loadFile(manifestPath);
+  const workload = resolveRelationalInitPaths(
+    await new Deploy.Manifest.Loader(
+      new Deploy.Manifest.Parser(),
+    ).loadFile(manifestPath),
+    repoRoot,
+  );
 
   const vendoredKitDir = join(repoRoot, ".ensemble", "kits", "deploy", kit);
   if (!await exists(join(vendoredKitDir, "main.ts"), { isFile: true })) {
