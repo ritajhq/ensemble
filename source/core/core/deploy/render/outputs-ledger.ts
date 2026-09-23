@@ -18,17 +18,28 @@ export class OutputsLedger {
     string,
     Readonly<Record<string, unknown>>
   >();
+  private readonly ports = new Map<string, Readonly<Record<string, unknown>>>();
   private readonly releaseOutputs = new Map<string, unknown>();
 
+  /**
+   * `ports` is separate from a provisioner's contract-bound `outputs`
+   * (Section 6 of `container-orchestrated.v1`'s own contract comment: a
+   * compute's ports are developer-declared data, not a provisioner-produced
+   * output) — recording them here rather than folding them into `outputs`
+   * keeps `Renderer.validateOutputs`'s strict declared-vs-produced check
+   * (an empty `outputs` list) from rejecting them as "extra".
+   */
   record(
     category: string,
     name: string,
     type: string,
     outputs: Readonly<Record<string, unknown>>,
+    ports: Readonly<Record<string, unknown>> = {},
   ): void {
     const key = this.key(category, name);
     this.types.set(key, type);
     this.outputs.set(key, outputs);
+    this.ports.set(key, ports);
   }
 
   recordRelease(name: string, value: unknown): void {
@@ -58,6 +69,28 @@ export class OutputsLedger {
       );
     }
     return outputs[output];
+  }
+
+  /** Whether `category.name` declared a port named `port` — checked before `portFor`, mirroring `ReferenceValidator.hasPort`'s schema-level check of the same data at Phase 2. */
+  hasPort(category: string, name: string, port: string): boolean {
+    const ports = this.ports.get(this.key(category, name));
+    return ports !== undefined && port in ports;
+  }
+
+  /** The raw value of a declared port (e.g. the port number) — always the manifest's own literal, never a provisioner-produced value, so never "deferred" the way a contract output can be. */
+  portFor(category: string, name: string, port: string): unknown {
+    const ports = this.ports.get(this.key(category, name));
+    if (ports === undefined) {
+      throw new OutputsLedgerError(
+        `No outputs recorded for "${category}.${name}" — it hasn't been rendered yet.`,
+      );
+    }
+    if (!(port in ports)) {
+      throw new OutputsLedgerError(
+        `"${category}.${name}" has no port "${port}".`,
+      );
+    }
+    return ports[port];
   }
 
   releaseOutput(name: string): unknown {

@@ -1,4 +1,8 @@
-import { assertEquals, assertNotStrictEquals, assertRejects } from "@std/assert";
+import {
+  assertEquals,
+  assertNotStrictEquals,
+  assertRejects,
+} from "@std/assert";
 import { Parser } from "../manifest/parser.ts";
 import { DependencyGraphBuilder } from "../resolve/dependency-graph.ts";
 import type { ProvisioningRequest } from "../resolve/provisioning-request.ts";
@@ -40,7 +44,9 @@ deploy:
     db-password: { source: environment }
 `;
 
-function fakeRelationalProvision(request: ResolvedRequest): Promise<ProvisionOutcome> {
+function fakeRelationalProvision(
+  request: ResolvedRequest,
+): Promise<ProvisionOutcome> {
   const secretVar = String(request.params.passwordSecret).toUpperCase().replace(
     /-/g,
     "_",
@@ -65,7 +71,9 @@ function fakeRelationalProvision(request: ResolvedRequest): Promise<ProvisionOut
   });
 }
 
-function fakeComputeProvision(request: ResolvedRequest): Promise<ProvisionOutcome> {
+function fakeComputeProvision(
+  request: ResolvedRequest,
+): Promise<ProvisionOutcome> {
   return Promise.resolve({
     fragment: {
       category: request.category,
@@ -426,7 +434,9 @@ deploy:
       values: {},
     }],
   ]);
-  function echoNetworksProvision(request: ResolvedRequest): Promise<ProvisionOutcome> {
+  function echoNetworksProvision(
+    request: ResolvedRequest,
+  ): Promise<ProvisionOutcome> {
     return Promise.resolve({
       fragment: {
         category: request.category,
@@ -463,6 +473,83 @@ deploy:
   assertEquals(
     (api.content as { networks: unknown }).networks,
     ["edge-net"],
+  );
+});
+
+Deno.test("Renderer.render: bakes another compute's declared port into a consumer's env — the reference surface container-orchestrated.v1's own contract comment documents (${compute.<name>.<port-name>})", async () => {
+  const manifest = `
+version: v1
+deploy:
+  compute:
+    auth:
+      type: container-orchestrated
+      image: nginx
+      replicas: 1
+      ports:
+        http: 4100
+    admin-server:
+      type: container-orchestrated
+      image: nginx
+      replicas: 1
+      env:
+        AUTH_RPC_ENDPOINT: "\${compute.auth.http}"
+`;
+  const workload = new Parser().parse(manifest);
+  const graph = new DependencyGraphBuilder().build(workload);
+
+  const requests = new Map<string, ProvisioningRequest>([
+    ["compute.auth", {
+      category: "compute",
+      name: "auth",
+      type: "container-orchestrated",
+      params: workload.compute!.auth.params,
+      values: {},
+    }],
+    ["compute.admin-server", {
+      category: "compute",
+      name: "admin-server",
+      type: "container-orchestrated",
+      params: workload.compute!["admin-server"].params,
+      values: {},
+    }],
+  ]);
+  const selections = new Map<string, SelectedProvisioner>([
+    ["compute.auth", {
+      provisioner: {
+        matches: () => Promise.resolve(true),
+        provision: fakeComputeProvision,
+      },
+      gaps: [],
+    }],
+    ["compute.admin-server", {
+      provisioner: {
+        matches: () => Promise.resolve(true),
+        provision: fakeComputeProvision,
+      },
+      gaps: [],
+    }],
+  ]);
+
+  const renderer = new Renderer(
+    new ReferenceResolver(new FakeRealization()),
+    new StubReleaseLocator({ local: {}, published: {} }),
+    registry,
+  );
+
+  const artifacts = await renderer.render(
+    workload,
+    requests,
+    selections,
+    graph,
+    "published",
+  );
+  const adminServer = artifacts.fragments.find((f) =>
+    f.name === "admin-server"
+  )!;
+  assertEquals(
+    (adminServer.content as { environment: Record<string, unknown> })
+      .environment.AUTH_RPC_ENDPOINT,
+    4100,
   );
 });
 
