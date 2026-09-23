@@ -50,31 +50,47 @@ root_domain = ".s3.garage.localhost"
  * bucket/key state is only ever set through its own CLI) — so the container
  * runs the real server in the background and drives that CLI against it
  * once it's up, then waits on the server so the container's lifetime still
- * matches the server's. `|| true` after every already-applied step (layout
- * assign/apply, key import, bucket create/allow) makes a container restart
- * idempotent rather than crash-looping on "already done" errors — the
- * concrete tradeoff is that a genuine failure in one of these steps is
- * swallowed the same way; a real Garage deployment beyond this single-node,
- * first-boot case would need a less blunt check than "did this exit
- * nonzero."
+ * matches the server's.
+ *
+ * The layout/bucket/key steps below are ported from `ritajhq/portal`'s own
+ * pre-existing `ci/scripts/garage-bootstrap.sh` — a separately-run,
+ * already-proven script (it predates this contract; portal ran it by hand
+ * via `docker exec` after every deploy) — rather than written from scratch,
+ * after portal's version turned up two real mistakes in an earlier draft of
+ * this one: `garage node id -q` prints `<pubkey>@<address>`, and `layout
+ * assign` wants only the pubkey half (`cut -d@ -f1`); and the version
+ * `layout apply` takes is Garage's own suggested next version from `layout
+ * show`, never a hardcoded `1` (portal's own comment: "don't add 1, or
+ * Garage rejects it"). Every idempotency check here is an explicit "does
+ * this already exist" test (`list | grep`), same as portal's script, rather
+ * than a blanket `|| true` — the latter would just as happily swallow a real
+ * failure as a harmless "already done" one. `SERVER_PID`'s trap forwards a
+ * container stop signal to the backgrounded server for a clean shutdown,
+ * which a bare `wait` alone does not do.
  */
 export function garageBootstrapScript(): string {
   return `#!/bin/sh
 set -e
 /garage server &
 SERVER_PID=$!
+trap 'kill -TERM "$SERVER_PID" 2>/dev/null' TERM INT
 
 until /garage status >/dev/null 2>&1; do
   sleep 1
 done
 
-NODE_ID=$(/garage node id -q)
-/garage layout assign -z dc1 -c 1G "$NODE_ID" || true
-/garage layout apply --version 1 || true
+if /garage status 2>&1 | grep -q "NO ROLE ASSIGNED"; then
+  NODE_ID=$(/garage node id -q 2>/dev/null | tail -1 | cut -d@ -f1)
+  /garage layout assign -z dc1 -c 1G "$NODE_ID"
+  # Garage's own suggested next version from \`layout show\` — never a
+  # hardcoded/incremented guess, or Garage rejects the apply.
+  VERSION=$(/garage layout show 2>/dev/null | grep -oE 'version [0-9]+' | tail -1 | grep -oE '[0-9]+')
+  /garage layout apply --version "$VERSION"
+fi
 
-/garage key import "$ACCESS_KEY" "$SECRET_KEY" --name app-key || true
-/garage bucket create "$BUCKET" || true
-/garage bucket allow --read --write "$BUCKET" --key app-key || true
+/garage key list 2>/dev/null | grep -q "app-key" || /garage key import "$ACCESS_KEY" "$SECRET_KEY" --name app-key
+/garage bucket list 2>/dev/null | grep -qE "(^| )$BUCKET( |$)" || /garage bucket create "$BUCKET"
+/garage bucket allow --read --write --owner "$BUCKET" --key app-key
 
 wait "$SERVER_PID"
 `;
