@@ -7,17 +7,21 @@ import type {
   VariableDeclaration,
 } from "../resource.ts";
 import type { PublishSpec, Release } from "../release.ts";
+import type { Task } from "../task.ts";
 import { ManifestError } from "./errors.ts";
 import { KeySuggester } from "./key-suggester.ts";
 
 const SUPPORTED_VERSIONS = ["v1"];
-const ENVELOPE_KEYS = ["version", "release", "deploy"] as const;
+const ENVELOPE_KEYS = ["version", "release", "deploy", "tasks"] as const;
 const RELEASE_KEYS = ["kit", "mode", "outputName", "publish"] as const;
 const PUBLISH_KEYS = ["target", "name", "options"] as const;
 const SECRET_KEYS = ["source"] as const;
 const VARIABLE_KEYS = ["default"] as const;
 const EXTERNAL_KEYS = ["type", "name"] as const;
 const RESOURCE_COMMON_KEYS = ["type", "class", "capabilities"] as const;
+const TASK_KEYS = ["run", "script", "arguments"] as const;
+/** A task argument's name *is* an environment variable name the task reads, so it has to be a shell-safe identifier. */
+const TASK_ARGUMENT_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 /**
  * Parses manifest text into a `Workload`. Validates the envelope strictly
@@ -41,10 +45,15 @@ export class Parser {
 
     const workload: {
       release?: Record<string, Release>;
+      tasks?: Record<string, Task>;
     } & Record<Category, Record<string, unknown> | undefined> = {} as never;
 
     if (envelope.release !== undefined) {
       workload.release = this.parseReleases(envelope.release);
+    }
+
+    if (envelope.tasks !== undefined) {
+      workload.tasks = this.parseTasks(envelope.tasks);
     }
 
     if (envelope.deploy !== undefined) {
@@ -84,6 +93,96 @@ export class Parser {
         default:
           parsed[name] = this.parseResource(entry, path);
       }
+    }
+
+    return parsed;
+  }
+
+  /**
+   * `tasks:` — named operator commands (`deploy/task.ts`), keyed by task name
+   * like every category is keyed by resource name. Validated here rather than
+   * by a contract, because no contract is involved: a task is nothing but a
+   * command and the values it wants resolved.
+   */
+  private parseTasks(value: unknown): Record<string, Task> {
+    this.assertPlainObject(value, "manifest.tasks");
+    const parsed: Record<string, Task> = {};
+
+    for (
+      const [name, entry] of Object.entries(value as Record<string, unknown>)
+    ) {
+      parsed[name] = this.parseTask(entry, `manifest.tasks.${name}`);
+    }
+
+    return parsed;
+  }
+
+  private parseTask(value: unknown, path: string): Task {
+    this.assertPlainObject(value, path);
+    const raw = value as Record<string, unknown>;
+    this.rejectUnknownKeys(raw, TASK_KEYS, path);
+
+    const hasRun = raw.run !== undefined;
+    const hasScript = raw.script !== undefined;
+    if (hasRun === hasScript) {
+      throw new ManifestError(
+        `${path} must declare exactly one of "run" (a shell one-liner) or "script" (a file under ci/<workload>/scripts/).`,
+      );
+    }
+    if (hasRun && (typeof raw.run !== "string" || raw.run.length === 0)) {
+      throw new ManifestError(`${path}.run must be a non-empty string.`);
+    }
+    if (hasScript) this.assertScriptPath(raw.script, path);
+
+    return {
+      run: raw.run as string | undefined,
+      script: raw.script as string | undefined,
+      arguments: this.parseTaskArguments(raw.arguments, path),
+    };
+  }
+
+  /**
+   * A task's script is a path *inside* `ci/<workload>/scripts/` — the core
+   * spawns whatever this names, so absolute paths and any `..` segment are
+   * rejected outright rather than resolved and checked later.
+   */
+  private assertScriptPath(value: unknown, path: string): void {
+    if (typeof value !== "string" || value.length === 0) {
+      throw new ManifestError(`${path}.script must be a non-empty string.`);
+    }
+    const segments = value.split("/");
+    if (value.startsWith("/") || segments.includes("..")) {
+      throw new ManifestError(
+        `${path}.script must be a path inside the workload's own scripts/ folder (got "${value}").`,
+      );
+    }
+  }
+
+  private parseTaskArguments(
+    value: unknown,
+    path: string,
+  ): Record<string, string | number | boolean> | undefined {
+    if (value === undefined) return undefined;
+    this.assertPlainObject(value, `${path}.arguments`);
+
+    const parsed: Record<string, string | number | boolean> = {};
+    for (
+      const [name, argument] of Object.entries(
+        value as Record<string, unknown>,
+      )
+    ) {
+      if (!TASK_ARGUMENT_NAME.test(name)) {
+        throw new ManifestError(
+          `${path}.arguments.${name}: an argument name becomes an environment variable for the task, so it must be a shell-safe identifier (${TASK_ARGUMENT_NAME}) — a dash, say, would make "$${name}" read as a different variable in a shell.`,
+        );
+      }
+      const kind = typeof argument;
+      if (kind !== "string" && kind !== "number" && kind !== "boolean") {
+        throw new ManifestError(
+          `${path}.arguments.${name} must be a string, number, or boolean (or a \${...} reference to one).`,
+        );
+      }
+      parsed[name] = argument as string | number | boolean;
     }
 
     return parsed;

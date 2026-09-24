@@ -8,6 +8,7 @@ export { FileRenderCache } from "./file-render-cache.ts";
 export { Ejector } from "./ejector.ts";
 export { Planner } from "./planner.ts";
 export { Applier, ApplyError } from "./applier.ts";
+export { InitCommandError, InitRunner } from "./init-runner.ts";
 export {
   ReleaseAvailabilityError,
   ReleaseAvailabilityPreflight,

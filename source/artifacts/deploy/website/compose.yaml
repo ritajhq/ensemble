@@ -2,12 +2,10 @@ services:
   git-sync:
     image: 'git-sync:latest'
     ports:
-      - '8080:8080'
+      - '8000'
     environment:
       SYNC_DEST: /data
-      REPOS: >-
-        [{"id":"docs","repo":"ritajhq/ensemble","ref":"main","path":"docs"},{"id":"docs","repo":"ritajhq/ensemble","ref":"main","path":"docs",
-        "trigger":"manual"}]
+      REPOS: '[{"id":"docs","repo":"ritajhq/ensemble","ref":"main","path":"docs"}]'
       WEBHOOK_SECRET_DOCS: '${DOCS_WEBHOOK_SECRET}'
     networks:
       - edge
@@ -21,7 +19,7 @@ services:
   server:
     image: 'website:latest'
     ports:
-      - '8000:8000'
+      - '8000'
     environment: {}
     networks:
       - edge

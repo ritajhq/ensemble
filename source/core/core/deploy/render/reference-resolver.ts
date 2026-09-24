@@ -19,16 +19,39 @@ import type { ResolvedReference } from "./resolved-reference.ts";
 export class ReferenceResolver {
   constructor(private readonly realization: Realization) {}
 
-  async resolve(reference: Reference, ledger: OutputsLedger): Promise<ResolvedReference> {
+  async resolve(
+    reference: Reference,
+    ledger: OutputsLedger,
+  ): Promise<ResolvedReference> {
     if (reference.category === "release") {
       return { mode: "baked", value: ledger.releaseOutput(reference.name) };
     }
 
     const category = reference.category as Category;
-    const type = ledger.typeOf(category, reference.name);
     const output = reference.output!;
+
+    // A compute's ports are developer-declared data, not a provisioner
+    // output (container-orchestrated.v1's own contract comment) — resolved
+    // straight off the ledger's port record, same as ReferenceValidator.
+    // hasPort's schema-level check of the same data, and always baked: a
+    // port number is known at manifest-parse time, never provisioner-
+    // dependent wiring.
+    if (
+      category === "compute" && ledger.hasPort(category, reference.name, output)
+    ) {
+      return {
+        mode: "baked",
+        value: ledger.portFor(category, reference.name, output),
+      };
+    }
+
+    const type = ledger.typeOf(category, reference.name);
     const value = ledger.outputFor(category, reference.name, output);
-    const knowability = await this.realization.knowabilityOf(category, type, output);
+    const knowability = await this.realization.knowabilityOf(
+      category,
+      type,
+      output,
+    );
 
     return knowability === "static"
       ? { mode: "baked", value }

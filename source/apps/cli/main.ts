@@ -4,6 +4,7 @@ import { printCliError } from "./cli-error.ts";
 import { appCommand } from "./commands/app.ts";
 import { buildCommand } from "./commands/build.ts";
 import { configCommand } from "./commands/config.ts";
+import { deliveryCommand } from "./commands/delivery.ts";
 import { deployCommand } from "./commands/deploy.ts";
 import { developCommand } from "./commands/develop.ts";
 import { initCommand } from "./commands/init.ts";
@@ -36,6 +37,7 @@ try {
     .command("publish", publishCommand)
     .command("deploy", deployCommand)
     .command("develop", developCommand)
+    .command("delivery", deliveryCommand)
     .command("config", configCommand)
     .command("release", releaseCommand)
     .command("status", statusCommand)

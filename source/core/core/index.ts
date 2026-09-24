@@ -52,6 +52,13 @@ export {
   type RunDeployOptions,
 } from "./deploy.ts";
 export { runExplain, type RunExplainOptions } from "./explain.ts";
+export {
+  runDeliveryTask,
+  type RunDeliveryTaskOptions,
+  TaskArgumentError,
+  TaskFailedError,
+  UnknownTaskError,
+} from "./delivery-task.ts";
 export { runStatus } from "./status.ts";
 export { RunPackReleasePacker } from "./release-packer.ts";
 

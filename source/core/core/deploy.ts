@@ -1,6 +1,6 @@
-import { basename, join } from "@std/path";
+import { join } from "@std/path";
 import * as Deploy from "./deploy/index.ts";
-import { loadDeployContext } from "./deploy-context.ts";
+import { deploymentNameFor, loadDeployContext } from "./deploy-context.ts";
 import { RunPackReleasePacker } from "./release-packer.ts";
 import { runBuild } from "./build.ts";
 import type { Ports } from "./ports.ts";
@@ -143,7 +143,7 @@ export async function runDeploy(
   // Prefixing with the repo dir's own basename (e.g. "ensemble-website"
   // rather than a bare "website") keeps two different repos — or two
   // worktrees of the same one — from colliding on the same host.
-  const deploymentName = `${basename(repoRoot)}-${name}`;
+  const deploymentName = deploymentNameFor(repoRoot, name);
 
   const outputsDir = join(repoRoot, "source", "artifacts", "deploy", name);
   const sink = new Deploy.Terminations.FileArtifactSink(outputsDir);

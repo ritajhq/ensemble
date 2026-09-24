@@ -3,6 +3,7 @@ import * as KitSdk from "@ensemble/kit-sdk";
 import { awsRealization } from "./realization.ts";
 import { containerOrchestratedProvisioner } from "./provisioners/container-orchestrated.ts";
 import { relationalProvisioner } from "./provisioners/relational.ts";
+import { objectStorageProvisioner } from "./provisioners/object-storage.ts";
 import { assembleCloudFormationDocument } from "./cloudformation-document.ts";
 
 const kit: KitSdk.Deploy.Kit = {
@@ -10,6 +11,7 @@ const kit: KitSdk.Deploy.Kit = {
   provisioners: async () => [
     containerOrchestratedProvisioner(),
     relationalProvisioner(),
+    objectStorageProvisioner(),
   ],
   realization: awsRealization,
   // deno-lint-ignore require-await

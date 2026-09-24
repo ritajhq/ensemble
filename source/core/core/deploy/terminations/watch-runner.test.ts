@@ -1,4 +1,5 @@
 import { assertEquals, assertRejects } from "@std/assert";
+import type { Artifacts } from "../render/artifact.ts";
 import { WatchNotSupportedError, WatchRunner } from "./watch-runner.ts";
 import {
   EMPTY_ARTIFACTS,
@@ -22,6 +23,41 @@ Deno.test("WatchRunner.watch: writes the artifact and runs the kit's watch comma
     filename: "compose.yaml",
     content: "services: {}\n",
   }]);
+});
+
+Deno.test("WatchRunner.watch: runs the render pass's init commands once the watch command is started — a watch session is an apply too", async () => {
+  const dir = await Deno.makeTempDir();
+  const seen = `${dir}/seen.txt`;
+  try {
+    const sink = new FakeArtifactSink("/repo/artifacts/compose.yaml");
+    const kit = new FakePresentingKit(
+      { filename: "compose.yaml", content: "services: {}\n" },
+      ["true"],
+      ["true"],
+    );
+    const artifacts: Artifacts = {
+      fragments: [],
+      initCommands: [{
+        name: "seed",
+        run:
+          `printf '%s\\n%s\\n' "$ENS_ARTIFACT_PATH" "$ENS_DEPLOYMENT_NAME" > "${seen}"`,
+      }],
+    };
+
+    await new WatchRunner(sink).watch(
+      artifacts,
+      EMPTY_GRAPH,
+      kit,
+      "portal-portal",
+    );
+
+    assertEquals(
+      await Deno.readTextFile(seen),
+      "/repo/artifacts/compose.yaml\nportal-portal\n",
+    );
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
 });
 
 Deno.test("WatchRunner.watch: throws WatchNotSupportedError when the kit has no watch command", async () => {

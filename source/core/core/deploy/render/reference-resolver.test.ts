@@ -45,6 +45,20 @@ Deno.test("ReferenceResolver.resolve: defers to native wiring for a dynamic outp
   );
 });
 
+Deno.test("ReferenceResolver.resolve: bakes a compute's declared port directly off the ledger's port record, not its (empty) contract outputs", async () => {
+  const ledger = new OutputsLedger();
+  ledger.record("compute", "api", "container-orchestrated", {}, { http: 8080 });
+
+  const resolver = new ReferenceResolver(new FakeRealization());
+  assertEquals(
+    await resolver.resolve(
+      { category: "compute", name: "api", output: "http" },
+      ledger,
+    ),
+    { mode: "baked", value: 8080 },
+  );
+});
+
 Deno.test("ReferenceResolver.resolve: always bakes the release sugar", async () => {
   const ledger = new OutputsLedger();
   ledger.recordRelease("web", "ens-local/web:dev");

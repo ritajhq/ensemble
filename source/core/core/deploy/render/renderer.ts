@@ -7,10 +7,11 @@ import type {
 } from "../resolve/dependency-graph.ts";
 import type { ProvisioningRequest } from "../resolve/provisioning-request.ts";
 import type { SelectedProvisioner } from "../resolve/selected-provisioner.ts";
+import type { ProvisionOutcome } from "../kit/provisioner.ts";
 import type { ReleaseLocatorPort } from "../kit/release-locator.ts";
 import { ReferenceSyntax as ReferenceParser } from "../reference.ts";
 import type { ContractRegistry } from "../contracts/registry.ts";
-import type { ArtifactFragment, Artifacts } from "./artifact.ts";
+import type { ArtifactFragment, Artifacts, InitCommand } from "./artifact.ts";
 import { OutputsLedger } from "./outputs-ledger.ts";
 import type { ReferenceResolver } from "./reference-resolver.ts";
 
@@ -76,10 +77,11 @@ export class Renderer {
   ): Promise<{ artifacts: Artifacts; ledger: OutputsLedger }> {
     const ledger = new OutputsLedger();
     const fragments: ArtifactFragment[] = [];
+    const initCommands: InitCommand[] = [];
 
     for (const batch of graph.batches()) {
       for (const id of batch) {
-        const fragment = await this.renderOne(
+        const outcome = await this.renderOne(
           id,
           workload,
           requests,
@@ -87,11 +89,18 @@ export class Renderer {
           ledger,
           artifactsSource,
         );
-        if (fragment) fragments.push(fragment);
+        if (!outcome) continue;
+        fragments.push(outcome.fragment);
+        initCommands.push(...outcome.initCommands ?? []);
       }
     }
 
-    return { artifacts: { fragments }, ledger };
+    return {
+      artifacts: initCommands.length > 0
+        ? { fragments, initCommands }
+        : { fragments },
+      ledger,
+    };
   }
 
   private async renderOne(
@@ -101,7 +110,7 @@ export class Renderer {
     selections: ReadonlyMap<string, SelectedProvisioner>,
     ledger: OutputsLedger,
     artifactsSource: ArtifactsSource,
-  ): Promise<ArtifactFragment | undefined> {
+  ): Promise<ProvisionOutcome | undefined> {
     if (id.category === "release") {
       ledger.recordRelease(
         id.name,
@@ -143,8 +152,14 @@ export class Renderer {
     });
 
     this.validateOutputs(id, request.type, outcome.outputs);
-    ledger.record(id.category, id.name, request.type, outcome.outputs);
-    return outcome.fragment;
+    ledger.record(
+      id.category,
+      id.name,
+      request.type,
+      outcome.outputs,
+      this.portsOf(id.category, params),
+    );
+    return outcome;
   }
 
   /** Section 6: "validate each kit's produced outputs against them at render time." A missing declared output would silently break portability the moment another manifest referenced it on a different kit; an extra undeclared one is just as much a contract violation, even if harmless today. */
@@ -170,6 +185,35 @@ export class Renderer {
         parts.join("; ")
       }).`,
     );
+  }
+
+  /** `container-orchestrated.v1`'s own reference surface: only `compute` resources declare ports today, and only their resolved `ports` param (never a provisioner output) is what `${compute.<name>.<port>}` addresses. */
+  private portsOf(
+    category: string,
+    params: Readonly<Record<string, unknown>>,
+  ): Readonly<Record<string, unknown>> {
+    if (category !== "compute") return {};
+    const ports = params.ports;
+    return typeof ports === "object" && ports !== null
+      ? ports as Readonly<Record<string, unknown>>
+      : {};
+  }
+
+  /**
+   * Resolves one raw manifest value — a literal, a `${...}` reference, or a
+   * structure of either — against an already-completed render. The same
+   * resolution every resource param goes through, exposed for the one other
+   * caller holding manifest values that aren't a resource's params: a task's
+   * `arguments` (`../../task.ts`), which `ens delivery task` resolves with the
+   * deployment's own render in hand rather than inventing a second resolver
+   * that could drift from this one on what a reference means.
+   */
+  resolveManifestValue(
+    value: unknown,
+    ledger: OutputsLedger,
+    workload: Workload,
+  ): Promise<unknown> {
+    return this.resolveValue(value, ledger, workload);
   }
 
   private async resolveValue(

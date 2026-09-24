@@ -1,4 +1,5 @@
-export type { ArtifactFragment, Artifacts } from "./artifact.ts";
+export type { ArtifactFragment, Artifacts, InitCommand } from "./artifact.ts";
+export { INIT_COMMAND_ENV } from "./artifact.ts";
 export type { ResolvedReference } from "./resolved-reference.ts";
 export type { PresentedArtifact } from "./presented-artifact.ts";
 export { OutputsLedger, OutputsLedgerError } from "./outputs-ledger.ts";

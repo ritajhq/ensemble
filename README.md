@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/ensemble-logo.png" alt="Ensemble logo" width="80" />
+  <img src="docs/branding/logo.png" alt="Ensemble logo" width="80" />
 </p>
 
 <h1 align="center">Ensemble</h1>
@@ -116,172 +116,54 @@ ens version next patch   # or minor / major
 ens version set <version>
 ```
 
-## Usage
+## Quickstart
 
-### `ens init`
+The shortest path from nothing to a running app: scaffold a project, scaffold
+an app, build it, and bring it up locally. If you haven't installed `ens` yet,
+see [Installation](#installation).
 
-Scaffolds a new Ensemble project: prompts for a project name and lays down the
-`source/` and `.ensemble/` folders described above, fetches the built-in kits,
-and initializes a git repository.
+### 1. Scaffold a project
 
-### `ens app create <kit> <name>`
+```sh
+ens init
+```
 
-Scaffolds a new app under `source/apps/<name>` from a build kit's hello-world
-template, ready to `ens build`.
+Prompts for a project name, then lays down the `source/` and `.ensemble/`
+folders, fetches the built-in kits, and initializes a git repository.
+
+### 2. Scaffold an app
 
 ```sh
 ens app create react web
-ens app create deno.bundle api
 ```
 
-### `ens build <app>`
+Creates `source/apps/web` from the `react` build kit's hello-world template,
+already configured to use that kit. Swap `react` for `deno.bundle` for a plain
+TypeScript service instead.
 
-Builds an app through its configured kit (`.ensemble/kits/build/<kit>`, set via
-`ens config set-build-kit`). Output goes to `source/artifacts/<app>`.
+### 3. Build it
 
 ```sh
-ens build web -m production
-ens build web -w                          # rebuild on source changes
-ens build web -v API_URL=https://staging.example.com -v DEBUG=true
+ens build web -m development
 ```
 
-- `-m, --mode <development|production>` — build mode, defaults to `development`.
-- `-w, --watch` — rebuild on source changes instead of exiting after one build.
-- `-v, --var <KEY=VALUE>` — override a build var for this run only, repeatable.
-  Resolution order (highest wins): `-v` flags → `ens config set-build-var`
-  defaults → `source/envs/build/<app>.env`.
+Runs the app's configured build kit and writes output to `source/artifacts/web`.
 
-### `ens pack <ship> <kit>`
+### 4. Bring it up locally
 
-Packs a built ship into a deployable artifact (a Docker image, an OCI tarball,
-or a self-contained compiled binary) using the given pack kit
-(`.ensemble/kits/pack/<kit>`).
+A running deployment needs a workload manifest, not just a built app — see
+[Local development](#local-development) for the full loop (pack → manifest →
+`ens develop`). If your project already has one (e.g. `ci/web/delivery.yml`):
 
 ```sh
-ens pack web docker -o my-web-image:latest
-ens pack web docker -v TAG=v1.2.3 -v REGISTRY=ghcr.io/me
+ens develop web
 ```
 
-- `-m, --mode <mode>` — pack mode, declared by the kit's `kit.yml`; defaults to
-  its first declared mode.
-- `-o, --output-name <name>` — name for the packed output (e.g. an image tag or
-  archive name); defaults to the ship name.
-- `-v, --var <KEY=VALUE>` — override a pack var for this run only, repeatable.
-  Same resolution order as `build`, via `ens config set-pack-var` and
-  `source/envs/pack/<ship>.env`.
+This builds, packs, and deploys the workload locally, watching for source
+changes until you stop it.
 
-### `ens publish <ship> <kit> <target>`
-
-Publishes a previously packed ship to a `target` supported by its pack kit (e.g.
-`push` for the `docker` kit, which retags the local image to its configured
-registry and pushes it).
-
-```sh
-ens publish web docker push
-ens publish web docker push --version 1.2.3
-```
-
-- `-o, --output-name <name>` — name of the local packed artifact to publish;
-  defaults to the ship name.
-- `--version <version>` — version to publish this artifact under, alongside its
-  `:latest` tag; defaults to `latest`.
-- `-v, --var <KEY=VALUE>` — override a publish var for this run only,
-  repeatable.
-
-### `ens deploy <name> <kit>`
-
-Brings up (or reconciles to its declared state) the workload described by the
-delivery manifest at `ci/<name>/delivery.yml`, using the given deploy kit
-(`.ensemble/kits/deploy/<kit>`). Tearing a workload down lives behind
-`ens destroy`.
-
-```sh
-ens deploy portal compose
-ens deploy portal compose --version 1.2.3
-```
-
-- `-m, --mode <development|production>` — deploy mode, defaults to `production`.
-  This is a dev-loop-vs-not toggle, not an environment: environment selection is
-  the surrounding pipeline's job (it loads the right values into process env
-  before `ens deploy`).
-- `--version <version>` — released version to resolve `${release.<name>.image}`
-  references to; defaults to `latest`.
-
-### `ens develop <name>`
-
-Deploys the same manifest locally for development: always watches for source
-changes, and treats `external` resources as auto-creatable local conveniences
-instead of requiring them to already exist.
-
-```sh
-ens develop portal
-```
-
-- `-k, --kit <kit>` — deploy kit to use, defaults to `compose`.
-
-### `ens config`
-
-Manages two files: `.ensemble/config.yaml` (shared, git-tracked) and
-`.ensemble/config.local.yaml` (gitignored, per-developer).
-
-```sh
-ens config set-build-kit web react
-ens config set-build-var web API_URL=http://localhost:4000
-ens config set-pack-var web TAG=dev
-```
-
-- `set-build-kit <app> <kit>` — associates an app with a build kit in the shared
-  `config.yaml`.
-- `set-build-var <app> KEY=VALUE` — sets a personal default build var for an app
-  in `config.local.yaml`, for things you build the same way every time locally.
-  Repeated calls accumulate keys rather than overwrite them.
-- `set-pack-var <ship> KEY=VALUE` — same, for pack vars.
-
-### `ens release next|set|undo`
-
-Computes, creates, or undoes a semver release tag from git tags, with dry-run
-previews instead of tagging by hand.
-
-```sh
-ens release next patch --dry-run          # or minor / major
-ens release next minor -p rc.1            # v1.3.0-rc.1
-ens release set 2.0.0 -r upstream
-ens release undo
-```
-
-- `--dry-run` — preview without making changes (global to all three).
-- `-p, --pre-release <suffix>` — append a `-<suffix>` identifier (ignored by
-  `undo`).
-- `-m, --meta <suffix>` — append a `+<suffix>` build metadata identifier
-  (ignored by `undo`).
-- `-r, --remote <name>` — remote to push to/delete from when confirmed, defaults
-  to `origin`.
-
-Creating a tag prompts to push commits + tag to the remote; `undo` deletes the
-last tag locally and prompts to also delete it from the remote.
-
-### `ens version`
-
-Shows the installed `ens` version, or updates it in place using the same release
-tags/mechanism as the install script.
-
-```sh
-ens version
-ens version update patch    # or minor / major
-ens version set 1.4.0
-```
-
-### `ens status`
-
-Lists every app (with its build kit), installed kit per role, publishable
-library, and workload (with its ships and declared deploy resources) —
-every name the other commands above expect as an argument, gathered from
-`.ensemble/config.yaml`, `.ensemble/kits/`, and `ci/*/delivery.yml` in one
-pass, without having to open any of them by hand.
-
-```sh
-ens status
-```
+Every command's full flag list lives in the
+[CLI reference](docs/documentation/reference/cli/index.md).
 
 ## Local development
 
@@ -314,12 +196,12 @@ done
 per-environment values it needs as `variables` and `secrets`; `ens deploy` reads
 them from its own process env (it selects no environment itself — that's the
 pipeline's job, and locally it's you). For local runs, commit the known-good dev
-values to `ci/<name>/delivery.env` — `ens deploy`/`develop` loads that file
+values to `ci/<name>/variables.env` — `ens deploy`/`develop` loads that file
 before the deploy kit runs, so `ens develop <name>` just works with nothing
 exported:
 
 ```ini
-# ci/portal/delivery.env — keys are the manifest's variable/secret names
+# ci/portal/variables.env — keys are the manifest's variable/secret names
 pguser=portal
 pgdatabase=portal
 pgpassword=devpassword
@@ -344,15 +226,23 @@ storage and gateway the manifest declares, and keeps watching. You reach the
 services through the gateway's hosts (e.g. `https://<name>.localhost:8443`, with
 a self-signed cert under `tls: internal`).
 
-**5. Run any one-off provisioning.** Some setup can't be declared in the
-manifest yet — provisioning an object-storage bucket, running an app's own schema
-migration. These live as scripts under `ci/scripts/` and run once after the stack
-is up (portal's, for example):
+**5. Run any one-off provisioning.** Work that can only happen *after* the stack
+is up — an app's own schema migration, trusting the gateway's local CA — is
+declared under `tasks` in the manifest and invoked by hand (a task is never fired
+by a deploy, so a failing one can't fail a deployment):
 
 ```sh
-sh ci/scripts/garage-bootstrap.sh   # mint S3 credentials, feed them back as vars
-sh ci/scripts/auth-migrate.sh       # create the auth schema's tables
+ens delivery task <name> <kit>                  # list what the workload declares
+ens delivery task <name> <kit> auth-migrate     # e.g. portal's auth schema migration
 ```
+
+A task's `arguments` reach its script as environment variables, resolved from the
+same manifest values the deploy's own env blocks use, plus `${deployment.name}`,
+`${deployment.artifact}` and `${deployment.root}` for the deployment's own
+identity — which is what lets that script address the stack through
+`docker compose -p "$project" -f "$artifact"` rather than hardcoding the
+container, network, and artifact names compose derives from the deployment. See
+[`tasks` in the manifest schema](docs/documentation/reference/delivery-manifest-schema.md#tasks).
 
 > **Note.** A large database seed loaded through `docker-entrypoint-initdb.d`
 > keeps Postgres on a local-only socket until it finishes, so a migration run too
