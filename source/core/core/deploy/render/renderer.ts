@@ -7,10 +7,11 @@ import type {
 } from "../resolve/dependency-graph.ts";
 import type { ProvisioningRequest } from "../resolve/provisioning-request.ts";
 import type { SelectedProvisioner } from "../resolve/selected-provisioner.ts";
+import type { ProvisionOutcome } from "../kit/provisioner.ts";
 import type { ReleaseLocatorPort } from "../kit/release-locator.ts";
 import { ReferenceSyntax as ReferenceParser } from "../reference.ts";
 import type { ContractRegistry } from "../contracts/registry.ts";
-import type { ArtifactFragment, Artifacts } from "./artifact.ts";
+import type { ArtifactFragment, Artifacts, InitCommand } from "./artifact.ts";
 import { OutputsLedger } from "./outputs-ledger.ts";
 import type { ReferenceResolver } from "./reference-resolver.ts";
 
@@ -76,10 +77,11 @@ export class Renderer {
   ): Promise<{ artifacts: Artifacts; ledger: OutputsLedger }> {
     const ledger = new OutputsLedger();
     const fragments: ArtifactFragment[] = [];
+    const initCommands: InitCommand[] = [];
 
     for (const batch of graph.batches()) {
       for (const id of batch) {
-        const fragment = await this.renderOne(
+        const outcome = await this.renderOne(
           id,
           workload,
           requests,
@@ -87,11 +89,18 @@ export class Renderer {
           ledger,
           artifactsSource,
         );
-        if (fragment) fragments.push(fragment);
+        if (!outcome) continue;
+        fragments.push(outcome.fragment);
+        initCommands.push(...outcome.initCommands ?? []);
       }
     }
 
-    return { artifacts: { fragments }, ledger };
+    return {
+      artifacts: initCommands.length > 0
+        ? { fragments, initCommands }
+        : { fragments },
+      ledger,
+    };
   }
 
   private async renderOne(
@@ -101,7 +110,7 @@ export class Renderer {
     selections: ReadonlyMap<string, SelectedProvisioner>,
     ledger: OutputsLedger,
     artifactsSource: ArtifactsSource,
-  ): Promise<ArtifactFragment | undefined> {
+  ): Promise<ProvisionOutcome | undefined> {
     if (id.category === "release") {
       ledger.recordRelease(
         id.name,
@@ -150,7 +159,7 @@ export class Renderer {
       outcome.outputs,
       this.portsOf(id.category, params),
     );
-    return outcome.fragment;
+    return outcome;
   }
 
   /** Section 6: "validate each kit's produced outputs against them at render time." A missing declared output would silently break portability the moment another manifest referenced it on a different kit; an extra undeclared one is just as much a contract violation, even if harmless today. */

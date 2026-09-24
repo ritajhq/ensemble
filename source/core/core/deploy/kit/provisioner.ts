@@ -2,7 +2,7 @@ import type { Category } from "../workload.ts";
 import type { MatchedResource } from "../resolve/matched-resource.ts";
 import type { ResolvedValue } from "../resolve/resolved-values.ts";
 import type { SecretDeclaration } from "../resource.ts";
-import type { ArtifactFragment } from "../render/artifact.ts";
+import type { ArtifactFragment, InitCommand } from "../render/artifact.ts";
 
 /**
  * A `ProvisioningRequest` once the `Renderer` has resolved every reference in
@@ -25,10 +25,21 @@ export interface ResolvedRequest {
   readonly secrets: Readonly<Record<string, SecretDeclaration>>;
 }
 
-/** What provisioning one resource produces: its own artifact fragment, and the output values it declares for others to reference — raw values here; whether a given output is static or dynamic is the `Realization`'s call, consulted later by `ReferenceResolver`, not decided by the provisioner's return shape. */
+/** What provisioning one resource produces: its own artifact fragment, the output values it declares for others to reference — raw values here; whether a given output is static or dynamic is the `Realization`'s call, consulted later by `ReferenceResolver`, not decided by the provisioner's return shape — and any init commands the resource needs run against the target once the target's own apply has brought it up. */
 export interface ProvisionOutcome {
   readonly fragment: ArtifactFragment;
   readonly outputs: Readonly<Record<string, unknown>>;
+  /**
+   * The half of provisioning that can't happen here: the render pass is pure
+   * (shelling out is I/O, G6) *and* the target's own apply can't express it
+   * either, because it's state only a running instance can be told to
+   * create. `storage.object-storage` on compose is the case that forced this
+   * — Garage's layout/bucket/key CLI is the only way to create them, and its
+   * image is `scratch`, so nothing can run inside the container to do it.
+   * The core runs these on the host once the apply has succeeded (see
+   * `InitCommand`).
+   */
+  readonly initCommands?: readonly InitCommand[];
 }
 
 /**

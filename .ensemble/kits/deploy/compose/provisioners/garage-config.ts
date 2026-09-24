@@ -45,53 +45,67 @@ root_domain = ".s3.garage.localhost"
 }
 
 /**
- * Garage has no declarative "create this bucket/key on boot" config of its
- * own (unlike postgres's `docker-entrypoint-initdb.d`, Garage's layout/
- * bucket/key state is only ever set through its own CLI) — so the container
- * runs the real server in the background and drives that CLI against it
- * once it's up, then waits on the server so the container's lifetime still
- * matches the server's.
+ * The seeding Garage can't do for itself: its own CLI is the only way to
+ * assign a single-node layout and create the bucket/key, and the official
+ * image is `scratch` — no shell, no `grep`/`cut`/`tail`, nothing — so there is
+ * no script that could run *inside* that container to drive it. The shell
+ * therefore lives on the host, driving the container the apply already
+ * started, exactly the `docker exec <container> /garage …` shape portal's
+ * pre-ens `ci/scripts/garage-bootstrap.sh` proved out (this is that script,
+ * ported — it ran the same CLI by hand after every deploy).
  *
- * The layout/bucket/key steps below are ported from `ritajhq/portal`'s own
- * pre-existing `ci/scripts/garage-bootstrap.sh` — a separately-run,
- * already-proven script (it predates this contract; portal ran it by hand
- * via `docker exec` after every deploy) — rather than written from scratch,
- * after portal's version turned up two real mistakes in an earlier draft of
- * this one: `garage node id -q` prints `<pubkey>@<address>`, and `layout
- * assign` wants only the pubkey half (`cut -d@ -f1`); and the version
- * `layout apply` takes is Garage's own suggested next version from `layout
- * show`, never a hardcoded `1` (portal's own comment: "don't add 1, or
- * Garage rejects it"). Every idempotency check here is an explicit "does
- * this already exist" test (`list | grep`), same as portal's script, rather
- * than a blanket `|| true` — the latter would just as happily swallow a real
- * failure as a harmless "already done" one. `SERVER_PID`'s trap forwards a
- * container stop signal to the backgrounded server for a clean shutdown,
- * which a bare `wait` alone does not do.
+ * Idempotent by construction, since the core re-runs it on every apply: the
+ * layout is only touched while Garage still reports `NO ROLE ASSIGNED`, and
+ * the key/bucket steps are explicit "does this already exist" tests rather
+ * than a blanket `|| true`, which would swallow a real failure just as
+ * happily as a harmless "already done".
+ *
+ * `accessKey`/`secretKey` are the same `${VAR}` interpolation tokens
+ * `composeSecretWiring` puts in the compose document — which are valid shell
+ * references too, resolved from the very environment `docker compose` itself
+ * interpolates them from, so a credential is never copied into this script's
+ * text.
+ *
+ * `$ENS_ARTIFACT_PATH`/`$ENS_DEPLOYMENT_NAME` are the core's own
+ * (`INIT_COMMAND_ENV`): the artifact it applied and the deployment name that
+ * artifact is scoped by, which is what lets this address this deployment's
+ * compose project rather than a hardcoded one.
  */
-export function garageBootstrapScript(): string {
-  return `#!/bin/sh
-set -e
-/garage server &
-SERVER_PID=$!
-trap 'kill -TERM "$SERVER_PID" 2>/dev/null' TERM INT
+export function garageSeedScript(params: {
+  service: string;
+  bucket: string;
+  accessKey: string;
+  secretKey: string;
+}): string {
+  const { service, bucket, accessKey, secretKey } = params;
+  return `set -eu
 
-until /garage status >/dev/null 2>&1; do
+compose() { docker compose -f "$ENS_ARTIFACT_PATH" -p "$ENS_DEPLOYMENT_NAME" "$@"; }
+garage() { compose exec -T ${service} /garage "$@"; }
+
+# The apply already ran, so the container exists — but Garage's own server may
+# still be coming up. Poll instead of guessing at a sleep.
+attempt=0
+until garage status >/dev/null 2>&1; do
+  attempt=$((attempt + 1))
+  if [ "$attempt" -ge 60 ]; then
+    echo "${service}: Garage did not answer within 60s." >&2
+    exit 1
+  fi
   sleep 1
 done
 
-if /garage status 2>&1 | grep -q "NO ROLE ASSIGNED"; then
-  NODE_ID=$(/garage node id -q 2>/dev/null | tail -1 | cut -d@ -f1)
-  /garage layout assign -z dc1 -c 1G "$NODE_ID"
+if garage status 2>&1 | grep -q "NO ROLE ASSIGNED"; then
+  NODE_ID=$(garage node id -q 2>/dev/null | tail -1 | cut -d@ -f1)
+  garage layout assign -z dc1 -c 1G "$NODE_ID" >&2
   # Garage's own suggested next version from \`layout show\` — never a
   # hardcoded/incremented guess, or Garage rejects the apply.
-  VERSION=$(/garage layout show 2>/dev/null | grep -oE 'version [0-9]+' | tail -1 | grep -oE '[0-9]+')
-  /garage layout apply --version "$VERSION"
+  VERSION=$(garage layout show 2>/dev/null | grep -oE 'version [0-9]+' | tail -1 | grep -oE '[0-9]+')
+  garage layout apply --version "$VERSION" >&2
 fi
 
-/garage key list 2>/dev/null | grep -q "app-key" || /garage key import "$ACCESS_KEY" "$SECRET_KEY" --name app-key
-/garage bucket list 2>/dev/null | grep -qE "(^| )$BUCKET( |$)" || /garage bucket create "$BUCKET"
-/garage bucket allow --read --write --owner "$BUCKET" --key app-key
-
-wait "$SERVER_PID"
+garage key list 2>/dev/null | grep -q "app-key" || garage key import "${accessKey}" "${secretKey}" -n app-key --yes >&2
+garage bucket list 2>/dev/null | grep -qE "(^| )${bucket}( |\$)" || garage bucket create "${bucket}" >&2
+garage bucket allow --read --write --owner "${bucket}" --key app-key >&2
 `;
 }

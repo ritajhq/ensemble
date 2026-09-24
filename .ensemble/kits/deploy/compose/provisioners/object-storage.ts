@@ -1,6 +1,6 @@
 import * as KitSdk from "@ensemble/kit-sdk";
 import { composeSecretWiring } from "../secret-wiring.ts";
-import { garageBootstrapScript, garageToml } from "./garage-config.ts";
+import { garageSeedScript, garageToml } from "./garage-config.ts";
 
 const GARAGE_IMAGE = "dxflrs/garage:v1.0.1";
 const S3_API_PORT = 3900;
@@ -27,15 +27,18 @@ function requiredCredential(
 }
 
 /**
- * Fulfills `object-storage` (Garage) on compose. Garage's own CLI, not a
- * declarative config file, is what creates the layout/bucket/key
- * (`garage-config.ts`'s own comment on `garageBootstrapScript`), so the
- * container's entrypoint is that bootstrap script rather than the `garage`
- * binary directly. `class: critical` gets a persistent named volume for
- * `/var/lib/garage`, same convention `relational`'s own provisioner already
- * uses for its data volume — anything less than critical is ephemeral,
- * losing the bucket's layout/keys/objects on every restart (acceptable for
- * a "spin it up for now" instance, not for one meant to keep data).
+ * Fulfills `object-storage` (Garage) on compose. The service runs Garage's own
+ * image entrypoint against the generated config — deliberately: Garage's
+ * layout/bucket/key state is only ever created through Garage's own CLI, and
+ * the official image is `scratch`, so there is no shell in which an entrypoint
+ * script could drive it. That CLI work is declared as an `initCommand`
+ * instead, for the core to run from the host once the apply has brought the
+ * container up (`garageSeedScript`). `class: critical` gets a persistent named
+ * volume for `/var/lib/garage`, same convention `relational`'s own provisioner
+ * already uses for its data volume — anything less than critical is ephemeral,
+ * losing the bucket's layout/keys/objects on every restart (acceptable for a
+ * "spin it up for now" instance, not for one meant to keep data; the seed
+ * command simply re-seeds the fresh container).
  */
 export function objectStorageProvisioner(): KitSdk.Deploy.Provisioner {
   return {
@@ -65,7 +68,6 @@ export function objectStorageProvisioner(): KitSdk.Deploy.Provisioner {
       );
 
       const tomlConfigName = `${request.name}-garage-toml`;
-      const bootstrapConfigName = `${request.name}-garage-bootstrap`;
       const critical = request.class === "critical";
       const volumeName = `${request.name}-data`;
 
@@ -76,16 +78,9 @@ export function objectStorageProvisioner(): KitSdk.Deploy.Provisioner {
           content: {
             service: {
               image: GARAGE_IMAGE,
-              entrypoint: ["/bin/sh", "/bootstrap.sh"],
               ports: [`${S3_API_PORT}:${S3_API_PORT}`],
-              environment: {
-                ACCESS_KEY: accessKey,
-                SECRET_KEY: secretKey,
-                BUCKET: bucket,
-              },
               configs: [
                 { source: tomlConfigName, target: "/etc/garage.toml" },
-                { source: bootstrapConfigName, target: "/bootstrap.sh" },
               ],
               ...(critical
                 ? { volumes: [`${volumeName}:/var/lib/garage`] }
@@ -93,7 +88,6 @@ export function objectStorageProvisioner(): KitSdk.Deploy.Provisioner {
             },
             configs: {
               [tomlConfigName]: { content: await garageToml(request.name) },
-              [bootstrapConfigName]: { content: garageBootstrapScript() },
             },
             ...(critical ? { volumes: { [volumeName]: {} } } : {}),
           },
@@ -102,6 +96,15 @@ export function objectStorageProvisioner(): KitSdk.Deploy.Provisioner {
           url: `http://${request.name}:${S3_API_PORT}`,
           bucket,
         },
+        initCommands: [{
+          name: `${request.name}-garage-seed`,
+          run: garageSeedScript({
+            service: request.name,
+            bucket,
+            accessKey,
+            secretKey,
+          }),
+        }],
       };
     },
   };

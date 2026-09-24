@@ -2,6 +2,7 @@ import type { DependencyGraph } from "../resolve/dependency-graph.ts";
 import type { Artifacts } from "../render/artifact.ts";
 import type { Kit } from "../kit/kit.ts";
 import type { ArtifactSink } from "./artifact-sink.ts";
+import { InitRunner } from "./init-runner.ts";
 
 /** Thrown when `--watch` is requested but the target's kit has no watch command for it — a capability gap, not a bug: the manifest and target are both valid, this target's runtime just can't watch. */
 export class WatchNotSupportedError extends Error {
@@ -29,9 +30,17 @@ export class WatchNotSupportedError extends Error {
  * rebuild-on-change coordinator (the reserved companion-watcher seam) share
  * one signal across both this and `runBuild`'s own `RunBuildOptions.signal`
  * in `@ensemble/core`, without kit-sdk ever depending on dax.
+ *
+ * A watch session is an apply, so the render pass's own init commands run here
+ * too (`InitRunner`) — once the watch command has been spawned, since bringing
+ * the stack up is exactly what that command does, and every init command is
+ * free to poll until whatever it seeds is actually reachable.
  */
 export class WatchRunner {
-  constructor(private readonly sink: ArtifactSink) {}
+  constructor(
+    private readonly sink: ArtifactSink,
+    private readonly initRunner: InitRunner = new InitRunner(),
+  ) {}
 
   async watch(
     artifacts: Artifacts,
@@ -43,7 +52,8 @@ export class WatchRunner {
     const presented = await kit.present(artifacts, graph);
     await this.sink.write(presented);
 
-    const command = await kit.watchCommand?.(this.sink.pathFor(presented), name);
+    const artifactPath = this.sink.pathFor(presented);
+    const command = await kit.watchCommand?.(artifactPath, name);
     if (!command) {
       throw new WatchNotSupportedError(
         "This kit has no watch command for the current target — pick a runtime/target that supports watching.",
@@ -52,6 +62,12 @@ export class WatchRunner {
 
     const [executable, ...args] = command;
     const process = new Deno.Command(executable, { args }).spawn();
+
+    await this.initRunner.run(artifacts.initCommands ?? [], {
+      artifactPath,
+      deploymentName: name,
+    });
+
     const teardown = () => {
       try {
         process.kill("SIGTERM");

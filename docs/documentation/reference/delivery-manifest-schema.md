@@ -54,9 +54,12 @@ instance has no equivalent hook.
 `objectStorageResource` also accepts optional `accessKeySecret`/
 `secretKeySecret` — names of `secrets` entries supplying static S3
 credentials. `compose` (Garage) requires both, since Garage has no other way
-to get static credentials; `aws` (a plain `AWS::S3::Bucket`) drops both
-silently, since IAM always mints its own access keys rather than importing a
-caller-chosen pair — a manifest targeting aws only can omit them.
+to get static credentials — and in Garage's own format, which it validates
+when it imports the pair after the bucket's container comes up: the access
+key is `GK` followed by 24 hex characters, the secret key 64 hex characters.
+`aws` (a plain `AWS::S3::Bucket`) drops both silently, since IAM always mints
+its own access keys rather than importing a caller-chosen pair — a manifest
+targeting aws only can omit them.
 
 `gatewayResource` is implemented only on `compose` (nginx) today — declaring
 one targeting aws has no provisioner to satisfy it, the same kind of

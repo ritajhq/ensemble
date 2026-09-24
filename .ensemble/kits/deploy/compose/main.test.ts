@@ -4,7 +4,7 @@ import { assertSnapshot } from "@std/testing/snapshot";
 import * as KitSdk from "@ensemble/kit-sdk";
 import composeKit from "./main.ts";
 import { assembleComposeDocument } from "./compose-document.ts";
-import { garageBootstrapScript } from "./provisioners/garage-config.ts";
+import { garageSeedScript } from "./provisioners/garage-config.ts";
 
 const FIXTURE = fromFileUrl(
   new URL(
@@ -518,7 +518,7 @@ deploy:
     s3-secret-key: { source: environment }
 `;
 
-Deno.test("compose kit: object storage renders as a Garage service seeded with the declared credentials, referenceable by other resources", async () => {
+Deno.test("compose kit: object storage renders as a Garage service on its own image entrypoint, with the seeding declared as an apply-time init command instead of an entrypoint script (the image has no shell)", async () => {
   const workload = new KitSdk.Deploy.Manifest.Parser().parse(
     WITH_OBJECT_STORAGE,
   );
@@ -542,19 +542,11 @@ Deno.test("compose kit: object storage renders as a Garage service seeded with t
   };
 
   assertEquals(document.services.bucket.image, "dxflrs/garage:v1.0.1");
-  assertEquals(document.services.bucket.entrypoint, [
-    "/bin/sh",
-    "/bootstrap.sh",
-  ]);
+  assertEquals("entrypoint" in document.services.bucket, false);
+  assertEquals("environment" in document.services.bucket, false);
   assertEquals(document.services.bucket.ports, ["3900:3900"]);
-  assertEquals(document.services.bucket.environment, {
-    ACCESS_KEY: "${S3_ACCESS_KEY}",
-    SECRET_KEY: "${S3_SECRET_KEY}",
-    BUCKET: "my-bucket",
-  });
   assertEquals(document.services.bucket.configs, [
     { source: "bucket-garage-toml", target: "/etc/garage.toml" },
-    { source: "bucket-garage-bootstrap", target: "/bootstrap.sh" },
   ]);
   assertEquals(document.services.bucket.volumes, [
     "bucket-data:/var/lib/garage",
@@ -564,15 +556,21 @@ Deno.test("compose kit: object storage renders as a Garage service seeded with t
   const toml = document.configs!["bucket-garage-toml"].content;
   assertEquals(toml.includes('api_bind_addr = "[::]:3900"'), true);
   assertEquals(toml.includes("rpc_secret ="), true);
-  assertEquals(
-    document.configs!["bucket-garage-bootstrap"].content,
-    garageBootstrapScript(),
-  );
 
   assertEquals(document.services.api.environment, {
     BUCKET_ENDPOINT: "http://bucket:3900",
     BUCKET_NAME: "my-bucket",
   });
+
+  assertEquals(artifacts.initCommands, [{
+    name: "bucket-garage-seed",
+    run: garageSeedScript({
+      service: "bucket",
+      bucket: "my-bucket",
+      accessKey: "${S3_ACCESS_KEY}",
+      secretKey: "${S3_SECRET_KEY}",
+    }),
+  }]);
 });
 
 const WITH_OBJECT_STORAGE_MISSING_CREDENTIALS = `
