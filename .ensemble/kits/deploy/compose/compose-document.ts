@@ -27,10 +27,16 @@ interface ComposeFragmentContent {
  * `external: true` — the only way a network name reaches a service today is
  * a `${external.*}` reference (Section 5: ens provisions no network of its
  * own), so every one collected here is by definition someone else's, never
- * ens's to define. A top-level `configs:` collects every fragment's own
- * inline config content (nginx.conf, garage.toml, ...), same "declare once,
+ * ens's to define — with one exception (`PROJECT_NETWORK` below), which a
+ * service lists only to *add* compose's own implicit project network
+ * alongside an external one, as the gateway does so it can reach the
+ * services it routes to. A top-level `configs:` collects every fragment's own
+ * inline config content (Caddyfile, garage.toml, ...), same "declare once,
  * reference by name from the service" shape as `volumes:`.
  */
+
+/** Compose's own implicit per-project network: every service that declares no `networks` of its own is attached to it, and a service can list it explicitly to join it *in addition* to an external one. It is compose's to create, never ens's to declare `external: true` — so it never reaches the top-level `networks:` block, and the fragment's own service entry is left to reference it by this name. */
+export const PROJECT_NETWORK = "default";
 export function assembleComposeDocument(
   artifacts: KitSdk.Deploy.Render.Artifacts,
   graph: KitSdk.Deploy.Resolve.DependencyGraph,
@@ -62,6 +68,7 @@ export function assembleComposeDocument(
       for (
         const name of (content.service.networks as string[] | undefined) ?? []
       ) {
+        if (name === PROJECT_NETWORK) continue;
         networks[name] = { external: true };
       }
     }

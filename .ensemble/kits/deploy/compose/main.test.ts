@@ -694,7 +694,7 @@ async function renderNetworkingWorkload(workload: KitSdk.Deploy.Workload) {
   return { artifacts, graph };
 }
 
-Deno.test("compose kit: a gateway renders as an nginx service with generated nginx.conf, joined to its declared network", async () => {
+Deno.test("compose kit: a gateway renders as a Caddy service on its ingress network *and* the project network, with a generated Caddyfile", async () => {
   const workload = new KitSdk.Deploy.Manifest.Parser().parse(WITH_GATEWAY);
   const { artifacts, graph } = await renderNetworkingWorkload(workload);
   const document = assembleComposeDocument(artifacts, graph) as {
@@ -703,29 +703,66 @@ Deno.test("compose kit: a gateway renders as an nginx service with generated ngi
       ports?: string[];
       networks?: string[];
       configs?: unknown[];
+      volumes?: string[];
     }>;
     networks?: Record<string, unknown>;
+    volumes?: Record<string, unknown>;
     configs?: Record<string, { content: string }>;
   };
 
-  assertEquals(document.services.gateway.image, "nginx:1.27-alpine");
+  assertEquals(document.services.gateway.image, "caddy:2.11-alpine");
   assertEquals(document.services.gateway.ports, ["80:80"]);
-  assertEquals(document.services.gateway.networks, ["edge"]);
+  // Both networks: the manifest's own ingress network, plus the project's,
+  // which is where every compute it routes to actually lives — a proxy can
+  // only reach an upstream it shares a network with.
+  assertEquals(document.services.gateway.networks, ["edge", "default"]);
   assertEquals(document.services.gateway.configs, [
-    { source: "gateway-nginx-conf", target: "/etc/nginx/nginx.conf" },
+    { source: "gateway-caddyfile", target: "/etc/caddy/Caddyfile" },
   ]);
+  assertEquals(document.services.gateway.volumes, ["gateway-data:/data"]);
+  // `default` is compose's own network to create, never one to declare
+  // `external: true`.
   assertEquals(document.networks, { edge: { external: true } });
+  assertEquals(document.volumes, { "gateway-data": {} });
 
-  const conf = document.configs!["gateway-nginx-conf"].content;
-  assertEquals(conf.includes("server_name example.localhost;"), true);
+  const conf = document.configs!["gateway-caddyfile"].content;
+  assertEquals(conf.includes("http://example.localhost {\n"), true);
+  // A plain path is a passthrough `handle`; `strip: true` is `handle_path`.
   assertEquals(
-    conf.includes("location /api/ {\n      proxy_pass http://api:8080;"),
+    conf.includes("handle /api/* {\n\t\treverse_proxy http://api:8080\n\t}"),
     true,
   );
   assertEquals(
-    conf.includes("location /strip/ {\n      proxy_pass http://api:8080/;"),
+    conf.includes(
+      "handle_path /strip/* {\n\t\treverse_proxy http://api:8080\n\t}",
+    ),
     true,
   );
+});
+
+const WITH_TLS_GATEWAY = WITH_GATEWAY.replace(
+  "      network: ${external.edge.name}",
+  "      network: ${external.edge.name}\n      tls: internal",
+);
+
+Deno.test("compose kit: tls: internal publishes HTTPS on 8443 and gets Caddy minting its own certs, with the local CA's /data on a named volume so recreating the gateway doesn't invalidate it", async () => {
+  const workload = new KitSdk.Deploy.Manifest.Parser().parse(WITH_TLS_GATEWAY);
+  const { artifacts, graph } = await renderNetworkingWorkload(workload);
+  const document = assembleComposeDocument(artifacts, graph) as {
+    services: Record<string, { ports?: string[]; volumes?: string[] }>;
+    volumes?: Record<string, unknown>;
+    configs?: Record<string, { content: string }>;
+  };
+
+  // HTTPS only: Caddy's own HTTP→HTTPS redirect names its 443, which a
+  // host-side 8443 mapping can't reflect, so publishing 80 alongside it would
+  // only redirect browsers to a port nothing is listening on.
+  assertEquals(document.services.gateway.ports, ["8443:443"]);
+  assertEquals(document.services.gateway.volumes, ["gateway-data:/data"]);
+  assertEquals(document.volumes, { "gateway-data": {} });
+
+  const conf = document.configs!["gateway-caddyfile"].content;
+  assertEquals(conf.includes("example.localhost {\n\ttls internal\n"), true);
 });
 
 Deno.test("compose kit: rendering the same workload twice produces byte-identical presented content (G5)", async () => {

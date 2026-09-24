@@ -69,7 +69,7 @@ key is `GK` followed by 24 hex characters, the secret key 64 hex characters.
 its own access keys rather than importing a caller-chosen pair — a manifest
 targeting aws only can omit them.
 
-`gatewayResource` is implemented only on `compose` (nginx) today — declaring
+`gatewayResource` is implemented only on `compose` (Caddy) today — declaring
 one targeting aws has no provisioner to satisfy it, the same kind of
 deliberate gap `storage.volume` had before it had a second target. Its
 `routes` array is shallow at the schema level (each entry's real shape,
@@ -79,9 +79,12 @@ forwarded unchanged) or `{ match, strip: true }` to strip the matched prefix
 before forwarding; `target.service` names the compute to route to as a plain
 string, and `target.port` is usually `${compute.<name>.<port>}` — split
 apart rather than one combined reference, since a compute-port reference
-alone always bakes to a bare number, never the compute's own name. `tls` is
-accepted but not yet rendered — the compose provisioner always serves plain
-HTTP regardless of its value.
+alone always bakes to a bare number, never the compute's own name. `tls:
+internal` is rendered on `compose`: Caddy mints its own local CA and serves
+HTTPS on 8443, keeping that CA on a named volume so a recreated gateway
+doesn't invalidate a certificate you already trusted. Any other `tls` value
+is accepted but not rendered, and leaving it unset keeps the plain-HTTP
+gateway.
 
 ## Generic resource shapes
 

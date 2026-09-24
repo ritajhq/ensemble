@@ -354,7 +354,7 @@
       }
     },
     "gatewayResource": {
-      "description": "A `gateway.v1` entry (kit-sdk/deploy/contracts/seeds/gateway.ts) — an HTTP ingress that host/path-routes to compute targets. Implemented only on compose today (nginx); declaring one targeting aws has no provisioner to satisfy it.",
+      "description": "A `gateway.v1` entry (kit-sdk/deploy/contracts/seeds/gateway.ts) — an HTTP ingress that host/path-routes to compute targets. Implemented only on compose today (Caddy); declaring one targeting aws has no provisioner to satisfy it.",
       "type": "object",
       "required": ["type", "network", "routes"],
       "properties": {
@@ -381,7 +381,7 @@
           "items": { "$ref": "#/definitions/gatewayRoute" }
         },
         "tls": {
-          "description": "Accepted but not yet implemented by the compose provisioner, which always serves plain HTTP regardless of its value.",
+          "description": "Certificate strategy. `internal` serves HTTPS from a locally-minted, locally-trusted CA (the compose provisioner renders Caddy's `tls internal` and publishes 8443); any other value is accepted but not rendered, leaving a plain-HTTP gateway.",
           "type": "string"
         }
       }

@@ -28,12 +28,13 @@ import { ResourceContract } from "../contract.ts";
  * that would only ever resolve to a compound value nowhere else in the
  * grammar does.
  *
- * `tls` is accepted here but not yet implemented by the compose provisioner,
- * which always serves plain HTTP regardless of its value — a real cert
- * pipeline (self-signed for `internal`, ACME/real for anything else) is a
- * genuine feature nobody has asked for yet, so it isn't invented ahead of
- * that need; the param is declared now so a manifest that already states its
- * intent doesn't have to change shape once TLS termination lands.
+ * `tls` names the certificate strategy. `internal` is implemented on
+ * compose: Caddy mints and rotates its own local CA and leaf certs, so the
+ * gateway serves HTTPS (on host port 8443) with nothing to configure beyond
+ * that one directive. Any other value is accepted but not rendered — an
+ * ACME/public pipeline is a genuine feature nobody has asked for yet, so it
+ * isn't invented ahead of that need — and an unset `tls` keeps the plain-HTTP
+ * gateway it has always been.
  */
 export const gatewayV1: ResourceContract = new ResourceContract(
   "networking",
