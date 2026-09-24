@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/ensemble-logo.png" alt="Ensemble logo" width="80" />
+  <img src="docs/branding/logo.png" alt="Ensemble logo" width="80" />
 </p>
 
 <h1 align="center">Ensemble</h1>
