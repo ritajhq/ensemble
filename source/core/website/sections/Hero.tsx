@@ -7,7 +7,7 @@ import { GITHUB_URL } from "../constants.ts";
 
 const LINKS = [
   { label: "Explore the repo", href: GITHUB_URL, icon: RepoIcon },
-  { label: "Read the docs", href: `${GITHUB_URL}#readme`, icon: DocsIcon },
+  { label: "Read the docs", href: "/docs", icon: DocsIcon },
 ];
 
 const CHECKS = ["Single native binary", "MIT licensed"];
@@ -25,7 +25,7 @@ export function Hero() {
         </div>
         <div className="flex items-center gap-5">
           <a
-            href={`${GITHUB_URL}#readme`}
+            href="/docs"
             className="text-sm font-medium text-slate-600 transition hover:text-blue-600"
           >
             Documentation
@@ -52,13 +52,14 @@ export function Hero() {
           </a>
 
           <h1 className="mt-5 max-w-3xl font-serif text-4xl font-bold leading-[1.15] tracking-tight text-slate-900 lg:text-[4.25rem] lg:leading-18">
-            A workspace orchestrator for <span className="text-blue-600">building</span>,{" "}
+            A workspace orchestrator for{" "}
+            <span className="text-blue-600">building</span>,{" "}
             <span className="text-emerald-600">packaging</span>, and{" "}
             <span className="text-amber-600">deploying</span> your apps.
           </h1>
           <p className="mt-6 max-w-xl text-base leading-relaxed tracking-wide text-slate-600">
-            Ensemble sets your workspace and orchestrates pluggable kits to build, package, and deploy through a
-            single CLI.
+            Ensemble sets your workspace and orchestrates pluggable kits to
+            build, package, and deploy through a single CLI.
           </p>
 
           <div className="mt-8">

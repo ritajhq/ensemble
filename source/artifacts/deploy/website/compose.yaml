@@ -2,7 +2,7 @@ services:
   git-sync:
     image: 'git-sync:latest'
     ports:
-      - '8001'
+      - '8000'
     environment:
       SYNC_DEST: /data
       REPOS: '[{"id":"docs","repo":"ritajhq/ensemble","ref":"main","path":"docs"}]'
