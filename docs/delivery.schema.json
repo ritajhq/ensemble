@@ -25,7 +25,9 @@
         "compute": {
           "description": "Compute resources (e.g. container-orchestrated workloads).",
           "type": "object",
-          "additionalProperties": { "$ref": "#/definitions/containerOrchestratedResource" }
+          "additionalProperties": {
+            "$ref": "#/definitions/containerOrchestratedResource"
+          }
         },
         "storage": {
           "description": "Storage resources (volume, or object-storage).",
@@ -45,7 +47,9 @@
         "messaging": {
           "description": "Messaging resources.",
           "type": "object",
-          "additionalProperties": { "$ref": "#/definitions/resourceDeclaration" }
+          "additionalProperties": {
+            "$ref": "#/definitions/resourceDeclaration"
+          }
         },
         "networking": {
           "description": "Networking resources (gateway, implemented only on compose today, or any other generic kind).",
@@ -70,9 +74,16 @@
         "external": {
           "description": "Resources ens does not provision, only references.",
           "type": "object",
-          "additionalProperties": { "$ref": "#/definitions/externalDeclaration" }
+          "additionalProperties": {
+            "$ref": "#/definitions/externalDeclaration"
+          }
         }
       }
+    },
+    "tasks": {
+      "description": "Commands the workload declares for a human (or a CI job) to invoke against a deployed stack, e.g. `ens delivery task <workload> <kit> <task>`. Declared here so a task can name the deployment's own identity (${deployment.name}, ${deployment.artifact}, ${deployment.root}) instead of hardcoding container, network, or artifact names.",
+      "type": "object",
+      "additionalProperties": { "$ref": "#/definitions/task" }
     }
   },
   "definitions": {
@@ -260,7 +271,14 @@
     "relationalResource": {
       "description": "A `relational.v1` database entry (kit-sdk/deploy/contracts/seeds/relational.ts).",
       "type": "object",
-      "required": ["type", "engine", "version", "user", "database", "passwordSecret"],
+      "required": [
+        "type",
+        "engine",
+        "version",
+        "user",
+        "database",
+        "passwordSecret"
+      ],
       "properties": {
         "type": {
           "type": "string",
@@ -453,6 +471,29 @@
         "name": {
           "description": "The external resource's name, as it exists outside ens's management.",
           "type": "string"
+        }
+      }
+    },
+    "task": {
+      "type": "object",
+      "description": "One command, declared by the workload. Exactly one of run or script drives it: an inline `run` is handed to `sh -c`, a `script` is resolved under ci/<workload>/scripts/ and run with `sh`. Trailing command-line arguments arrive as $1..$n. A task is invoked, never fired by a deploy; a task that exits non-zero fails that invocation only.",
+      "additionalProperties": false,
+      "properties": {
+        "run": {
+          "description": "A shell one-liner, run through `sh -c`.",
+          "type": "string",
+          "minLength": 1
+        },
+        "script": {
+          "description": "A script file under ci/<workload>/scripts/, run with `sh`. Rejects absolute paths and any `..` segment.",
+          "type": "string",
+          "minLength": 1
+        },
+        "arguments": {
+          "description": "Constants handed to the task as environment variables. A value may be a literal (string, number, boolean) or a ${...} reference resolved exactly as it would be in a resource field — plus the ${deployment.name|artifact|root} namespace, which answers what a render can't.",
+          "type": "object",
+          "additionalProperties": { "type": ["string", "number", "boolean"] },
+          "propertyNames": { "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" }
         }
       }
     }

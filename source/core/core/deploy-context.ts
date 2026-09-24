@@ -1,4 +1,4 @@
-import { join } from "@std/path";
+import { basename, join } from "@std/path";
 import { exists } from "@std/fs";
 import { load as loadEnvFile } from "@std/dotenv";
 import * as Deploy from "./deploy/index.ts";
@@ -93,6 +93,19 @@ export interface DeployContext {
   readonly workload: Deploy.Workload;
   readonly target: Deploy.Target;
   readonly registry: Deploy.Contracts.Registry;
+}
+
+/**
+ * The deployment's own scoping name, in the one shared namespace a target
+ * cares about (a compose project name, a CloudFormation stack name):
+ * `"<repo folder>-<workload>"`, not the bare workload name, so two repos — or
+ * two worktrees of one — don't collide on a single host. Exported because
+ * more than the deploy needs it: `${deployment.name}` in a task argument
+ * (`./task.ts`) hands the same string to a script, which would otherwise
+ * have to re-derive this rule and drift from it.
+ */
+export function deploymentNameFor(repoRoot: string, name: string): string {
+  return `${basename(repoRoot)}-${name}`;
 }
 
 /** Resolves a deployment's manifest and kit by name — the one place `ens deploy` and `ens deploy explain` share this lookup (`ci/<name>/delivery.yml`, `.ensemble/kits/deploy/<kit>/`), so the two commands can't drift on how a deployment is found. */

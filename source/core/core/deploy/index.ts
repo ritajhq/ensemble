@@ -6,6 +6,7 @@ export * as Terminations from "./terminations/index.ts";
 export * as Explain from "./explain/index.ts";
 export * from "./workload.ts";
 export * from "./resource.ts";
+export type { Task } from "./task.ts";
 export * from "./release.ts";
 export * from "./reference.ts";
 export * from "./development.ts";

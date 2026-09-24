@@ -199,6 +199,23 @@ export class Renderer {
       : {};
   }
 
+  /**
+   * Resolves one raw manifest value — a literal, a `${...}` reference, or a
+   * structure of either — against an already-completed render. The same
+   * resolution every resource param goes through, exposed for the one other
+   * caller holding manifest values that aren't a resource's params: a task's
+   * `arguments` (`../../task.ts`), which `ens delivery task` resolves with the
+   * deployment's own render in hand rather than inventing a second resolver
+   * that could drift from this one on what a reference means.
+   */
+  resolveManifestValue(
+    value: unknown,
+    ledger: OutputsLedger,
+    workload: Workload,
+  ): Promise<unknown> {
+    return this.resolveValue(value, ledger, workload);
+  }
+
   private async resolveValue(
     value: unknown,
     ledger: OutputsLedger,

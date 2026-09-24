@@ -255,3 +255,131 @@ Deno.test("parse: rejects a non-mapping manifest", () => {
   );
   assertEquals(error.message, "manifest must be a mapping.");
 });
+
+Deno.test("parse: tasks keep their run/script and arguments", () => {
+  const workload = parser.parse(`
+version: v1
+tasks:
+  migrate:
+    script: migrate.sh
+    arguments:
+      project: \${deployment.name}
+      attempts: 3
+      verbose: true
+  greet:
+    run: echo hello
+`);
+
+  assertEquals(workload.tasks, {
+    migrate: {
+      run: undefined,
+      script: "migrate.sh",
+      arguments: { project: "${deployment.name}", attempts: 3, verbose: true },
+    },
+    greet: { run: "echo hello", script: undefined, arguments: undefined },
+  });
+});
+
+Deno.test("parse: a task declares exactly one of run and script", () => {
+  const missing = assertThrows(
+    () => parser.parse(`version: v1\ntasks:\n  t:\n    arguments: {}`),
+    ManifestError,
+  );
+  assertEquals(
+    missing.message,
+    'manifest.tasks.t must declare exactly one of "run" (a shell one-liner) or "script" (a file under ci/<workload>/scripts/).',
+  );
+
+  const both = assertThrows(
+    () =>
+      parser.parse(
+        `version: v1\ntasks:\n  t:\n    run: echo hi\n    script: t.sh`,
+      ),
+    ManifestError,
+  );
+  assertEquals(
+    both.message,
+    'manifest.tasks.t must declare exactly one of "run" (a shell one-liner) or "script" (a file under ci/<workload>/scripts/).',
+  );
+});
+
+Deno.test("parse: a task's run must be a non-empty string", () => {
+  const error = assertThrows(
+    () => parser.parse(`version: v1\ntasks:\n  t:\n    run: ""`),
+    ManifestError,
+  );
+  assertEquals(
+    error.message,
+    "manifest.tasks.t.run must be a non-empty string.",
+  );
+});
+
+Deno.test("parse: a task's script must stay inside the workload's own scripts/ folder", () => {
+  const absolute = assertThrows(
+    () => parser.parse(`version: v1\ntasks:\n  t:\n    script: /etc/passwd`),
+    ManifestError,
+  );
+  assertEquals(
+    absolute.message,
+    'manifest.tasks.t.script must be a path inside the workload\'s own scripts/ folder (got "/etc/passwd").',
+  );
+
+  const traversing = assertThrows(
+    () => parser.parse(`version: v1\ntasks:\n  t:\n    script: ../../x.sh`),
+    ManifestError,
+  );
+  assertEquals(
+    traversing.message,
+    'manifest.tasks.t.script must be a path inside the workload\'s own scripts/ folder (got "../../x.sh").',
+  );
+});
+
+Deno.test("parse: a task argument name has to be shell-safe, because it becomes an environment variable", () => {
+  const error = assertThrows(
+    () =>
+      parser.parse(
+        `version: v1\ntasks:\n  t:\n    run: x\n    arguments:\n      web-port: 1`,
+      ),
+    ManifestError,
+  );
+  assertEquals(
+    error.message,
+    'manifest.tasks.t.arguments.web-port: an argument name becomes an environment variable for the task, so it must be a shell-safe identifier (/^[A-Za-z_][A-Za-z0-9_]*$/) — a dash, say, would make "$web-port" read as a different variable in a shell.',
+  );
+});
+
+Deno.test("parse: a task argument must be a single value", () => {
+  const error = assertThrows(
+    () =>
+      parser.parse(
+        `version: v1\ntasks:\n  t:\n    run: x\n    arguments:\n      files: [a, b]`,
+      ),
+    ManifestError,
+  );
+  assertEquals(
+    error.message,
+    "manifest.tasks.t.arguments.files must be a string, number, or boolean (or a ${...} reference to one).",
+  );
+});
+
+Deno.test("parse: a task rejects an unknown key with a near-miss suggestion", () => {
+  const error = assertThrows(
+    () =>
+      parser.parse(
+        `version: v1\ntasks:\n  t:\n    run: x\n    scrip: t.sh`,
+      ),
+    ManifestError,
+  );
+  assertEquals(
+    error.message,
+    'manifest.tasks.t has an unknown key "scrip". Did you mean "script"?',
+  );
+});
+
+Deno.test("parse: tasks must be a mapping", () => {
+  const error = assertThrows(
+    () => parser.parse(`version: v1\ntasks: not-a-mapping`),
+    ManifestError,
+  );
+  assertEquals(error.message, "manifest.tasks must be a mapping.");
+});

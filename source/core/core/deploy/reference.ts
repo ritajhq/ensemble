@@ -1,11 +1,13 @@
 /**
  * A parsed `${category.name.output}` reference, or its `${release.name}` sugar
  * (which targets the release's primary output — `output` is left undefined for
- * that shorthand, since a release's primary output has no name to state).
- * Domain-agnostic: `category` can be any `Category` or the sibling `"release"`,
- * so a reference targets any producer's declared output — a deploy resource
- * today, a pack release already, and any future producer without a grammar
- * change.
+ * that shorthand, since a release's primary output has no name to state) and
+ * the sibling `${deployment.<name>}` form (`../task.ts`: a deployment's own
+ * identity, which is not a resource and so is resolved from the invocation
+ * context rather than from the render ledger). Domain-agnostic: `category`
+ * can be any `Category` or one of those siblings, so a reference targets any
+ * producer's declared output — a deploy resource today, a pack release
+ * already, and any future producer without a grammar change.
  */
 export interface Reference {
   readonly category: string;
@@ -47,10 +49,10 @@ export class ReferenceSyntax {
     }
 
     const [category, name, output] = segments;
-    if (category === "release") {
+    if (category === "release" || category === "deployment") {
       if (segments.length !== 2) {
         throw new ReferenceSyntaxError(
-          `"${raw}" is not a valid reference (expected \${release.<name>}).`,
+          `"${raw}" is not a valid reference (expected \${${category}.<name>}).`,
         );
       }
       return { category, name };
