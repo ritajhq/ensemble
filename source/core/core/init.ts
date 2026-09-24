@@ -29,12 +29,19 @@ const SKELETON_DIRS = [
 
 const GITIGNORE_TEMPLATE = `.ensemble/kits/**/.bin/
 .ensemble/publish.env
+.ensemble/deploy/
 node_modules/
 `;
 
+// `!deploy/` *and* `!deploy/**`: un-ignoring the directory alone only lets git
+// descend into it — `*` still matches each entry inside, so the rendered
+// documents under it stay ignored. Verified against a scratch repo: with the
+// bare `!deploy` this template used to carry, `source/artifacts/deploy/*.yaml`
+// never showed up as untracked.
 const ARTIFACTS_GITIGNORE_TEMPLATE = `*
 !.gitignore
-!deploy
+!deploy/
+!deploy/**
 `;
 
 const README_TEMPLATE = `# %NAME%
@@ -56,6 +63,8 @@ each live in their own top-level folder. See \`ens --help\` for the full CLI.
 - \`.ensemble/kits/{build,pack,deploy}/\` — pluggable kits doing the actual work.
 - \`.ensemble/config.yaml\` — which kit each app/ship uses (shared, git-tracked).
 - \`.ensemble/config.local.yaml\` — personal default vars (gitignored).
+- \`.ensemble/deploy/<workload>/last-rendered.txt\` — the render cache \`plan\`
+  diffs against (gitignored).
 
 ## Getting started
 
@@ -93,10 +102,15 @@ Run any command with \`--help\` for its full option list.
  * kits always match the CLI that scaffolded them, rather than whatever's
  * newest on `main`.
  */
-async function fetchKits(destDir: string, ref: string, process: ProcessRunner): Promise<void> {
+async function fetchKits(
+  destDir: string,
+  ref: string,
+  process: ProcessRunner,
+): Promise<void> {
   const scratchDir = await Deno.makeTempDir({ prefix: "ensemble-init-kits-" });
   try {
-    const git = (args: string[]) => process.exec("git", args, { cwd: scratchDir });
+    const git = (args: string[]) =>
+      process.exec("git", args, { cwd: scratchDir });
     await git(["init", "-q"]);
     await git(["remote", "add", "origin", ENSEMBLE_REPO_URL]);
     await git(["sparse-checkout", "init", "--no-cone"]);
@@ -114,7 +128,10 @@ async function fetchKits(destDir: string, ref: string, process: ProcessRunner): 
  * kits into .ensemble/kits (via a throwaway sparse checkout, not a vendored
  * clone).
  */
-export async function runInit(options: RunInitOptions, process: ProcessRunner): Promise<void> {
+export async function runInit(
+  options: RunInitOptions,
+  process: ProcessRunner,
+): Promise<void> {
   const projectDir = join(Deno.cwd(), options.name);
   if (await exists(projectDir)) {
     throw new Error(`"${projectDir}" already exists.`);
@@ -122,7 +139,9 @@ export async function runInit(options: RunInitOptions, process: ProcessRunner): 
   await ensureDir(projectDir);
 
   const installedVersion = await new SelfUpdateService().getInstalledVersion();
-  const kitsRef = installedVersion ? formatVersionTag(installedVersion) : "main";
+  const kitsRef = installedVersion
+    ? formatVersionTag(installedVersion)
+    : "main";
 
   const ensembleDir = join(projectDir, ".ensemble");
   await ensureDir(ensembleDir);
@@ -136,7 +155,14 @@ export async function runInit(options: RunInitOptions, process: ProcessRunner): 
   await Deno.writeTextFile(
     join(projectDir, "deno.json"),
     JSON.stringify(
-      { workspace: ["source/apps/**", "source/core/**", "source/libs/**", ".ensemble/kits/**"] },
+      {
+        workspace: [
+          "source/apps/**",
+          "source/core/**",
+          "source/libs/**",
+          ".ensemble/kits/**",
+        ],
+      },
       null,
       2,
     ) + "\n",
