@@ -1,5 +1,4 @@
 import { assertEquals, assertMatch } from "@std/assert";
-import * as KitSdk from "@ensemble/kit-sdk";
 import { garageSeedScript, garageToml } from "./garage-config.ts";
 
 const SEED_PARAMS = {
@@ -49,14 +48,12 @@ Deno.test("garageSeedScript: drives Garage from the host through the deployment'
 Deno.test("garageSeedScript: takes the artifact it acts on and the project it belongs to from the core's own env, never a hardcoded deployment name", () => {
   const script = garageSeedScript(SEED_PARAMS);
 
-  assertMatch(
-    script,
-    new RegExp(`"\\$${KitSdk.Deploy.Render.INIT_COMMAND_ENV.artifactPath}"`),
-  );
-  assertMatch(
-    script,
-    new RegExp(`"\\$${KitSdk.Deploy.Render.INIT_COMMAND_ENV.deploymentName}"`),
-  );
+  // The core's own names for these (`INIT_COMMAND_ENV`, `deploy/render/
+  // artifact.ts`), spelled out rather than imported: a workspace vendoring
+  // this kit may still pin a kit-sdk that predates them, while the core that
+  // runs the script always ships them.
+  assertEquals(script.includes('"$ENS_ARTIFACT_PATH"'), true);
+  assertEquals(script.includes('"$ENS_DEPLOYMENT_NAME"'), true);
 });
 
 Deno.test("garageSeedScript: polls until Garage answers, with a bounded wait rather than an unbounded one", () => {
