@@ -1,10 +1,10 @@
 {
   "name": "@ensemble/kit-sdk",
-  "version": "0.26.0",
+  "version": "0.27.0",
   "license": "MIT",
   "exports": "./index.ts",
   "imports": {
-    "@ensemble/core": "jsr:@ensemble/core@^0.26.0",
-    "@ensemble/host": "jsr:@ensemble/host@^0.26.0"
+    "@ensemble/core": "jsr:@ensemble/core@^0.27.0",
+    "@ensemble/host": "jsr:@ensemble/host@^0.27.0"
   }
 }
