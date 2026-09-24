@@ -12,7 +12,7 @@ snapshot[`compose kit: renders Appendix A's worked example (golden snapshot) 1`]
       },
       image: "ens-local/web:dev",
       ports: [
-        "8080:8080",
+        "8080",
       ],
     },
     primary: {

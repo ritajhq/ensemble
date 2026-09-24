@@ -137,7 +137,7 @@ Deno.test("compose kit: matches Appendix A's documented content exactly", async 
   assertEquals(document.services.api, {
     image: "ens-local/web:dev",
     depends_on: ["primary"],
-    ports: ["8080:8080"],
+    ports: ["8080"],
     environment: {
       DATABASE_URL: "postgres://appuser:${DB_PASSWORD}@primary:5432/appdb",
     },
@@ -207,6 +207,42 @@ Deno.test("compose kit: watchCommand runs docker compose watch scoped by the dep
       "watch",
     ],
   );
+});
+
+const WITH_SHARED_PORT = `
+version: v1
+release:
+  web: { kit: docker }
+deploy:
+  compute:
+    web-a:
+      type: container-orchestrated
+      image: \${release.web}
+      replicas: 1
+      ports:
+        http: 8000
+    web-b:
+      type: container-orchestrated
+      image: \${release.web}
+      replicas: 1
+      ports:
+        http: 8000
+`;
+
+Deno.test("compose kit: computes declaring the same container port each publish it on their own ephemeral host port — the number is what the container listens on, never a host port to pin", async () => {
+  const workload = new KitSdk.Deploy.Manifest.Parser().parse(WITH_SHARED_PORT);
+  const { artifacts, graph } = await renderWorkload(
+    workload,
+    composeKit,
+    releaseLocator,
+    "local",
+  );
+  const document = assembleComposeDocument(artifacts, graph) as {
+    services: Record<string, { ports?: string[] }>;
+  };
+
+  assertEquals(document.services["web-a"].ports, ["8000"]);
+  assertEquals(document.services["web-b"].ports, ["8000"]);
 });
 
 const WITH_DEVELOPMENT_BLOCK = `
@@ -544,7 +580,7 @@ Deno.test("compose kit: object storage renders as a Garage service on its own im
   assertEquals(document.services.bucket.image, "dxflrs/garage:v1.0.1");
   assertEquals("entrypoint" in document.services.bucket, false);
   assertEquals("environment" in document.services.bucket, false);
-  assertEquals(document.services.bucket.ports, ["3900:3900"]);
+  assertEquals(document.services.bucket.ports, ["3900"]);
   assertEquals(document.services.bucket.configs, [
     { source: "bucket-garage-toml", target: "/etc/garage.toml" },
   ]);
@@ -562,15 +598,22 @@ Deno.test("compose kit: object storage renders as a Garage service on its own im
     BUCKET_NAME: "my-bucket",
   });
 
-  assertEquals(artifacts.initCommands, [{
-    name: "bucket-garage-seed",
-    run: garageSeedScript({
-      service: "bucket",
-      bucket: "my-bucket",
-      accessKey: "${S3_ACCESS_KEY}",
-      secretKey: "${S3_SECRET_KEY}",
-    }),
-  }]);
+  // Read off the render pass structurally rather than through the kit-sdk
+  // type: a workspace vendoring this kit may still pin a kit-sdk whose
+  // `Artifacts` predates `initCommands`, while the core reading the field
+  // always ships it.
+  assertEquals(
+    (artifacts as { initCommands?: unknown }).initCommands,
+    [{
+      name: "bucket-garage-seed",
+      run: garageSeedScript({
+        service: "bucket",
+        bucket: "my-bucket",
+        accessKey: "${S3_ACCESS_KEY}",
+        secretKey: "${S3_SECRET_KEY}",
+      }),
+    }],
+  );
 });
 
 const WITH_OBJECT_STORAGE_MISSING_CREDENTIALS = `

@@ -1,11 +1,25 @@
 import * as KitSdk from "@ensemble/kit-sdk";
 import { composeSecretWiring } from "../secret-wiring.ts";
 
-/** Named ports (`{ http: 8080 }`) as compose's `"HOST:CONTAINER"` port-mapping strings — same port on both sides, since the manifest declares one number per name, not a separate host port. */
+/**
+ * Named ports (`{ http: 8080 }`) as compose port-mapping strings — the
+ * container port alone (`"8080"`), which compose publishes on an ephemeral
+ * host port of its own choosing. Deliberately never `"8080:8080"`: the
+ * manifest declares the port the container *listens on*, and a container port
+ * is private to its own container, so several computes sharing one is normal
+ * (this stack's three frontends and its `cover` server all listen on 8000).
+ * Copying that number onto the host instead hands that normal sharing to the
+ * host's single global port space, where the second service to declare 8000
+ * simply fails to bind. Everything that needs a compute reaches it over the
+ * compose network by name (`http://<service>:<port>` — what the gateway's own
+ * `proxy_pass` and every `${compute.*}` reference resolve to); the ephemeral
+ * mapping is only a host-side convenience, findable with `docker compose port
+ * <service> <port>`.
+ */
 function portMappings(ports: unknown): string[] {
   if (typeof ports !== "object" || ports === null) return [];
   return Object.values(ports as Record<string, number>).map((port) =>
-    `${port}:${port}`
+    `${port}`
   );
 }
 
@@ -85,7 +99,8 @@ function developBlock(
 /**
  * Fulfills `container-orchestrated` on compose: an image, its environment
  * (`env` plus any `envSecrets`, each resolved to compose's own `${VAR}`
- * interpolation placeholder), published ports, any networks it attaches to,
+ * interpolation placeholder), its declared ports (each published on an
+ * ephemeral host port — see `portMappings`), any networks it attaches to,
  * any `mounts` as service-level `volumes:` entries, and — when the resource
  * declares one — its `develop.watch` sync wiring. `replicas` has no
  * compose-native equivalent
