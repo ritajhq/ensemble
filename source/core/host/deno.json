@@ -9,7 +9,7 @@
     "@std/fs": "jsr:@std/fs@1.0.24",
     "@david/dax": "jsr:@david/dax@0.42.0",
     "@david/which": "jsr:@david/which@0.4.2",
-    "@ensemble/core": "jsr:@ensemble/core@^0.25.0"
+    "@ensemble/core": "jsr:@ensemble/core@^0.26.0"
   },
-  "version": "0.25.0"
+  "version": "0.26.0"
 }
