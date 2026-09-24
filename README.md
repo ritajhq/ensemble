@@ -344,15 +344,23 @@ storage and gateway the manifest declares, and keeps watching. You reach the
 services through the gateway's hosts (e.g. `https://<name>.localhost:8443`, with
 a self-signed cert under `tls: internal`).
 
-**5. Run any one-off provisioning.** Some setup can't be declared in the
-manifest yet — provisioning an object-storage bucket, running an app's own schema
-migration. These live as scripts under `ci/scripts/` and run once after the stack
-is up (portal's, for example):
+**5. Run any one-off provisioning.** Work that can only happen *after* the stack
+is up — an app's own schema migration, trusting the gateway's local CA — is
+declared under `tasks` in the manifest and invoked by hand (a task is never fired
+by a deploy, so a failing one can't fail a deployment):
 
 ```sh
-sh ci/scripts/garage-bootstrap.sh   # mint S3 credentials, feed them back as vars
-sh ci/scripts/auth-migrate.sh       # create the auth schema's tables
+ens delivery task <name> <kit>                  # list what the workload declares
+ens delivery task <name> <kit> auth-migrate     # e.g. portal's auth schema migration
 ```
+
+A task's `arguments` reach its script as environment variables, resolved from the
+same manifest values the deploy's own env blocks use, plus `${deployment.name}`,
+`${deployment.artifact}` and `${deployment.root}` for the deployment's own
+identity — which is what lets that script address the stack through
+`docker compose -p "$project" -f "$artifact"` rather than hardcoding the
+container, network, and artifact names compose derives from the deployment. See
+[`tasks` in the manifest schema](docs/documentation/reference/delivery-manifest-schema.md#tasks).
 
 > **Note.** A large database seed loaded through `docker-entrypoint-initdb.d`
 > keeps Postgres on a local-only socket until it finishes, so a migration run too
