@@ -156,6 +156,52 @@ async function collectRemaining(
   };
 }
 
+/**
+ * Prints the ships/core libs that would be packed and published for `tag`
+ * and asks to proceed. Returns true straight away when there's nothing to
+ * do — nothing to confirm then — and otherwise returns whatever the user
+ * answered. Callers must check this *before* making any local change (the
+ * core-lib stamp, the commit, the tag) so declining truly leaves nothing
+ * behind; `runReleaseCeremony` itself never asks.
+ */
+async function confirmReleaseWork(
+  repoRoot: string,
+  ports: Core.Ports,
+  tag: string,
+  filter: ReleaseFilter,
+): Promise<boolean> {
+  const state = await new Core.Release.ReleaseStateStore(repoRoot).read(tag);
+  const { shipsToPack, shipsToPublish, coreLibsToPublish } =
+    await collectRemaining(repoRoot, ports, filter, state);
+
+  const hasWork = shipsToPack.length > 0 || shipsToPublish.length > 0 ||
+    coreLibsToPublish.length > 0;
+  if (!hasWork) return true;
+
+  if (shipsToPack.length > 0) {
+    console.log(
+      `Will build, pack, and publish ${shipsToPack.length} ship(s):`,
+    );
+    for (const ship of shipsToPack) {
+      console.log(`  ${describeShipRelease(ship, tag)}`);
+    }
+  }
+  if (coreLibsToPublish.length > 0) {
+    console.log(
+      `Will publish ${coreLibsToPublish.length} core librar${
+        coreLibsToPublish.length === 1 ? "y" : "ies"
+      }:`,
+    );
+    for (const lib of coreLibsToPublish) {
+      console.log(`  ${describeCoreLibRelease(lib, tag)}`);
+    }
+  }
+  return await Confirm.prompt({
+    message: `Proceed for ${tag}?`,
+    default: false,
+  });
+}
+
 /** Dry-run counterpart to `runReleaseCeremony`: reports what building/packing/publishing (and the release hook) would still run for `tag`, without doing any of it. */
 async function printReleaseCeremonyPreview(
   repoRoot: string,
@@ -239,17 +285,19 @@ async function printReleaseHookPreview(
  * `ReleaseCeremony.collectShipReleases`) and every core library declared
  * under `publish.core:` in `.ensemble/config.yaml` (`collectCoreLibReleases`),
  * narrows that down to whatever `ReleaseState` doesn't already report as
- * packed/published for `tag`, and — only if the caller confirms — packs,
- * pushes, and publishes the rest, then runs `hooks.release.after` exactly
- * once. Every successful step is persisted to `.ensemble/release/<tag>.json`
- * immediately (`ReleaseStateStore`), so a mid-ceremony failure leaves an
- * accurate record of what's left; the next `ens release resume <tag>` reads
- * that record and only redoes what didn't finish — including never
- * re-running the hook once `hookRan` is recorded. The state file is removed
- * once everything (ships, core libs, and the hook) has completed for `tag`.
- * No confirmation prompt after packing succeeds — once the ceremony is
- * running, pushing and publishing just proceed; the tag was already created
- * locally, and `resume` exists precisely to pick up whatever doesn't finish.
+ * packed/published for `tag`, and packs, pushes, and publishes the rest,
+ * then runs `hooks.release.after` exactly once. Every successful step is
+ * persisted to `.ensemble/release/<tag>.json` immediately
+ * (`ReleaseStateStore`), so a mid-ceremony failure leaves an accurate record
+ * of what's left; the next `ens release resume <tag>` reads that record and
+ * only redoes what didn't finish — including never re-running the hook once
+ * `hookRan` is recorded. The state file is removed once everything (ships,
+ * core libs, and the hook) has completed for `tag`.
+ *
+ * Never asks for confirmation itself — the caller must have already done
+ * that with `confirmReleaseWork` before calling this, so that declining
+ * happens before any local or remote change rather than after the tag was
+ * already created.
  */
 async function runReleaseCeremony(
   repoRoot: string,
@@ -273,35 +321,6 @@ async function runReleaseCeremony(
     coreLibsToPublish.length > 0;
 
   if (hasWork) {
-    if (shipsToPack.length > 0) {
-      console.log(
-        `Will build, pack, and publish ${shipsToPack.length} ship(s):`,
-      );
-      for (const ship of shipsToPack) {
-        console.log(`  ${describeShipRelease(ship, tag)}`);
-      }
-    }
-    if (coreLibsToPublish.length > 0) {
-      console.log(
-        `Will publish ${coreLibsToPublish.length} core librar${
-          coreLibsToPublish.length === 1 ? "y" : "ies"
-        }:`,
-      );
-      for (const lib of coreLibsToPublish) {
-        console.log(`  ${describeCoreLibRelease(lib, tag)}`);
-      }
-    }
-    const proceed = await Confirm.prompt({
-      message: `Proceed for ${tag}?`,
-      default: false,
-    });
-    if (!proceed) {
-      console.log(
-        `Tag ${tag} exists locally only — run "ens release resume ${tag}" whenever you're ready.`,
-      );
-      return;
-    }
-
     const ceremony = new Core.Release.ReleaseCeremony(repoRoot, ports);
     try {
       await ceremony.packShips(
@@ -417,6 +436,10 @@ export const releaseCommand = new Command()
       await printReleaseCeremonyPreview(repoRoot, ports, preview.tag);
       return;
     }
+    if (!await confirmReleaseWork(repoRoot, ports, preview.tag, {})) {
+      console.log("Release cancelled — nothing was changed.");
+      return;
+    }
     await stampAndCommitCoreLibs(repoRoot, ports, release, preview.tag);
     await release.createReleaseTag(preview);
     console.log(`Created tag: ${preview.tag}`);
@@ -437,6 +460,10 @@ export const releaseCommand = new Command()
     printPreview(dryRun ? "Would create" : "Will create", preview);
     if (dryRun) {
       await printReleaseCeremonyPreview(repoRoot, ports, preview.tag);
+      return;
+    }
+    if (!await confirmReleaseWork(repoRoot, ports, preview.tag, {})) {
+      console.log("Release cancelled — nothing was changed.");
       return;
     }
     await stampAndCommitCoreLibs(repoRoot, ports, release, preview.tag);
@@ -473,6 +500,12 @@ export const releaseCommand = new Command()
     };
     if (dryRun) {
       await printReleaseCeremonyPreview(repoRoot, ports, tag, filter);
+      return;
+    }
+    if (!await confirmReleaseWork(repoRoot, ports, tag, filter)) {
+      console.log(
+        `Tag ${tag} exists locally only — run "ens release resume ${tag}" whenever you're ready.`,
+      );
       return;
     }
     await runReleaseCeremony(repoRoot, ports, release, tag, remote, filter);

@@ -1,0 +1,39 @@
+diagram  theme: dark
+
+node title "ens release" (size: large)  shape: none
+
+node guard    "Check for uncommitted changes"  below title  gap: wide
+node version  "Compute next version / from existing tags"  below guard
+
+node dryrun   "dry-run?"  shape: circle  below version
+node preview  "Print preview / and exit"  shape: document  right of dryrun  gap: wide  level with dryrun
+
+node confirm  "proceed?"  shape: circle  below dryrun
+node declined "Exit — nothing / was changed"  shape: document  right of confirm  gap: wide  level with confirm
+
+node stamp    "Stamp & commit / core lib versions"  below confirm
+node tag      "Create release tag / locally"  below stamp
+
+node pack     "Pack ships"  below tag
+node push     "Push commits & tag"  below pack
+node publish  "Publish ships & / core libs"  below push
+node hook     "Run release-after / hook (once)"  below publish
+node clear    "Clear release state"  below hook
+
+node resume   "ens release resume <tag>" (size: small, color: muted)  shape: document  right of pack and publish  gap: wide
+
+edge guard -> version
+edge version -> dryrun
+edge dryrun -> preview  "yes"  from: right  to: left
+edge dryrun -> confirm  "no"
+edge confirm -> declined  "no"  from: right  to: left
+edge confirm -> stamp  "yes"
+edge stamp -> tag
+edge tag -> pack
+edge pack -> push
+edge push -> publish
+edge publish -> hook
+edge hook -> clear
+
+edge pack -> resume  "on failure" (size: small, color: muted)  line: (pattern: dashed)  from: right  to: left
+edge publish -> resume  "on failure" (size: small, color: muted)  line: (pattern: dashed)  from: right  to: left
