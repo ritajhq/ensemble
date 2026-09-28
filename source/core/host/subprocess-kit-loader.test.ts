@@ -157,3 +157,53 @@ Deno.test("SubprocessKitLoader.load: throws when the vendored dir has no main.ts
     Deploy.KitLoadError,
   );
 });
+
+Deno.test("SubprocessKitLoader.load: one kit process answers many calls, concurrent ones included, and leaves nothing behind in the kit's directory", async () => {
+  const loader = new SubprocessKitLoader();
+  const loaded = await loader.load(fixtureKitDir);
+  const realization = await loaded.kit.realization();
+
+  const answers = await Promise.all(
+    Array.from(
+      { length: 20 },
+      () => realization.classPreset("databases", "relational", "critical"),
+    ),
+  );
+  await loader.close();
+
+  for (const answer of answers) {
+    assertEquals(answer, { concernValues: { backupRetention: 35 } });
+  }
+  const left = [...Deno.readDirSync(fixtureKitDir)].map((entry) => entry.name)
+    .sort();
+  assertEquals(left, ["deno.json", "main.ts"]);
+});
+
+Deno.test("SubprocessKitLoader.load: a call the kit fails fails alone, and the kit keeps answering", async () => {
+  const loader = new SubprocessKitLoader();
+  const loaded = await loader.load(fixtureKitDir);
+  const realization = await loaded.kit.realization();
+
+  await assertRejects(
+    () => realization.defaultFor("compute", "container", "fail"),
+    Deploy.KitLoadError,
+    "no default for fail",
+  );
+  assertEquals(
+    await realization.knowabilityOf("compute", "container", "url"),
+    "static",
+  );
+  await loader.close();
+});
+
+Deno.test("SubprocessKitLoader.load: what a kit prints on stdout is not taken for an answer", async () => {
+  const loader = new SubprocessKitLoader();
+  const loaded = await loader.load(fixtureKitDir);
+  const realization = await loaded.kit.realization();
+
+  assertEquals(
+    await realization.defaultFor("compute", "container", "chatty"),
+    7,
+  );
+  await loader.close();
+});

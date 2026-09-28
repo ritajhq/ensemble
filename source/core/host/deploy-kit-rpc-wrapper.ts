@@ -13,19 +13,26 @@
  * module graph, never a file read via `Deno.readTextFile`, even given a
  * literal path (verified empirically).
  *
- * Reads one `{ target, method, args }` JSON request from stdin, resolves
- * `target` against the freshly-imported kit ("kit" itself, its `realization()`,
- * or `provisioners()[n]` addressed as `"provisioner:<n>"`), calls `method`
- * with `args`, and prints the JSON result to stdout — one request per process,
- * matching the one-shot spawn-per-call convention every other lib/build/pack
- * kit subprocess already uses (exit 0 + stdout JSON = success, nonzero exit +
- * stderr = failure). A handful of `$`-prefixed pseudo-methods exist only for
- * this wrapper's own bookkeeping, never forwarded to the real kit/provisioner
- * object: `target: "kit"`'s `$describe` (reports which optional `Kit`
- * capabilities — `watchCommand`, `emulateExternals` — this kit actually
- * implements) and `$provisionersCount` (the kit's `provisioners()` array
- * length, so the caller can build one proxy per index without ever needing
- * the real, non-serializable `Provisioner` objects to leave this process);
+ * One process serves every call `ens` makes into the kit for as long as it
+ * runs (see `KitHost`), so the kit is imported once, not once per call — a
+ * render makes dozens of calls, and a fresh `deno run` costs ~250ms each.
+ * Requests arrive on stdin, one JSON object per line:
+ * `{ id, target, method, args }`. `target` is "kit" itself, its
+ * `realization()`, or `provisioners()[n]` addressed as `"provisioner:<n>"` —
+ * the realization and the provisioner set are asked of the kit once and kept.
+ * Requests are served concurrently, each answered on stdout as one line,
+ * `RESPONSE_MARKER` followed by `{ id, ok: true, result }` or
+ * `{ id, ok: false, error }`. The marker keeps a kit's own `console.log`
+ * output from being mistaken for an answer: `KitHost` passes any unmarked
+ * line through to stderr. The process exits when stdin closes.
+ *
+ * A handful of `$`-prefixed pseudo-methods exist only for this wrapper's own
+ * bookkeeping, never forwarded to the real kit/provisioner object:
+ * `target: "kit"`'s `$describe` (reports which optional `Kit` capabilities —
+ * `watchCommand`, `emulateExternals` — this kit actually implements) and
+ * `$provisionersCount` (the kit's `provisioners()` array length, so the
+ * caller can build one proxy per index without ever needing the real,
+ * non-serializable `Provisioner` objects to leave this process);
  * `target: "provisioner:<n>"`'s own `$describe` (reports whether that
  * specific provisioner implements the equally-optional `describe`/`provision`
  * — a real provisioner set is rarely uniform, e.g. a project-declared
@@ -40,81 +47,107 @@
  * methods a real kit's `present()` calls (verified against a real kit,
  * compose's own `present()` calls `graph.dependenciesOf(...)`).
  */
+export const RESPONSE_MARKER = "\u001eens-kit-response ";
+
+// No imports of its own: it runs as part of the kit, under the kit's own
+// deno.json and lockfile, so anything it imported would become the kit's
+// dependency too.
 export const DEPLOY_KIT_WRAPPER_SOURCE = `
+const RESPONSE_MARKER = ${JSON.stringify(RESPONSE_MARKER)};
+
 interface Request {
+  id: number;
   target: string;
   method: string;
   args: unknown[];
 }
 
-async function main() {
-  const input = await new Response(Deno.stdin.readable).text();
-  const req: Request = JSON.parse(input);
+const mod = await import(new URL("./main.ts", import.meta.url).href);
+const kit = mod.default;
 
-  const mod = await import(new URL("./main.ts", import.meta.url).href);
-  const kit = mod.default;
+let realization: Promise<any> | undefined;
+let provisioners: Promise<any[]> | undefined;
 
-  if (req.target === "kit" && req.method === "$describe") {
-    console.log(JSON.stringify({
+function realizationOf() {
+  realization ??= Promise.resolve(kit.realization());
+  return realization;
+}
+
+function provisionersOf() {
+  provisioners ??= Promise.resolve(kit.provisioners());
+  return provisioners;
+}
+
+async function serveKit(method: string, args: any[]) {
+  if (method === "$describe") {
+    return {
       watchCommand: typeof kit.watchCommand === "function",
       emulateExternals: typeof kit.emulateExternals === "function",
-    }));
-    return;
+    };
   }
-
-  if (req.target === "kit" && req.method === "$provisionersCount") {
-    const provisioners = await kit.provisioners();
-    console.log(JSON.stringify({ count: provisioners.length }));
-    return;
+  if (method === "$provisionersCount") {
+    return { count: (await provisionersOf()).length };
   }
-
-  if (req.target === "kit" && req.method === "present") {
-    const [artifacts, graphData] = req.args;
+  if (method === "present") {
+    const [artifacts, graphData] = args;
     const graph = {
       batches: () => graphData.batches,
-      dependenciesOf: (id) => graphData.dependencies[id.category + "." + id.name] ?? [],
+      dependenciesOf: (id: any) => graphData.dependencies[id.category + "." + id.name] ?? [],
     };
-    const result = await kit.present(artifacts, graph);
-    console.log(JSON.stringify(result ?? null));
-    return;
+    return await kit.present(artifacts, graph);
   }
+  return await kit[method](...args);
+}
 
-  if (req.target === "kit") {
-    const result = await kit[req.method](...req.args);
-    console.log(JSON.stringify(result ?? null));
-    return;
+async function serveProvisioner(index: number, method: string, args: any[]) {
+  const provisioner = (await provisionersOf())[index];
+  if (method === "$describe") {
+    return {
+      describe: typeof provisioner.describe === "function",
+      provision: typeof provisioner.provision === "function",
+    };
   }
+  return await provisioner[method](...args);
+}
 
+async function serve(req: Request) {
+  if (req.target === "kit") return await serveKit(req.method, req.args);
   if (req.target === "realization") {
-    const realization = await kit.realization();
-    const result = await realization[req.method](...req.args);
-    console.log(JSON.stringify(result ?? null));
-    return;
+    return await (await realizationOf())[req.method](...req.args);
   }
-
   if (req.target.startsWith("provisioner:")) {
-    const index = Number(req.target.split(":")[1]);
-    const provisioners = await kit.provisioners();
-    const provisioner = provisioners[index];
-
-    if (req.method === "$describe") {
-      console.log(JSON.stringify({
-        describe: typeof provisioner.describe === "function",
-        provision: typeof provisioner.provision === "function",
-      }));
-      return;
-    }
-
-    const result = await provisioner[req.method](...req.args);
-    console.log(JSON.stringify(result ?? null));
-    return;
+    return await serveProvisioner(Number(req.target.split(":")[1]), req.method, req.args);
   }
-
   throw new Error("Unknown target: " + req.target);
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error));
-  Deno.exit(1);
-});
+const encoder = new TextEncoder();
+
+// Synchronous, so one answer's bytes never interleave with another's; looped,
+// since a pipe may take fewer bytes than it is given.
+function answer(response: unknown) {
+  let bytes = encoder.encode(RESPONSE_MARKER + JSON.stringify(response) + "\\n");
+  while (bytes.length > 0) bytes = bytes.subarray(Deno.stdout.writeSync(bytes));
+}
+
+function handle(line: string) {
+  if (line.trim() === "") return;
+  const req: Request = JSON.parse(line);
+  serve(req).then(
+    (result) => answer({ id: req.id, ok: true, result: result ?? null }),
+    (error) => answer({ id: req.id, ok: false, error: error instanceof Error ? error.message : String(error) }),
+  );
+}
+
+let pending = "";
+for await (const chunk of Deno.stdin.readable.pipeThrough(new TextDecoderStream())) {
+  pending += chunk;
+  let newline = pending.indexOf("\\n");
+  while (newline !== -1) {
+    handle(pending.slice(0, newline));
+    pending = pending.slice(newline + 1);
+    newline = pending.indexOf("\\n");
+  }
+}
+handle(pending);
 `;

@@ -35,7 +35,17 @@ const kit = {
         className === "critical"
         ? { concernValues: { backupRetention: 35 } }
         : undefined,
-    defaultFor: () => undefined,
+    // "fail" and "chatty" exist for the kit process's own tests: a call
+    // that throws must fail alone, and a kit printing to stdout must not be
+    // mistaken for an answer.
+    defaultFor: (_category: string, _type: string, concern: string) => {
+      if (concern === "fail") throw new Error("no default for fail");
+      if (concern === "chatty") {
+        console.log("the kit says hello on stdout");
+        return 7;
+      }
+      return undefined;
+    },
     boundFor: () => undefined,
     supportsCapability: () => false,
     knowabilityOf: () => "static",

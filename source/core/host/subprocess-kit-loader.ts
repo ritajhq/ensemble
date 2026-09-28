@@ -3,7 +3,7 @@ import { exists } from "@std/fs";
 import type { Deploy } from "@ensemble/core";
 import { Deploy as CoreDeploy } from "@ensemble/core";
 import { resolveDenoExecutable } from "./deno-exe.ts";
-import { DEPLOY_KIT_WRAPPER_SOURCE } from "./deploy-kit-rpc-wrapper.ts";
+import { KitHost } from "./kit-host.ts";
 
 /** Plain-data shape of `deploy-kit-rpc-wrapper.ts`'s reconstructed `graph` argument for `present`. */
 interface SerializedDependencyGraph {
@@ -25,78 +25,23 @@ function serializeDependencyGraph(
   return { batches, dependencies };
 }
 
-/** One `{target, method, args}` call into a freshly-spawned wrapper process co-located with the vendored kit — see `deploy-kit-rpc-wrapper.ts` for why co-location (not the kit's own path alone) is what makes resolution correct, and why this is a fresh spawn per call rather than a persistent process. */
-async function callKit(
-  vendoredDir: string,
-  denoExe: string,
-  target: string,
-  method: string,
-  args: unknown[],
-): Promise<unknown> {
-  const wrapperPath = await Deno.makeTempFile({
-    dir: vendoredDir,
-    suffix: ".ts",
-  });
-  try {
-    await Deno.writeTextFile(wrapperPath, DEPLOY_KIT_WRAPPER_SOURCE);
-    const command = new Deno.Command(denoExe, {
-      args: ["run", "-A", "-q", "--minimum-dependency-age", "0", wrapperPath],
-      cwd: vendoredDir,
-      stdin: "piped",
-      stdout: "piped",
-      stderr: "piped",
-    });
-    const child = command.spawn();
-    const writer = child.stdin.getWriter();
-    await writer.write(
-      new TextEncoder().encode(JSON.stringify({ target, method, args })),
-    );
-    await writer.close();
-    const output = await child.output();
-    if (!output.success) {
-      throw new CoreDeploy.KitLoadError(
-        new TextDecoder().decode(output.stderr).trim(),
-      );
-    }
-    const stdout = new TextDecoder().decode(output.stdout).trim();
-    if (stdout.length === 0) return undefined;
-    // The wrapper's own JSON.stringify(result ?? null) collapses `undefined`
-    // to `null` on the wire (JSON has no `undefined`) — safe to normalize
-    // back here since none of Kit/Realization/Provisioner's return types
-    // ever legitimately use `null` as a distinct value from `undefined`.
-    const parsed = JSON.parse(stdout);
-    return parsed === null ? undefined : parsed;
-  } finally {
-    await Deno.remove(wrapperPath);
-  }
-}
-
 class SubprocessProvisioner implements Deploy.Provisioner {
   constructor(
-    private readonly vendoredDir: string,
-    private readonly denoExe: string,
+    private readonly host: KitHost,
     private readonly index: number,
     capabilities: { describe: boolean; provision: boolean },
   ) {
     if (capabilities.describe) {
       this.describe = () =>
-        callKit(
-          this.vendoredDir,
-          this.denoExe,
-          `provisioner:${this.index}`,
-          "describe",
-          [],
-        ) as Promise<string>;
+        this.host.call(`provisioner:${this.index}`, "describe", []) as Promise<
+          string
+        >;
     }
     if (capabilities.provision) {
       this.provision = (request: Deploy.ResolvedRequest) =>
-        callKit(
-          this.vendoredDir,
-          this.denoExe,
-          `provisioner:${this.index}`,
-          "provision",
-          [request],
-        ) as Promise<Deploy.ProvisionOutcome>;
+        this.host.call(`provisioner:${this.index}`, "provision", [
+          request,
+        ]) as Promise<Deploy.ProvisionOutcome>;
     }
   }
 
@@ -104,24 +49,18 @@ class SubprocessProvisioner implements Deploy.Provisioner {
   provision?: Deploy.Provisioner["provision"];
 
   matches(resource: unknown, runtime?: string): Promise<boolean> {
-    return callKit(
-      this.vendoredDir,
-      this.denoExe,
-      `provisioner:${this.index}`,
-      "matches",
-      [resource, runtime],
-    ) as Promise<boolean>;
+    return this.host.call(`provisioner:${this.index}`, "matches", [
+      resource,
+      runtime,
+    ]) as Promise<boolean>;
   }
 }
 
 class SubprocessRealization implements Deploy.Realization {
-  constructor(
-    private readonly vendoredDir: string,
-    private readonly denoExe: string,
-  ) {}
+  constructor(private readonly host: KitHost) {}
 
   private call(method: string, args: unknown[]): Promise<unknown> {
-    return callKit(this.vendoredDir, this.denoExe, "realization", method, args);
+    return this.host.call("realization", method, args);
   }
 
   classPreset(
@@ -176,21 +115,23 @@ class SubprocessRealization implements Deploy.Realization {
 }
 
 class SubprocessKit implements Deploy.Kit {
+  /** The kit's provisioner set is fixed, so it is asked for once: resolving a workload asks for it per resource. */
+  private provisionerSet: Promise<Deploy.ProvisionerSet> | undefined;
+
   constructor(
-    private readonly vendoredDir: string,
-    private readonly denoExe: string,
+    private readonly host: KitHost,
     capabilities: { watchCommand: boolean; emulateExternals: boolean },
   ) {
     if (capabilities.watchCommand) {
       this.watchCommand = (artifactPath: string, name: string) =>
-        callKit(this.vendoredDir, this.denoExe, "kit", "watchCommand", [
+        this.host.call("kit", "watchCommand", [
           artifactPath,
           name,
         ]) as Promise<readonly string[] | undefined>;
     }
     if (capabilities.emulateExternals) {
       this.emulateExternals = (workload: Deploy.Workload) =>
-        callKit(this.vendoredDir, this.denoExe, "kit", "emulateExternals", [
+        this.host.call("kit", "emulateExternals", [
           workload,
         ]) as Promise<readonly Deploy.ExternalEmulation[]>;
     }
@@ -199,26 +140,24 @@ class SubprocessKit implements Deploy.Kit {
   watchCommand?: Deploy.Kit["watchCommand"];
   emulateExternals?: Deploy.Kit["emulateExternals"];
 
-  async provisioners(): Promise<Deploy.ProvisionerSet> {
-    const { count } = await callKit(
-      this.vendoredDir,
-      this.denoExe,
-      "kit",
-      "$provisionersCount",
-      [],
-    ) as { count: number };
+  provisioners(): Promise<Deploy.ProvisionerSet> {
+    this.provisionerSet ??= this.loadProvisioners();
+    return this.provisionerSet;
+  }
+
+  private async loadProvisioners(): Promise<Deploy.ProvisionerSet> {
+    const { count } = await this.host.call("kit", "$provisionersCount", []) as {
+      count: number;
+    };
     return await Promise.all(
       Array.from({ length: count }, async (_, index) => {
-        const capabilities = await callKit(
-          this.vendoredDir,
-          this.denoExe,
+        const capabilities = await this.host.call(
           `provisioner:${index}`,
           "$describe",
           [],
         ) as { describe: boolean; provision: boolean };
         return new SubprocessProvisioner(
-          this.vendoredDir,
-          this.denoExe,
+          this.host,
           index,
           capabilities,
         );
@@ -228,7 +167,7 @@ class SubprocessKit implements Deploy.Kit {
 
   realization(): Promise<Deploy.Realization> {
     return Promise.resolve(
-      new SubprocessRealization(this.vendoredDir, this.denoExe),
+      new SubprocessRealization(this.host),
     );
   }
 
@@ -236,14 +175,14 @@ class SubprocessKit implements Deploy.Kit {
     artifacts: Deploy.Render.Artifacts,
     graph: Deploy.Resolve.DependencyGraph,
   ): Promise<Deploy.Render.PresentedArtifact> {
-    return callKit(this.vendoredDir, this.denoExe, "kit", "present", [
+    return this.host.call("kit", "present", [
       artifacts,
       serializeDependencyGraph(graph),
     ]) as Promise<Deploy.Render.PresentedArtifact>;
   }
 
   applyCommand(artifactPath: string, name: string): Promise<readonly string[]> {
-    return callKit(this.vendoredDir, this.denoExe, "kit", "applyCommand", [
+    return this.host.call("kit", "applyCommand", [
       artifactPath,
       name,
     ]) as Promise<readonly string[]>;
@@ -252,17 +191,20 @@ class SubprocessKit implements Deploy.Kit {
 
 /**
  * The real `Deploy.KitLoader`: every `Kit`/`Realization`/`Provisioner` method
- * call is its own fresh, one-shot `deno run` subprocess, spawned from a small
- * wrapper written next to the vendored kit's own `main.ts` (see
+ * call goes to a `deno run` process serving the vendored kit, started from a
+ * small wrapper written next to the kit's own `main.ts` (see
  * `deploy-kit-rpc-wrapper.ts`) — never an in-process `import()`, which can't
  * work correctly once `ens` itself is `deno compile`d (a compiled binary
  * can't embed a module graph it can only discover at runtime, and refuses to
  * read arbitrary local files off the real filesystem for `import()`,
- * verified empirically). Lives here rather than in kit-sdk because it needs
- * `@ensemble/host`'s deno-executable resolution, matching
- * `SubprocessPackKitGateway`.
+ * verified empirically). One process per loaded kit serves all of its calls
+ * (`KitHost`); it never keeps `ens` running, and `close()` ends it sooner.
+ * Lives here rather than in kit-sdk because it needs `@ensemble/host`'s
+ * deno-executable resolution, matching `SubprocessPackKitGateway`.
  */
 export class SubprocessKitLoader implements Deploy.KitLoader {
+  private readonly hosts: KitHost[] = [];
+
   constructor(
     private readonly layering: Deploy.KitConfigLayering = new CoreDeploy
       .KitConfigLayering(),
@@ -279,16 +221,20 @@ export class SubprocessKitLoader implements Deploy.KitLoader {
       );
     }
 
-    const denoExe = await resolveDenoExecutable();
-    const capabilities = await callKit(
-      vendoredDir,
-      denoExe,
+    const host = new KitHost(vendoredDir, await resolveDenoExecutable());
+    this.hosts.push(host);
+    const capabilities = await host.call(
       "kit",
       "$describe",
       [],
     ) as { watchCommand: boolean; emulateExternals: boolean };
-    const kit = new SubprocessKit(vendoredDir, denoExe, capabilities);
+    const kit = new SubprocessKit(host, capabilities);
 
     return await this.layering.apply(kit, sidecarConfigPaths);
+  }
+
+  /** Ends every kit process this loader started. */
+  async close(): Promise<void> {
+    await Promise.all(this.hosts.map((host) => host.close()));
   }
 }
