@@ -26,15 +26,37 @@ deploy started, so there is nothing to roll back.
 The kit is required, and not just for symmetry with `ens deploy`: a task's
 `arguments` may reference anything a resource field may
 (`${databases.database.host}`, `${compute.web.http}`), and only a kit can render
-the workload to resolve those. The render happens before the task runs, so a
-broken reference fails with the manifest's own error rather than halfway through
-a migration.
+the workload to resolve those.
+
+### Where argument values come from
+
+A task acts on what is deployed, so it first looks for what the last deploy
+left for it. Every `ens deploy` that applies (or starts a watch session, as
+`ens develop` does) keeps each task argument only a render can answer — a
+provisioner's output, a port, a release — in
+`.ensemble/deploy/<name>/<kit>.tasks.json`, gitignored like the render cache
+next to it. The rest are resolved when the task runs, as always: literals,
+`${variables.*}` (from the environment and `ci/<name>/variables.env`, so no
+variable — and no secret — is ever written there), `${external.*}`, and
+`${deployment.name}`/`${deployment.root}`. With that file, a task runs without
+loading the kit at all.
+
+It is used only while it still describes the deployment: if
+`ci/<name>/delivery.yml`, the kit, or `ci/<name>/<kit>.config.yml` has changed
+since that deploy (or the task gained an argument the deploy couldn't know
+about), the command says so and resolves the arguments by rendering instead.
+That render covers only the resources the task's arguments reference and what
+those depend on — unless it references `${deployment.artifact}`, which names the
+file a render of the whole workload is presented as. The render happens before
+the task runs, so a broken reference fails with the manifest's own error rather
+than halfway through a migration.
 
 - `--artifacts <local|published>` — which release locator to resolve
-  `${release.<name>}` references against. Defaults to `published`, matching
-  `ens deploy`.
-- `--version <version>` — the released version to resolve those references to.
-  Defaults to `latest`.
+  `${release.<name>}` references against when rendering. Defaults to
+  `published`, matching `ens deploy`. The last deploy's values are used whatever
+  this says: they are what's running.
+- `--version <version>` — the released version to resolve those references to
+  when rendering. Defaults to `latest`.
 
 See [`tasks` in the manifest schema](../delivery-manifest-schema.md#tasks) for
 what a task declares, and in particular the `${deployment.*}` namespace that

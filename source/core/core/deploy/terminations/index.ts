@@ -4,6 +4,7 @@ export type { DiffLine, DiffLineKind, IntentDiff } from "./intent-diff.ts";
 export { IntentDiffer } from "./intent-diff.ts";
 export type { Diff, DiffSource } from "./diff-source.ts";
 export type { RenderCachePort } from "./render-cache.ts";
+export type { DeployedState } from "./deployed-state.ts";
 export { FileRenderCache } from "./file-render-cache.ts";
 export { Ejector } from "./ejector.ts";
 export { Planner } from "./planner.ts";

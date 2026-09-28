@@ -12,6 +12,7 @@ import type { ReleaseLocatorPort } from "../kit/release-locator.ts";
 import { ReferenceSyntax as ReferenceParser } from "../reference.ts";
 import type { ContractRegistry } from "../contracts/registry.ts";
 import type { ArtifactFragment, Artifacts, InitCommand } from "./artifact.ts";
+import { DeclaredValues } from "./declared-values.ts";
 import { OutputsLedger } from "./outputs-ledger.ts";
 import type { ReferenceResolver } from "./reference-resolver.ts";
 
@@ -49,6 +50,7 @@ export class Renderer {
     private readonly releaseLocator: ReleaseLocatorPort,
     private readonly registry: ContractRegistry,
     private readonly syntax: ReferenceSyntax = new ReferenceParser(),
+    private readonly declared: DeclaredValues = new DeclaredValues(),
   ) {}
 
   async render(
@@ -223,11 +225,8 @@ export class Renderer {
   ): Promise<unknown> {
     const reference = this.syntax.parse(value);
     if (reference) {
-      if (reference.category === "external") {
-        return this.resolveExternalReference(reference, workload);
-      }
-      if (reference.category === "variables") {
-        return this.resolveVariableReference(reference, workload);
+      if (this.declared.covers(reference)) {
+        return this.declared.resolve(reference, workload);
       }
       return await this.bakeOrDefer(reference, ledger);
     }
@@ -246,53 +245,6 @@ export class Renderer {
       return resolved;
     }
     return value;
-  }
-
-  /**
-   * `external` entries are manifest-declared literals, not provisioner
-   * outputs (Section 5: "provisioned by nothing") — resolved straight off
-   * the workload rather than through the ledger/`Realization`. Always baked:
-   * there's no provisioner in the loop for a value to ever be deferred to.
-   * Trusts `ReferenceValidator` already confirmed the resource and field
-   * exist (same trust `OutputsLedger` places in it for every other category).
-   */
-  private resolveExternalReference(
-    reference: Reference,
-    workload: Workload,
-  ): unknown {
-    const declaration = workload.external![reference.name];
-    return declaration[reference.output! as "type" | "name"];
-  }
-
-  /**
-   * `variables` entries are manifest-declared, provisioner-free, same as
-   * `external` — but unlike a `secrets` value (which must stay opaque all
-   * the way to the target's own runtime, G4), a variable's value is safe for
-   * ens itself to read and bake directly into the rendered artifact
-   * (Section 8: a static reference becomes its concrete baked value). Reads
-   * `ens deploy`'s own process env under the variable's name (same
-   * uppercase/dash-to-underscore convention `secrets` uses), falling back to
-   * the declaration's own `default`. Trusts `ReferenceValidator` already
-   * confirmed the variable exists and the field is "value", same trust
-   * `resolveExternalReference` places in it.
-   */
-  private resolveVariableReference(
-    reference: Reference,
-    workload: Workload,
-  ): string {
-    const declaration = workload.variables![reference.name];
-    const envVar = this.environmentVariableName(reference.name);
-    const fromEnv = Deno.env.get(envVar);
-    if (fromEnv !== undefined) return fromEnv;
-    if (declaration.default !== undefined) return declaration.default;
-
-    throw new RendererError(
-      `variables.${reference.name} has no value: "${envVar}" isn't set in the environment and no default is declared.`,
-    );
-  }
-
-  private environmentVariableName(name: string): string {
-    return name.toUpperCase().replace(/-/g, "_");
   }
 
   private async bakeOrDefer(

@@ -8,6 +8,13 @@ import {
 } from "./delivery-task.ts";
 import type { PackKitGateway } from "./deploy/kit/pack-kit-gateway.ts";
 import { InProcessKitLoader } from "./deploy/kit/loader.ts";
+import type { KitLoader } from "./deploy/kit/loader.ts";
+import { loadWorkload } from "./deploy-context.ts";
+import {
+  DeploymentFingerprint,
+  type TaskSnapshot,
+  TaskSnapshotFile,
+} from "./task-snapshot.ts";
 import type { RepoLocator } from "./ports.ts";
 
 /** These workloads declare no releases, so the release locator resolver never asks the gateway anything. */
@@ -26,10 +33,13 @@ const KIT_SOURCE = `
 export default {
   provisioners: () => Promise.resolve([{
     matches: () => Promise.resolve(true),
-    provision: (request) => Promise.resolve({
-      fragment: { category: request.category, name: request.name, content: {} },
-      outputs: {},
-    }),
+    provision: (request) => {
+      globalThis.provisioned?.push(request.category + "." + request.name);
+      return Promise.resolve({
+        fragment: { category: request.category, name: request.name, content: {} },
+        outputs: {},
+      });
+    },
   }]),
   realization: () => Promise.resolve({
     classPreset: () => Promise.resolve(undefined),
@@ -54,6 +64,10 @@ deploy:
       replicas: 1
       ports:
         http: 8080
+    worker:
+      type: container-orchestrated
+      image: worker:latest
+      replicas: 1
 tasks:
   record:
     script: record.sh
@@ -69,6 +83,10 @@ tasks:
     arguments:
       project: \${deployment.name}
       root: \${deployment.root}
+  web-port:
+    run: "true"
+    arguments:
+      web_port: \${compute.web.http}
   failing:
     run: exit 3
   bad-deployment-value:
@@ -111,6 +129,7 @@ function run1(
   repoRoot: string,
   task: string | undefined,
   args: readonly string[] = [],
+  kitLoader: KitLoader = new InProcessKitLoader(),
 ): Promise<void> {
   return runDeliveryTask(
     "demo",
@@ -120,8 +139,29 @@ function run1(
     { artifacts: "local", version: "latest" },
     { findRepoRoot: () => Promise.resolve(repoRoot) },
     noReleasesGateway,
-    new InProcessKitLoader(),
+    kitLoader,
   );
+}
+
+/** A loader for runs that must not need the kit at all. */
+const noKitLoader: KitLoader = {
+  load: () => Promise.reject(new Error("the kit was loaded")),
+};
+
+/** Writes the snapshot a deploy of the workspace would leave, as the deploy of `fingerprint` (the current one unless given). */
+async function writeSnapshot(
+  repoRoot: string,
+  snapshot: Omit<TaskSnapshot, "version" | "fingerprint">,
+  fingerprint?: string,
+): Promise<void> {
+  const context = await loadWorkload("demo", "demo-kit", {
+    findRepoRoot: () => Promise.resolve(repoRoot),
+  });
+  await TaskSnapshotFile.for(repoRoot, "demo", "demo-kit").write({
+    version: 1,
+    fingerprint: fingerprint ?? await DeploymentFingerprint.of(context),
+    ...snapshot,
+  });
 }
 
 Deno.test("runDeliveryTask: hands a script every declared argument as an environment variable, the deployment's own identity included", async () => {
@@ -179,7 +219,7 @@ Deno.test("runDeliveryTask: an undeclared task name fails naming the ones that a
     await assertRejects(
       () => run1(repoRoot, "nope"),
       UnknownTaskError,
-      "Declared: record, inline, failing, bad-deployment-value.",
+      "Declared: record, inline, web-port, failing, bad-deployment-value.",
     );
   });
 });
@@ -201,5 +241,100 @@ Deno.test("runDeliveryTask: an unknown ${deployment.*} name fails naming the who
       TaskArgumentError,
       "the deployment namespace has only ${deployment.name}, ${deployment.artifact}, ${deployment.root}.",
     );
+  });
+});
+
+/** What the kit provisioned while `run` ran, in order. */
+async function provisionedDuring(run: () => Promise<void>): Promise<string[]> {
+  const provisioned: string[] = [];
+  (globalThis as { provisioned?: string[] }).provisioned = provisioned;
+  try {
+    await run();
+  } finally {
+    delete (globalThis as { provisioned?: string[] }).provisioned;
+  }
+  return provisioned;
+}
+
+Deno.test("runDeliveryTask: renders only the resources a task's arguments reference", async () => {
+  await withWorkspace(async (repoRoot) => {
+    assertEquals(
+      await provisionedDuring(() => run1(repoRoot, "web-port")),
+      ["compute.web"],
+    );
+  });
+});
+
+Deno.test("runDeliveryTask: a task referencing no resource renders nothing", async () => {
+  await withWorkspace(async (repoRoot) => {
+    assertEquals(
+      await provisionedDuring(() => run1(repoRoot, "inline")),
+      [],
+    );
+  });
+});
+
+Deno.test("runDeliveryTask: a task referencing the artifact renders the whole workload, the artifact being that render", async () => {
+  await withWorkspace(async (repoRoot) => {
+    assertEquals(
+      (await provisionedDuring(() => run1(repoRoot, "record"))).sort(),
+      ["compute.web", "compute.worker"],
+    );
+  });
+});
+
+Deno.test("runDeliveryTask: with the last deploy's snapshot, resolves what only a render could from it, without loading the kit", async () => {
+  await withWorkspace(async (repoRoot) => {
+    await writeSnapshot(repoRoot, {
+      artifact: "/deployed/compose.yaml",
+      arguments: { record: { web_port: 9999 } },
+    });
+
+    await run1(repoRoot, "record", [], noKitLoader);
+
+    assertEquals(
+      await Deno.readTextFile(join(repoRoot, "recorded.txt")),
+      [
+        `${basename(repoRoot)}-demo`,
+        "/deployed/compose.yaml",
+        repoRoot,
+        "9999",
+        "hi",
+        "plain text",
+        "",
+        "",
+        "",
+      ].join("\n"),
+    );
+  });
+});
+
+Deno.test("runDeliveryTask: a snapshot from before the manifest or kit changed is not used", async () => {
+  await withWorkspace(async (repoRoot) => {
+    await writeSnapshot(repoRoot, {
+      artifact: "/deployed/compose.yaml",
+      arguments: { record: { web_port: 9999 } },
+    }, "an older deploy");
+
+    await run1(repoRoot, "record");
+
+    const recorded = (await Deno.readTextFile(join(repoRoot, "recorded.txt")))
+      .split("\n");
+    assertEquals(recorded[3], "8080");
+  });
+});
+
+Deno.test("runDeliveryTask: a snapshot missing one of a task's rendered arguments is not used", async () => {
+  await withWorkspace(async (repoRoot) => {
+    await writeSnapshot(repoRoot, {
+      artifact: "/deployed/compose.yaml",
+      arguments: {},
+    });
+
+    await run1(repoRoot, "record");
+
+    const recorded = (await Deno.readTextFile(join(repoRoot, "recorded.txt")))
+      .split("\n");
+    assertEquals(recorded[3], "8080");
   });
 });

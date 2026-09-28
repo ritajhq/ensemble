@@ -3,6 +3,8 @@ import type { Artifacts } from "../render/artifact.ts";
 import type { Kit } from "../kit/kit.ts";
 import type { ArtifactSink } from "./artifact-sink.ts";
 import type { RenderCachePort } from "./render-cache.ts";
+import type { OutputsLedger } from "../render/outputs-ledger.ts";
+import type { DeployedState } from "./deployed-state.ts";
 import { InitRunner } from "./init-runner.ts";
 
 export class ApplyError extends Error {
@@ -29,13 +31,16 @@ export class Applier {
     private readonly sink: ArtifactSink,
     private readonly cache: RenderCachePort,
     private readonly initRunner: InitRunner = new InitRunner(),
+    private readonly deployed?: DeployedState,
   ) {}
 
+  /** `ledger` is the render `artifacts` came from; given one, the deployment is recorded as up (`DeployedState`) once the apply has succeeded. */
   async apply(
     artifacts: Artifacts,
     graph: DependencyGraph,
     kit: Kit,
     name: string,
+    ledger?: OutputsLedger,
   ): Promise<void> {
     const presented = await kit.present(artifacts, graph);
     await this.sink.write(presented);
@@ -58,5 +63,6 @@ export class Applier {
     });
 
     await this.cache.writeLast(presented.content);
+    if (ledger) await this.deployed?.record(ledger, artifactPath);
   }
 }

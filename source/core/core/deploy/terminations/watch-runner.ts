@@ -2,6 +2,8 @@ import type { DependencyGraph } from "../resolve/dependency-graph.ts";
 import type { Artifacts } from "../render/artifact.ts";
 import type { Kit } from "../kit/kit.ts";
 import type { ArtifactSink } from "./artifact-sink.ts";
+import type { OutputsLedger } from "../render/outputs-ledger.ts";
+import type { DeployedState } from "./deployed-state.ts";
 import { InitRunner } from "./init-runner.ts";
 
 /** Thrown when `--watch` is requested but the target's kit has no watch command for it — a capability gap, not a bug: the manifest and target are both valid, this target's runtime just can't watch. */
@@ -40,6 +42,7 @@ export class WatchRunner {
   constructor(
     private readonly sink: ArtifactSink,
     private readonly initRunner: InitRunner = new InitRunner(),
+    private readonly deployed?: DeployedState,
   ) {}
 
   async watch(
@@ -48,6 +51,7 @@ export class WatchRunner {
     kit: Kit,
     name: string,
     signal?: AbortSignal,
+    ledger?: OutputsLedger,
   ): Promise<void> {
     const presented = await kit.present(artifacts, graph);
     await this.sink.write(presented);
@@ -67,6 +71,8 @@ export class WatchRunner {
       artifactPath,
       deploymentName: name,
     });
+    // Up for as long as the session lasts, which is when it's used.
+    if (ledger) await this.deployed?.record(ledger, artifactPath);
 
     const teardown = () => {
       try {

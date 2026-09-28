@@ -88,11 +88,19 @@ export async function loadVariablesEnvDefaults(
   }
 }
 
-export interface DeployContext {
+/** A workload as its manifest declares it, with where its deploy kit is — everything about a deployment short of loading the kit. */
+export interface WorkloadContext {
   readonly repoRoot: string;
   readonly workload: Deploy.Workload;
-  readonly target: Deploy.Target;
   readonly registry: Deploy.Contracts.Registry;
+  /** The vendored deploy kit's directory, `.ensemble/kits/deploy/<kit>/`. */
+  readonly kitDir: string;
+  /** The workload's own config for that kit, `ci/<name>/<kit>.config.yml`, which may not exist. */
+  readonly kitConfigPath: string;
+}
+
+export interface DeployContext extends WorkloadContext {
+  readonly target: Deploy.Target;
 }
 
 /**
@@ -108,13 +116,17 @@ export function deploymentNameFor(repoRoot: string, name: string): string {
   return `${basename(repoRoot)}-${name}`;
 }
 
-/** Resolves a deployment's manifest and kit by name — the one place `ens deploy` and `ens deploy explain` share this lookup (`ci/<name>/delivery.yml`, `.ensemble/kits/deploy/<kit>/`), so the two commands can't drift on how a deployment is found. */
-export async function loadDeployContext(
+/**
+ * Everything about a deployment short of loading its kit: the repo, the
+ * workload its manifest declares (with `ci/<name>/variables.env`'s defaults
+ * put into the environment), and where its kit and the kit's config are.
+ * For what needs the kit only sometimes (`ens delivery task`).
+ */
+export async function loadWorkload(
   name: string,
   kit: string,
   repo: RepoLocator,
-  kitLoader: Deploy.KitLoader,
-): Promise<DeployContext> {
+): Promise<WorkloadContext> {
   const repoRoot = await repo.findRepoRoot();
   await loadVariablesEnvDefaults(repoRoot, name);
 
@@ -129,19 +141,34 @@ export async function loadDeployContext(
     repoRoot,
   );
 
-  const vendoredKitDir = join(repoRoot, ".ensemble", "kits", "deploy", kit);
-  if (!await exists(join(vendoredKitDir, "main.ts"), { isFile: true })) {
+  const kitDir = join(repoRoot, ".ensemble", "kits", "deploy", kit);
+  if (!await exists(join(kitDir, "main.ts"), { isFile: true })) {
     throw new Error(
-      `Deploy kit "${kit}" not found (expected ${vendoredKitDir}/main.ts)`,
+      `Deploy kit "${kit}" not found (expected ${kitDir}/main.ts)`,
     );
   }
-  const sidecarConfigPath = join(repoRoot, "ci", name, `${kit}.config.yml`);
-  const loaded = await kitLoader.load(vendoredKitDir, [sidecarConfigPath]);
 
   return {
     repoRoot,
     workload,
-    target: { kit: loaded.kit, runtime: loaded.runtime },
     registry: new Deploy.Contracts.Catalog(RESOURCE_CONTRACTS),
+    kitDir,
+    kitConfigPath: join(repoRoot, "ci", name, `${kit}.config.yml`),
+  };
+}
+
+/** Resolves a deployment's manifest and kit by name — the one place `ens deploy` and `ens deploy explain` share this lookup (`ci/<name>/delivery.yml`, `.ensemble/kits/deploy/<kit>/`), so the two commands can't drift on how a deployment is found. */
+export async function loadDeployContext(
+  name: string,
+  kit: string,
+  repo: RepoLocator,
+  kitLoader: Deploy.KitLoader,
+): Promise<DeployContext> {
+  const context = await loadWorkload(name, kit, repo);
+  const loaded = await kitLoader.load(context.kitDir, [context.kitConfigPath]);
+
+  return {
+    ...context,
+    target: { kit: loaded.kit, runtime: loaded.runtime },
   };
 }

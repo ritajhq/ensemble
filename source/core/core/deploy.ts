@@ -1,6 +1,11 @@
 import { join } from "@std/path";
 import * as Deploy from "./deploy/index.ts";
 import { deploymentNameFor, loadDeployContext } from "./deploy-context.ts";
+import {
+  DeploymentFingerprint,
+  TaskSnapshotFile,
+  TaskSnapshotRecorder,
+} from "./task-snapshot.ts";
 import { RunPackReleasePacker } from "./release-packer.ts";
 import { runBuild } from "./build.ts";
 import type { Ports } from "./ports.ts";
@@ -115,12 +120,8 @@ export async function runDeploy(
   gateway: Deploy.PackKitGateway,
   kitLoader: Deploy.KitLoader,
 ): Promise<void> {
-  const { repoRoot, workload, target, registry } = await loadDeployContext(
-    name,
-    kit,
-    ports.repo,
-    kitLoader,
-  );
+  const context = await loadDeployContext(name, kit, ports.repo, kitLoader);
+  const { repoRoot, workload, target, registry } = context;
 
   const locatorResolver = new Deploy.ReleaseLocatorResolver(gateway);
   const releaseLocator = new Deploy.PreresolvedReleaseLocator(
@@ -151,6 +152,16 @@ export async function runDeploy(
     join(repoRoot, ".ensemble", "deploy", name, "last-rendered.txt"),
   );
 
+  // Once it's up, what the deployment was rendered from is kept for its
+  // tasks, so `ens delivery task` can resolve their arguments without
+  // rendering again (see ./task-snapshot.ts).
+  const deployed = new TaskSnapshotRecorder(
+    TaskSnapshotFile.for(repoRoot, name, kit),
+    await DeploymentFingerprint.of(context),
+    renderer,
+    workload,
+  );
+
   const watchedApps = options.watch
     ? Deploy.discoverWatchedApps(workload)
     : new Set<string>();
@@ -160,7 +171,7 @@ export async function runDeploy(
     renderer,
     new Deploy.Terminations.Ejector(sink),
     new Deploy.Terminations.Planner(cache),
-    new Deploy.Terminations.Applier(sink, cache),
+    new Deploy.Terminations.Applier(sink, cache, undefined, deployed),
     new Deploy.Terminations.ReleaseAvailabilityPreflight(gateway),
     new Deploy.Terminations.LocalArtifactsPacker(
       new RunPackReleasePacker(
@@ -171,7 +182,7 @@ export async function runDeploy(
         options.buildReporter,
       ),
     ),
-    new Deploy.Terminations.WatchRunner(sink),
+    new Deploy.Terminations.WatchRunner(sink, undefined, deployed),
     new Deploy.Terminations.ExternalsEmulator(),
   );
 

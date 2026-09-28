@@ -10,6 +10,7 @@ import {
 } from "../resolve/workload-resolver.ts";
 import type { Renderer } from "../render/renderer.ts";
 import type { Artifacts } from "../render/artifact.ts";
+import type { OutputsLedger } from "../render/outputs-ledger.ts";
 import type { PresentedArtifact } from "../render/presented-artifact.ts";
 import type { DependencyGraph } from "../resolve/dependency-graph.ts";
 import type { Ejector } from "./ejector.ts";
@@ -122,7 +123,7 @@ export class DeploymentCoordinator {
     }
 
     const graph = this.graphBuilder.build(workload);
-    const artifacts = await this.renderer.render(
+    const { artifacts, ledger } = await this.renderer.renderWithLedger(
       workload,
       requests,
       selections,
@@ -152,6 +153,7 @@ export class DeploymentCoordinator {
           target.kit,
           name,
           options.signal,
+          ledger,
         );
         return { termination: "apply", gaps };
       }
@@ -160,6 +162,7 @@ export class DeploymentCoordinator {
     return await this.terminate(
       options.termination,
       artifacts,
+      ledger,
       graph,
       target,
       gaps,
@@ -170,6 +173,7 @@ export class DeploymentCoordinator {
   private async terminate(
     termination: Termination,
     artifacts: Artifacts,
+    ledger: OutputsLedger,
     graph: DependencyGraph,
     target: Target,
     gaps: readonly CapabilityGapReport[],
@@ -185,7 +189,7 @@ export class DeploymentCoordinator {
         return { termination: "plan", diff, gaps };
       }
       case "apply": {
-        await this.applier.apply(artifacts, graph, target.kit, name);
+        await this.applier.apply(artifacts, graph, target.kit, name, ledger);
         return { termination: "apply", gaps };
       }
     }
