@@ -44,13 +44,16 @@ Five resource kinds have a dedicated schema definition, matching a seeded
 A `container-orchestrated` compute's `ports` map is itself the reference surface
 for its ports (`${compute.<name>.<port-name>}`) rather than a separate `outputs`
 list. The name is yours to choose — nothing reads meaning into it — and each
-value is the port the container listens on. `compose` publishes each of those on
-an ephemeral host port of its own (`docker compose port <service> <port>` to
-look one up), never pinning the container's number onto the host, so several
-computes declaring the same container port is fine — they only ever share the
-compose network, where anything that needs a compute reaches it as
-`<service>:<port>`, the same address a compute's own `${compute.*}` references
-and the gateway's routes resolve to.
+value is the port the container listens on, never a host binding: `compose`
+never publishes it to the host's own port space, so several computes declaring
+the same container port is fine — they only ever share the compose network,
+where anything that needs a compute reaches it as `<service>:<port>`, the same
+address a compute's own `${compute.*}` references and the gateway's routes
+resolve to. From the host itself, `docker compose exec <service> ...` reaches a
+compute directly, and on native Linux Docker so does its container IP
+(`docker network inspect` finds it) — neither needs a published port, and
+Docker Desktop's own VM-based networking can't reach either without one, so
+this manifest field never tries to bridge that gap.
 
 `relationalResource` also accepts an optional `init` — a list of repo-relative
 SQL/shell file paths run against a fresh database on startup. `compose` mounts

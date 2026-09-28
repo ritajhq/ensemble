@@ -137,7 +137,6 @@ Deno.test("compose kit: matches Appendix A's documented content exactly", async 
   assertEquals(document.services.api, {
     image: "ens-local/web:dev",
     depends_on: ["primary"],
-    ports: ["8080"],
     environment: {
       DATABASE_URL: "postgres://appuser:${DB_PASSWORD}@primary:5432/appdb",
     },
@@ -229,7 +228,7 @@ deploy:
         http: 8000
 `;
 
-Deno.test("compose kit: computes declaring the same container port each publish it on their own ephemeral host port — the number is what the container listens on, never a host port to pin", async () => {
+Deno.test("compose kit: a compute's ports are only what it listens on — never published to the host, even when two computes share a container port", async () => {
   const workload = new KitSdk.Deploy.Manifest.Parser().parse(WITH_SHARED_PORT);
   const { artifacts, graph } = await renderWorkload(
     workload,
@@ -241,8 +240,8 @@ Deno.test("compose kit: computes declaring the same container port each publish 
     services: Record<string, { ports?: string[] }>;
   };
 
-  assertEquals(document.services["web-a"].ports, ["8000"]);
-  assertEquals(document.services["web-b"].ports, ["8000"]);
+  assertEquals("ports" in document.services["web-a"], false);
+  assertEquals("ports" in document.services["web-b"], false);
 });
 
 const WITH_DEVELOPMENT_BLOCK = `

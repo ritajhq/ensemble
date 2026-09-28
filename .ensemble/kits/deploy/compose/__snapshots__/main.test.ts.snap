@@ -11,9 +11,6 @@ snapshot[`compose kit: renders Appendix A's worked example (golden snapshot) 1`]
         DATABASE_URL: "postgres://appuser:\${DB_PASSWORD}@primary:5432/appdb",
       },
       image: "ens-local/web:dev",
-      ports: [
-        "8080",
-      ],
     },
     primary: {
       environment: {

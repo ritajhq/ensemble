@@ -2,33 +2,10 @@ import * as KitSdk from "@ensemble/kit-sdk";
 import { composeSecretWiring } from "../secret-wiring.ts";
 
 /**
- * Named ports (`{ http: 8080 }`) as compose port-mapping strings — the
- * container port alone (`"8080"`), which compose publishes on an ephemeral
- * host port of its own choosing. Deliberately never `"8080:8080"`: the
- * manifest declares the port the container *listens on*, and a container port
- * is private to its own container, so several computes sharing one is normal
- * (this stack's three frontends and its `cover` server all listen on 8000).
- * Copying that number onto the host instead hands that normal sharing to the
- * host's single global port space, where the second service to declare 8000
- * simply fails to bind. Everything that needs a compute reaches it over the
- * compose network by name (`http://<service>:<port>` — what the gateway's own
- * `proxy_pass` and every `${compute.*}` reference resolve to); the ephemeral
- * mapping is only a host-side convenience, findable with `docker compose port
- * <service> <port>`.
- */
-function portMappings(ports: unknown): string[] {
-  if (typeof ports !== "object" || ports === null) return [];
-  return Object.values(ports as Record<string, number>).map((port) =>
-    `${port}`
-  );
-}
-
-/**
  * A `mounts` entry (`{ source, path, readOnly? }`, `source` already resolved
  * from its `${storage.<name>.name}` reference to the volume's own name by
  * render time) as compose's own `"SOURCE:TARGET[:ro]"` volume-mapping
- * string. `[]` when there's no `mounts` param at all — same "absent, not
- * empty" convention `portMappings` uses for `ports`.
+ * string. `[]` when there's no `mounts` param at all.
  */
 function mountVolumes(mounts: unknown): string[] {
   if (!Array.isArray(mounts)) return [];
@@ -45,7 +22,7 @@ function mountVolumes(mounts: unknown): string[] {
  * interpolation placeholder via `composeSecretWiring` — same helper
  * `relational`'s `passwordSecret` already uses, generalized to any env var
  * name a compute names. `{}` when there's no `envSecrets` param, same
- * "absent, not empty" convention as `portMappings`/`mountVolumes`.
+ * "absent, not empty" convention as `mountVolumes`.
  */
 function envSecretVariables(
   envSecrets: unknown,
@@ -99,16 +76,22 @@ function developBlock(
 /**
  * Fulfills `container-orchestrated` on compose: an image, its environment
  * (`env` plus any `envSecrets`, each resolved to compose's own `${VAR}`
- * interpolation placeholder), its declared ports (each published on an
- * ephemeral host port — see `portMappings`), any networks it attaches to,
- * any `mounts` as service-level `volumes:` entries, and — when the resource
- * declares one — its `develop.watch` sync wiring. `replicas` has no
- * compose-native equivalent
- * outside swarm mode, so it's silently dropped rather than rendered as
- * something misleading — Appendix A's own golden output has no trace of it
- * either. Declares no outputs (Phase 2's `container-orchestrated.v1` contract
- * declares none): a compute's ports are referenced directly off its own
- * `ports` param, not through a provisioner-declared output.
+ * interpolation placeholder), any networks it attaches to, any `mounts` as
+ * service-level `volumes:` entries, and — when the resource declares one —
+ * its `develop.watch` sync wiring. Never a `ports:` entry: a compute's own
+ * `ports` param is only the port the container *listens on* — reachable over
+ * the compose network by name (`http://<service>:<port>`, what the gateway's
+ * own `proxy_pass` and every `${compute.*}` reference resolve to) or via
+ * `docker compose exec`/`docker network inspect` from the host — never
+ * published to the host's own port space, where two computes that happen to
+ * share a container port (this stack's three frontends and its `cover`
+ * server all listen on 8000) would collide. `replicas` has no compose-native
+ * equivalent outside swarm mode, so it's silently dropped rather than
+ * rendered as something misleading — Appendix A's own golden output has no
+ * trace of it either. Declares no outputs (Phase 2's
+ * `container-orchestrated.v1` contract declares none): a compute's ports are
+ * referenced directly off its own `ports` param, not through a
+ * provisioner-declared output.
  */
 export function containerOrchestratedProvisioner(): KitSdk.Deploy.Provisioner {
   return {
@@ -127,9 +110,6 @@ export function containerOrchestratedProvisioner(): KitSdk.Deploy.Provisioner {
           content: {
             service: {
               image: request.params.image,
-              ...(request.params.ports
-                ? { ports: portMappings(request.params.ports) }
-                : {}),
               environment: {
                 ...(request.params.env as Record<string, string> ?? {}),
                 ...envSecretVariables(
