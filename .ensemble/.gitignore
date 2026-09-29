@@ -1,8 +1,8 @@
 bin/
-kits/**/.bin/
 tokens.json
 platform/
-config.local.yaml
 secrets.key
+config.local.yaml
 publish.env
-release
+release/
+deploy/

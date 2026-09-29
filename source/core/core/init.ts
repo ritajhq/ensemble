@@ -27,10 +27,12 @@ const SKELETON_DIRS = [
   "ci",
 ];
 
-const GITIGNORE_TEMPLATE = `.ensemble/kits/**/.bin/
-.ensemble/publish.env
-.ensemble/deploy/
-node_modules/
+// Per-developer and per-machine state only — a kit's own build tools are
+// ignored by that kit's own `.gitignore`, not listed here.
+const ENSEMBLE_GITIGNORE_TEMPLATE = `config.local.yaml
+publish.env
+release/
+deploy/
 `;
 
 // `!deploy/` *and* `!deploy/**`: un-ignoring the directory alone only lets git
@@ -146,6 +148,10 @@ export async function runInit(
   const ensembleDir = join(projectDir, ".ensemble");
   await ensureDir(ensembleDir);
   await Deno.writeTextFile(join(ensembleDir, "config.yaml"), CONFIG_TEMPLATE);
+  await Deno.writeTextFile(
+    join(ensembleDir, ".gitignore"),
+    ENSEMBLE_GITIGNORE_TEMPLATE,
+  );
   await fetchKits(join(ensembleDir, "kits"), kitsRef, process);
 
   for (const dir of SKELETON_DIRS) {
@@ -168,7 +174,6 @@ export async function runInit(
     ) + "\n",
   );
 
-  await Deno.writeTextFile(join(projectDir, ".gitignore"), GITIGNORE_TEMPLATE);
   await Deno.writeTextFile(
     join(projectDir, "source/artifacts", ".gitignore"),
     ARTIFACTS_GITIGNORE_TEMPLATE,
