@@ -34,6 +34,13 @@ export interface RunDeployOptions {
   buildReporter?: BuildReporter;
 }
 
+/** Every signal that ends a session without going through Ctrl+C — a closed terminal sends SIGHUP, a process manager SIGTERM. */
+const TERMINATION_SIGNALS: readonly Deno.Signal[] = [
+  "SIGINT",
+  "SIGTERM",
+  "SIGHUP",
+];
+
 /**
  * Keeps every app a `--watch` session's `development.sync` rules reference
  * freshly built, so the kit's own file-watching sync (`docker compose
@@ -49,7 +56,7 @@ class CompanionBuildWatchers {
   private constructor(
     readonly signal: AbortSignal,
     private readonly controller: AbortController,
-    private readonly sigintListener: () => void,
+    private readonly onTermination: () => void,
     private readonly watchers: readonly Promise<number>[],
     private readonly failureBox: { failure?: unknown },
   ) {}
@@ -59,8 +66,10 @@ class CompanionBuildWatchers {
     ports: Ports,
   ): CompanionBuildWatchers {
     const controller = new AbortController();
-    const sigintListener = () => controller.abort();
-    Deno.addSignalListener("SIGINT", sigintListener);
+    const onTermination = () => controller.abort();
+    for (const signo of TERMINATION_SIGNALS) {
+      Deno.addSignalListener(signo, onTermination);
+    }
     const failureBox: { failure?: unknown } = {};
 
     console.log(`Building & watching: ${[...apps].join(", ")}`);
@@ -85,7 +94,7 @@ class CompanionBuildWatchers {
     return new CompanionBuildWatchers(
       controller.signal,
       controller,
-      sigintListener,
+      onTermination,
       watchers,
       failureBox,
     );
@@ -97,7 +106,9 @@ class CompanionBuildWatchers {
 
   async stop(): Promise<void> {
     this.controller.abort();
-    Deno.removeSignalListener("SIGINT", this.sigintListener);
+    for (const signo of TERMINATION_SIGNALS) {
+      Deno.removeSignalListener(signo, this.onTermination);
+    }
     await Promise.allSettled(this.watchers);
   }
 }
@@ -182,7 +193,12 @@ export async function runDeploy(
         options.buildReporter,
       ),
     ),
-    new Deploy.Terminations.WatchRunner(sink, undefined, deployed),
+    new Deploy.Terminations.WatchRunner(
+      sink,
+      undefined,
+      deployed,
+      Deploy.Terminations.WatchSessionRecord.for(repoRoot, name),
+    ),
     new Deploy.Terminations.ExternalsEmulator(),
   );
 

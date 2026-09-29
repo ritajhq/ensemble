@@ -19,6 +19,7 @@ export {
   type ReleasePacker,
   ReleasePackError,
 } from "./release-packer.ts";
+export { WatchSessionRecord } from "./watch-session-record.ts";
 export { WatchNotSupportedError, WatchRunner } from "./watch-runner.ts";
 export {
   EmulateExternalsNotSupportedError,

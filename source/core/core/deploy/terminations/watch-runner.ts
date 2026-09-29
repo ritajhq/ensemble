@@ -5,6 +5,8 @@ import type { ArtifactSink } from "./artifact-sink.ts";
 import type { OutputsLedger } from "../render/outputs-ledger.ts";
 import type { DeployedState } from "./deployed-state.ts";
 import { InitRunner } from "./init-runner.ts";
+import { ProcessTree } from "./process-tree.ts";
+import { WatchSessionRecord } from "./watch-session-record.ts";
 
 /** Thrown when `--watch` is requested but the target's kit has no watch command for it — a capability gap, not a bug: the manifest and target are both valid, this target's runtime just can't watch. */
 export class WatchNotSupportedError extends Error {
@@ -43,6 +45,7 @@ export class WatchRunner {
     private readonly sink: ArtifactSink,
     private readonly initRunner: InitRunner = new InitRunner(),
     private readonly deployed?: DeployedState,
+    private readonly session?: WatchSessionRecord,
   ) {}
 
   async watch(
@@ -65,36 +68,47 @@ export class WatchRunner {
     }
 
     const [executable, ...args] = command;
-    const process = new Deno.Command(executable, { args }).spawn();
-
-    await this.initRunner.run(artifacts.initCommands ?? [], {
-      artifactPath,
-      deploymentName: name,
-    });
-    // Up for as long as the session lasts, which is when it's used.
-    if (ledger) await this.deployed?.record(ledger, artifactPath);
-
-    const teardown = () => {
-      try {
-        process.kill("SIGTERM");
-      } catch {
-        // Already exited on its own — nothing to tear down.
-      }
-    };
-
-    if (signal) {
-      signal.addEventListener("abort", teardown, { once: true });
-      if (signal.aborted) teardown();
-      await process.status;
-      return;
+    const reclaimed = await this.session?.reclaimStale(args);
+    if (reclaimed !== undefined) {
+      console.warn(
+        `Stopped a watch session left running by an earlier run (PID ${reclaimed}).`,
+      );
     }
 
-    const onSigint = () => teardown();
-    Deno.addSignalListener("SIGINT", onSigint);
+    const process = new Deno.Command(executable, { args }).spawn();
+    await this.session?.begin(process.pid);
+    const tree = new ProcessTree(process.pid);
+
+    // Once it has exited its PID is free for reuse, so it must not be signalled again.
+    let exited = false;
+    const teardown = () => {
+      if (!exited) tree.terminate();
+    };
+
+    // A compose project admits one `watch` at a time, so a child left behind
+    // (by a signal that isn't SIGINT, or by anything below throwing) blocks
+    // the next session with "cannot take exclusive lock".
+    const signals: Deno.Signal[] = ["SIGINT", "SIGTERM", "SIGHUP"];
+    for (const signo of signals) Deno.addSignalListener(signo, teardown);
+    signal?.addEventListener("abort", teardown, { once: true });
+    if (signal?.aborted) teardown();
+
     try {
+      await this.initRunner.run(artifacts.initCommands ?? [], {
+        artifactPath,
+        deploymentName: name,
+      });
+      // Up for as long as the session lasts, which is when it's used.
+      if (ledger) await this.deployed?.record(ledger, artifactPath);
+
       await process.status;
+      exited = true;
     } finally {
-      Deno.removeSignalListener("SIGINT", onSigint);
+      teardown();
+      exited = true;
+      await this.session?.end();
+      for (const signo of signals) Deno.removeSignalListener(signo, teardown);
+      signal?.removeEventListener("abort", teardown);
     }
   }
 }
