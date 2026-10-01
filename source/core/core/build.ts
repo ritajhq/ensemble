@@ -48,6 +48,7 @@ export async function runBuild(name: string, options: RunBuildOptions, ports: Po
 
   const watchArgs = options.watch ? ["--watch"] : [];
   const targetArgs = appConfig.target ? ["--target", appConfig.target] : [];
+  const optionsArgs = appConfig.options ? ["--options", JSON.stringify(appConfig.options)] : [];
   const denoExe = await ports.denoExe.resolveDenoExecutable();
 
   const progress = options.watch
@@ -83,6 +84,7 @@ export async function runBuild(name: string, options: RunBuildOptions, ports: Po
       JSON.stringify(buildVars),
       ...watchArgs,
       ...targetArgs,
+      ...optionsArgs,
     ],
     { cwd: kitDir, env: buildVars, signal: options.signal },
   );

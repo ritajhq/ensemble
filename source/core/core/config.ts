@@ -6,6 +6,8 @@ export interface BuildAppConfig {
   kit: string;
   /** Static, kit-interpreted build variant (e.g. "ssr" for the `react` kit) — a fact about what the app is, not a per-run override, so it lives here rather than as a `-v` var. */
   target?: string;
+  /** Kit-interpreted settings (e.g. the `deno.bundle` kit's `format`/`external`) — passed through to the kit untouched, so core never needs to learn a kit's knobs. */
+  options?: Record<string, unknown>;
 }
 
 /** A named shell command, so `ens` can announce which hook is running without printing its whole script. */

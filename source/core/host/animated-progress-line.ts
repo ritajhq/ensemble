@@ -11,7 +11,7 @@ const ERASE_LINE = "\r\x1b[K";
  */
 export class AnimatedProgressLine {
   private frame = 0;
-  private readonly timer: number;
+  private readonly timer: ReturnType<typeof setInterval>;
 
   constructor(private readonly renderSpinning: (glyph: string) => string) {
     this.draw();

@@ -19,29 +19,31 @@ export interface Context {
   vars: Record<string, string>;
   /** Static build variant from `config.yaml`'s `build.<name>.target`, for kits that support more than one shape of output (e.g. the `react` kit's "ssr"). Absent for apps that don't set one. */
   target?: string;
+  /** Kit-interpreted settings from `config.yaml`'s `build.<name>.options`, passed through untouched. Empty for apps that don't set any. */
+  options: Record<string, unknown>;
 }
 
 const REQUIRED_STRING_FLAGS = ["source", "name", "out", "mode", "workspace"] as const;
 
-function parseVars(raw: string): Record<string, string> {
+function parseJsonObject(flag: string, raw: string): Record<string, unknown> {
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
   } catch {
-    throw new Error(`Invalid --vars JSON payload: ${raw}`);
+    throw new Error(`Invalid --${flag} JSON payload: ${raw}`);
   }
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    throw new Error(`Invalid --vars JSON payload: expected an object, got ${raw}`);
+    throw new Error(`Invalid --${flag} JSON payload: expected an object, got ${raw}`);
   }
-  return parsed as Record<string, string>;
+  return parsed as Record<string, unknown>;
 }
 
 /** Parses the standard build kit CLI contract. Call this from a build kit's entry point. */
 export function getContext(args: string[] = Deno.args): Context {
   const flags = parseArgs(args, {
-    string: [...REQUIRED_STRING_FLAGS, "vars", "target"],
+    string: [...REQUIRED_STRING_FLAGS, "vars", "target", "options"],
     boolean: ["watch"],
-    default: { watch: false, vars: "{}" },
+    default: { watch: false, vars: "{}", options: "{}" },
   });
 
   const source = requireFlag(flags, "source");
@@ -60,7 +62,8 @@ export function getContext(args: string[] = Deno.args): Context {
     mode,
     watch: flags.watch,
     workspace,
-    vars: parseVars(flags.vars),
+    vars: parseJsonObject("vars", flags.vars) as Record<string, string>,
     target: flags.target,
+    options: parseJsonObject("options", flags.options),
   };
 }
