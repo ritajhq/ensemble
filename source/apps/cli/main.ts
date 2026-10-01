@@ -10,6 +10,7 @@ import { developCommand } from "./commands/develop.ts";
 import { initCommand } from "./commands/init.ts";
 import { kitCommand } from "./commands/kit.ts";
 import { libCommand } from "./commands/lib.ts";
+import { lspCommand } from "./commands/lsp.ts";
 import { mcpCommand } from "./commands/mcp.ts";
 import { packCommand } from "./commands/pack.ts";
 import { publishCommand } from "./commands/publish.ts";
@@ -42,6 +43,7 @@ try {
     .command("release", releaseCommand)
     .command("status", statusCommand)
     .command("mcp", mcpCommand)
+    .command("lsp", lspCommand)
     .command("version", versionCommand)
     .parse(Deno.args);
 } catch (error) {

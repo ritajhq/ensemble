@@ -1,8 +1,11 @@
 import * as vscode from "vscode";
 import { Cli } from "./cli.ts";
+import { LanguageService } from "./language-service.ts";
+
+let languageService: LanguageService | undefined;
 
 // VS Code's contract: the entry module must export activate/deactivate functions.
-export function activate(context: vscode.ExtensionContext): void {
+export async function activate(context: vscode.ExtensionContext): Promise<void> {
   const cli = new Cli();
 
   context.subscriptions.push(
@@ -11,6 +14,11 @@ export function activate(context: vscode.ExtensionContext): void {
       vscode.window.showInformationMessage(`Hello from Ensemble! (${version})`);
     }),
   );
+
+  languageService = new LanguageService(cli);
+  await languageService.start();
 }
 
-export function deactivate(): void {}
+export async function deactivate(): Promise<void> {
+  await languageService?.stop();
+}

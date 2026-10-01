@@ -11,6 +11,8 @@
     "@std/fs": "jsr:@std/fs@1.0.24",
     "@std/path": "jsr:@std/path@1.1.6",
     "@std/yaml": "jsr:@std/yaml@1.1.2",
+    "vscode-languageserver": "npm:vscode-languageserver@9.0.1",
+    "vscode-languageserver-textdocument": "npm:vscode-languageserver-textdocument@1.0.12",
     "zod": "npm:zod@^3.25.0"
   }
 }

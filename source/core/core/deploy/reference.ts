@@ -65,4 +65,10 @@ export class ReferenceSyntax {
     }
     return { category, name, output };
   }
+
+  /** The inverse of `parse`: the `${...}` text that names `reference`. */
+  format(reference: Reference): string {
+    const segments = [reference.category, reference.name, reference.output].filter((s) => s !== undefined);
+    return `\${${segments.join(".")}}`;
+  }
 }

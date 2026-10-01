@@ -8,7 +8,9 @@
     "vscode": "^1.105.0"
   },
   "main": "./main.js",
-  "activationEvents": [],
+  "activationEvents": [
+    "workspaceContains:ci/*/delivery.yml"
+  ],
   "contributes": {
     "commands": [
       {
