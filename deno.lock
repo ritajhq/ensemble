@@ -53,6 +53,7 @@
     "npm:@types/mdast@4": "4.0.4",
     "npm:@types/react-dom@19": "19.2.3_@types+react@19.2.17",
     "npm:@types/react@19": "19.2.17",
+    "npm:@types/vscode@1.105.0": "1.105.0",
     "npm:hast-util-to-string@3": "3.0.1",
     "npm:mdast-util-to-string@4": "4.0.0",
     "npm:playwright@1.48.0": "1.48.0",
@@ -789,6 +790,9 @@
     },
     "@types/validate-npm-package-name@4.0.2": {
       "integrity": "sha512-lrpDziQipxCEeK5kWxvljWYhUvOiB2A9izZd9B2AFarYAkqZshb4lPbRs7zKEic6eGtH8V/2qJW+dPp9OtF6bw=="
+    },
+    "@types/vscode@1.105.0": {
+      "integrity": "sha512-Lotk3CTFlGZN8ray4VxJE7axIyLZZETQJVWi/lYoUVQuqfRxlQhVOfoejsD2V3dVXPSbS15ov5ZyowMAzgUqcw=="
     },
     "@ungap/structured-clone@1.4.0": {
       "integrity": "sha512-1mEZtMKPM09vDmQt5y7YvmN2+DFTP7Tg0EWXdic8/C6VRnpb33e4ghisCIE3WZjsE2N8mf+QV1Zqh7ZFYLWInQ=="
@@ -2957,6 +2961,15 @@
           "jsr:@std/path@1.1.6"
         ]
       },
+      ".ensemble/kits/pack/vscode": {
+        "dependencies": [
+          "jsr:@david/dax@0.42.0",
+          "jsr:@ensemble/kit-sdk@*",
+          "jsr:@std/fs@1.0.24",
+          "jsr:@std/path@1.1.6",
+          "jsr:@std/yaml@1.1.2"
+        ]
+      },
       "source/apps/cli": {
         "dependencies": [
           "jsr:@cliffy/command@1.2.1",
@@ -2979,6 +2992,11 @@
           "npm:@types/react@19",
           "npm:react-dom@19.2.8",
           "npm:react@19.2.8"
+        ]
+      },
+      "source/apps/extension/vscode": {
+        "dependencies": [
+          "npm:@types/vscode@1.105.0"
         ]
       },
       "source/apps/git-sync": {
@@ -3034,7 +3052,7 @@
         "dependencies": [
           "jsr:@david/dax@0.42.0",
           "jsr:@david/which@0.4.2",
-          "jsr:@ensemble/core@0.30",
+          "jsr:@ensemble/core@0.31",
           "jsr:@std/assert@1.0.14",
           "jsr:@std/fmt@1.0.10",
           "jsr:@std/fs@1.0.24",
@@ -3043,8 +3061,8 @@
       },
       "source/core/kit-sdk": {
         "dependencies": [
-          "jsr:@ensemble/core@0.30",
-          "jsr:@ensemble/host@0.30"
+          "jsr:@ensemble/core@0.31",
+          "jsr:@ensemble/host@0.31"
         ]
       },
       "source/core/website": {
