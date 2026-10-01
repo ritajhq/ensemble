@@ -1,0 +1,21 @@
+{
+  "name": "ensemble",
+  "displayName": "Ensemble",
+  "description": "Ensemble workspace support, powered by the ens CLI.",
+  "version": "0.0.1",
+  "publisher": "ritajhq",
+  "engines": {
+    "vscode": "^1.105.0"
+  },
+  "main": "./main.js",
+  "activationEvents": [],
+  "contributes": {
+    "commands": [
+      {
+        "command": "ensemble.hello",
+        "title": "Hello",
+        "category": "Ensemble"
+      }
+    ]
+  }
+}
