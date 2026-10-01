@@ -10,7 +10,7 @@ export class LanguageService {
       "ensemble",
       "Ensemble",
       cli.languageServer(),
-      { documentSelector: [{ scheme: "file", language: "yaml", pattern: "**/ci/*/delivery.yml" }] },
+      { documentSelector: [{ scheme: "file", language: "yaml", pattern: "**/ci/*/{delivery.yml,delivery}" }] },
     );
   }
 

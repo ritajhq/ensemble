@@ -9,7 +9,8 @@
   },
   "main": "./main.js",
   "activationEvents": [
-    "workspaceContains:ci/*/delivery.yml"
+    "workspaceContains:ci/*/delivery.yml",
+    "workspaceContains:ci/*/delivery"
   ],
   "contributes": {
     "commands": [
@@ -17,6 +18,14 @@
         "command": "ensemble.hello",
         "title": "Hello",
         "category": "Ensemble"
+      }
+    ],
+    "languages": [
+      {
+        "id": "yaml",
+        "filenamePatterns": [
+          "**/ci/*/delivery"
+        ]
       }
     ]
   }

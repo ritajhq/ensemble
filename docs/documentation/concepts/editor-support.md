@@ -25,7 +25,7 @@ Any editor with an LSP client (Neovim, Zed, Helix, JetBrains) can use
 
 | File                  | Feature                                                                                                                                                                                                                         |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ci/*/delivery.yml`   | **Reference completion** — typing `${` suggests every reference the manifest makes available: `${release.<name>}`, each resource's contract outputs (`${databases.db.host}`), a compute's ports, `variables`/`external` fields, and — under `tasks:` — `${deployment.*}`. |
+| `ci/*/delivery(.yml)` | **Reference completion** — typing `${` suggests every reference the manifest makes available: `${release.<name>}`, each resource's contract outputs (`${databases.db.host}`), a compute's ports, `variables`/`external` fields, and — under `tasks:` — `${deployment.*}`. |
 
 While a manifest is mid-edit and doesn't parse, completion keeps working from
 the last version of it that did.
