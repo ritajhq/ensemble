@@ -44,7 +44,12 @@ function envSecretVariables(
  * `target`, and the rule's group becoming compose's own `action`, matching
  * docker compose's field names one-for-one (compose's `action` accepts
  * exactly "sync"/"sync+restart" among others, the same two values ens's
- * schema uses). `undefined` when there's no `development` param or neither
+ * schema uses). Every entry sets `initial_sync`: `ens develop` packs a
+ * watched app's image while its companion `ens build --watch` is still
+ * writing the first build, so the image can bake in a half-old output, and
+ * a write that lands before `docker compose watch` attaches is never seen as
+ * a change. Syncing the whole path when watch starts closes that gap.
+ * `undefined` when there's no `development` param or neither
  * group has any rules (nothing to watch). Emitted unconditionally whenever
  * present — rendering doesn't know or care whether `--watch` was asked for
  * (Section 6: flag-independent).
@@ -68,6 +73,7 @@ function developBlock(
       path: rule.app,
       target: rule.path,
       action,
+      initial_sync: true,
       ...(rule.ignore.length > 0 ? { ignore: [...rule.ignore] } : {}),
     })),
   };

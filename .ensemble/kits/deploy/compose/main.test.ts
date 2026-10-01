@@ -280,11 +280,17 @@ Deno.test("compose kit: a development block renders a develop.watch entry per sy
 
   assertEquals(document.services.api.develop, {
     watch: [
-      { path: "website/server", target: "/app/server", action: "sync" },
+      {
+        path: "website/server",
+        target: "/app/server",
+        action: "sync",
+        initial_sync: true,
+      },
       {
         path: "website/content",
         target: "/app/content",
         action: "sync+restart",
+        initial_sync: true,
         ignore: ["*.test.ts"],
       },
     ],
