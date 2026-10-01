@@ -32,12 +32,13 @@ async function listWorkloads(repoRoot: string): Promise<WorkloadSummary[]> {
   const ciDir = join(repoRoot, "ci");
   if (!await exists(ciDir, { isDirectory: true })) return [];
 
+  const locator = new Deploy.Manifest.Locator();
   const loader = new Deploy.Manifest.Loader(new Deploy.Manifest.Parser());
   const workloads: WorkloadSummary[] = [];
   for await (const entry of Deno.readDir(ciDir)) {
     if (!entry.isDirectory) continue;
-    const manifestPath = join(ciDir, entry.name, "delivery.yml");
-    if (!await exists(manifestPath, { isFile: true })) continue;
+    const manifestPath = await locator.find(join(ciDir, entry.name));
+    if (!manifestPath) continue;
 
     const workload = await loader.loadFile(manifestPath);
     const categories: Partial<Record<Deploy.Category, string[]>> = {};

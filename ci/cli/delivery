@@ -1,0 +1,8 @@
+version: v1
+
+release:
+  cli:
+    kit: deno.compile
+    publish:
+      target: github
+      name: ensemble-linux-x64

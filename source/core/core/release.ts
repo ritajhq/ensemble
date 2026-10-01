@@ -378,10 +378,11 @@ export class ReleaseCeremony {
 
     if (!await exists(ciDir, { isDirectory: true })) return [];
 
+    const locator = new Deploy.Manifest.Locator();
     for await (const dirEntry of Deno.readDir(ciDir)) {
       if (!dirEntry.isDirectory) continue;
-      const workloadPath = join(ciDir, dirEntry.name, "delivery.yml");
-      if (!await exists(workloadPath, { isFile: true })) continue;
+      const workloadPath = await locator.find(join(ciDir, dirEntry.name));
+      if (!workloadPath) continue;
 
       const loader = new Deploy.Manifest.Loader(
         new Deploy.Manifest.Parser(),

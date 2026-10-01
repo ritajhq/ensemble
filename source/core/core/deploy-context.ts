@@ -122,9 +122,14 @@ export async function loadWorkload(
   const repoRoot = await repo.findRepoRoot();
   await loadVariablesEnvDefaults(repoRoot, name);
 
-  const manifestPath = join(repoRoot, "ci", name, "delivery.yml");
-  if (!await exists(manifestPath, { isFile: true })) {
-    throw new Error(`Delivery manifest not found at ${manifestPath}`);
+  const workloadDir = join(repoRoot, "ci", name);
+  const manifestPath = await new Deploy.Manifest.Locator().find(workloadDir);
+  if (!manifestPath) {
+    throw new Error(
+      `Delivery manifest not found in ${workloadDir} (expected ${
+        Deploy.Manifest.Locator.FILE_NAMES.join(" or ")
+      })`,
+    );
   }
   const workload = resolveRelationalInitPaths(
     await new Deploy.Manifest.Loader(

@@ -1,9 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ritajhq/ensemble/refs/heads/main/docs/delivery.schema.json
-version: v1
-
-release:
-  cli:
-    kit: deno.compile
-    publish:
-      target: github
-      name: ensemble-linux-x64
