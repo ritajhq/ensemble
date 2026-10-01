@@ -4,14 +4,6 @@ import { load as loadEnvFile } from "@std/dotenv";
 import * as Deploy from "./deploy/index.ts";
 import type { RepoLocator } from "./ports.ts";
 
-const RESOURCE_CONTRACTS: readonly Deploy.Contracts.ResourceContract[] = [
-  Deploy.Contracts.relationalV1,
-  Deploy.Contracts.containerOrchestratedV1,
-  Deploy.Contracts.storageVolumeV1,
-  Deploy.Contracts.gatewayV1,
-  Deploy.Contracts.objectStorageV1,
-];
-
 /**
  * `relational.v1`'s optional `init` param (Section 6 of its own contract
  * comment) is a list of project-relative file paths — the only param on any
@@ -151,7 +143,7 @@ export async function loadWorkload(
   return {
     repoRoot,
     workload,
-    registry: new Deploy.Contracts.Catalog(RESOURCE_CONTRACTS),
+    registry: new Deploy.Contracts.Catalog(Deploy.Contracts.SEEDED),
     kitDir,
     kitConfigPath: join(repoRoot, "ci", name, `${kit}.config.yml`),
   };

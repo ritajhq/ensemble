@@ -18,6 +18,7 @@ Every top-level `ens` command, as registered in `source/apps/cli/main.ts`:
 | [`release`](release.md)   | Create, resume, or undo a semver release.                  |
 | [`status`](status.md)     | List every app, kit, library, and workload.                |
 | [`mcp`](mcp.md)           | Run an MCP server exposing every command as an agent tool. |
+| [`lsp`](lsp.md)           | Run a language server for editor support.                  |
 | [`version`](version.md)   | Show or change the installed `ens` version.                |
 
 Every command is also available as an MCP tool when running `ens mcp` — see

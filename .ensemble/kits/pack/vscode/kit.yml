@@ -1,0 +1,7 @@
+modes:
+  folder: "Unpacked extension folder, loadable with code --extensionDevelopmentPath."
+  vsix: "Installable .vsix package, for code --install-extension."
+publish:
+  # Needs a Marketplace publisher matching the manifest's `publisher` and a
+  # personal access token in VSCE_PAT.
+  marketplace: "Publish to the Visual Studio Marketplace under the release version."

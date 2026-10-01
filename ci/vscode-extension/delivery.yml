@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ritajhq/ensemble/refs/heads/main/docs/delivery.schema.json
+version: v1
+
+# release:
+#   extension/vscode:
+#     kit: vscode
+#     publish:
+#       target: marketplace

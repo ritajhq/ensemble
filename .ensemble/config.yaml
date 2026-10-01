@@ -10,6 +10,12 @@ build:
     target: ssr
   website/server:
     kit: deno.bundle
+  extension/vscode:
+    kit: deno.bundle
+    options:
+      format: cjs
+      external:
+        - vscode
 publish:
   core:
     - name: core

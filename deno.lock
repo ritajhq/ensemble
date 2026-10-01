@@ -70,6 +70,9 @@
     "npm:shadcn@latest": "4.16.0_typescript@5.9.3",
     "npm:unified@11": "11.0.5",
     "npm:unist-util-visit@5": "5.1.0",
+    "npm:vscode-languageclient@9.0.1": "9.0.1",
+    "npm:vscode-languageserver-textdocument@1.0.12": "1.0.12",
+    "npm:vscode-languageserver@9.0.1": "9.0.1",
     "npm:zod@^3.25.0": "3.25.76"
   },
   "jsr": {
@@ -742,7 +745,7 @@
       "integrity": "sha512-Wf29UqxWDpc+i61k3oIOzcUfQt79PIT9y/MWfAGlrkjg6lBC1hwDECLXPVJAhWjiGbfBCxZd65F/LIZF3+jeJQ==",
       "dependencies": [
         "fast-glob",
-        "minimatch",
+        "minimatch@10.2.6",
         "path-browserify"
       ]
     },
@@ -855,6 +858,9 @@
     "bail@2.0.2": {
       "integrity": "sha512-0xO6mYd7JB2YesxDKplafRpsiOzPt9V02ddPCLbY1xYGPOX24NTyN50qnUxgCPcSoYMhKpAuBTjQoRZCAkUDRw=="
     },
+    "balanced-match@1.0.2": {
+      "integrity": "sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw=="
+    },
     "balanced-match@4.0.4": {
       "integrity": "sha512-BLrgEcRTwX2o6gGxGOCNyMvGSp35YofuYzw9h1IMTRmKqttAZZVU67bdb9Pr2vUHA8+j3i2tJfjO6C6+4myGTA=="
     },
@@ -876,10 +882,16 @@
         "type-is"
       ]
     },
+    "brace-expansion@2.1.7": {
+      "integrity": "sha512-uZbew1NqdmPDTMJ8ah1y+b+9QEJrfkXFk3RcTQw3X0jW/xRUvFKsg1CfQdSYGdTbXZWExtU3J3ccxtnfw1Fi0g==",
+      "dependencies": [
+        "balanced-match@1.0.2"
+      ]
+    },
     "brace-expansion@5.0.9": {
       "integrity": "sha512-ScQ4IuvIEF1TMlP7Zt+vjJ//9zlPb2SDcxWxM3bk8s6t6GGdJ7KO1dCcTidOPJKePW30LE/2cT7wCyPho9/Wxg==",
       "dependencies": [
-        "balanced-match"
+        "balanced-match@4.0.4"
       ]
     },
     "braces@3.0.3": {
@@ -2052,7 +2064,13 @@
     "minimatch@10.2.6": {
       "integrity": "sha512-vpLQEs+VLCr1nU0BXS07maYoFwlDAH0gngQuuttxIwutDFEMHq2blX+8vpgxDdK3J1PwjCJiep77OitTZ4Ll1A==",
       "dependencies": [
-        "brace-expansion"
+        "brace-expansion@5.0.9"
+      ]
+    },
+    "minimatch@5.1.9": {
+      "integrity": "sha512-7o1wEA2RyMP7Iu7GNba9vc0RWWGACJOCZBJX2GJWip0ikV+wcOsgVuY9uE8CPiyQhkGFSlhuSkZPavN7u1c2Fw==",
+      "dependencies": [
+        "brace-expansion@2.1.7"
       ]
     },
     "minimist@1.2.8": {
@@ -2843,6 +2861,37 @@
         "vfile-message"
       ]
     },
+    "vscode-jsonrpc@8.2.0": {
+      "integrity": "sha512-C+r0eKJUIfiDIfwJhria30+TYWPtuHJXHtI7J0YlOmKAo7ogxP20T0zxB7HZQIFhIyvoBPwWskjxrvAtfjyZfA=="
+    },
+    "vscode-languageclient@9.0.1": {
+      "integrity": "sha512-JZiimVdvimEuHh5olxhxkht09m3JzUGwggb5eRUkzzJhZ2KjCN0nh55VfiED9oez9DyF8/fz1g1iBV3h+0Z2EA==",
+      "dependencies": [
+        "minimatch@5.1.9",
+        "semver@7.8.5",
+        "vscode-languageserver-protocol"
+      ]
+    },
+    "vscode-languageserver-protocol@3.17.5": {
+      "integrity": "sha512-mb1bvRJN8SVznADSGWM9u/b07H7Ecg0I3OgXDuLdn307rl/J3A9YD6/eYOssqhecL27hK1IPZAsaqh00i/Jljg==",
+      "dependencies": [
+        "vscode-jsonrpc",
+        "vscode-languageserver-types"
+      ]
+    },
+    "vscode-languageserver-textdocument@1.0.12": {
+      "integrity": "sha512-cxWNPesCnQCcMPeenjKKsOCKQZ/L6Tv19DTRIGuLWe32lyzWhihGVJ/rcckZXJxfdKCFvRLS3fpBIsV/ZGX4zA=="
+    },
+    "vscode-languageserver-types@3.17.5": {
+      "integrity": "sha512-Ld1VelNuX9pdF39h2Hgaeb5hEZM2Z3jUrrMgWQAu82jMtZp7p3vJT3BzToKtZI7NgQssZje5o0zryOrhQvzQAg=="
+    },
+    "vscode-languageserver@9.0.1": {
+      "integrity": "sha512-woByF3PDpkHFUreUa7Hos7+pUWdeWMXRd26+ZX2A8cFx6v/JPTtd4/uN0/jB6XQHYaOlHbio03NTHCqrgG5n7g==",
+      "dependencies": [
+        "vscode-languageserver-protocol"
+      ],
+      "bin": true
+    },
     "which@2.0.2": {
       "integrity": "sha512-BLI3Tl1TW3Pvl70l3yq3Y64i+awpwXqsGBYWkkqMtnbXgrMD+yj7rhW0kuEDxzJaYXGjEW5ogapKNMEKNMjibA==",
       "dependencies": [
@@ -2983,6 +3032,8 @@
           "jsr:@std/path@1.1.6",
           "jsr:@std/yaml@1.1.2",
           "npm:@modelcontextprotocol/sdk@^1.12.0",
+          "npm:vscode-languageserver-textdocument@1.0.12",
+          "npm:vscode-languageserver@9.0.1",
           "npm:zod@^3.25.0"
         ]
       },
@@ -2996,7 +3047,8 @@
       },
       "source/apps/extension/vscode": {
         "dependencies": [
-          "npm:@types/vscode@1.105.0"
+          "npm:@types/vscode@1.105.0",
+          "npm:vscode-languageclient@9.0.1"
         ]
       },
       "source/apps/git-sync": {

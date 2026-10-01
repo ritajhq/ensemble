@@ -11,8 +11,10 @@ export {
   type ContractRegistry as Registry,
 } from "./registry.ts";
 export { ReferenceValidator } from "./reference-validator.ts";
+export { type ReferenceTarget, ReferenceTargets } from "./reference-targets.ts";
 export { containerOrchestratedV1 } from "./seeds/container-orchestrated.ts";
 export { relationalV1 } from "./seeds/relational.ts";
 export { storageVolumeV1 } from "./seeds/storage-volume.ts";
 export { gatewayV1 } from "./seeds/gateway.ts";
 export { objectStorageV1 } from "./seeds/object-storage.ts";
+export { SEEDED } from "./seeds/index.ts";

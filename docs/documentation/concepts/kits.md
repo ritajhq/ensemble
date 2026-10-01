@@ -12,7 +12,10 @@ There are three kit roles, each speaking a different contract:
 
 A build kit is an executable that receives a fixed CLI contract —
 `--source --name --out --mode <development|production> --workspace --vars
-<json> [--watch]` — and must build from `source`, writing output to `out`.
+<json> [--watch] [--target <t>] [--options <json>]` — and must build from
+`source`, writing output to `out`. `--options` carries the app's
+`build.<name>.options` from `.ensemble/config.yaml` untouched, for the kit to
+interpret (e.g. `deno.bundle`'s `format` and `external`).
 An app states which build kit it uses via `ens config set-build-kit`; `ens
 build <app>` runs it as a subprocess.
 
