@@ -18,7 +18,7 @@ const SETTLE_DELAY_MS = 300;
  */
 export class WorkspaceConfig {
   private readonly change = new Delegate<[]>();
-  private pending?: number;
+  private pending?: ReturnType<typeof setTimeout>;
 
   constructor(private readonly repoRoot: string) {}
 
