@@ -1,6 +1,6 @@
 {
   "name": "ensemble-cli",
-  "displayName": "Ensemble",
+  "displayName": "Ensemble Workspace",
   "description": "Ensemble workspace support, powered by the ens CLI.",
   "version": "0.0.1",
   "publisher": "ritaj",
