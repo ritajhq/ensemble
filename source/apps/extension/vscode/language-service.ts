@@ -1,5 +1,8 @@
+import * as vscode from "vscode";
 import { LanguageClient } from "vscode-languageclient/node";
 import type { Cli } from "./cli.ts";
+
+const INSTALL_URL = "https://github.com/ritajhq/ensemble#installation";
 
 /** Editor support for Ensemble's files, served by `ens lsp` — the extension only connects VS Code to it. */
 export class LanguageService {
@@ -14,11 +17,27 @@ export class LanguageService {
     );
   }
 
+  /** Starts `ens lsp`; when `ens` is missing or predates the `lsp` command, says so instead of failing activation. */
   async start(): Promise<void> {
-    await this.client.start();
+    try {
+      await this.client.start();
+    } catch {
+      await this.offerInstall();
+    }
   }
 
   async stop(): Promise<void> {
+    if (!this.client.isRunning()) return;
     await this.client.stop();
+  }
+
+  private async offerInstall(): Promise<void> {
+    const install = "Install Ensemble";
+    const choice = await vscode.window.showErrorMessage(
+      "Ensemble's language features need the `ens` CLI on your PATH, at a version with the `ens lsp` command.",
+      install,
+    );
+    if (choice !== install) return;
+    await vscode.env.openExternal(vscode.Uri.parse(INSTALL_URL));
   }
 }

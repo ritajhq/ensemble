@@ -4,8 +4,9 @@ import * as KitSdk from "@ensemble/kit-sdk";
 import { Vsce } from "./vsce.ts";
 
 // Assembles an unpacked extension folder VS Code can load directly (e.g. via
-// --extensionDevelopmentPath): the ship's extension.json manifest, renamed to
-// the package.json VS Code requires, next to the same-named app's build output.
+// --extensionDevelopmentPath): the same-named app's build output, plus every
+// file in the ship (README, icon, ...) with its extension.json manifest renamed
+// to the package.json VS Code requires.
 // The vsix mode then zips that folder into an installable package.
 const ctx = KitSdk.Pack.getContext();
 
@@ -22,7 +23,8 @@ if (!await exists(build, { isDirectory: true })) {
 const folder = join(ctx.packages, ctx.outputName);
 await emptyDir(folder);
 await copy(build, folder, { overwrite: true });
-await Deno.copyFile(manifest, join(folder, "package.json"));
+await copy(ctx.ship, folder, { overwrite: true });
+await Deno.rename(join(folder, "extension.json"), join(folder, "package.json"));
 
 if (ctx.mode !== "vsix") Deno.exit(0);
 

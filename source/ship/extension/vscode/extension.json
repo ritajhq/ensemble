@@ -4,6 +4,24 @@
   "description": "Ensemble workspace support, powered by the ens CLI.",
   "version": "0.0.1",
   "publisher": "ritaj",
+  "icon": "icon.png",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ritajhq/ensemble.git"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters",
+    "Other"
+  ],
+  "keywords": [
+    "ensemble",
+    "ens",
+    "delivery",
+    "deploy",
+    "yaml"
+  ],
   "engines": {
     "vscode": "^1.105.0"
   },
