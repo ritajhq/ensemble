@@ -1,5 +1,6 @@
 import { join } from "@std/path";
 import { ensureDir, exists } from "@std/fs";
+import { Delegate, type Emitter } from "@duesabati/evento";
 import * as Deploy from "./deploy/index.ts";
 import { runPack } from "./pack.ts";
 import type { PackReporter } from "./pack-reporter.ts";
@@ -360,10 +361,17 @@ function publishOptionsEqual(
  * reasons to change.
  */
 export class ReleaseCeremony {
+  private readonly workloadWithoutManifest = new Delegate<[string]>();
+
   constructor(
     private readonly repoRoot: string,
     private readonly ports: Ports,
   ) {}
+
+  /** Fires with a `ci/<name>` directory's name when `collectShipReleases` skips it for having no recognised delivery manifest — any `release:` it meant to declare is silently left out of the release. */
+  get OnWorkloadWithoutManifest(): Emitter<[string]> {
+    return this.workloadWithoutManifest;
+  }
 
   /**
    * Globs every `ci/<name>/delivery.yml`, collects each one's `release:`
@@ -382,7 +390,10 @@ export class ReleaseCeremony {
     for await (const dirEntry of Deno.readDir(ciDir)) {
       if (!dirEntry.isDirectory) continue;
       const workloadPath = await locator.find(join(ciDir, dirEntry.name));
-      if (!workloadPath) continue;
+      if (!workloadPath) {
+        this.workloadWithoutManifest.Invoke(dirEntry.name);
+        continue;
+      }
 
       const loader = new Deploy.Manifest.Loader(
         new Deploy.Manifest.Parser(),

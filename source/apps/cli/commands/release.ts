@@ -70,6 +70,13 @@ async function collectReleases(
   { ships: Core.Release.ShipRelease[]; coreLibs: Core.CoreLibRelease[] }
 > {
   const ceremony = new Core.Release.ReleaseCeremony(repoRoot, ports);
+  ceremony.OnWorkloadWithoutManifest.Do((workload) =>
+    console.log(
+      `Warning: ci/${workload} has no delivery manifest (${
+        Core.Deploy.Manifest.Locator.FILE_NAMES.join(" or ")
+      }) — skipping any releases it was meant to declare.`,
+    )
+  );
   const ships = filterByName(
     await ceremony.collectShipReleases(),
     (s) => s.name,
