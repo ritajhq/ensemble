@@ -3,6 +3,6 @@ tokens.json
 platform/
 secrets.key
 config.local.yaml
-publish.env
-release/
+release/secrets.env
+release/state/
 deploy/

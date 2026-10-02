@@ -30,7 +30,7 @@ non-dry-run tag is created (the tag won't reflect them). Once the tag
 exists, this proceeds straight into the release ceremony: it lists what it
 will pack/publish, asks you to confirm once, then packs, pushes, and
 publishes without asking again — a mid-ceremony failure leaves an accurate
-record of what's left (`.ensemble/release/<tag>.json`) for `resume` to pick
+record of what's left (`.ensemble/release/state/<tag>.json`) for `resume` to pick
 up.
 
 ## `ens release set <version>`

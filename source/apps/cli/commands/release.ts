@@ -287,7 +287,7 @@ async function printReleaseHookPreview(
  * narrows that down to whatever `ReleaseState` doesn't already report as
  * packed/published for `tag`, and packs, pushes, and publishes the rest,
  * then runs `hooks.release.after` exactly once. Every successful step is
- * persisted to `.ensemble/release/<tag>.json` immediately
+ * persisted to `.ensemble/release/state/<tag>.json` immediately
  * (`ReleaseStateStore`), so a mid-ceremony failure leaves an accurate record
  * of what's left; the next `ens release resume <tag>` reads that record and
  * only redoes what didn't finish — including never re-running the hook once
@@ -474,7 +474,7 @@ export const releaseCommand = new Command()
   .reset()
   .command(
     "resume",
-    "Re-run the build/pack/publish ceremony for a tag that's already been created — for finishing a release after a partial failure. Picks up exactly where it left off (see .ensemble/release/<tag>.json) and never re-runs hooks.release.after (e.g. the changelog) once it's already run for this tag.",
+    "Re-run the build/pack/publish ceremony for a tag that's already been created — for finishing a release after a partial failure. Picks up exactly where it left off (see .ensemble/release/state/<tag>.json) and never re-runs hooks.release.after (e.g. the changelog) once it's already run for this tag.",
   )
   .option(
     "--only <names:string>",

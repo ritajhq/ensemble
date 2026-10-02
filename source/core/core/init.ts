@@ -30,8 +30,8 @@ const SKELETON_DIRS = [
 // Per-developer and per-machine state only — a kit's own build tools are
 // ignored by that kit's own `.gitignore`, not listed here.
 const ENSEMBLE_GITIGNORE_TEMPLATE = `config.local.yaml
-publish.env
-release/
+release/secrets.env
+release/state/
 deploy/
 `;
 

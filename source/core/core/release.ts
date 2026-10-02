@@ -290,7 +290,7 @@ function emptyReleaseState(tag: string): ReleaseState {
 
 /**
  * Stores one release's ceremony progress as a JSON file under
- * `.ensemble/release/<tag>.json`. A file left behind always means that
+ * `.ensemble/release/state/<tag>.json`. A file left behind always means that
  * tag's ceremony didn't finish; `clear` removes it once packing,
  * publishing, and the release hook have all completed for that tag — so an
  * absent file always means "nothing left to resume here."
@@ -299,7 +299,7 @@ export class ReleaseStateStore {
   constructor(private readonly repoRoot: string) {}
 
   private path(tag: string): string {
-    return join(this.repoRoot, ".ensemble", "release", `${tag}.json`);
+    return join(this.repoRoot, ".ensemble", "release", "state", `${tag}.json`);
   }
 
   /** Reads back `tag`'s progress, or a freshly empty state if nothing's been recorded for it yet. */

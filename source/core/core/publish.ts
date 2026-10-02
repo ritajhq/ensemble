@@ -5,7 +5,7 @@ import type { Ports } from "./ports.ts";
 import * as Pack from "./pack-context.ts";
 
 /** Untracked env file holding publish-target credentials (registry passwords, GH_TOKEN, …). Loaded into the publish kit's process environment, never onto its argv. */
-export const PUBLISH_ENV_PATH = ".ensemble/publish.env";
+export const PUBLISH_SECRETS_PATH = ".ensemble/release/secrets.env";
 
 export interface RunPublishOptions {
   /** Which named publish target to run, declared in the pack kit's own `kit.yml` "publish" map. */
@@ -60,11 +60,11 @@ export async function runPublish(
   const varOverrides = options.varOverrides ?? {};
 
   // Credentials for publish targets (registry passwords, GH_TOKEN, …) live in
-  // an untracked .ensemble/publish.env and are handed to the kit through its
+  // an untracked .ensemble/release/secrets.env and are handed to the kit through its
   // process environment — never via --vars/argv, which would leak them into
   // `ps` and any logging of the spawned command line.
   const credentials = await loadEnv({
-    envPath: join(repoRoot, PUBLISH_ENV_PATH),
+    envPath: join(repoRoot, PUBLISH_SECRETS_PATH),
     export: false,
   });
   const env = { ...credentials, ...varOverrides };

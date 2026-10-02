@@ -42,7 +42,7 @@ export { resolvePackDependencies } from "./pack-dependencies.ts";
 export type { PackProgress, PackReporter } from "./pack-reporter.ts";
 export { PlainPackReporter } from "./plain-pack-reporter.ts";
 export {
-  PUBLISH_ENV_PATH,
+  PUBLISH_SECRETS_PATH,
   runPublish,
   type RunPublishOptions,
 } from "./publish.ts";

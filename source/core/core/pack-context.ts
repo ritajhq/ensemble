@@ -187,7 +187,7 @@ export interface PublishContext {
   version: string;
   /** The publish options for this target — every `publish:` property other than `target`/`name` from the release's delivery manifest (e.g. `{ registry: "registry.example.com/org" }`). Entirely kit-owned: each kit reads the keys it understands. */
   options: Record<string, string>;
-  /** Resolved publish vars (currently just `--var` overrides — no env-file tier yet, since publish credentials come from the process environment, see @ensemble/core's PUBLISH_ENV_PATH). */
+  /** Resolved publish vars (currently just `--var` overrides — no env-file tier yet, since publish credentials come from the process environment, see @ensemble/core's PUBLISH_SECRETS_PATH). */
   vars: Record<string, string>;
 }
 
