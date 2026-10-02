@@ -41,9 +41,16 @@ export interface Ship {
   kit: string;
 }
 
+export interface Task {
+  name: string;
+  command: string;
+  arguments: string[];
+}
+
 export interface Workload {
   name: string;
   manifest: string;
   ships: Ship[];
   resources: Record<string, string[]>;
+  tasks: Task[];
 }

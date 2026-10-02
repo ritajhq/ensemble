@@ -8,6 +8,7 @@ export {
   type KitRole,
   type Library,
   type Ship,
+  type Task,
   type Vendoring,
   type Workload,
 } from "./project.ts";

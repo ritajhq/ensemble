@@ -43,6 +43,15 @@ export interface Ship {
   readonly kit: string;
 }
 
+/** An operator command a workload declares under `tasks:`, run with `ens delivery task`. */
+export interface Task {
+  readonly name: string;
+  /** What it runs: its inline `run:` script, or `sh scripts/<file>` for a `script:`. */
+  readonly command: string;
+  /** The environment variables its `arguments:` hands it (values are resolved when it runs). */
+  readonly arguments: readonly string[];
+}
+
 /** A workload under `ci/<name>/`, summarised from its delivery manifest. */
 export interface Workload {
   readonly name: string;
@@ -51,4 +60,5 @@ export interface Workload {
   readonly ships: readonly Ship[];
   /** Declared resource names per deploy category, for the categories it uses. */
   readonly resources: Partial<Record<Deploy.Category, readonly string[]>>;
+  readonly tasks: readonly Task[];
 }

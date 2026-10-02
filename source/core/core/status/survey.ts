@@ -4,7 +4,7 @@ import { EnsembleConfigStore, type LibConfig } from "../config.ts";
 import * as Deploy from "../deploy/index.ts";
 import * as Vendor from "../vendor/index.ts";
 import type { Builder } from "./builder.ts";
-import { type App, type Kit, KIT_ROLES, type KitRole, type Library, type Vendoring, type Workload } from "./project.ts";
+import { type App, type Kit, KIT_ROLES, type KitRole, type Library, type Task, type Vendoring, type Workload } from "./project.ts";
 
 const byName = <T extends { name: string }>(a: T, b: T) => a.name.localeCompare(b.name);
 
@@ -98,6 +98,7 @@ export class Survey {
         manifest: relative(this.repoRoot, manifestPath),
         ships: Object.entries(workload.release ?? {}).map(([name, release]) => ({ name, kit: release.kit })),
         resources: this.resourcesOf(workload),
+        tasks: this.tasksOf(workload),
       });
     }
     return workloads.sort(byName);
@@ -110,6 +111,16 @@ export class Survey {
       if (names.length > 0) resources[category] = names;
     }
     return resources;
+  }
+
+  private tasksOf(workload: Deploy.Workload): Task[] {
+    return Object.entries(workload.tasks ?? {})
+      .map(([name, task]) => ({
+        name,
+        command: task.run ?? `sh scripts/${task.script}`,
+        arguments: Object.keys(task.arguments ?? {}),
+      }))
+      .sort(byName);
   }
 
   private vendoringOf(path: string, vendored: Map<string, Vendoring>): Vendoring | undefined {

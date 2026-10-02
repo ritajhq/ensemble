@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import type { DeployOptions } from "./deploy-options.ts";
 import type * as Project from "./project/index.ts";
 import type { Runner } from "./runner.ts";
+import type { TaskOptions } from "./task-options.ts";
 
 const BUMPS = ["patch", "minor", "major"];
 const KIT_ROLES = ["build", "pack", "deploy", "lib"];
@@ -14,12 +15,14 @@ export class Commands {
   constructor(
     private readonly runner: Runner,
     private readonly deployOptions: DeployOptions,
-    private readonly tree: Project.Tree,
+    private readonly taskOptions: TaskOptions,
+    private readonly source: Project.Source,
   ) {}
 
   register(): vscode.Disposable[] {
     const handlers: Record<string, (...args: never[]) => unknown> = {
-      "ensemble.refresh": () => this.tree.refresh(),
+      "ensemble.refresh": () => this.source.refresh(),
+      "ensemble.task.run": (node: Project.TaskNode) => this.runTask(node),
       "ensemble.build": (node: Project.AppNode) => this.runner.run(["build", node.app.name]),
       "ensemble.develop": (target: Project.WorkloadNode | string) => this.runner.run(["develop", this.workloadOf(target)]),
       "ensemble.deploy": (target: Project.WorkloadNode | string) => this.deploy(this.workloadOf(target)),
@@ -51,6 +54,11 @@ export class Commands {
 
   private async deploy(workload: string): Promise<void> {
     const args = await this.deployOptions.ask(workload);
+    if (args) this.runner.run(args);
+  }
+
+  private async runTask(node: Project.TaskNode): Promise<void> {
+    const args = await this.taskOptions.ask(node.workload, node.task.name);
     if (args) this.runner.run(args);
   }
 

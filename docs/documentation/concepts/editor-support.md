@@ -63,11 +63,17 @@ kind.
 Every action runs its `ens` command in an "Ensemble" terminal, so output stays
 visible and interactive prompts keep working.
 
-- [x] **Sidebar** (Ensemble logo in the activity bar): a Project view of
-      `ens status --json` — apps (build), workloads (develop, deploy), kits
-      and libraries (new, install, update, pin, contribute, eject; libraries
-      also publish). Refreshes when `.ensemble/config.yaml`, the vendoring
-      lockfile, a kit or a delivery manifest changes.
+- [x] **Sidebar** (Ensemble logo in the activity bar): one collapsible pane
+      per section of `ens status --json`, loaded once and shared —
+      **Apps** (build), **Workloads** (develop, deploy, release; each
+      workload's ships, resources and tasks, and running a task with input),
+      **Kits** and **Libraries** (new, install, update, pin, contribute,
+      eject, uninstall; libraries also publish). Refreshes when
+      `.ensemble/config.yaml`, the vendoring lockfile, a kit or a delivery
+      manifest changes, and when `ens` itself is updated.
+- [x] **Running a task**: asks for the deploy kit to resolve its
+      `arguments:` with and any input to hand it as `$1..$n`, preselecting the
+      last answers for that task, then runs `ens delivery task`.
 - [x] **Code lenses** in delivery manifests: Develop and Deploy… above
       `deploy:`; Release… above `release:` — once, not per ship, because
       `ens release` packs and publishes every workload's releases together.

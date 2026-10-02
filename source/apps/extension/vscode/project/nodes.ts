@@ -30,30 +30,6 @@ const open = (root: vscode.Uri, path: string): vscode.Command => ({
 
 const vendoredAt = (vendored?: Status.Vendoring) => vendored ? `@ ${vendored.ref}` : "local";
 
-/** A top-level group (Apps, Workloads, Kits, Libraries). `contextValue` lets the manifest attach section-wide actions, e.g. "new kit". */
-export class Section extends Node {
-  constructor(
-    private readonly label: string,
-    private readonly icon: string,
-    private readonly contextValue: string,
-    private readonly entries: Node[],
-  ) {
-    super();
-  }
-
-  item(): vscode.TreeItem {
-    const item = new vscode.TreeItem(this.label, vscode.TreeItemCollapsibleState.Expanded);
-    item.iconPath = new vscode.ThemeIcon(this.icon);
-    item.contextValue = this.contextValue;
-    item.description = this.entries.length === 0 ? "none" : undefined;
-    return item;
-  }
-
-  override children(): Node[] {
-    return this.entries;
-  }
-}
-
 export class AppNode extends Node {
   constructor(readonly app: Status.App, private readonly root: vscode.Uri) {
     super();
@@ -89,7 +65,44 @@ export class WorkloadNode extends Node {
     const resources = Object.entries(this.workload.resources).map(([category, names]) =>
       new Leaf(category, names.join(", "), "symbol-field", "resources")
     );
-    return [...ships, ...resources];
+    // `tasks` is newer than `ens status --json` itself; an older `ens` simply has none to list.
+    const tasks = (this.workload.tasks ?? []).length === 0 ? [] : [new TasksNode(this.workload)];
+    return [...ships, ...resources, ...tasks];
+  }
+}
+
+class TasksNode extends Node {
+  constructor(private readonly workload: Status.Workload) {
+    super();
+  }
+
+  item(): vscode.TreeItem {
+    const item = new vscode.TreeItem("tasks", vscode.TreeItemCollapsibleState.Expanded);
+    item.iconPath = new vscode.ThemeIcon("checklist");
+    return item;
+  }
+
+  override children(): Node[] {
+    return this.workload.tasks.map((task) => new TaskNode(this.workload.name, task));
+  }
+}
+
+/** A workload's `tasks:` entry, run with `ens delivery task`. */
+export class TaskNode extends Node {
+  constructor(readonly workload: string, readonly task: Status.Task) {
+    super();
+  }
+
+  item(): vscode.TreeItem {
+    const item = new vscode.TreeItem(this.task.name);
+    item.description = this.task.command;
+    item.tooltip = new vscode.MarkdownString(
+      `\`${this.task.command}\`` +
+        (this.task.arguments.length > 0 ? `\n\nArguments: ${this.task.arguments.map((a) => `\`${a}\``).join(", ")}` : ""),
+    );
+    item.iconPath = new vscode.ThemeIcon("terminal");
+    item.contextValue = "task";
+    return item;
   }
 }
 
@@ -185,22 +198,23 @@ export class LibraryNode extends Node {
   }
 }
 
-/** The tree's top level, built from one `ens status --json` document. */
-export function sections(status: Status.Document, root: vscode.Uri): Node[] {
-  const kitsOf = (role: Status.KitRole) =>
-    status.kits.filter((kit) => kit.role === role).map((kit) => new KitNode(kit, root));
-  const librariesOf = (scope: Status.Library["scope"]) =>
-    status.libraries.filter((library) => library.scope === scope).map((library) => new LibraryNode(library, root));
+/** Each pane's top-level rows, built from one `ens status --json` document. */
+export const Roots = {
+  apps: (status: Status.Document, root: vscode.Uri): Node[] => status.apps.map((app) => new AppNode(app, root)),
 
-  return [
-    new Section("Apps", "package", "section.apps", status.apps.map((app) => new AppNode(app, root))),
-    new Section("Workloads", "server-environment", "section.workloads", status.workloads.map((w) => new WorkloadNode(w, root))),
-    new Section("Kits", "tools", "section.kits", ROLES.map((role) => new KitRoleNode(role, kitsOf(role)))),
-    new Section(
-      "Libraries",
-      "library",
-      "section.libraries",
-      LIBRARY_SCOPES.map(({ scope, label }) => new LibraryScopeNode(label, librariesOf(scope))),
+  workloads: (status: Status.Document, root: vscode.Uri): Node[] =>
+    status.workloads.map((workload) => new WorkloadNode(workload, root)),
+
+  kits: (status: Status.Document, root: vscode.Uri): Node[] =>
+    ROLES.map((role) =>
+      new KitRoleNode(role, status.kits.filter((kit) => kit.role === role).map((kit) => new KitNode(kit, root)))
     ),
-  ];
-}
+
+  libraries: (status: Status.Document, root: vscode.Uri): Node[] =>
+    LIBRARY_SCOPES.map(({ scope, label }) =>
+      new LibraryScopeNode(
+        label,
+        status.libraries.filter((library) => library.scope === scope).map((library) => new LibraryNode(library, root)),
+      )
+    ),
+};

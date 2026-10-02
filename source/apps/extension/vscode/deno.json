@@ -1,5 +1,6 @@
 {
   "imports": {
+    "@duesabati/evento": "jsr:@duesabati/evento@1.0.0",
     "vscode": "npm:@types/vscode@1.105.0",
     "vscode-languageclient": "npm:vscode-languageclient@9.0.1"
   }

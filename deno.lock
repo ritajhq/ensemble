@@ -3047,6 +3047,7 @@
       },
       "source/apps/extension/vscode": {
         "dependencies": [
+          "jsr:@duesabati/evento@1.0.0",
           "npm:@types/vscode@1.105.0",
           "npm:vscode-languageclient@9.0.1"
         ]

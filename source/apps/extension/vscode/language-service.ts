@@ -26,6 +26,12 @@ export class LanguageService {
     }
   }
 
+  /** Restarts `ens lsp` — e.g. on a newly installed `ens` — or starts it if it never came up (an `ens` that was missing or too old). */
+  async restart(): Promise<void> {
+    if (!this.client.isRunning()) return await this.start();
+    await this.client.restart();
+  }
+
   async stop(): Promise<void> {
     if (!this.client.isRunning()) return;
     await this.client.stop();

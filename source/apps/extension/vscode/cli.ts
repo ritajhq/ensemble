@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
+import { delimiter } from "node:path";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -10,7 +11,9 @@ const run = promisify(execFile);
 
 /** Where `.ensemble/install.sh` puts `ens` by default. */
 const INSTALLER_DEFAULT = join(homedir(), ".ensemble", "bin", "ens");
-const VERSION = /\d+\.\d+\.\d+\S*/;
+const VERSION = /\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?/;
+/** `ens` colours its output for people; programs reading it want plain text (https://no-color.org). */
+const PLAIN = { ...process.env, NO_COLOR: "1" };
 
 /** The `ens` binary, invoked as a child process from the project root. */
 export class Cli {
@@ -28,13 +31,19 @@ export class Cli {
   static locate(configured: string | undefined, projectRoot: string | undefined): Cli {
     if (configured) return new Cli(configured, projectRoot);
     if (existsSync(INSTALLER_DEFAULT)) return new Cli(INSTALLER_DEFAULT, projectRoot);
-    return new Cli("ens", projectRoot);
+    return new Cli(Cli.onPath("ens") ?? "ens", projectRoot);
+  }
+
+  /** The full path `name` resolves to on the PATH — so there is a file to watch for updates — or undefined when it isn't there. */
+  private static onPath(name: string): string | undefined {
+    const dirs = (process.env.PATH ?? "").split(delimiter).filter((dir) => dir.length > 0);
+    return dirs.map((dir) => join(dir, name)).find((path) => existsSync(path));
   }
 
   /** The installed `ens`'s version (e.g. "0.37.0"), or undefined when it can't be run. */
   async version(): Promise<string | undefined> {
     try {
-      const { stdout } = await run(this.executable, ["--version"]);
+      const { stdout } = await run(this.executable, ["--version"], { env: PLAIN });
       return VERSION.exec(stdout)?.[0];
     } catch {
       return undefined;
@@ -43,12 +52,12 @@ export class Cli {
 
   /** Everything the project declares, from `ens status --json`. */
   async status(): Promise<Status.Document> {
-    const { stdout } = await run(this.executable, ["status", "--json"], { cwd: this.projectRoot, maxBuffer: 16 * 1024 * 1024 });
+    const { stdout } = await run(this.executable, ["status", "--json"], { cwd: this.projectRoot, env: PLAIN, maxBuffer: 16 * 1024 * 1024 });
     return JSON.parse(stdout);
   }
 
   /** How to launch `ens lsp`, for a language client to own the process. */
   languageServer(): Executable {
-    return { command: this.executable, args: ["lsp", "--stdio"], options: { cwd: this.projectRoot } };
+    return { command: this.executable, args: ["lsp", "--stdio"], options: { cwd: this.projectRoot, env: PLAIN } };
   }
 }

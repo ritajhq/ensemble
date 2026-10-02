@@ -53,6 +53,11 @@ deploy:
   databases:
     db:
       type: relational
+tasks:
+  migrate:
+    script: migrate.sh
+    arguments:
+      PGHOST: \${databases.db.host}
 `);
   await Deno.mkdir(join(root, "ci/empty"), { recursive: true });
   return root;
@@ -86,5 +91,6 @@ Deno.test("Survey: summarises workloads with a manifest, skipping directories wi
     manifest: "ci/shop/delivery",
     ships: [{ name: "web", kit: "docker" }],
     resources: { databases: ["db"] },
+    tasks: [{ name: "migrate", command: "sh scripts/migrate.sh", arguments: ["PGHOST"] }],
   }]);
 });

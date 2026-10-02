@@ -157,6 +157,12 @@
         "title": "Uninstall Library",
         "category": "Ensemble",
         "icon": "$(trash)"
+      },
+      {
+        "command": "ensemble.task.run",
+        "title": "Run Task\u2026",
+        "category": "Ensemble",
+        "icon": "$(run)"
       }
     ],
     "languages": [
@@ -190,121 +196,169 @@
     "views": {
       "ensemble": [
         {
-          "id": "ensemble.project",
-          "name": "Project",
+          "id": "ensemble.apps",
+          "name": "Apps",
           "contextualTitle": "Ensemble"
+        },
+        {
+          "id": "ensemble.workloads",
+          "name": "Workloads",
+          "contextualTitle": "Ensemble"
+        },
+        {
+          "id": "ensemble.kits",
+          "name": "Kits",
+          "contextualTitle": "Ensemble"
+        },
+        {
+          "id": "ensemble.libraries",
+          "name": "Libraries",
+          "contextualTitle": "Ensemble",
+          "visibility": "collapsed"
         }
       ]
     },
     "viewsWelcome": [
       {
-        "view": "ensemble.project",
-        "contents": "Open an Ensemble project (a folder with .ensemble/config.yaml) to see its apps, workloads, kits and libraries.\n[Read about Ensemble](https://github.com/ritajhq/ensemble)"
+        "view": "ensemble.apps",
+        "contents": "No apps yet. Scaffold one with `ens app create <kit> <name>`.\n[Read about Ensemble](https://github.com/ritajhq/ensemble)"
+      },
+      {
+        "view": "ensemble.workloads",
+        "contents": "No workloads yet. A workload is a ci/<name>/delivery.yml manifest."
+      },
+      {
+        "view": "ensemble.kits",
+        "contents": "No kits installed.\n[New Kit](command:ensemble.kit.new)\n[Install Kit](command:ensemble.kit.install)"
+      },
+      {
+        "view": "ensemble.libraries",
+        "contents": "No publishable libraries.\n[New Library](command:ensemble.lib.new)\n[Install Library](command:ensemble.lib.install)"
       }
     ],
     "menus": {
       "view/title": [
         {
           "command": "ensemble.refresh",
-          "when": "view == ensemble.project",
-          "group": "navigation"
+          "when": "view == ensemble.apps",
+          "group": "navigation@9"
+        },
+        {
+          "command": "ensemble.refresh",
+          "when": "view == ensemble.workloads",
+          "group": "navigation@9"
+        },
+        {
+          "command": "ensemble.refresh",
+          "when": "view == ensemble.kits",
+          "group": "navigation@9"
+        },
+        {
+          "command": "ensemble.refresh",
+          "when": "view == ensemble.libraries",
+          "group": "navigation@9"
+        },
+        {
+          "command": "ensemble.release",
+          "when": "view == ensemble.workloads",
+          "group": "navigation@1"
+        },
+        {
+          "command": "ensemble.kit.new",
+          "when": "view == ensemble.kits",
+          "group": "navigation@1"
+        },
+        {
+          "command": "ensemble.kit.install",
+          "when": "view == ensemble.kits",
+          "group": "navigation@2"
+        },
+        {
+          "command": "ensemble.lib.new",
+          "when": "view == ensemble.libraries",
+          "group": "navigation@1"
+        },
+        {
+          "command": "ensemble.lib.install",
+          "when": "view == ensemble.libraries",
+          "group": "navigation@2"
         }
       ],
       "view/item/context": [
         {
           "command": "ensemble.build",
-          "when": "view == ensemble.project && viewItem == app",
+          "when": "view == ensemble.apps && viewItem == app",
           "group": "inline"
         },
         {
           "command": "ensemble.develop",
-          "when": "view == ensemble.project && viewItem == workload",
+          "when": "view == ensemble.workloads && viewItem == workload",
           "group": "inline"
         },
         {
           "command": "ensemble.deploy",
-          "when": "view == ensemble.project && viewItem == workload",
+          "when": "view == ensemble.workloads && viewItem == workload",
           "group": "inline"
         },
         {
-          "command": "ensemble.release",
-          "when": "view == ensemble.project && viewItem == section.workloads",
-          "group": "inline"
-        },
-        {
-          "command": "ensemble.kit.new",
-          "when": "view == ensemble.project && viewItem == section.kits",
-          "group": "inline"
-        },
-        {
-          "command": "ensemble.kit.install",
-          "when": "view == ensemble.project && viewItem == section.kits",
+          "command": "ensemble.task.run",
+          "when": "view == ensemble.workloads && viewItem == task",
           "group": "inline"
         },
         {
           "command": "ensemble.kit.update",
-          "when": "view == ensemble.project && viewItem == kit.vendored",
+          "when": "view == ensemble.kits && viewItem == kit.vendored",
           "group": "inline"
         },
         {
           "command": "ensemble.kit.pin",
-          "when": "view == ensemble.project && viewItem == kit.vendored",
+          "when": "view == ensemble.kits && viewItem == kit.vendored",
           "group": "manage@1"
         },
         {
           "command": "ensemble.kit.contribute",
-          "when": "view == ensemble.project && viewItem == kit.vendored",
+          "when": "view == ensemble.kits && viewItem == kit.vendored",
           "group": "manage@2"
         },
         {
+          "command": "ensemble.kit.uninstall",
+          "when": "view == ensemble.kits && viewItem == kit.vendored",
+          "group": "manage@9"
+        },
+        {
           "command": "ensemble.kit.eject",
-          "when": "view == ensemble.project && viewItem == kit.local",
+          "when": "view == ensemble.kits && viewItem == kit.local",
           "group": "manage@1"
         },
         {
-          "command": "ensemble.lib.new",
-          "when": "view == ensemble.project && viewItem == section.libraries",
-          "group": "inline"
-        },
-        {
-          "command": "ensemble.lib.install",
-          "when": "view == ensemble.project && viewItem == section.libraries",
-          "group": "inline"
-        },
-        {
           "command": "ensemble.lib.update",
-          "when": "view == ensemble.project && viewItem == library.vendored",
+          "when": "view == ensemble.libraries && viewItem == library.vendored",
           "group": "inline"
         },
         {
           "command": "ensemble.lib.pin",
-          "when": "view == ensemble.project && viewItem == library.vendored",
+          "when": "view == ensemble.libraries && viewItem == library.vendored",
           "group": "manage@1"
         },
         {
           "command": "ensemble.lib.contribute",
-          "when": "view == ensemble.project && viewItem == library.vendored",
+          "when": "view == ensemble.libraries && viewItem == library.vendored",
           "group": "manage@2"
         },
         {
+          "command": "ensemble.lib.uninstall",
+          "when": "view == ensemble.libraries && viewItem == library.vendored",
+          "group": "manage@9"
+        },
+        {
           "command": "ensemble.lib.eject",
-          "when": "view == ensemble.project && viewItem == library.local",
+          "when": "view == ensemble.libraries && viewItem == library.local",
           "group": "manage@1"
         },
         {
           "command": "ensemble.lib.publish",
-          "when": "view == ensemble.project && viewItem =~ /^library\\./",
+          "when": "view == ensemble.libraries && viewItem =~ /^library\\./",
           "group": "publish@1"
-        },
-        {
-          "command": "ensemble.kit.uninstall",
-          "when": "view == ensemble.project && viewItem == kit.vendored",
-          "group": "manage@9"
-        },
-        {
-          "command": "ensemble.lib.uninstall",
-          "when": "view == ensemble.project && viewItem == library.vendored",
-          "group": "manage@9"
         }
       ],
       "commandPalette": [
@@ -366,6 +420,10 @@
         },
         {
           "command": "ensemble.lib.uninstall",
+          "when": "false"
+        },
+        {
+          "command": "ensemble.task.run",
           "when": "false"
         }
       ]
