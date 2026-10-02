@@ -323,7 +323,7 @@ async function runReleaseCeremony(
   tag: string,
   remote: string,
   filter: ReleaseFilter = {},
-): Promise<void> {
+): Promise<number> {
   const store = new Core.Release.ReleaseStateStore(repoRoot);
   let state = await store.read(tag);
   const persist = async (next: Partial<Core.Release.ReleaseState>) => {
@@ -355,7 +355,7 @@ async function runReleaseCeremony(
       console.log(
         `Tag ${tag} is still local-only. Fix the issue, then run "ens release resume ${tag}" to try again.`,
       );
-      return;
+      return 1;
     }
 
     if (!state.pushed) {
@@ -388,7 +388,7 @@ async function runReleaseCeremony(
       console.log(
         `Tag ${tag} is already on the remote, but not everything published under it yet. Fix the issue, then run "ens release resume ${tag}" (--only/--skip to narrow it down).`,
       );
-      return;
+      return 1;
     }
 
     const released = [
@@ -406,7 +406,7 @@ async function runReleaseCeremony(
   const everythingDone = remaining.shipsToPack.length === 0 &&
     remaining.shipsToPublish.length === 0 &&
     remaining.coreLibsToPublish.length === 0;
-  if (!everythingDone) return;
+  if (!everythingDone) return 0;
 
   if (!state.pushed) {
     await pushRelease(release, tag, remote);
@@ -417,6 +417,7 @@ async function runReleaseCeremony(
     await persist({ hookRan: true });
   }
   await store.clear(tag);
+  return 0;
 }
 
 export const releaseCommand = new Command()
@@ -465,7 +466,8 @@ export const releaseCommand = new Command()
     await stampAndCommitCoreLibs(repoRoot, ports, release, preview.tag);
     await release.createReleaseTag(preview);
     console.log(`Created tag: ${preview.tag}`);
-    await runReleaseCeremony(repoRoot, ports, release, preview.tag, remote);
+    const code = await runReleaseCeremony(repoRoot, ports, release, preview.tag, remote);
+    if (code !== 0) Deno.exit(code);
   })
   .reset()
   .command(
@@ -492,7 +494,8 @@ export const releaseCommand = new Command()
     await stampAndCommitCoreLibs(repoRoot, ports, release, preview.tag);
     await release.createReleaseTag(preview);
     console.log(`Created tag: ${preview.tag}`);
-    await runReleaseCeremony(repoRoot, ports, release, preview.tag, remote);
+    const code = await runReleaseCeremony(repoRoot, ports, release, preview.tag, remote);
+    if (code !== 0) Deno.exit(code);
   })
   .reset()
   .command(
@@ -531,7 +534,8 @@ export const releaseCommand = new Command()
       );
       return;
     }
-    await runReleaseCeremony(repoRoot, ports, release, tag, remote, filter);
+    const code = await runReleaseCeremony(repoRoot, ports, release, tag, remote, filter);
+    if (code !== 0) Deno.exit(code);
   })
   .reset()
   .command("undo", "Deletes the last tag. Does not touch any commit.")
