@@ -2,3 +2,4 @@ source: cli
 output: ensemble-linux-x64
 permissions:
   allow-all: true
+exclude-unused-npm: true
