@@ -2,7 +2,7 @@
   "imports": {
     "@std/path": "jsr:@std/path@1.1.6",
     "@david/dax": "jsr:@david/dax@0.42.0",
-    "@ensemble/kit-sdk": "jsr:@ensemble/kit-sdk",
+    "@ensemble/kit-sdk": "jsr:@ensemble/kit-sdk@^0.40.0",
     "@std/assert": "jsr:@std/assert@1.0.14"
   }
 }

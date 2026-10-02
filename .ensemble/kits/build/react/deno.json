@@ -4,6 +4,6 @@
     "@std/fs": "jsr:@std/fs@1.0.24",
     "@david/dax": "jsr:@david/dax@0.42.0",
     "@duesabati/evento": "jsr:@duesabati/evento@1.0.0",
-    "@ensemble/kit-sdk": "jsr:@ensemble/kit-sdk"
+    "@ensemble/kit-sdk": "jsr:@ensemble/kit-sdk@^0.40.0"
   }
 }
