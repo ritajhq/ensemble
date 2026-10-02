@@ -15,11 +15,13 @@ export { runKitEject } from "./kit-eject.ts";
 export { runKitInstall } from "./kit-install.ts";
 export { runKitPin } from "./kit-pin.ts";
 export { runKitNew } from "./kit-scaffold.ts";
+export { runKitUninstall } from "./kit-uninstall.ts";
 export { runKitUpdate } from "./kit-update.ts";
 export { runLibContribute } from "./lib-contribute.ts";
 export { LibEjector, runLibEject } from "./lib-eject.ts";
 export { runLibInstall } from "./lib-install.ts";
 export { runLibPin } from "./lib-pin.ts";
+export { runLibUninstall } from "./lib-uninstall.ts";
 export { runLibUpdate } from "./lib-update.ts";
 export {
   type LibDeclaration,
@@ -59,7 +61,7 @@ export {
   TaskFailedError,
   UnknownTaskError,
 } from "./delivery-task.ts";
-export { runStatus } from "./status.ts";
+export * as Status from "./status/index.ts";
 export { RunPackReleasePacker } from "./release-packer.ts";
 
 export * as Config from "./config.ts";

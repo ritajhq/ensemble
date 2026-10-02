@@ -43,6 +43,13 @@ export class GitPackageSource implements Vendor.PackageSource {
     await $`git checkout --quiet ${ref}`.cwd(dir);
   }
 
+  async hasLocalChanges(dir: string): Promise<boolean> {
+    const uncommitted = (await $`git status --porcelain`.cwd(dir).text()).trim();
+    if (uncommitted.length > 0) return true;
+    const unpublished = (await $`git rev-list HEAD --not --remotes --tags`.cwd(dir).text()).trim();
+    return unpublished.length > 0;
+  }
+
   async availableVersions(location: string): Promise<string[]> {
     const output = await $`git ls-remote --tags --refs ${location}`.text();
     return output

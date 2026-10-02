@@ -1,8 +1,9 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { runStatus } from "@ensemble/core";
+import * as Core from "@ensemble/core";
 import * as Host from "@ensemble/host";
 import { ToolResult } from "../tool-result.ts";
 import { ToolRegistration } from "../tool-registration.ts";
+import * as StatusFormats from "../../status/index.ts";
 
 export class StatusTools {
   Register(server: McpServer): void {
@@ -20,8 +21,8 @@ export class StatusTools {
       },
       () =>
         ToolResult.from(async () => {
-          await runStatus(Host.createPorts());
-          return "(end of status)";
+          const repoRoot = await Host.createPorts().repo.findRepoRoot();
+          return await new Core.Status.Survey(repoRoot).describeTo(new StatusFormats.Json());
         }),
     );
   }

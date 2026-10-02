@@ -6,6 +6,9 @@ import { SelfContainmentChecker } from "./lib-self-containment.ts";
 import { LibEjector } from "./lib-eject.ts";
 
 class FakePackageSource implements PackageSource {
+  hasLocalChanges(): Promise<boolean> {
+    return Promise.resolve(false);
+  }
   calls: { method: string; args: unknown[] }[] = [];
 
   fetch(): Promise<void> {

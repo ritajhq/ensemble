@@ -5,6 +5,9 @@ import type { PackageSource, PullRequestRef } from "./package-source.ts";
 import { KitPinner } from "./kit-pinner.ts";
 
 class FakePackageSource implements PackageSource {
+  hasLocalChanges(): Promise<boolean> {
+    return Promise.resolve(false);
+  }
   /** ref currently reported as checked out — mutated by switchTo to simulate a real checkout moving. */
   refAfterSwitch = "unset";
 

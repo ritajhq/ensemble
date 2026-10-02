@@ -5,6 +5,9 @@ import type { PackageSource, PullRequestRef } from "./package-source.ts";
 import { VendorContribute } from "./vendor-contribute.ts";
 
 class FakePackageSource implements PackageSource {
+  hasLocalChanges(): Promise<boolean> {
+    return Promise.resolve(false);
+  }
   calls: { method: string; args: unknown[] }[] = [];
 
   fetch(): Promise<void> {

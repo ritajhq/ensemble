@@ -48,6 +48,9 @@ function fakeLibKitFor(kit: string): LibKit {
 }
 
 class FakePackageSource implements PackageSource {
+  hasLocalChanges(): Promise<boolean> {
+    return Promise.resolve(false);
+  }
   calls: { method: string; args: unknown[] }[] = [];
 
   fetch(): Promise<void> {

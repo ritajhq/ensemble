@@ -28,4 +28,6 @@ export interface PackageSource {
   switchTo(dir: string, ref: string): Promise<void>;
   /** Every tag published at `location`, without needing a local checkout. */
   availableVersions(location: string): Promise<string[]>;
+  /** Whether `dir` holds work its remote doesn't have yet — uncommitted changes, or commits on no remote branch or tag — which removing the checkout would lose. */
+  hasLocalChanges(dir: string): Promise<boolean>;
 }

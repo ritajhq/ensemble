@@ -5,6 +5,9 @@ import type { PackageSource, PullRequestRef } from "./package-source.ts";
 import { LibPinner } from "./lib-pinner.ts";
 
 class FakePackageSource implements PackageSource {
+  hasLocalChanges(): Promise<boolean> {
+    return Promise.resolve(false);
+  }
   refAfterSwitch = "unset";
 
   fetch(): Promise<void> {

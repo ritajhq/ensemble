@@ -6,6 +6,9 @@ import { LibPinner } from "./lib-pinner.ts";
 import { LibUpdater } from "./lib-updater.ts";
 
 class FakePackageSource implements PackageSource {
+  hasLocalChanges(): Promise<boolean> {
+    return Promise.resolve(false);
+  }
   refAfterSwitch = "unset";
   versions: string[] = [];
 

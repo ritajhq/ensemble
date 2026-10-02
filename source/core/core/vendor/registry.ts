@@ -13,6 +13,8 @@ interface StoredEntry {
 /** The vendoring lockfile, as a port — one row per vendored path, `{ repo, ref }`. */
 export interface Registry {
   register(entry: Entry): Promise<void>;
+  /** Forgets a vendored path — the inverse of `register`, lockfile row and `.gitignore` line both. */
+  unregister(path: string): Promise<void>;
   entryFor(path: string): Promise<Entry | undefined>;
   all(): Promise<Entry[]>;
 }
@@ -41,6 +43,13 @@ export class FileRegistry implements Registry {
     await Deno.writeTextFile(this.lockfilePath, stringifyYaml(entries));
   }
 
+  private async unignorePath(path: string): Promise<void> {
+    const gitignorePath = join(this.repoRoot, ".gitignore");
+    if (!await exists(gitignorePath, { isFile: true })) return;
+    const lines = (await Deno.readTextFile(gitignorePath)).split("\n");
+    await Deno.writeTextFile(gitignorePath, lines.filter((line) => line !== path).join("\n"));
+  }
+
   private async ignorePath(path: string): Promise<void> {
     const gitignorePath = join(this.repoRoot, ".gitignore");
     const existing = await exists(gitignorePath, { isFile: true })
@@ -58,6 +67,13 @@ export class FileRegistry implements Registry {
     entries[entry.path] = { repo: entry.repo, ref: entry.ref };
     await this.writeAll(entries);
     await this.ignorePath(entry.path);
+  }
+
+  async unregister(path: string): Promise<void> {
+    const entries = await this.readAll();
+    delete entries[path];
+    await this.writeAll(entries);
+    await this.unignorePath(path);
   }
 
   async entryFor(path: string): Promise<Entry | undefined> {

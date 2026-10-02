@@ -59,3 +59,21 @@ against its remote.
 ```sh
 ens kit contribute my-deploy-target
 ```
+
+## `ens kit uninstall`
+
+Remove a vendored kit — the inverse of `ens kit install`: its checkout,
+its `.ensemble/vendor.lock.yml` entry, and its `.gitignore` line. Aliases:
+`ens kit remove`, `ens kit rm`.
+
+```sh
+ens kit uninstall <name>
+ens kit rm <name> --force
+```
+
+Only vendored kits can be uninstalled: one authored in this project was
+never installed, and deleting it is deleting your own code. Without
+`-f, --force`, it refuses while
+an app, release or library still declares the kit (a `build.<app>.kit`, a release's `kit:`, a library's `publish:` kit),
+or while the checkout holds changes its remote doesn't have (uncommitted, or
+commits on no remote branch or tag) — `ens kit contribute` them first.

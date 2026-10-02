@@ -5,6 +5,7 @@ import {
   runKitInstall,
   runKitNew,
   runKitPin,
+  runKitUninstall,
   runKitUpdate,
 } from "@ensemble/core";
 import * as Host from "@ensemble/host";
@@ -61,6 +62,26 @@ export const kitCommand = new Command()
           new Host.GitPackageSource(),
         );
         console.log(`Ejected ${entry.path} to ${entry.repo}@${entry.ref}.`);
+      }),
+  )
+  .command(
+    "uninstall",
+    new Command()
+      .alias("remove")
+      .alias("rm")
+      .description(
+        "Remove a vendored kit: its checkout, lockfile entry and .gitignore line. Refuses while the project still uses it or it has local changes.",
+      )
+      .arguments("<name:string>")
+      .option("-f, --force", "Uninstall even if the project still uses it, or discard its local changes.")
+      .action(async ({ force }, name) => {
+        const entry = await runKitUninstall(
+          name,
+          { force: Boolean(force) },
+          Host.createPorts().repo,
+          new Host.GitPackageSource(),
+        );
+        console.log(`Uninstalled ${entry.path} (was ${entry.repo}@${entry.ref}).`);
       }),
   )
   .command(

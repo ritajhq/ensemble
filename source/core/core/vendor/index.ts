@@ -11,5 +11,6 @@ export { LibInstaller } from "./lib-installer.ts";
 export { LibPinner } from "./lib-pinner.ts";
 export { LibUpdater } from "./lib-updater.ts";
 export { VendorContribute } from "./vendor-contribute.ts";
+export { Uninstaller, type UninstallOptions } from "./uninstaller.ts";
 export * as KitManifest from "./kit-manifest.ts";
 export * as SemVer from "./semver.ts";

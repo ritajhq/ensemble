@@ -70,3 +70,21 @@ ens lib publish my-utils jsr 1.4.0
 
 `<kit>` is a `lib`-role kit under `.ensemble/kits/lib/<kit>` (e.g. `jsr`,
 which ships with this repo).
+
+## `ens lib uninstall`
+
+Remove a vendored library — the inverse of `ens lib install`: its checkout,
+its `.ensemble/vendor.lock.yml` entry, and its `.gitignore` line. Aliases:
+`ens lib remove`, `ens lib rm`.
+
+```sh
+ens lib uninstall <name>
+ens lib rm <name> --force
+```
+
+Only vendored librarys can be uninstalled: one authored in this project was
+never installed, and deleting it is deleting your own code. Without
+`-f, --force`, it refuses while
+`publish.libs` in `.ensemble/config.yaml` still declares the library,
+or while the checkout holds changes its remote doesn't have (uncommitted, or
+commits on no remote branch or tag) — `ens lib contribute` them first.

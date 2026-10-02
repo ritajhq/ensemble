@@ -6,6 +6,9 @@ import { KitPinner } from "./kit-pinner.ts";
 import { KitUpdater } from "./kit-updater.ts";
 
 class FakePackageSource implements PackageSource {
+  hasLocalChanges(): Promise<boolean> {
+    return Promise.resolve(false);
+  }
   refAfterSwitch = "unset";
   versions: string[] = [];
 

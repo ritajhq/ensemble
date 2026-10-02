@@ -60,8 +60,24 @@ kind.
 
 ### CLI-backed actions
 
-- [ ] Build / pack / deploy code lenses above an app's or release's entry.
-- [ ] A sidebar showing `ens status`.
+Every action runs its `ens` command in an "Ensemble" terminal, so output stays
+visible and interactive prompts keep working.
+
+- [x] **Sidebar** (Ensemble logo in the activity bar): a Project view of
+      `ens status --json` — apps (build), workloads (develop, deploy), kits
+      and libraries (new, install, update, pin, contribute, eject; libraries
+      also publish). Refreshes when `.ensemble/config.yaml`, the vendoring
+      lockfile, a kit or a delivery manifest changes.
+- [x] **Code lenses** in delivery manifests: Develop and Deploy… above
+      `deploy:`; Release… above `release:` — once, not per ship, because
+      `ens release` packs and publishes every workload's releases together.
+      Deploy… asks for the deploy kit, mode (apply/plan/eject), artifacts and
+      version, preselecting the last answers for that workload.
+- [x] **Status bar**: the installed `ens` version, flagged when it's older
+      than the extension (released together, under one version) with a click
+      to update it.
+- [ ] Package and Publish lenses above `release:` — need CLI commands that
+      pack or publish every declared release without tagging.
 
 ### Custom views
 
