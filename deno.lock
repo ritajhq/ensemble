@@ -2962,6 +2962,7 @@
       ".ensemble/kits/build/react": {
         "dependencies": [
           "jsr:@david/dax@0.42.0",
+          "jsr:@duesabati/evento@1.0.0",
           "jsr:@ensemble/kit-sdk@*",
           "jsr:@std/fs@1.0.24",
           "jsr:@std/path@1.1.6"
@@ -3105,6 +3106,7 @@
         "dependencies": [
           "jsr:@david/dax@0.42.0",
           "jsr:@david/which@0.4.2",
+          "jsr:@duesabati/evento@1.0.0",
           "jsr:@ensemble/core@0.39",
           "jsr:@std/assert@1.0.14",
           "jsr:@std/fmt@1.0.10",

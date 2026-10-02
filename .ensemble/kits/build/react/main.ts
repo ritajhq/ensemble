@@ -1,8 +1,22 @@
-import { dirname, fromFileUrl, join } from "@std/path";
+import {
+  basename,
+  dirname,
+  fromFileUrl,
+  isAbsolute,
+  join,
+  resolve,
+} from "@std/path";
 import { ensureDir, exists, expandGlob } from "@std/fs";
 import { $ } from "@david/dax";
+import { Delegate, type Emitter } from "@duesabati/evento";
 import * as KitSdk from "@ensemble/kit-sdk";
-import { resolveDenoExecutable, terminateChildrenOnSignal } from "@ensemble/kit-sdk";
+import {
+  findRepoRoot,
+  resolveDenoExecutable,
+  RestartableChild,
+  terminateChildrenOnSignal,
+  WorkspaceConfig,
+} from "@ensemble/kit-sdk";
 
 const TAILWIND_RELEASE_BASE =
   "https://github.com/tailwindlabs/tailwindcss/releases/latest/download";
@@ -37,7 +51,9 @@ async function tailwindAssetName(): Promise<string> {
     case "windows-x86_64":
       return "tailwindcss-windows-x64.exe";
     default:
-      throw new Error(`Unsupported platform for the Tailwind CLI binary: ${platform}`);
+      throw new Error(
+        `Unsupported platform for the Tailwind CLI binary: ${platform}`,
+      );
   }
 }
 
@@ -47,7 +63,10 @@ async function tailwindAssetName(): Promise<string> {
  */
 async function ensureTailwindBinary(kitDir: string): Promise<string> {
   const binDir = join(kitDir, ".bin");
-  const binPath = join(binDir, Deno.build.os === "windows" ? "tailwindcss.exe" : "tailwindcss");
+  const binPath = join(
+    binDir,
+    Deno.build.os === "windows" ? "tailwindcss.exe" : "tailwindcss",
+  );
   if (await exists(binPath, { isFile: true })) {
     return binPath;
   }
@@ -56,9 +75,16 @@ async function ensureTailwindBinary(kitDir: string): Promise<string> {
   const url = `${TAILWIND_RELEASE_BASE}/${await tailwindAssetName()}`;
   const response = await fetch(url);
   if (!response.ok || !response.body) {
-    throw new Error(`Failed to download Tailwind CLI from ${url}: ${response.status}`);
+    throw new Error(
+      `Failed to download Tailwind CLI from ${url}: ${response.status}`,
+    );
   }
-  const file = await Deno.open(binPath, { create: true, write: true, truncate: true, mode: 0o755 });
+  const file = await Deno.open(binPath, {
+    create: true,
+    write: true,
+    truncate: true,
+    mode: 0o755,
+  });
   await response.body.pipeTo(file.writable);
   if (Deno.build.os !== "windows") {
     await Deno.chmod(binPath, 0o755);
@@ -128,20 +154,141 @@ async function touchCssOut(cssOut: string): Promise<void> {
   await Deno.utime(cssOut, now, now);
 }
 
+// The Tailwind directives that name a file or directory by path.
+const PATH_DIRECTIVE =
+  /@(import|reference|source|plugin|config)(\s+(?:url\()?\s*)(["'])([^"']+)\3/g;
+const STYLESHEET_DIRECTIVES = new Set(["import", "reference"]);
+
 /**
- * Watches cssEntry for edits, touching cssOut shortly after each one — the
- * ongoing half of the fix; touchCssOut's own first call (below, right after
- * Tailwind's initial run) covers the startup case this watcher can't: `ens
- * build web --watch` starting up against a cssOut that a PRIOR build (e.g.
- * deploy's own initial sync) already wrote with matching content — no source
- * edit ever happens in that case, so a watcher alone would never fire.
+ * The entry stylesheet and everything it reaches through `@import`, copied
+ * into a staging directory with every relative path made absolute and every
+ * workspace specifier (`@import "@scope/package/styles"`) resolved through
+ * the member's `exports` — Tailwind's own resolver only knows node_modules,
+ * so it can't reach a Deno workspace member on its own. Tailwind builds from
+ * `entry`'s staged copy instead of the original.
+ *
+ * Restaging also covers Tailwind's --watch only noticing edits to the entry
+ * file itself: an edit anywhere in the graph rewrites the staged entry, which
+ * is what Tailwind is watching.
  */
-async function touchCssOutOnChange(cssEntry: string, cssOut: string): Promise<void> {
-  const watcher = Deno.watchFs(cssEntry);
-  for await (const event of watcher) {
-    if (event.kind !== "modify" && event.kind !== "create") continue;
-    await new Promise((resolve) => setTimeout(resolve, CSS_TOUCH_DELAY_MS));
-    await touchCssOut(cssOut);
+class StagedStylesheet {
+  private readonly staged = new Delegate<[]>();
+  private sources: string[] = [];
+
+  constructor(
+    private readonly entry: string,
+    private readonly repoRoot: string,
+    private readonly stageDir: string,
+  ) {}
+
+  /** Fires after every restage that follows a source edit. */
+  get OnStaged(): Emitter<[]> {
+    return this.staged;
+  }
+
+  get stagedEntry(): string {
+    return join(this.stageDir, "index.css");
+  }
+
+  /** Rewrites the staged copy of the whole graph, the entry last. */
+  async stage(): Promise<void> {
+    const members = await KitSdk.WorkspaceMembers.load(this.repoRoot);
+    const stagedPaths = new Map([[this.entry, this.stagedEntry]]);
+    const contents = new Map<string, string>();
+    const queue = [this.entry];
+    while (queue.length > 0) {
+      const file = queue.shift()!;
+      const css = await Deno.readTextFile(file);
+      const rewrites = await this.rewritesFor(file, css, members);
+      for (const target of rewrites.stylesheets) {
+        if (stagedPaths.has(target)) continue;
+        stagedPaths.set(
+          target,
+          join(this.stageDir, `${stagedPaths.size}-${basename(target)}`),
+        );
+        queue.push(target);
+      }
+      contents.set(
+        file,
+        css.replace(
+          PATH_DIRECTIVE,
+          (match, directive, gap, quote, specifier) => {
+            const target = rewrites.targets.get(specifier);
+            if (!target) return match;
+            const path = STYLESHEET_DIRECTIVES.has(directive)
+              ? stagedPaths.get(target) ?? target
+              : target;
+            return `@${directive}${gap}${quote}${path}${quote}`;
+          },
+        ),
+      );
+    }
+    await ensureDir(this.stageDir);
+    for (const [file, css] of contents) {
+      if (file === this.entry) continue;
+      await Deno.writeTextFile(stagedPaths.get(file)!, css);
+    }
+    await Deno.writeTextFile(this.stagedEntry, contents.get(this.entry)!);
+    this.sources = [...contents.keys()];
+  }
+
+  /** Watches until the process exits, restaging on every edit to any stylesheet in the graph. */
+  async watch(): Promise<void> {
+    while (true) {
+      const watcher = Deno.watchFs(this.sources);
+      for await (const event of watcher) {
+        if (event.kind === "modify" || event.kind === "create") break;
+      }
+      watcher.close();
+      await this.restage();
+    }
+  }
+
+  private async restage(): Promise<void> {
+    try {
+      await this.stage();
+      this.staged.Invoke();
+    } catch (error) {
+      // Mid-save or a broken specifier: report it, keep the last good stage.
+      console.error(
+        `react: could not stage ${this.entry}: ${
+          error instanceof Error ? error.message : error
+        }`,
+      );
+    }
+  }
+
+  /** Each path directive's specifier in `css` → the absolute path it names, plus which of those are stylesheets to stage. */
+  private async rewritesFor(
+    file: string,
+    css: string,
+    members: KitSdk.WorkspaceMembers,
+  ): Promise<{ targets: Map<string, string>; stylesheets: string[] }> {
+    const targets = new Map<string, string>();
+    const stylesheets: string[] = [];
+    for (const [, directive, , , specifier] of css.matchAll(PATH_DIRECTIVE)) {
+      const target = await this.resolveSpecifier(file, specifier, members);
+      if (!target) continue;
+      targets.set(specifier, target);
+      if (STYLESHEET_DIRECTIVES.has(directive) && target.endsWith(".css")) {
+        stylesheets.push(target);
+      }
+    }
+    return { targets, stylesheets };
+  }
+
+  private resolveSpecifier(
+    file: string,
+    specifier: string,
+    members: KitSdk.WorkspaceMembers,
+  ): Promise<string | undefined> {
+    if (specifier.startsWith("./") || specifier.startsWith("../")) {
+      return Promise.resolve(resolve(dirname(file), specifier));
+    }
+    if (isAbsolute(specifier) || specifier.includes(":")) {
+      return Promise.resolve(undefined);
+    }
+    return members.resolve(specifier);
   }
 }
 
@@ -165,11 +312,25 @@ const cssEntry = join(ctx.source, "index.css");
 const jsOut = join(ctx.out, "main.js");
 const cssOut = join(ctx.out, "index.css");
 
+const repoRoot = await findRepoRoot(ctx.workspace);
+const stylesheet = new StagedStylesheet(
+  cssEntry,
+  repoRoot,
+  join(kitDir, ".stage", ctx.name),
+);
+await stylesheet.stage();
+
 if (ctx.watch) {
-  touchCssOutOnChange(cssEntry, cssOut);
-  // Covers the startup case touchCssOutOnChange's watcher can't (see its own
-  // doc comment): give Tailwind's initial build below a moment to run, then
-  // touch regardless of whether it actually wrote anything.
+  // Every restage follows a source edit; touch cssOut after each one so a
+  // byte-identical Tailwind output still produces an event downstream.
+  stylesheet.OnStaged.Do(async () => {
+    await new Promise((resolve) => setTimeout(resolve, CSS_TOUCH_DELAY_MS));
+    await touchCssOut(cssOut);
+  });
+  stylesheet.watch();
+  // Covers the startup case the restage hook can't: give Tailwind's initial
+  // build below a moment to run, then touch regardless of whether it
+  // actually wrote anything.
   (async () => {
     await new Promise((resolve) => setTimeout(resolve, CSS_TOUCH_DELAY_MS));
     await touchCssOut(cssOut);
@@ -182,20 +343,32 @@ const watchArgs = ctx.watch ? ["--watch"] : [];
 // the case for a spawned subprocess — `=always` keeps it watching regardless.
 const cssWatchArgs = ctx.watch ? ["--watch=always"] : [];
 
-const bundle = $`${denoExe} bundle -q --platform browser ${entry} -o ${jsOut} ${minifyArgs} ${watchArgs}`
-  .noThrow()
-  .spawn();
+const bundle = new RestartableChild(() =>
+  $`${denoExe} bundle -q --platform browser ${entry} -o ${jsOut} ${minifyArgs} ${watchArgs}`
+    .noThrow()
+    .spawn()
+);
 // --silent: Tailwind's own version banner and "Done in Xms" line are noise
 // on every successful (re)build — it still writes real errors to stderr
 // even with this on, so a broken build is never silenced.
-const css = $`${tailwindBin} --silent --cwd ${ctx.source} -i ${cssEntry} -o ${cssOut} ${minifyArgs} ${cssWatchArgs}`
-  .noThrow()
-  .spawn();
+const css = new RestartableChild(() =>
+  $`${tailwindBin} --silent --cwd ${ctx.source} -i ${stylesheet.stagedEntry} -o ${cssOut} ${minifyArgs} ${cssWatchArgs}`
+    .noThrow()
+    .spawn()
+);
 // Neither of these is reliably reachable by a plain kill/Ctrl+C of just this
 // kit's own process — see terminateChildrenOnSignal's own doc comment — so
 // without this, --watch/--watch=always above (deliberately immune to their
 // own usual stop conditions) leave both running as orphans indefinitely.
 terminateChildrenOnSignal([bundle, css]);
+
+if (ctx.watch) {
+  // deno bundle --watch reads the workspace members and import maps only at
+  // startup — restart it so a new member or import-map entry becomes resolvable.
+  const config = new WorkspaceConfig(repoRoot);
+  config.OnChange.Do(() => bundle.restart());
+  config.watch();
+}
 
 const [bundleResult, cssResult] = await Promise.all([bundle, css]);
 

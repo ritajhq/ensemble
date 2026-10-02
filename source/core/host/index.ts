@@ -10,6 +10,9 @@ export {
   type Spawned,
   terminateChildrenOnSignal,
 } from "./terminate-children-on-signal.ts";
+export { RestartableChild } from "./restartable-child.ts";
+export { WorkspaceConfig } from "./workspace-config.ts";
+export { WorkspaceMembers } from "./workspace-members.ts";
 export { AnimatedBuildReporter } from "./animated-build-reporter.ts";
 export { AnimatedPackReporter } from "./animated-pack-reporter.ts";
 export { SubprocessPackKitGateway } from "./pack-kit-gateway.ts";
