@@ -45,6 +45,17 @@
           "**/ci/*/delivery"
         ]
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Ensemble",
+      "properties": {
+        "ensemble.executable": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "markdownDescription": "Path to the `ens` binary. When empty, the extension uses `~/.ensemble/bin/ens` (where the installer puts it) if present, otherwise `ens` on the `PATH`. Reload the window after changing it."
+        }
+      }
+    }
   }
 }

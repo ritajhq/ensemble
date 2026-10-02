@@ -23,5 +23,9 @@ The `ens` CLI on your `PATH`, at a version that has the `ens lsp` command:
 curl -fsSL https://raw.githubusercontent.com/ritajhq/ensemble/main/.ensemble/install.sh | sh
 ```
 
+The extension finds `ens` at `~/.ensemble/bin/ens` (where the installer puts
+it) or on your `PATH`. If you installed it elsewhere, set `ensemble.executable`
+to its path.
+
 The extension activates in any workspace with a `ci/*/delivery.yml` or
 `ci/*/delivery` file.

@@ -6,7 +6,7 @@ let languageService: LanguageService | undefined;
 
 // VS Code's contract: the entry module must export activate/deactivate functions.
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-  const cli = new Cli();
+  const cli = Cli.locate(vscode.workspace.getConfiguration("ensemble").get<string>("executable"));
 
   context.subscriptions.push(
     vscode.commands.registerCommand("ensemble.hello", async () => {

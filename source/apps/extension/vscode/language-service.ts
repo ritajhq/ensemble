@@ -34,7 +34,7 @@ export class LanguageService {
   private async offerInstall(): Promise<void> {
     const install = "Install Ensemble";
     const choice = await vscode.window.showErrorMessage(
-      "Ensemble's language features need the `ens` CLI on your PATH, at a version with the `ens lsp` command.",
+      "Ensemble's language features need the `ens` CLI, at a version with the `ens lsp` command. Install it, or point the `ensemble.executable` setting at it.",
       install,
     );
     if (choice !== install) return;
