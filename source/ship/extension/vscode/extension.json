@@ -3,7 +3,7 @@
   "displayName": "Ensemble",
   "description": "Ensemble workspace support, powered by the ens CLI.",
   "version": "0.0.1",
-  "publisher": "ritajhq",
+  "publisher": "ritaj",
   "engines": {
     "vscode": "^1.105.0"
   },
