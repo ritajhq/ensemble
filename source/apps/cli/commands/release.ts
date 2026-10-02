@@ -4,14 +4,26 @@ import { Confirm } from "@cliffy/prompt";
 import * as Core from "@ensemble/core";
 import * as Host from "@ensemble/host";
 
+/** Asks the user to confirm a step — or, under `--yes`, takes the yes as given and only prints the question, so an unattended run (CI, an agent) still leaves a record of what it agreed to. */
+class Confirmation {
+  constructor(private readonly assumeYes: boolean) {}
+
+  async ask(message: string): Promise<boolean> {
+    if (!this.assumeYes) return await Confirm.prompt({ message, default: false });
+    console.log(`${message} yes (--yes)`);
+    return true;
+  }
+}
+
 async function confirmUncommittedChanges(
   release: Core.Release.ReleaseService,
+  confirmation: Confirmation,
 ): Promise<boolean> {
   if (!await release.hasUncommittedChanges()) return true;
   console.log(
     "Warning: you have uncommitted changes. The release tag won't reflect them.",
   );
-  return await Confirm.prompt({ message: "Continue anyway?", default: false });
+  return await confirmation.ask("Continue anyway?");
 }
 
 function printPreview(
@@ -176,6 +188,7 @@ async function confirmReleaseWork(
   ports: Core.Ports,
   tag: string,
   filter: ReleaseFilter,
+  confirmation: Confirmation,
 ): Promise<boolean> {
   const state = await new Core.Release.ReleaseStateStore(repoRoot).read(tag);
   const { shipsToPack, shipsToPublish, coreLibsToPublish } =
@@ -203,10 +216,7 @@ async function confirmReleaseWork(
       console.log(`  ${describeCoreLibRelease(lib, tag)}`);
     }
   }
-  return await Confirm.prompt({
-    message: `Proceed for ${tag}?`,
-    default: false,
-  });
+  return await confirmation.ask(`Proceed for ${tag}?`);
 }
 
 /** Dry-run counterpart to `runReleaseCeremony`: reports what building/packing/publishing (and the release hook) would still run for `tag`, without doing any of it. */
@@ -426,24 +436,29 @@ export const releaseCommand = new Command()
     'Remote to push to/delete from when confirmed. Defaults to "origin".',
     { default: "origin" },
   )
+  .globalOption(
+    "-y, --yes",
+    "Answer yes to every confirmation prompt, for unattended runs (CI, agents).",
+  )
   .command(
     "next",
     "Bump the version (patch, minor, or major) from the last tag and create a new release.",
   )
   .type("bump", new EnumType(["patch", "minor", "major"]))
   .arguments("<bump:bump>")
-  .action(async ({ dryRun, preRelease, meta, remote }, bump) => {
+  .action(async ({ dryRun, preRelease, meta, remote, yes }, bump) => {
     const ports = Host.createPorts();
     const repoRoot = await ports.repo.findRepoRoot();
     const release = new Core.Release.ReleaseService(repoRoot, ports.process);
-    if (!dryRun && !await confirmUncommittedChanges(release)) return;
+    const confirmation = new Confirmation(Boolean(yes));
+    if (!dryRun && !await confirmUncommittedChanges(release, confirmation)) return;
     const preview = await release.next(bump, { dryRun, preRelease, meta });
     printPreview(dryRun ? "Would create" : "Will create", preview);
     if (dryRun) {
       await printReleaseCeremonyPreview(repoRoot, ports, preview.tag);
       return;
     }
-    if (!await confirmReleaseWork(repoRoot, ports, preview.tag, {})) {
+    if (!await confirmReleaseWork(repoRoot, ports, preview.tag, {}, confirmation)) {
       console.log("Release cancelled — nothing was changed.");
       return;
     }
@@ -458,18 +473,19 @@ export const releaseCommand = new Command()
     "Set an arbitrary version (shape x.y.z) and create a new release.",
   )
   .arguments("<version:string>")
-  .action(async ({ dryRun, preRelease, meta, remote }, version) => {
+  .action(async ({ dryRun, preRelease, meta, remote, yes }, version) => {
     const ports = Host.createPorts();
     const repoRoot = await ports.repo.findRepoRoot();
     const release = new Core.Release.ReleaseService(repoRoot, ports.process);
-    if (!dryRun && !await confirmUncommittedChanges(release)) return;
+    const confirmation = new Confirmation(Boolean(yes));
+    if (!dryRun && !await confirmUncommittedChanges(release, confirmation)) return;
     const preview = await release.set(version, { dryRun, preRelease, meta });
     printPreview(dryRun ? "Would create" : "Will create", preview);
     if (dryRun) {
       await printReleaseCeremonyPreview(repoRoot, ports, preview.tag);
       return;
     }
-    if (!await confirmReleaseWork(repoRoot, ports, preview.tag, {})) {
+    if (!await confirmReleaseWork(repoRoot, ports, preview.tag, {}, confirmation)) {
       console.log("Release cancelled — nothing was changed.");
       return;
     }
@@ -492,7 +508,7 @@ export const releaseCommand = new Command()
     "Comma-separated ship/library names to exclude.",
   )
   .arguments("<tag:string>")
-  .action(async ({ dryRun, remote, only, skip }, tag) => {
+  .action(async ({ dryRun, remote, only, skip, yes }, tag) => {
     const ports = Host.createPorts();
     const repoRoot = await ports.repo.findRepoRoot();
     const release = new Core.Release.ReleaseService(repoRoot, ports.process);
@@ -509,7 +525,7 @@ export const releaseCommand = new Command()
       await printReleaseCeremonyPreview(repoRoot, ports, tag, filter);
       return;
     }
-    if (!await confirmReleaseWork(repoRoot, ports, tag, filter)) {
+    if (!await confirmReleaseWork(repoRoot, ports, tag, filter, new Confirmation(Boolean(yes)))) {
       console.log(
         `Tag ${tag} exists locally only — run "ens release resume ${tag}" whenever you're ready.`,
       );
@@ -519,17 +535,16 @@ export const releaseCommand = new Command()
   })
   .reset()
   .command("undo", "Deletes the last tag. Does not touch any commit.")
-  .action(async ({ dryRun, remote }) => {
+  .action(async ({ dryRun, remote, yes }) => {
     const ports = Host.createPorts();
     const repoRoot = await ports.repo.findRepoRoot();
     const release = new Core.Release.ReleaseService(repoRoot, ports.process);
     const result = await release.undo({ dryRun });
     console.log(`${dryRun ? "Would delete" : "Deleted"} tag: ${result.tag}`);
     if (dryRun) return;
-    const deleteFromRemote = await Confirm.prompt({
-      message: `Also delete "${result.tag}" from remote "${remote}"?`,
-      default: false,
-    });
+    const deleteFromRemote = await new Confirmation(Boolean(yes)).ask(
+      `Also delete "${result.tag}" from remote "${remote}"?`,
+    );
     if (!deleteFromRemote) return;
     await release.deleteRemoteTag(result.tag, remote);
     console.log(`  also deleted from remote: ${remote}`);

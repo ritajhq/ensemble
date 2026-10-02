@@ -15,6 +15,9 @@ Global flags, available on every subcommand:
   Ignored by `undo` and `resume`.
 - `-r, --remote <name>` — remote to push to/delete from when confirmed.
   Default: `origin`.
+- `-y, --yes` — answer yes to every confirmation prompt (uncommitted changes,
+  the ceremony's "Proceed?", `undo`'s remote delete), for unattended runs such
+  as CI or an agent. Each question is still printed, followed by `yes (--yes)`.
 
 ## `ens release next <patch|minor|major>`
 
