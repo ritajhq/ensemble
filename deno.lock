@@ -3105,7 +3105,7 @@
         "dependencies": [
           "jsr:@david/dax@0.42.0",
           "jsr:@david/which@0.4.2",
-          "jsr:@ensemble/core@0.38",
+          "jsr:@ensemble/core@0.39",
           "jsr:@std/assert@1.0.14",
           "jsr:@std/fmt@1.0.10",
           "jsr:@std/fs@1.0.24",
@@ -3114,8 +3114,8 @@
       },
       "source/core/kit-sdk": {
         "dependencies": [
-          "jsr:@ensemble/core@0.38",
-          "jsr:@ensemble/host@0.38"
+          "jsr:@ensemble/core@0.39",
+          "jsr:@ensemble/host@0.39"
         ]
       },
       "source/core/website": {
