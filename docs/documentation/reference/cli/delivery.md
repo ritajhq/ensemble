@@ -57,7 +57,7 @@ than halfway through a migration.
   this says: they are what's running.
 - `--version <version>` — the released version to resolve those references to
   when rendering. Defaults to `latest`.
-- `--env-file <path>` — load an env file (repo-root relative, repeatable) as
+- `--env-file <path>` — load an env file (repo-root relative or absolute, repeatable) as
   values beneath the process environment. None by default: a real
   environment's pipeline exports every value itself.
 

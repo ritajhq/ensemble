@@ -23,7 +23,7 @@ const explainCommand = new Command()
   )
   .option(
     "--env-file <path:string>",
-    "Load an env file (repo-root relative, repeatable) as values beneath the process environment. None by default: a pipeline exports every value itself.",
+    "Load an env file (repo-root relative or absolute, repeatable) as values beneath the process environment. None by default: a pipeline exports every value itself.",
     { collect: true },
   )
   .action(async ({ artifacts, version, envFile }, name, kit, resource) => {
@@ -87,7 +87,7 @@ export const deployCommand = new Command()
   )
   .option(
     "--env-file <path:string>",
-    "Load an env file (repo-root relative, repeatable) as values beneath the process environment. None by default: a pipeline exports every value itself.",
+    "Load an env file (repo-root relative or absolute, repeatable) as values beneath the process environment. None by default: a pipeline exports every value itself.",
     { collect: true },
   )
   .option(

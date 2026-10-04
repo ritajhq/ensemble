@@ -45,7 +45,7 @@ export class DeployTools {
             "Include the kit's own build-tool output from the pack step instead of hiding it behind a spinner.",
           ),
           envFiles: z.array(z.string()).default([]).describe(
-            "Env files (repo-root relative) supplying values beneath the process environment. Empty for a real environment, whose values are exported by the caller.",
+            "Env files (repo-root relative or absolute) supplying values beneath the process environment. Empty for a real environment, whose values are exported by the caller.",
           ),
         },
       },
@@ -107,7 +107,7 @@ export class DeployTools {
             "Released version to resolve ${release.<name>} references to for published artifacts.",
           ),
           envFiles: z.array(z.string()).default([]).describe(
-            "Env files (repo-root relative) supplying values beneath the process environment. Empty for a real environment, whose values are exported by the caller.",
+            "Env files (repo-root relative or absolute) supplying values beneath the process environment. Empty for a real environment, whose values are exported by the caller.",
           ),
         },
       },

@@ -14,7 +14,7 @@ ens develop <name>
 - `-k, --kit <kit>` — deploy kit to use. Default: `compose`.
 - `--verbose` — let the initial pack step show the kit's own build-tool
   output instead of hiding it behind the pack spinner.
-- `--env-file <path>` — load an env file (repo-root relative, repeatable)
+- `--env-file <path>` — load an env file (repo-root relative or absolute, repeatable)
   instead of the default pair: `ci/<name>/dev.env` and the untracked
   `.ensemble/deploy/<name>/secrets.env`, each read only if it exists.
 

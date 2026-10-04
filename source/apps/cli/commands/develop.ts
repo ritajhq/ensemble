@@ -25,7 +25,7 @@ export const developCommand = new Command()
   )
   .option(
     "--env-file <path:string>",
-    "Load an env file (repo-root relative, repeatable) instead of the default ci/<name>/dev.env and .ensemble/deploy/<name>/secrets.env.",
+    "Load an env file (repo-root relative or absolute, repeatable) instead of the default ci/<name>/dev.env and .ensemble/deploy/<name>/secrets.env.",
     { collect: true },
   )
   .action(async ({ kit, verbose, envFile }, name) => {
