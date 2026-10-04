@@ -13,6 +13,279 @@
 - *(kits)* Pin @ensemble/kit-sdk to ^0.40.0 so kits never resolve an older sdk
 - *(deploy)* Drop InProcessKitLoader from the kit barrel and document that deploy kits always run in a subprocess
 - *(release)* Bump library versions for 0.41.0
+## [0.40.0] - 2026-10-02
+
+### 🚀 Features
+
+- *(kits/build)* Restart deno bundle watchers on workspace config changes and resolve workspace stylesheet imports for tailwind
+
+### ⚙️ Miscellaneous Tasks
+
+- *(release)* Bump library versions for 0.40.0
+## [0.39.0] - 2026-10-02
+
+### 🚀 Features
+
+- *(extension/vscode)* Split the sidebar into apps, workloads, kits and libraries panes, run delivery tasks with input, follow ens updates and read ens output without colours
+
+### ⚙️ Miscellaneous Tasks
+
+- *(release)* Bump library versions for 0.39.0
+## [0.38.0] - 2026-10-02
+
+### 🚀 Features
+
+- *(extension/vscode)* Add project sidebar, delivery code lenses and ens version status bar, backed by ens status --json and new kit/lib uninstall
+
+### ⚙️ Miscellaneous Tasks
+
+- *(release)* Bump library versions for 0.38.0
+## [0.37.0] - 2026-10-02
+
+### 🐛 Bug Fixes
+
+- *(extension/vscode)* Find ens at the installer's default location or an ensemble.executable setting when it isn't on the editor's PATH
+
+### ⚙️ Miscellaneous Tasks
+
+- *(release)* Bump library versions for 0.37.0
+## [0.36.0] - 2026-10-02
+
+### 🐛 Bug Fixes
+
+- *(ship/extension-vscode)* New name to avoid collision again
+
+### ⚙️ Miscellaneous Tasks
+
+- *(release)* Bump library versions for 0.36.0
+## [0.35.0] - 2026-10-02
+
+### 🐛 Bug Fixes
+
+- *(cli/release)* Exit non-zero when packing or publishing fails
+- *(ship/extension-vscode)* New name to avoid collision
+
+### ⚙️ Miscellaneous Tasks
+
+- *(release)* Bump library versions for 0.35.0
+## [0.34.0] - 2026-10-02
+
+### 🚀 Features
+
+- *(extension/vscode)* Prepare marketplace publish with icon, readme, metadata and a missing-ens prompt
+- *(release)* Warn when a ci workload has no delivery manifest instead of silently skipping it
+- *(cli/release)* Add --yes to answer every confirmation prompt for unattended runs
+
+### ⚙️ Miscellaneous Tasks
+
+- *(ship/cli)* Exclude unused npm packages from the compiled binary
+- *(release)* Bump library versions for 0.34.0
+## [0.33.0] - 2026-10-02
+
+### 🚀 Features
+
+- *(core/release)* Move publish secrets to .ensemble/release/secrets.env and resume state to release/state
+
+### 🐛 Bug Fixes
+
+- *(ship/extension-vscode)* Correct publisher id
+
+### ⚙️ Miscellaneous Tasks
+
+- *(release)* Bump library versions for 0.33.0
+## [0.32.0] - 2026-10-01
+
+### 🚀 Features
+
+- *(extension/vscode)* Add hello-world VS Code extension with vscode pack kit and marketplace release
+- *(cli/lsp)* Add ens lsp with delivery manifest reference completion, wired into the VS Code extension
+- *(core/deploy)* Accept an extensionless delivery manifest alongside delivery.yml
+- *(extension/vscode)* Treat extensionless ci/*/delivery files as delivery manifests
+
+### ⚙️ Miscellaneous Tasks
+
+- Remove Copilot instructions from the repository
+- *(release)* Bump library versions for 0.32.0
+## [0.31.0] - 2026-10-01
+
+### 🚀 Features
+
+- *(core/build)* Pass build.<name>.options from config.yaml through to build kits
+
+### 🐛 Bug Fixes
+
+- *(kits/compose)* Initial_sync every watch rule so a write landing before watch attaches still reaches the container
+
+### ⚙️ Miscellaneous Tasks
+
+- *(release)* Bump library versions for 0.31.0
+## [0.30.0] - 2026-09-29
+
+### 🚀 Features
+
+- *(init)* Write .ensemble/.gitignore instead of a root .gitignore
+
+### 🐛 Bug Fixes
+
+- *(core/deploy)* Tear down watch children on any exit and reclaim a crashed session's watcher on the next run
+
+### ⚙️ Miscellaneous Tasks
+
+- *(kits/react)* Ignore its own .bin folder
+- *(release)* Bump library versions for 0.30.0
+## [0.29.0] - 2026-09-28
+
+### 🚀 Features
+
+- *(release)* Add confirmation step before packing and publishing ships/core libs
+
+### ⚙️ Miscellaneous Tasks
+
+- *(release)* Bump library versions for 0.29.0
+## [0.28.0] - 2026-09-28
+
+### 🚀 Features
+
+- *(website)* Hand-roll a docs site in website/server
+- *(git-sync)* Pluggable trigger adapters + a local test UI
+- *(ci/website)* Add manual trigger to git-sync config
+
+### 🐛 Bug Fixes
+
+- *(website)* Point the landing page's docs links at /docs
+- *(git-sync)* Install ca-certificates so git can clone over HTTPS
+- Update gitignore to correctly exclude the artifacts/deploy folder
+- *(readme)* Update logo image path to correct branding location
+
+### 📚 Documentation
+
+- *(readme)* Update usage section to quickstart format and streamline commands
+
+### ⚡ Performance
+
+- *(host)* Serve every call into a deploy kit from one long-lived kit process
+- *(core/deploy)* Resolve task arguments from the last deploy, or render only what they reference
+
+### ⚙️ Miscellaneous Tasks
+
+- Update deploy artifacts
+- *(release)* Bump library versions for 0.28.0
+## [0.27.0] - 2026-09-24
+
+### 🚀 Features
+
+- *(core/deploy)* Run tasks a workload declares in its manifest
+
+### 🐛 Bug Fixes
+
+- *(kits)* Render the gateway as Caddy with tls internal, on both networks
+- *(core/init)* Keep rendered deploy documents tracked and ignore the render cache
+
+### 📚 Documentation
+
+- *(readme)* Point one-off provisioning at manifest-declared tasks
+
+### ⚙️ Miscellaneous Tasks
+
+- *(release)* Bump library versions for 0.27.0
+## [0.26.0] - 2026-09-24
+
+### 🐛 Bug Fixes
+
+- *(kits)* Publish ports on ephemeral host ports, never the container's number
+
+### 🧪 Testing
+
+- *(kits)* Keep the Garage seed-script tests runnable against an older pinned kit-sdk
+
+### ⚙️ Miscellaneous Tasks
+
+- *(release)* Bump library versions for 0.26.0
+## [0.25.0] - 2026-09-24
+
+### 🐛 Bug Fixes
+
+- *(core/deploy)* Run apply-time init commands on the host, seeding Garage from there
+
+### ⚙️ Miscellaneous Tasks
+
+- *(release)* Bump library versions for 0.25.0
+## [0.24.0] - 2026-09-23
+
+### ⚙️ Miscellaneous Tasks
+
+- *(release)* Bump library versions for 0.24.0
+## [0.23.0] - 2026-09-23
+
+### 🐛 Bug Fixes
+
+- *(ci/website)* Change git-sync port
+- Update gitignore to correctly exclude the artifacts/deploy folder
+- *(core/deploy)* Resolve cross-compute port references at render time
+
+### ⚙️ Miscellaneous Tasks
+
+- Update deploy rendering
+- *(release)* Bump library versions for 0.23.0
+## [0.22.0] - 2026-09-22
+
+### 🚀 Features
+
+- *(core/deploy)* Add envSecrets to container-orchestrated contract
+- *(git-sync)* Scaffold webhook-triggered docs syncer app
+- *(website)* Wire docs-content volume and git-sync target into delivery manifest
+
+### 🐛 Bug Fixes
+
+- *(core/deploy)* Wire the variables category to its own references
+
+### 📚 Documentation
+
+- Add getting-started, concepts, guides, and CLI reference sections
+
+### 🚜 Refactor
+
+- *(website)* Move git-sync's REPOS config from secrets to variables
+
+### ⚙️ Miscellaneous Tasks
+
+- Move file to its place
+- Update deno.lock for git-sync's dependencies
+- Moving files to their correct place
+- *(release)* Bump library versions for 0.22.0
+## [0.21.0] - 2026-09-20
+
+### 🚀 Features
+
+- *(website)* Update copy
+- *(status)* Add ens status to discover apps/kits/libraries/workloads
+
+### 🐛 Bug Fixes
+
+- *(.ensemble)* Update gitignore
+
+### 📚 Documentation
+
+- *(agent-context)* Fix stale deploy paths, add aws kit, add CLAUDE.md pointer
+
+### ⚙️ Miscellaneous Tasks
+
+- *(release)* Bump library versions for 0.21.0
+## [0.20.0] - 2026-09-19
+
+### 🚀 Features
+
+- *(core/deploy)* Add mounts to container-orchestrated via a storage.volume contract
+
+### 🐛 Bug Fixes
+
+- *(compose)* Render sync+restart rules into develop.watch
+- *(deploy)* Wire animated pack/build reporters through ens deploy/develop
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.19.0
+- *(release)* Bump library versions for 0.20.0
 ## [0.19.0] - 2026-09-17
 
 ### 🚀 Features
@@ -38,6 +311,7 @@
 
 ### ⚙️ Miscellaneous Tasks
 
+- *(changelog)* Update for 0.17.0
 - *(release)* Bump library versions for 0.18.0
 - *(changelog)* Update for 0.18.0
 - *(release)* Bump library versions for 0.18.1
@@ -96,6 +370,30 @@
 
 - Update lock
 - *(release)* Bump library versions for 0.14.0
+## [0.13.0] - 2026-09-17
+
+### 🐛 Bug Fixes
+
+- *(release)* Correct core libs publishing order
+
+### ⚙️ Miscellaneous Tasks
+
+- *(release)* Bump library versions for 0.13.0
+## [0.12.0] - 2026-09-16
+
+### 🚀 Features
+
+- *(cli)* Add an ens mcp server exposing commands as MCP tools for agents
+
+### 🐛 Bug Fixes
+
+- *(cli)* Don't run release hooks when the ceremony was declined
+- *(core,cli)* Report ens develop app/config errors cleanly instead of crashing
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.11.0
+- *(release)* Bump library versions for 0.12.0
 ## [0.11.0] - 2026-09-16
 
 ### 🚀 Features
