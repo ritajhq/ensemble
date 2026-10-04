@@ -1,3 +1,25 @@
+## [0.42.0] - 2026-10-04
+
+### 🚀 Features
+
+- *(kits/compose)* Accept gateway tls: none for plain HTTP and reject unknown tls values
+- *(core/deploy)* Read deployment values from the environment only, with repeatable --env-file opt-in and ens develop defaulting to dev.env + secrets.env
+- *(core/deploy)* Resolve references embedded inside strings when each resolves to a plain value
+
+### 🐛 Bug Fixes
+
+- *(release)* Ignore pack-only ships when deciding what is left to publish so the release hook runs again
+- *(kits/compose)* Render env-sourced secrets as ${VAR:?} so an unset one fails instead of deploying empty
+
+### 📚 Documentation
+
+- *(cli)* Note that --env-file also accepts absolute paths
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.41.0
+- *(changelog)* Backfill 0.20.0 through 0.40.0
+- *(release)* Bump library versions for 0.42.0
 ## [0.41.0] - 2026-10-04
 
 ### 🚀 Features
