@@ -170,3 +170,19 @@ deploy:
     'networking.lb.target references undeclared output "grpc" on compute.container-orchestrated (declared outputs: none).',
   );
 });
+
+Deno.test("ReferenceValidator: checks a reference embedded in a larger string like a whole-value one", () => {
+  const workload = parser.parse(
+    APPENDIX_A.replace(
+      "DATABASE_URL: ${databases.primary.url}",
+      "DATABASE_URL: jdbc:${databases.primary.password}",
+    ),
+  );
+  const error = assertThrows(() => validator.validate(workload), ContractError);
+  assertEquals(
+    error.message.startsWith(
+      'compute.api.env.DATABASE_URL references undeclared output "password"',
+    ),
+    true,
+  );
+});

@@ -58,6 +58,9 @@ export class ReferenceValidator {
       this.validateReference(workload, path, reference);
       return;
     }
+    for (const { reference } of this.syntax.embedded(value)) {
+      this.validateReference(workload, path, reference);
+    }
     if (Array.isArray(value)) {
       value.forEach((item, index) =>
         this.validateValue(workload, `${path}[${index}]`, item)

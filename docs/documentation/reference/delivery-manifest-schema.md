@@ -106,14 +106,25 @@ particular field until you've checked the deploy kit you're targeting.
 - `secrets` — `{ source: "file" | "environment" }`. `ens` never mints a secret's
   value; it only wires whichever source you declare through to the deploy kit.
   `source: file` is declared here but not yet implemented by either built-in kit
-  (`compose` only supports `environment`, wired as a native `${VAR}`
-  interpolation).
+  (`compose` only supports `environment`, wired as a native `${VAR:?}`
+  interpolation, so an unset one fails instead of deploying empty).
 - `variables` — a permissive passthrough bag (`{ type: "object" }`), read from
   `ens`'s own process environment at deploy time.
 - `external` — `{ type, name }`. A resource `ens` doesn't provision, only
   references by the name it already has outside `ens`'s management (see
   `--emulate-externals` in the [`ens deploy` reference](cli/deploy.md) for the
   local-dev exception).
+
+### References inside a string
+
+A reference may be the whole value (`port: ${compute.web.http}`) or sit inside
+a larger string (`host: dashboard.${variables.domain.value}`). An embedded
+`${...}` is only treated as a reference when it starts with a reference category
+(`compute.`, `variables.`, `external.`, `release.`, …), so shell or compose
+syntax such as `${HOME}` passes through untouched. Each embedded reference must
+resolve to a plain value on the target. One the target can only express as an
+object, like CloudFormation's `!GetAtt`, fails the render, so use it as the
+whole value instead.
 
 ## `tasks`
 

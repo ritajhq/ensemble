@@ -15,7 +15,8 @@ import { ContractCatalog } from "../contracts/registry.ts";
 import { relationalV1 } from "../contracts/seeds/relational.ts";
 import { containerOrchestratedV1 } from "../contracts/seeds/container-orchestrated.ts";
 import { ReferenceResolver } from "./reference-resolver.ts";
-import { Renderer, RendererError } from "./renderer.ts";
+import { EmbeddedReferenceError, Renderer, RendererError } from "./renderer.ts";
+import { OutputsLedger } from "./outputs-ledger.ts";
 
 const registry = new ContractCatalog([relationalV1, containerOrchestratedV1]);
 
@@ -684,4 +685,73 @@ deploy:
 
   assertEquals(apiValue, workerValue);
   assertNotStrictEquals(apiValue, workerValue);
+});
+
+const EMBEDDING_MANIFEST = `
+version: v1
+deploy:
+  variables:
+    domain:
+      default: lvh.me
+  external:
+    edge-net:
+      type: network
+      name: edge-net
+`;
+
+function embeddingRenderer(realization = new FakeRealization()): Renderer {
+  return new Renderer(
+    new ReferenceResolver(realization),
+    new StubReleaseLocator({ local: {}, published: {} }),
+    registry,
+  );
+}
+
+Deno.test("Renderer.resolveManifestValue: splices references embedded in a larger string", async () => {
+  const workload = new Parser().parse(EMBEDDING_MANIFEST);
+  assertEquals(
+    await embeddingRenderer().resolveManifestValue(
+      "dashboard.${variables.domain.value} on ${external.edge-net.name}",
+      new OutputsLedger(),
+      workload,
+    ),
+    "dashboard.lvh.me on edge-net",
+  );
+});
+
+Deno.test("Renderer.resolveManifestValue: a ${...} that names no reference category stays literal — shell and compose interpolation pass through", async () => {
+  const workload = new Parser().parse(EMBEDDING_MANIFEST);
+  const value = 'cd "${HOME}" && echo ${DB_PASSWORD:?} ${variables}';
+  assertEquals(
+    await embeddingRenderer().resolveManifestValue(
+      value,
+      new OutputsLedger(),
+      workload,
+    ),
+    value,
+  );
+});
+
+Deno.test("Renderer.resolveManifestValue: an embedded reference whose wiring is an object fails instead of rendering [object Object]", async () => {
+  const workload = new Parser().parse(APPENDIX_A);
+  class AllDynamicRealization extends FakeRealization {
+    override knowabilityOf(): Promise<Knowability> {
+      return Promise.resolve("dynamic");
+    }
+  }
+  const ledger = new OutputsLedger();
+  ledger.record("databases", "primary", "relational", {
+    host: { "Fn::GetAtt": ["Primary", "Endpoint.Address"] },
+  });
+
+  await assertRejects(
+    () =>
+      embeddingRenderer(new AllDynamicRealization()).resolveManifestValue(
+        "postgres://${databases.primary.host}/app",
+        ledger,
+        workload,
+      ),
+    EmbeddedReferenceError,
+    "can't be embedded",
+  );
 });

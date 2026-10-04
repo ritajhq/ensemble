@@ -1,3 +1,5 @@
+import { CATEGORIES } from "./workload.ts";
+
 /**
  * A parsed `${category.name.output}` reference, or its `${release.name}` sugar
  * (which targets the release's primary output — `output` is left undefined for
@@ -26,9 +28,26 @@ export class ReferenceSyntaxError extends Error {
 const REFERENCE_SHAPE = /^\$\{(.+)\}$/;
 
 /**
+ * A reference inside a larger string, recognised only when it names a
+ * reference category — so `${HOME}` in a shell line, or compose's own
+ * `${VAR}`, passes through as the literal it always was.
+ */
+const EMBEDDED_REFERENCE = new RegExp(
+  `\\$\\{(?:${[...CATEGORIES, "release", "deployment"].join("|")})\\.[^}]*\\}`,
+  "g",
+);
+
+/** A reference found inside a larger string, with the exact text it replaces. */
+export interface EmbeddedReference {
+  readonly text: string;
+  readonly reference: Reference;
+}
+
+/**
  * Parses the `${...}` reference grammar out of a raw manifest field value. A
- * field is either a literal value or, in its entirety, a single reference —
- * this does not (yet) support a reference embedded inside a larger string.
+ * field is a literal value, in its entirety a single reference (`parse`), or
+ * a string with references embedded in it (`embedded`) —
+ * `dashboard.${variables.domain.value}`.
  * Pure syntax only: whether the referenced category/name/output actually
  * exists is a structural question answered elsewhere (contract-level output
  * checks in Phase 2's `ReferenceValidator`; full graph/cycle validation in
@@ -66,9 +85,19 @@ export class ReferenceSyntax {
     return { category, name, output };
   }
 
+  /** The references embedded in `raw`, a string that isn't itself one whole reference; empty for anything else. Throws `ReferenceSyntaxError` as `parse` does for one that doesn't parse. */
+  embedded(raw: unknown): EmbeddedReference[] {
+    if (typeof raw !== "string" || REFERENCE_SHAPE.test(raw)) return [];
+    return [...raw.matchAll(EMBEDDED_REFERENCE)].map(([text]) => ({
+      text,
+      reference: this.parse(text)!,
+    }));
+  }
+
   /** The inverse of `parse`: the `${...}` text that names `reference`. */
   format(reference: Reference): string {
-    const segments = [reference.category, reference.name, reference.output].filter((s) => s !== undefined);
+    const segments = [reference.category, reference.name, reference.output]
+      .filter((s) => s !== undefined);
     return `\${${segments.join(".")}}`;
   }
 }

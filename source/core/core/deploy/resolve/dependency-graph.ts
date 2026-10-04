@@ -143,6 +143,9 @@ export class DependencyGraphBuilder {
       onReference(reference);
       return;
     }
+    for (const embedded of this.syntax.embedded(value)) {
+      onReference(embedded.reference);
+    }
     if (Array.isArray(value)) {
       for (const item of value) this.visitValue(item, onReference);
       return;

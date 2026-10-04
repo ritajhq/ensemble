@@ -1,6 +1,10 @@
 import type { Category, Workload } from "../workload.ts";
 import type { ArtifactsSource } from "../artifacts-source.ts";
-import type { Reference, ReferenceSyntax } from "../reference.ts";
+import type {
+  EmbeddedReference,
+  Reference,
+  ReferenceSyntax,
+} from "../reference.ts";
 import type {
   DependencyGraph,
   ResourceId,
@@ -15,6 +19,14 @@ import type { ArtifactFragment, Artifacts, InitCommand } from "./artifact.ts";
 import { DeclaredValues } from "./declared-values.ts";
 import { OutputsLedger } from "./outputs-ledger.ts";
 import type { ReferenceResolver } from "./reference-resolver.ts";
+
+/** An embedded reference that can't be spliced into its surrounding string. */
+export class EmbeddedReferenceError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "EmbeddedReferenceError";
+  }
+}
 
 /** Categories that never produce their own artifact fragment — pure reference targets consumed directly by whatever declares them (Section 5: `secrets`/`variables` are developer-supplied data; `external` is provisioned by nothing). */
 const UNRENDERED_CATEGORIES: readonly string[] = [
@@ -230,6 +242,15 @@ export class Renderer {
       }
       return await this.bakeOrDefer(reference, ledger);
     }
+    const embedded = this.syntax.embedded(value);
+    if (embedded.length > 0) {
+      return await this.interpolate(
+        value as string,
+        embedded,
+        ledger,
+        workload,
+      );
+    }
     if (Array.isArray(value)) {
       return await Promise.all(
         value.map((item) => this.resolveValue(item, ledger, workload)),
@@ -245,6 +266,33 @@ export class Renderer {
       return resolved;
     }
     return value;
+  }
+
+  /**
+   * A string with references embedded in it (`dashboard.${variables.domain.value}`):
+   * each is resolved exactly as a whole-value one would be, and must come out
+   * a scalar to be spliced in — a baked value, or a target's own string
+   * wiring (compose's `${VAR:?}`). An object wiring (CloudFormation's
+   * `!GetAtt`) has no string form to embed, so it fails rather than render
+   * `[object Object]`.
+   */
+  private async interpolate(
+    value: string,
+    embedded: readonly EmbeddedReference[],
+    ledger: OutputsLedger,
+    workload: Workload,
+  ): Promise<string> {
+    let interpolated = value;
+    for (const { text } of embedded) {
+      const resolved = await this.resolveValue(text, ledger, workload);
+      if (!["string", "number", "boolean"].includes(typeof resolved)) {
+        throw new EmbeddedReferenceError(
+          `${text} in "${value}" doesn't resolve to a plain value on this target, so it can't be embedded in a string — use it as the whole value instead.`,
+        );
+      }
+      interpolated = interpolated.replaceAll(text, String(resolved));
+    }
+    return interpolated;
   }
 
   private async bakeOrDefer(
