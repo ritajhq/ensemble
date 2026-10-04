@@ -1,9 +1,10 @@
-import { assertEquals, assertStrictEquals } from "@std/assert";
+import { assertEquals, assertRejects, assertStrictEquals } from "@std/assert";
 import { join } from "@std/path";
 import type { ResourceDeclaration, Workload } from "./deploy/index.ts";
 import {
   loadVariablesEnvDefaults,
   resolveRelationalInitPaths,
+  secretsEnvPath,
 } from "./deploy-context.ts";
 
 const REPO_ROOT = "/repo";
@@ -152,5 +153,67 @@ Deno.test("loadVariablesEnvDefaults: a value already exported in the environment
 Deno.test("loadVariablesEnvDefaults: no variables.env file for this deployment is a silent no-op", async () => {
   await withTempRepo("portal", undefined, async (repoRoot) => {
     await loadVariablesEnvDefaults(repoRoot, "portal");
+  });
+});
+
+async function writeSecretsEnv(
+  repoRoot: string,
+  name: string,
+  content: string,
+): Promise<void> {
+  const path = secretsEnvPath(repoRoot, name);
+  await Deno.mkdir(join(path, ".."), { recursive: true });
+  await Deno.writeTextFile(path, content);
+}
+
+Deno.test("loadVariablesEnvDefaults: a variables.env value interpolates a key from the deployment's secrets.env", async () => {
+  await withoutEnv(["DB_URL", "DB_PASSWORD_SECRET"], async () => {
+    await withTempRepo(
+      "portal",
+      "db_url=postgres://app:${DB_PASSWORD_SECRET}@db/app\n",
+      async (repoRoot) => {
+        await writeSecretsEnv(
+          repoRoot,
+          "portal",
+          "DB_PASSWORD_SECRET=hunter2\n",
+        );
+        await loadVariablesEnvDefaults(repoRoot, "portal");
+        assertEquals(Deno.env.get("DB_URL"), "postgres://app:hunter2@db/app");
+        assertEquals(Deno.env.get("DB_PASSWORD_SECRET"), undefined);
+      },
+    );
+  });
+});
+
+Deno.test('loadVariablesEnvDefaults: a reference resolving nowhere is rejected rather than deployed as "undefined"', async () => {
+  await withoutEnv(["DB_URL", "MISSING_SECRET"], async () => {
+    await withTempRepo(
+      "portal",
+      "db_url=${MISSING_SECRET}\n",
+      async (repoRoot) => {
+        await assertRejects(
+          () => loadVariablesEnvDefaults(repoRoot, "portal"),
+          Error,
+          "MISSING_SECRET",
+        );
+      },
+    );
+  });
+});
+
+Deno.test("loadVariablesEnvDefaults: a key defined in both variables.env and secrets.env is rejected", async () => {
+  await withoutEnv(["DB_PASSWORD"], async () => {
+    await withTempRepo(
+      "portal",
+      "DB_PASSWORD=${DB_PASSWORD}\n",
+      async (repoRoot) => {
+        await writeSecretsEnv(repoRoot, "portal", "DB_PASSWORD=hunter2\n");
+        await assertRejects(
+          () => loadVariablesEnvDefaults(repoRoot, "portal"),
+          Error,
+          "defined in both",
+        );
+      },
+    );
   });
 });

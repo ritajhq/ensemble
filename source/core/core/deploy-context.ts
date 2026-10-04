@@ -1,6 +1,6 @@
 import { basename, join } from "@std/path";
 import { exists } from "@std/fs";
-import { load as loadEnvFile } from "@std/dotenv";
+import { parse as parseEnvFile } from "@std/dotenv";
 import * as Deploy from "./deploy/index.ts";
 import type { RepoLocator } from "./ports.ts";
 
@@ -58,24 +58,108 @@ function environmentVariableName(name: string): string {
 }
 
 /**
+ * `.ensemble/deploy/<name>/secrets.env` — untracked (`.ensemble/.gitignore`
+ * ignores `deploy/`), holding the values `variables.env` must not commit. Its
+ * keys never reach `Deno.env` on their own: a secret is only exposed by a
+ * `variables.env` entry interpolating it (`DB_PASSWORD=${db_password}`), so
+ * `variables.env` stays the single declaration of what a deployment reads —
+ * the seam a CI platform's secret store will later stand in for.
+ */
+export function secretsEnvPath(repoRoot: string, name: string): string {
+  return join(repoRoot, ".ensemble", "deploy", name, "secrets.env");
+}
+
+async function readOptionalText(path: string): Promise<string> {
+  if (!await exists(path, { isFile: true })) return "";
+  return await Deno.readTextFile(path);
+}
+
+/**
+ * The keys an env file declares, read without parsing it: @std/dotenv
+ * expands values as it parses, and `KEY=${KEY}` recurses until the stack
+ * overflows — so the shadowing check below has to run before any parse.
+ */
+function declaredKeys(text: string): string[] {
+  const keys = text.matchAll(
+    /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=/gm,
+  );
+  return [...new Set([...keys].map(([, key]) => key))];
+}
+
+/**
+ * @std/dotenv only expands `${KEY}`/`$KEY` in UNQUOTED values, looking up the
+ * same file's keys and then `Deno.env` — and an unresolved one silently
+ * becomes the string "undefined". So references are checked up front against
+ * everything they could resolve to, failing loudly instead of deploying that.
+ */
+function assertReferencesResolve(
+  variablesText: string,
+  known: ReadonlySet<string>,
+  secretsPath: string,
+): void {
+  const references = variablesText.matchAll(
+    /\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-[^}]*)?\}|(?<!\\)\$([A-Za-z_][A-Za-z0-9_]*)/g,
+  );
+  const missing = new Set<string>();
+  for (const [reference, braced, bare] of references) {
+    const key = braced ?? bare;
+    if (reference.includes(":-")) continue;
+    if (known.has(key) || Deno.env.get(key) !== undefined) continue;
+    missing.add(key);
+  }
+  if (missing.size === 0) return;
+  throw new Error(
+    `variables.env references ${
+      [...missing].join(", ")
+    }, defined neither in it, in ${secretsPath}, nor in the environment`,
+  );
+}
+
+/**
  * `ci/<name>/variables.env`, sibling to the manifest itself, is dev-only
  * DEFAULTS for `variables`/`secrets` declared `source: environment` — optional,
- * silently absent for any project that doesn't have one. A real pipeline
- * exports its own real values before invoking `ens`, and those must always
- * win, so a key already present in `Deno.env` is never overwritten here.
+ * silently absent for any project that doesn't have one. Its values may
+ * interpolate keys of the deployment's `secrets.env` (see `secretsEnvPath`).
+ * A real pipeline exports its own real values before invoking `ens`, and
+ * those must always win, so a key already present in `Deno.env` is never
+ * overwritten here.
  */
 export async function loadVariablesEnvDefaults(
   repoRoot: string,
   name: string,
 ): Promise<void> {
-  const envPath = join(repoRoot, "ci", name, "variables.env");
-  if (!await exists(envPath, { isFile: true })) return;
+  const variablesText = await readOptionalText(
+    join(repoRoot, "ci", name, "variables.env"),
+  );
+  if (variablesText === "") return;
 
-  const fileVars = await loadEnvFile({ envPath, export: false });
-  for (const [key, value] of Object.entries(fileVars)) {
+  const secretsPath = secretsEnvPath(repoRoot, name);
+  const secretsText = await readOptionalText(secretsPath);
+  const secrets = parseEnvFile(secretsText);
+  const ownKeys = declaredKeys(variablesText);
+  // Same key in both would shadow the secret in the merged parse below, and
+  // `KEY=${KEY}` then expands into itself forever inside @std/dotenv.
+  const shadowed = ownKeys.filter((key) => Object.hasOwn(secrets, key));
+  if (shadowed.length > 0) {
+    throw new Error(
+      `${
+        shadowed.join(", ")
+      } defined in both variables.env and ${secretsPath} — name the secret differently and interpolate it`,
+    );
+  }
+  assertReferencesResolve(
+    variablesText,
+    new Set([...Object.keys(secrets), ...ownKeys]),
+    secretsPath,
+  );
+
+  // Parsed as one file, secrets first, so @std/dotenv's own expansion sees
+  // them as earlier keys; only variables.env's own keys are kept.
+  const merged = parseEnvFile(`${secretsText}\n${variablesText}`);
+  for (const key of ownKeys) {
     const envVar = environmentVariableName(key);
     if (Deno.env.get(envVar) === undefined) {
-      Deno.env.set(envVar, value);
+      Deno.env.set(envVar, merged[key]!);
     }
   }
 }
