@@ -196,22 +196,25 @@ done
 per-environment values it needs as `variables` and `secrets`; `ens deploy` reads
 them from its own process env (it selects no environment itself — that's the
 pipeline's job, and locally it's you). For local runs, commit the known-good dev
-values to `ci/<name>/variables.env` — `ens deploy`/`develop` loads that file
-before the deploy kit runs, so `ens develop <name>` just works with nothing
-exported:
+values to `ci/<name>/dev.env`, and keep dev values that mustn't be committed in
+the untracked `.ensemble/deploy/<name>/secrets.env`. `ens develop` loads both,
+so `ens develop <name>` just works with nothing exported:
 
 ```ini
-# ci/portal/variables.env — keys are the manifest's variable/secret names
+# ci/portal/dev.env — keys are the manifest's variable/secret names
 pguser=portal
 pgdatabase=portal
 pgpassword=devpassword
 # ...every variable/secret the manifest declares
 ```
 
-The file is a source of *defaults*: any value already exported in the
-environment wins over it, so a real pipeline pulling per-environment values from
-a secrets manager is never overridden by the committed dev file. (Keep genuine
-secrets out of it — dev throwaways only.)
+Env files are flat `KEY=value` lists — no `$` interpolation, and the same key
+in two files is an error. Any value already exported in the environment wins
+over them. `ens deploy` and `ens delivery task` read no file unless given
+`--env-file <path>` (repeatable), so a real pipeline never picks up a committed
+dev value: before rendering, every variable without a `default:` and every
+environment-sourced secret must have a value, or the deploy fails naming all
+the missing ones.
 
 **4. Bring the stack up in dev mode.** `ens develop` watches for source changes
 and auto-creates `external` resources (like a shared `edge` network) instead of

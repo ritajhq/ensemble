@@ -9,6 +9,7 @@ import {
 import { RunPackReleasePacker } from "./release-packer.ts";
 import { runBuild } from "./build.ts";
 import type { Ports } from "./ports.ts";
+import type { EnvFile } from "./env-files.ts";
 import type { PackReporter } from "./pack-reporter.ts";
 import type { BuildReporter } from "./build-reporter.ts";
 
@@ -20,6 +21,8 @@ export interface RunDeployOptions {
   version: string;
   termination: DeployTermination;
   acceptCapabilityGaps: boolean;
+  /** Env files supplying values beneath the process environment (`--env-file`; `ens develop`'s conventional pair). Empty for a real pipeline, which exports every value itself. */
+  envFiles: readonly EnvFile[];
   /** Run the kit's long-lived watch command instead of a one-shot apply, torn down cleanly on SIGINT. Also starts one companion `ens build --watch` per app any resource's `development.sync` references, so the kit's own sync has freshly built output to copy — both torn down together. Ignored by `eject`/`plan`. */
   watch: boolean;
   /** Pack the referenced releases before a local apply. `true` by default; ignored for published artifacts. */
@@ -131,7 +134,9 @@ export async function runDeploy(
   gateway: Deploy.PackKitGateway,
   kitLoader: Deploy.KitLoader,
 ): Promise<void> {
-  const context = await loadDeployContext(name, kit, ports.repo, kitLoader);
+  const context = await loadDeployContext(name, kit, ports.repo, kitLoader, {
+    envFiles: options.envFiles,
+  });
   const { repoRoot, workload, target, registry } = context;
 
   const locatorResolver = new Deploy.ReleaseLocatorResolver(gateway);

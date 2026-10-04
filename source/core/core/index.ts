@@ -54,6 +54,7 @@ export {
   type RunDeployOptions,
 } from "./deploy.ts";
 export { runExplain, type RunExplainOptions } from "./explain.ts";
+export { DeploymentEnvironment, type EnvFile } from "./env-files.ts";
 export {
   runDeliveryTask,
   type RunDeliveryTaskOptions,

@@ -13,6 +13,7 @@ import {
   TaskSnapshotFile,
 } from "./task-snapshot.ts";
 import type { RepoLocator } from "./ports.ts";
+import type { EnvFile } from "./env-files.ts";
 
 /** Thrown when a task name is asked for that the workload doesn't declare — an ordinary typo, named against the tasks that *are* declared. */
 export class UnknownTaskError extends Error {
@@ -42,6 +43,8 @@ export interface RunDeliveryTaskOptions {
   readonly artifacts: Deploy.ArtifactsSource;
   /** Only meaningful if a task argument references `${release.<name>}` for published artifacts — same convention as `ens deploy --version`. */
   readonly version: string;
+  /** Same as `RunDeployOptions.envFiles`. */
+  readonly envFiles: readonly EnvFile[];
 }
 
 /** What `${deployment.<name>}` may name (`./deploy/task.ts` documents the set from the manifest's side). */
@@ -64,8 +67,8 @@ const DEPLOYMENT_VALUES = ["name", "artifact", "root"] as const;
  * here, where the deployment name, the artifact path the deploy writes to and
  * the workspace root are all in scope together.
  *
- * The task process inherits `ens`'s own environment, which `loadDeployContext`
- * has already filled with `ci/<workload>/variables.env`'s defaults, so a
+ * The task process inherits `ens`'s own environment, which `loadWorkload`
+ * has already filled from any `--env-file`, so a
  * `secrets`/`variables` value reaches a task exactly as it reaches a deploy
  * and no secret has to travel through the manifest (G4) or through the
  * argument grammar.
@@ -80,7 +83,9 @@ export async function runDeliveryTask(
   gateway: Deploy.PackKitGateway,
   kitLoader: Deploy.KitLoader,
 ): Promise<void> {
-  const context = await loadWorkload(name, kit, repo);
+  const context = await loadWorkload(name, kit, repo, {
+    envFiles: options.envFiles,
+  });
   const { repoRoot, workload } = context;
 
   const tasks = workload.tasks ?? {};

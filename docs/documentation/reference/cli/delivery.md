@@ -36,7 +36,7 @@ left for it. Every `ens deploy` that applies (or starts a watch session, as
 provisioner's output, a port, a release — in
 `.ensemble/deploy/<name>/<kit>.tasks.json`, gitignored like the render cache
 next to it. The rest are resolved when the task runs, as always: literals,
-`${variables.*}` (from the environment and `ci/<name>/variables.env`, so no
+`${variables.*}` (from the environment and any `--env-file`, so no
 variable — and no secret — is ever written there), `${external.*}`, and
 `${deployment.name}`/`${deployment.root}`. With that file, a task runs without
 loading the kit at all.
@@ -57,6 +57,9 @@ than halfway through a migration.
   this says: they are what's running.
 - `--version <version>` — the released version to resolve those references to
   when rendering. Defaults to `latest`.
+- `--env-file <path>` — load an env file (repo-root relative, repeatable) as
+  values beneath the process environment. None by default: a real
+  environment's pipeline exports every value itself.
 
 See [`tasks` in the manifest schema](../delivery-manifest-schema.md#tasks) for
 what a task declares, and in particular the `${deployment.*}` namespace that

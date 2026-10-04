@@ -159,7 +159,7 @@ That namespace is the reason tasks exist: a script takes `"$artifact"` and
 hardcoding the container or network name `docker compose` derives
 (`<project>-gateway-1`, `<project>_default`) and a rename would silently break.
 Secrets need no argument at all: the task process inherits `ens`'s environment,
-which already carries `ci/<workload>/variables.env` and your secrets, exactly as
+which already carries your variables and secrets (plus any `--env-file`), exactly as
 a deploy receives them.
 
 ## `mounts` and `development`

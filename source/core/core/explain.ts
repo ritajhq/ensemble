@@ -1,11 +1,14 @@
 import * as Deploy from "./deploy/index.ts";
 import { loadDeployContext } from "./deploy-context.ts";
 import type { RepoLocator } from "./ports.ts";
+import type { EnvFile } from "./env-files.ts";
 
 export interface RunExplainOptions {
   artifacts: Deploy.ArtifactsSource;
   /** Only meaningful if the explained resource's dependency chain reaches a `${release.<name>}` reference for published artifacts — same convention as `ens deploy --version`. */
   version: string;
+  /** Same as `RunDeployOptions.envFiles`. */
+  envFiles: readonly EnvFile[];
 }
 
 /**
@@ -37,6 +40,7 @@ export async function runExplain(
     kit,
     repo,
     kitLoader,
+    { envFiles: options.envFiles },
   );
 
   const locatorResolver = new Deploy.ReleaseLocatorResolver(gateway);

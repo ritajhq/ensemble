@@ -1,5 +1,5 @@
 import { Command, EnumType } from "@cliffy/command";
-import { runDeliveryTask } from "@ensemble/core";
+import { DeploymentEnvironment, runDeliveryTask } from "@ensemble/core";
 import * as Host from "@ensemble/host";
 
 /**
@@ -34,9 +34,14 @@ const taskCommand = new Command()
     "Released version to resolve ${release.<name>} references to for published artifacts.",
     { default: "latest" },
   )
+  .option(
+    "--env-file <path:string>",
+    "Load an env file (repo-root relative, repeatable) as values beneath the process environment. None by default: a pipeline exports every value itself.",
+    { collect: true },
+  )
   .action(
     async (
-      { artifacts, version },
+      { artifacts, version, envFile },
       name: string,
       kit: string,
       task: string | undefined,
@@ -47,7 +52,11 @@ const taskCommand = new Command()
         kit,
         task,
         args,
-        { artifacts, version },
+        {
+          artifacts,
+          version,
+          envFiles: DeploymentEnvironment.required(envFile),
+        },
         Host.createPorts().repo,
         new Host.SubprocessPackKitGateway(),
         new Host.SubprocessKitLoader(),

@@ -1,5 +1,5 @@
 import { Command, EnumType } from "@cliffy/command";
-import { runDeploy, runExplain } from "@ensemble/core";
+import { DeploymentEnvironment, runDeploy, runExplain } from "@ensemble/core";
 import * as Host from "@ensemble/host";
 
 const explainCommand = new Command()
@@ -21,12 +21,17 @@ const explainCommand = new Command()
     "Released version to resolve ${release.<name>} references to for published artifacts.",
     { default: "latest" },
   )
-  .action(async ({ artifacts, version }, name, kit, resource) => {
+  .option(
+    "--env-file <path:string>",
+    "Load an env file (repo-root relative, repeatable) as values beneath the process environment. None by default: a pipeline exports every value itself.",
+    { collect: true },
+  )
+  .action(async ({ artifacts, version, envFile }, name, kit, resource) => {
     await runExplain(
       name,
       kit,
       resource,
-      { artifacts, version },
+      { artifacts, version, envFiles: DeploymentEnvironment.required(envFile) },
       Host.createPorts().repo,
       new Host.SubprocessPackKitGateway(),
       new Host.SubprocessKitLoader(),
@@ -81,6 +86,11 @@ export const deployCommand = new Command()
     { default: false },
   )
   .option(
+    "--env-file <path:string>",
+    "Load an env file (repo-root relative, repeatable) as values beneath the process environment. None by default: a pipeline exports every value itself.",
+    { collect: true },
+  )
+  .option(
     "--verbose",
     "Let a local apply's pack step show the kit's own build-tool output (e.g. docker buildx build's progress log) instead of hiding it behind the pack spinner.",
     { default: false },
@@ -97,6 +107,7 @@ export const deployCommand = new Command()
         acceptCapabilityGaps,
         emulateExternals,
         verbose,
+        envFile,
       },
       name,
       kit,
@@ -128,6 +139,7 @@ export const deployCommand = new Command()
           pack,
           emulateExternals,
           verbose,
+          envFiles: DeploymentEnvironment.required(envFile),
           reporter: new Host.AnimatedPackReporter(),
           buildReporter: new Host.AnimatedBuildReporter(),
         },

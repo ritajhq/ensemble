@@ -1,5 +1,5 @@
 import { Command } from "@cliffy/command";
-import { runDeploy } from "@ensemble/core";
+import { DeploymentEnvironment, runDeploy } from "@ensemble/core";
 import * as Host from "@ensemble/host";
 
 /**
@@ -23,7 +23,12 @@ export const developCommand = new Command()
     "Let the initial pack step show the kit's own build-tool output (e.g. docker buildx build's progress log) instead of hiding it behind the pack spinner.",
     { default: false },
   )
-  .action(async ({ kit, verbose }, name) => {
+  .option(
+    "--env-file <path:string>",
+    "Load an env file (repo-root relative, repeatable) instead of the default ci/<name>/dev.env and .ensemble/deploy/<name>/secrets.env.",
+    { collect: true },
+  )
+  .action(async ({ kit, verbose, envFile }, name) => {
     await runDeploy(
       name,
       kit,
@@ -36,6 +41,9 @@ export const developCommand = new Command()
         pack: true,
         emulateExternals: true,
         verbose,
+        envFiles: envFile
+          ? DeploymentEnvironment.required(envFile)
+          : DeploymentEnvironment.developConvention(name),
         reporter: new Host.AnimatedPackReporter(),
         buildReporter: new Host.AnimatedBuildReporter(),
       },

@@ -33,6 +33,9 @@ ens deploy <name> <kit>
   already exists elsewhere.
 - `--verbose` — let a local apply's pack step show the kit's own
   build-tool output instead of hiding it behind the pack spinner.
+- `--env-file <path>` — load an env file (repo-root relative, repeatable) as
+  values beneath the process environment. None by default: a real
+  environment's pipeline exports every value itself.
 
 `--eject` and `--plan` are mutually exclusive, and neither can combine with
 `--watch` or `--emulate-externals`.

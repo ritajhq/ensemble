@@ -1,5 +1,5 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { runDeploy, runExplain } from "@ensemble/core";
+import { DeploymentEnvironment, runDeploy, runExplain } from "@ensemble/core";
 import * as Host from "@ensemble/host";
 import { z } from "zod";
 import { ToolResult } from "../tool-result.ts";
@@ -44,6 +44,9 @@ export class DeployTools {
           verbose: z.boolean().default(false).describe(
             "Include the kit's own build-tool output from the pack step instead of hiding it behind a spinner.",
           ),
+          envFiles: z.array(z.string()).default([]).describe(
+            "Env files (repo-root relative) supplying values beneath the process environment. Empty for a real environment, whose values are exported by the caller.",
+          ),
         },
       },
       (
@@ -57,6 +60,7 @@ export class DeployTools {
           pack,
           emulateExternals,
           verbose,
+          envFiles,
         },
       ) =>
         ToolResult.from(async () => {
@@ -72,6 +76,7 @@ export class DeployTools {
               pack,
               emulateExternals,
               verbose,
+              envFiles: DeploymentEnvironment.required(envFiles),
             },
             Host.createPorts(),
             new Host.SubprocessPackKitGateway(),
@@ -101,15 +106,22 @@ export class DeployTools {
           version: z.string().default("latest").describe(
             "Released version to resolve ${release.<name>} references to for published artifacts.",
           ),
+          envFiles: z.array(z.string()).default([]).describe(
+            "Env files (repo-root relative) supplying values beneath the process environment. Empty for a real environment, whose values are exported by the caller.",
+          ),
         },
       },
-      ({ name, kit, resource, artifacts, version }) =>
+      ({ name, kit, resource, artifacts, version, envFiles }) =>
         ToolResult.from(async () => {
           await runExplain(
             name,
             kit,
             resource,
-            { artifacts, version },
+            {
+              artifacts,
+              version,
+              envFiles: DeploymentEnvironment.required(envFiles),
+            },
             Host.createPorts().repo,
             new Host.SubprocessPackKitGateway(),
             new Host.SubprocessKitLoader(),

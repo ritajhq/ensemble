@@ -10,6 +10,7 @@ import type { PackKitGateway } from "./deploy/kit/pack-kit-gateway.ts";
 import { InProcessKitLoader } from "./deploy/kit/loader.ts";
 import type { KitLoader } from "./deploy/kit/loader.ts";
 import { loadWorkload } from "./deploy-context.ts";
+import { DeploymentEnvironment, type EnvFile } from "./env-files.ts";
 import {
   DeploymentFingerprint,
   type TaskSnapshot,
@@ -130,13 +131,14 @@ function run1(
   task: string | undefined,
   args: readonly string[] = [],
   kitLoader: KitLoader = new InProcessKitLoader(),
+  envFiles: readonly EnvFile[] = [],
 ): Promise<void> {
   return runDeliveryTask(
     "demo",
     "demo-kit",
     task,
     args,
-    { artifacts: "local", version: "latest" },
+    { artifacts: "local", version: "latest", envFiles },
     { findRepoRoot: () => Promise.resolve(repoRoot) },
     noReleasesGateway,
     kitLoader,
@@ -156,7 +158,7 @@ async function writeSnapshot(
 ): Promise<void> {
   const context = await loadWorkload("demo", "demo-kit", {
     findRepoRoot: () => Promise.resolve(repoRoot),
-  });
+  }, { envFiles: [] });
   await TaskSnapshotFile.for(repoRoot, "demo", "demo-kit").write({
     version: 1,
     fingerprint: fingerprint ?? await DeploymentFingerprint.of(context),
@@ -187,6 +189,42 @@ Deno.test("runDeliveryTask: hands a script every declared argument as an environ
         "",
       ].join("\n"),
     );
+  });
+});
+
+/** Runs `record` with `envFiles`, returning the greeting the script received. */
+async function recordedGreeting(
+  repoRoot: string,
+  envFiles: readonly EnvFile[],
+): Promise<string> {
+  await Deno.writeTextFile(
+    join(repoRoot, "ci", "demo", "dev.env"),
+    "greeting=from-dev-env\n",
+  );
+  try {
+    await run1(repoRoot, "record", [], undefined, envFiles);
+  } finally {
+    Deno.env.delete("GREETING");
+  }
+  const recorded = await Deno.readTextFile(join(repoRoot, "recorded.txt"));
+  return recorded.split("\n")[4];
+}
+
+Deno.test("runDeliveryTask: an --env-file supplies values beneath the environment", async () => {
+  await withWorkspace(async (repoRoot) => {
+    assertEquals(
+      await recordedGreeting(
+        repoRoot,
+        DeploymentEnvironment.required(["ci/demo/dev.env"]),
+      ),
+      "from-dev-env",
+    );
+  });
+});
+
+Deno.test("runDeliveryTask: without an --env-file, ci/<name>/dev.env is never read", async () => {
+  await withWorkspace(async (repoRoot) => {
+    assertEquals(await recordedGreeting(repoRoot, []), "hi");
   });
 });
 
