@@ -1,3 +1,18 @@
+## [0.41.0] - 2026-10-04
+
+### 🚀 Features
+
+- *(core/deploy)* Interpolate .ensemble/deploy/<name>/secrets.env keys into variables.env
+
+### 🐛 Bug Fixes
+
+- *(host)* Type the workspace config settle timer as setTimeout's return type
+
+### ⚙️ Miscellaneous Tasks
+
+- *(kits)* Pin @ensemble/kit-sdk to ^0.40.0 so kits never resolve an older sdk
+- *(deploy)* Drop InProcessKitLoader from the kit barrel and document that deploy kits always run in a subprocess
+- *(release)* Bump library versions for 0.41.0
 ## [0.19.0] - 2026-09-17
 
 ### 🚀 Features
