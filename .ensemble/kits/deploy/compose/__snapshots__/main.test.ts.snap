@@ -8,14 +8,14 @@ snapshot[`compose kit: renders Appendix A's worked example (golden snapshot) 1`]
         "primary",
       ],
       environment: {
-        DATABASE_URL: "postgres://appuser:\${DB_PASSWORD}@primary:5432/appdb",
+        DATABASE_URL: "postgres://appuser:\${DB_PASSWORD:?}@primary:5432/appdb",
       },
       image: "ens-local/web:dev",
     },
     primary: {
       environment: {
         POSTGRES_DB: "appdb",
-        POSTGRES_PASSWORD: "\${DB_PASSWORD}",
+        POSTGRES_PASSWORD: "\${DB_PASSWORD:?}",
         POSTGRES_USER: "appuser",
       },
       image: "postgres:16",

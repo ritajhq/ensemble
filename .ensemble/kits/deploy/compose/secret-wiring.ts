@@ -2,8 +2,11 @@ import * as KitSdk from "@ensemble/kit-sdk";
 
 /**
  * Compose's native wiring for a `secrets` entry: an env-var interpolation
- * placeholder (`${VAR}`), the var name derived from the secret's own name
+ * placeholder (`${VAR:?}`), the var name derived from the secret's own name
  * (Section 8 — compose has no other secret-delivery mechanism this kit uses).
+ * Required form, not a bare `${VAR}`: compose would only warn on an unset
+ * one and deploy an empty secret, where a pipeline that forgot to export it
+ * must fail instead.
  * Only `source: environment` is supported today; Appendix A's own fixture
  * never exercises `source: file`, so that convention isn't invented here.
  */
@@ -22,7 +25,7 @@ export function composeSecretWiring(
       `The compose kit only supports environment-sourced secrets today (secret "${secretName}" is "${declaration.source}").`,
     );
   }
-  return `\${${environmentVariableName(secretName)}}`;
+  return `\${${environmentVariableName(secretName)}:?}`;
 }
 
 function environmentVariableName(secretName: string): string {

@@ -128,7 +128,7 @@ Deno.test("compose kit: matches Appendix A's documented content exactly", async 
     environment: {
       POSTGRES_USER: "appuser",
       POSTGRES_DB: "appdb",
-      POSTGRES_PASSWORD: "${DB_PASSWORD}",
+      POSTGRES_PASSWORD: "${DB_PASSWORD:?}",
     },
     volumes: ["primary-data:/var/lib/postgresql/data"],
     restart: "always",
@@ -138,7 +138,7 @@ Deno.test("compose kit: matches Appendix A's documented content exactly", async 
     image: "ens-local/web:dev",
     depends_on: ["primary"],
     environment: {
-      DATABASE_URL: "postgres://appuser:${DB_PASSWORD}@primary:5432/appdb",
+      DATABASE_URL: "postgres://appuser:${DB_PASSWORD:?}@primary:5432/appdb",
     },
   });
 
@@ -614,8 +614,8 @@ Deno.test("compose kit: object storage renders as a Garage service on its own im
       run: garageSeedScript({
         service: "bucket",
         bucket: "my-bucket",
-        accessKey: "${S3_ACCESS_KEY}",
-        secretKey: "${S3_SECRET_KEY}",
+        accessKey: "${S3_ACCESS_KEY:?}",
+        secretKey: "${S3_SECRET_KEY:?}",
       }),
     }],
   );
