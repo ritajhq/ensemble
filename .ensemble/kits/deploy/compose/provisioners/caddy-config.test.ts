@@ -1,5 +1,5 @@
-import { assertEquals } from "@std/assert";
-import { caddyfile } from "./caddy-config.ts";
+import { assertEquals, assertThrows } from "@std/assert";
+import { caddyfile, tlsMode } from "./caddy-config.ts";
 
 Deno.test("caddyfile: a plain string path is a passthrough `handle` block, matcher emitted verbatim (a trailing * is Caddy's own wildcard)", () => {
   const conf = caddyfile([
@@ -8,7 +8,7 @@ Deno.test("caddyfile: a plain string path is a passthrough `handle` block, match
       path: "/cover*",
       target: { service: "cover", port: 8080 },
     },
-  ], undefined);
+  ], "none");
 
   assertEquals(
     conf,
@@ -28,7 +28,7 @@ Deno.test("caddyfile: { match, strip: true } is `handle_path`, Caddy's own prefi
       path: { match: "/api/*", strip: true },
       target: { service: "api", port: 4000 },
     },
-  ], undefined);
+  ], "none");
 
   assertEquals(conf.includes("handle_path /api/* {"), true);
   assertEquals(conf.includes("reverse_proxy http://api:4000"), true);
@@ -42,10 +42,10 @@ Deno.test("caddyfile: { match, strip: false } behaves exactly like a plain strin
       path: { match: "/x*", strip: false },
       target: { service: "x", port: 1 },
     },
-  ], undefined);
+  ], "none");
   const plain = caddyfile([
     { host: "a.localhost", path: "/x*", target: { service: "x", port: 1 } },
-  ], undefined);
+  ], "none");
 
   assertEquals(withFalse, plain);
 });
@@ -55,7 +55,7 @@ Deno.test("caddyfile: routes are grouped into one site block per distinct host, 
     { host: "b.localhost", path: "/1", target: { service: "one", port: 1 } },
     { host: "a.localhost", path: "/2", target: { service: "two", port: 2 } },
     { host: "b.localhost", path: "/3", target: { service: "three", port: 3 } },
-  ], undefined);
+  ], "none");
 
   const bIndex = conf.indexOf("b.localhost {");
   const aIndex = conf.indexOf("a.localhost {");
@@ -82,16 +82,27 @@ Deno.test("caddyfile: tls internal reaches every site block, and the site addres
 Deno.test("caddyfile: without tls the site address is explicitly http, so Caddy never attempts automatic HTTPS", () => {
   const conf = caddyfile([
     { host: "a.localhost", path: "/", target: { service: "web", port: 8000 } },
-  ], undefined);
+  ], "none");
 
   assertEquals(conf.startsWith("http://a.localhost {"), true);
   assertEquals(conf.includes("tls internal"), false);
 });
 
+Deno.test("tlsMode: unset means none, internal and none pass through", () => {
+  assertEquals(tlsMode(undefined), "none");
+  assertEquals(tlsMode("none"), "none");
+  assertEquals(tlsMode("internal"), "internal");
+});
+
+Deno.test("tlsMode: any other value is rejected rather than silently enabling Caddy's automatic HTTPS", () => {
+  assertThrows(() => tlsMode("automatic"), Error, "internal, none");
+  assertThrows(() => tlsMode(""), Error, "internal, none");
+});
+
 Deno.test("caddyfile: a route with no host falls back to the :80 catch-all site address", () => {
   const conf = caddyfile([
     { host: "", path: "/", target: { service: "web", port: 8000 } },
-  ], undefined);
+  ], "none");
 
   assertEquals(conf.startsWith(":80 {"), true);
 });

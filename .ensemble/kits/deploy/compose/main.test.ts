@@ -770,6 +770,25 @@ Deno.test("compose kit: tls: internal publishes HTTPS on 8443 and gets Caddy min
   assertEquals(conf.includes("example.localhost {\n\ttls internal\n"), true);
 });
 
+Deno.test("compose kit: tls: none is plain HTTP on 80, for a gateway behind something that already terminates TLS", async () => {
+  const workload = new KitSdk.Deploy.Manifest.Parser().parse(
+    WITH_GATEWAY.replace(
+      "      network: ${external.edge.name}",
+      "      network: ${external.edge.name}\n      tls: none",
+    ),
+  );
+  const { artifacts, graph } = await renderNetworkingWorkload(workload);
+  const document = assembleComposeDocument(artifacts, graph) as {
+    services: Record<string, { ports?: string[] }>;
+    configs?: Record<string, { content: string }>;
+  };
+
+  assertEquals(document.services.gateway.ports, ["80:80"]);
+  const conf = document.configs!["gateway-caddyfile"].content;
+  assertEquals(conf.includes("tls internal"), false);
+  assertEquals(conf.includes("http://example.localhost {"), true);
+});
+
 Deno.test("compose kit: rendering the same workload twice produces byte-identical presented content (G5)", async () => {
   const first = await renderFixture(
     FIXTURE,

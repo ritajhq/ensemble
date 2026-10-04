@@ -15,6 +15,31 @@ interface Route {
 }
 
 /**
+ * `gateway.v1`'s certificate strategies this kit renders: `internal` (Caddy's
+ * own local CA) or `none` (plain HTTP — e.g. behind a tunnel that already
+ * terminates TLS). An unset `tls` means `none`.
+ */
+export type Tls = "internal" | "none";
+
+const TLS_MODES: readonly Tls[] = ["internal", "none"];
+
+/**
+ * Narrows a gateway's resolved `tls` param to a `Tls`. Anything else — an
+ * ACME-style `automatic` included, or an empty string from a blank variable —
+ * is rejected: rendered as a bare host it would silently turn on Caddy's
+ * automatic HTTPS, which nothing here configures.
+ */
+export function tlsMode(value: unknown): Tls {
+  if (value === undefined) return "none";
+  if (TLS_MODES.includes(value as Tls)) return value as Tls;
+  throw new Error(
+    `gateway tls must be one of ${TLS_MODES.join(", ")} (got ${
+      JSON.stringify(value)
+    }).`,
+  );
+}
+
+/**
  * A route's `path` as Caddy's own directive + matcher pair. A plain string
  * path is a passthrough prefix — `handle`, which hands the upstream the
  * request URI unchanged (`/uploads/*` stays `/uploads/*`); `{ match, strip:
@@ -69,9 +94,9 @@ function groupByHost(routes: readonly Route[]): Map<string, Route[]> {
  * automatic HTTPS at all. A route with no host falls back to the `:80`
  * catch-all.
  */
-function siteAddress(host: string, tls: string | undefined): string {
+function siteAddress(host: string, tls: Tls): string {
   if (!host) return ":80";
-  return tls ? host : `http://${host}`;
+  return tls === "internal" ? host : `http://${host}`;
 }
 
 /**
@@ -82,7 +107,7 @@ function siteAddress(host: string, tls: string | undefined): string {
  */
 export function caddyfile(
   routes: readonly Route[],
-  tls: string | undefined,
+  tls: Tls,
 ): string {
   const blocks = [...groupByHost(routes).entries()].map(
     ([host, hostRoutes]) => {

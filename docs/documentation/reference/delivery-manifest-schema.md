@@ -85,8 +85,11 @@ bakes to a bare number, never the compute's own name. `tls:
 internal` is
 rendered on `compose`: Caddy mints its own local CA and serves HTTPS on 8443,
 keeping that CA on a named volume so a recreated gateway doesn't invalidate a
-certificate you already trusted. Any other `tls` value is accepted but not
-rendered, and leaving it unset keeps the plain-HTTP gateway.
+certificate you already trusted. `tls: none` — the same as leaving it unset —
+is plain HTTP on 80, for a gateway behind something that already terminates
+TLS (a Cloudflare tunnel). Any other value is rejected. Since it may be a
+`${variables.<name>.value}` reference, a deployment can use `internal` in
+development and `none` in production.
 
 ## Generic resource shapes
 

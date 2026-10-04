@@ -1,6 +1,6 @@
 import * as KitSdk from "@ensemble/kit-sdk";
 import { PROJECT_NETWORK } from "../compose-document.ts";
-import { caddyfile } from "./caddy-config.ts";
+import { caddyfile, type Tls, tlsMode } from "./caddy-config.ts";
 
 /**
  * Caddy's own official image, and the reason this kit's gateway is Caddy:
@@ -14,6 +14,12 @@ import { caddyfile } from "./caddy-config.ts";
 const CADDY_IMAGE = "caddy:2.11-alpine";
 /** The host port an HTTPS gateway is reached on, mapping Caddy's own 443 — the port every app's own origins in this repo already spell (`https://<host>.localhost:8443`). */
 const HTTPS_HOST_PORT = 8443;
+
+/** What the gateway publishes on the host, per `Tls` — see `gatewayProvisioner` for why HTTPS publishes 8443 alone. */
+const PUBLISHED_PORTS: Readonly<Record<Tls, readonly string[]>> = {
+  internal: [`${HTTPS_HOST_PORT}:443`],
+  none: ["80:80"],
+};
 
 /**
  * Fulfills `gateway` (Caddy) on compose — the only kit this Type is
@@ -46,7 +52,7 @@ const HTTPS_HOST_PORT = 8443;
  *   whatever the developer already trusted (`ci/scripts/trust-gateway-ca.sh`
  *   in this repo's own portal).
  *
- * Published on `8443:443` when `tls` is set, `80:80` when it isn't — HTTPS
+ * Published on `8443:443` for `tls: internal`, `80:80` for `none` — HTTPS
  * only in the former case, deliberately: Caddy's automatic HTTP→HTTPS
  * redirect names Caddy's own 443, which a host-side 8443 mapping can't
  * reflect, so publishing 80 alongside it would only produce redirects to a
@@ -63,7 +69,7 @@ export function gatewayProvisioner(): KitSdk.Deploy.Provisioner {
       const configName = `${request.name}-caddyfile`;
       const volumeName = `${request.name}-data`;
       const routes = request.params.routes as Parameters<typeof caddyfile>[0];
-      const tls = request.params.tls as string | undefined;
+      const tls = tlsMode(request.params.tls);
 
       return {
         fragment: {
@@ -72,7 +78,7 @@ export function gatewayProvisioner(): KitSdk.Deploy.Provisioner {
           content: {
             service: {
               image: CADDY_IMAGE,
-              ports: tls ? [`${HTTPS_HOST_PORT}:443`] : ["80:80"],
+              ports: [...PUBLISHED_PORTS[tls]],
               networks: [request.params.network, PROJECT_NETWORK],
               configs: [
                 { source: configName, target: "/etc/caddy/Caddyfile" },

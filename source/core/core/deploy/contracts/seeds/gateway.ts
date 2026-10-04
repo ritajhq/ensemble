@@ -31,10 +31,11 @@ import { ResourceContract } from "../contract.ts";
  * `tls` names the certificate strategy. `internal` is implemented on
  * compose: Caddy mints and rotates its own local CA and leaf certs, so the
  * gateway serves HTTPS (on host port 8443) with nothing to configure beyond
- * that one directive. Any other value is accepted but not rendered — an
- * ACME/public pipeline is a genuine feature nobody has asked for yet, so it
- * isn't invented ahead of that need — and an unset `tls` keeps the plain-HTTP
- * gateway it has always been.
+ * that one directive. `none` — the same as leaving it unset — is plain HTTP,
+ * for a gateway behind something that already terminates TLS (a Cloudflare
+ * tunnel). A kit rejects any other value: an ACME/public pipeline is a
+ * genuine feature nobody has asked for yet, so it isn't invented ahead of
+ * that need.
  */
 export const gatewayV1: ResourceContract = new ResourceContract(
   "networking",
