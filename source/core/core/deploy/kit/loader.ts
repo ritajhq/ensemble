@@ -19,7 +19,7 @@ export interface LoadedKit {
 /**
  * Loads/configures a vendored deploy kit for a deployment — one interface,
  * two implementations: `InProcessKitLoader` here (in-process `import()`,
- * kept for fixture-based unit tests) and `SubprocessKitLoader`
+ * test-only, not exported from the barrel) and `SubprocessKitLoader`
  * (`@ensemble/host`, the real one the CLI uses — spawns each kit call as its
  * own fresh `deno run` subprocess, which is what actually works once `ens`
  * itself is `deno compile`d; see that class's doc comment for why in-process
@@ -33,15 +33,13 @@ export interface KitLoader {
 }
 
 /**
- * Loads a vendored kit checkout (pristine, tag-pinned — never edited in
- * place, Section 10) by importing its `main.ts` in-process — the same
- * in-process contract the old `Kit`/`KitProcedure` shape used, kept because a
- * deploy kit needs to hand back an object the rest of resolution calls
- * directly, not a subprocess result. Then layers any sidecar project config
- * files (given lowest-precedence-first, always outside the vendored
- * directory) on top via `KitConfigMerger`/`KitConfigLayering` to produce the
- * effective `Kit` the resolution agents actually consume — the vendored
- * checkout itself is never touched.
+ * Test-only `KitLoader`: imports a vendored kit's `main.ts` in-process, then
+ * layers any sidecar project config files (given lowest-precedence-first,
+ * always outside the vendored directory) on top via `KitConfigLayering`. Not
+ * exported from the `kit` barrel — production code uses `SubprocessKitLoader`
+ * (`@ensemble/host`), since a `deno compile`d `ens` can't `import()` a kit
+ * discovered at runtime. Fixture-based unit tests import this directly from
+ * `loader.ts`.
  */
 export class InProcessKitLoader implements KitLoader {
   constructor(

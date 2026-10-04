@@ -30,7 +30,6 @@ export { ConfiguredProvisioner } from "./configured-provisioner.ts";
 export { LayeredRealization } from "./layered-realization.ts";
 export { KitConfigLayering } from "./config-layering.ts";
 export {
-  InProcessKitLoader,
   KitLoadError,
   type KitLoader,
   type LoadedKit,

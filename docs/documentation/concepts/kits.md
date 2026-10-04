@@ -36,10 +36,11 @@ Built-in pack kits: `docker` and `deno.compile`.
 ## Deploy kits
 
 Unlike build/pack kits, a deploy kit isn't a CLI: its `main.ts`
-default-exports a configured `KitSdk.Deploy.Kit`, which `ens` imports into one
-long-lived process of its own (from the kit's directory, so the kit resolves its
-own dependencies) and calls for as long as the command runs — the kit's module
-state lasts that long too, then the process ends with `ens`. It receives the whole
+default-exports a configured `KitSdk.Deploy.Kit`. `ens` never imports it
+in-process: it starts one long-lived `deno run` child process for the kit (from
+the kit's directory, so the kit resolves its own dependencies), which imports
+`main.ts` and answers `ens`'s calls over RPC for as long as the command runs —
+the kit's module state lasts that long too, then the process ends with `ens`. It receives the whole
 resolved workload (not narrowed per-entry, since only the kit knows how its
 target needs every entry assembled together), the dependency-ordered
 batches, run options, and a `KitContext`. See
