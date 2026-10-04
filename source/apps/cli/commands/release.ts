@@ -168,7 +168,11 @@ async function collectRemaining(
   const { ships, coreLibs } = await collectReleases(repoRoot, ports, filter);
   return {
     shipsToPack: ships.filter((s) => !state.packedShips.includes(s.name)),
-    shipsToPublish: ships.filter((s) => !state.publishedShips.includes(s.name)),
+    // Pack-only ships (no `publish:`) are never recorded as published, so
+    // counting them here would keep the release from ever finishing.
+    shipsToPublish: ships.filter((s) =>
+      s.publish && !state.publishedShips.includes(s.name)
+    ),
     coreLibsToPublish: coreLibs.filter((l) =>
       !state.publishedCoreLibs.includes(l.declaration.package)
     ),
