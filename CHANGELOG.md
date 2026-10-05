@@ -1,3 +1,13 @@
+## [0.44.0] - 2026-10-05
+
+### 🚀 Features
+
+- *(deploy)* Add list-typed variables and optional gateway networks
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.43.0
+- *(release)* Bump library versions for 0.44.0
 ## [0.43.0] - 2026-10-04
 
 ### ⚙️ Miscellaneous Tasks
