@@ -94,6 +94,16 @@ tasks:
     run: "true"
     arguments:
       where: \${deployment.nowhere}
+  embedded:
+    run: printf '%s\\n' "$url" > "$root/url.txt"
+    arguments:
+      root: \${deployment.root}
+      url: https://\${variables.greeting.value}.example\${variables.greeting.value}/\${deployment.name}
+  embedded-rendered:
+    run: printf '%s\\n' "$url" > "$root/url.txt"
+    arguments:
+      root: \${deployment.root}
+      url: http://web:\${compute.web.http}/health
 `;
 
 /** Writes a throwaway workspace: the manifest, its scripts folder, and the kit `loadDeployContext` will load. */
@@ -257,7 +267,7 @@ Deno.test("runDeliveryTask: an undeclared task name fails naming the ones that a
     await assertRejects(
       () => run1(repoRoot, "nope"),
       UnknownTaskError,
-      "Declared: record, inline, web-port, failing, bad-deployment-value.",
+      "Declared: record, inline, web-port, failing, bad-deployment-value, embedded, embedded-rendered.",
     );
   });
 });
@@ -374,5 +384,37 @@ Deno.test("runDeliveryTask: a snapshot missing one of a task's rendered argument
     const recorded = (await Deno.readTextFile(join(repoRoot, "recorded.txt")))
       .split("\n");
     assertEquals(recorded[3], "8080");
+  });
+});
+
+Deno.test("runDeliveryTask: with a snapshot, references embedded in a larger string are interpolated, not passed through as text", async () => {
+  await withWorkspace(async (repoRoot) => {
+    await writeSnapshot(repoRoot, {
+      artifact: "/deployed/compose.yaml",
+      arguments: {},
+    });
+
+    await run1(repoRoot, "embedded", [], noKitLoader);
+
+    assertEquals(
+      await Deno.readTextFile(join(repoRoot, "url.txt")),
+      `https://hi.examplehi/${basename(repoRoot)}-demo\n`,
+    );
+  });
+});
+
+Deno.test("runDeliveryTask: a snapshot is not used for an argument embedding a reference only a render can answer", async () => {
+  await withWorkspace(async (repoRoot) => {
+    await writeSnapshot(repoRoot, {
+      artifact: "/deployed/compose.yaml",
+      arguments: {},
+    });
+
+    await run1(repoRoot, "embedded-rendered");
+
+    assertEquals(
+      await Deno.readTextFile(join(repoRoot, "url.txt")),
+      "http://web:8080/health\n",
+    );
   });
 });

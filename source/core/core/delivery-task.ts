@@ -8,6 +8,7 @@ import {
 import {
   type ArgumentValue,
   DeploymentFingerprint,
+  embedsRenderedReference,
   isRenderedArgument,
   type TaskSnapshot,
   TaskSnapshotFile,
@@ -153,7 +154,10 @@ async function deployedSnapshot(
   const recorded = snapshot.arguments[taskName] ?? {};
   const complete = Object.entries(task.arguments ?? {}).every((
     [argument, raw],
-  ) => !isRenderedArgument(raw) || argument in recorded);
+  ) =>
+    (!isRenderedArgument(raw) || argument in recorded) &&
+    !embedsRenderedReference(raw)
+  );
   return complete ? snapshot : undefined;
 }
 
@@ -189,8 +193,31 @@ function snapshotArgument(
   raw: string | number | boolean,
   context: SnapshotContext,
 ): unknown {
-  const reference = new Deploy.ReferenceSyntax().parse(raw);
-  if (!reference) return raw;
+  const syntax = new Deploy.ReferenceSyntax();
+  const reference = syntax.parse(raw);
+  if (!reference) {
+    // Only references a render can't answer are embedded here: an argument
+    // embedding one it can makes the snapshot incomplete (`deployedSnapshot`).
+    return syntax.embedded(raw).reduce(
+      (text, embedded) =>
+        text.replace(
+          embedded.text,
+          String(
+            snapshotReference(argument, embedded.reference, raw, context),
+          ),
+        ),
+      String(raw),
+    );
+  }
+  return snapshotReference(argument, reference, raw, context);
+}
+
+function snapshotReference(
+  argument: string,
+  reference: Deploy.Reference,
+  raw: string | number | boolean,
+  context: SnapshotContext,
+): unknown {
   if (reference.category === "deployment") {
     return deploymentValue(reference, raw, context.deployment);
   }
@@ -284,9 +311,11 @@ async function argumentsFromRender(
 /** Every reference among a task's arguments; a literal argument references nothing. */
 function argumentReferences(task: Deploy.Task): Deploy.Reference[] {
   const syntax = new Deploy.ReferenceSyntax();
-  return Object.values(task.arguments ?? {})
-    .map((raw) => syntax.parse(raw))
-    .filter((reference) => reference !== undefined);
+  return Object.values(task.arguments ?? {}).flatMap((raw) => {
+    const reference = syntax.parse(raw);
+    if (reference) return [reference];
+    return syntax.embedded(raw).map((embedded) => embedded.reference);
+  });
 }
 
 /** The categories a render provisions — every other one is data the render reads as it is, so it is kept whole. */

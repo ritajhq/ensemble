@@ -38,6 +38,17 @@ export function isRenderedArgument(raw: unknown): boolean {
 }
 
 /**
+ * Whether `raw` embeds, inside a larger string, a reference only a render can
+ * answer. Such an argument is never kept: the string may also embed a
+ * variable, which may hold a secret — so a task with one always renders.
+ */
+export function embedsRenderedReference(raw: unknown): boolean {
+  return new Deploy.ReferenceSyntax().embedded(raw).some(({ reference }) =>
+    !UNRENDERED.includes(reference.category)
+  );
+}
+
+/**
  * Where a workload's task snapshot for one kit is kept:
  * `.ensemble/deploy/<workload>/<kit>.tasks.json`, next to the render cache
  * `plan` diffs against, and like it never committed. A missing or unreadable
