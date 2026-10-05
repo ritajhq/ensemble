@@ -1,3 +1,14 @@
+## [0.46.0] - 2026-10-05
+
+### 🚀 Features
+
+- *(deploy)* Tell provisioners whether ens develop or ens deploy brought the stack up
+- *(deploy)* Let a development block add environment variables only ens develop runs with
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.45.0
+- *(release)* Bump library versions for 0.46.0
 ## [0.45.0] - 2026-10-05
 
 ### 🚀 Features
