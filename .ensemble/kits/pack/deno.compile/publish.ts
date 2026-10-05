@@ -43,11 +43,15 @@ if (ghCheck.code !== 0) {
 
 // gh uses the uploaded file's basename as the release asset name, so stage the
 // binary under packageName in a temp dir to control the published name
-// independently of the local compile output filename.
+// independently of the local compile output filename. A gzipped copy is
+// uploaded alongside as `<packageName>.gz`: compiled Deno binaries shrink ~3x,
+// and self-updaters prefer it, while the raw asset keeps older clients working.
 const stageDir = await Deno.makeTempDir({ prefix: "ens-publish-github-" });
 const asset = join(stageDir, ctx.packageName);
+const compressedAsset = `${asset}.gz`;
 try {
   await Deno.copyFile(binary, asset);
+  await gzip(binary, compressedAsset);
 
   const repoArgs = options.repo ? ["--repo", options.repo] : [];
 
@@ -56,10 +60,16 @@ try {
   // object), otherwise attach/replace the asset on the existing one.
   const existing = await $`gh release view ${ctx.version} ${repoArgs}`.quiet().noThrow();
   const result = existing.code === 0
-    ? await $`gh release upload ${ctx.version} ${asset} ${repoArgs} --clobber`.noThrow()
-    : await $`gh release create ${ctx.version} ${asset} ${repoArgs} --title ${ctx.version} --generate-notes`.noThrow();
+    ? await $`gh release upload ${ctx.version} ${asset} ${compressedAsset} ${repoArgs} --clobber`.noThrow()
+    : await $`gh release create ${ctx.version} ${asset} ${compressedAsset} ${repoArgs} --title ${ctx.version} --generate-notes`.noThrow();
 
   Deno.exit(result.code);
 } finally {
   await Deno.remove(stageDir, { recursive: true }).catch(() => {});
+}
+
+async function gzip(source: string, destination: string): Promise<void> {
+  const input = await Deno.open(source, { read: true });
+  const output = await Deno.open(destination, { create: true, write: true, truncate: true });
+  await input.readable.pipeThrough(new CompressionStream("gzip")).pipeTo(output.writable);
 }

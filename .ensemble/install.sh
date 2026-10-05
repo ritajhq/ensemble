@@ -51,10 +51,18 @@ url="https://github.com/${REPO}/releases/download/${version}/${asset}"
 
 mkdir -p "$INSTALL_DIR"
 tmp_file="$(mktemp)"
-trap 'rm -f "$tmp_file"' EXIT
+trap 'rm -f "$tmp_file" "$tmp_file.gz"' EXIT
 
+# Releases from 0.45.0 on also carry a gzipped asset (~3x smaller); prefer it
+# when gunzip is available, falling back to the raw binary for older releases.
 echo "Downloading $asset ($version)..."
-fetch "$url" "$tmp_file"
+if command -v gunzip >/dev/null 2>&1 && fetch "$url.gz" "$tmp_file.gz" 2>/dev/null; then
+  gunzip -c "$tmp_file.gz" > "$tmp_file"
+  rm -f "$tmp_file.gz"
+else
+  rm -f "$tmp_file.gz"
+  fetch "$url" "$tmp_file"
+fi
 
 chmod +x "$tmp_file"
 mv "$tmp_file" "$INSTALL_DIR/$BIN_NAME"

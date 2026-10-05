@@ -1,8 +1,11 @@
 import { dirname, join } from "@std/path";
 import { exists } from "@std/fs";
+import { Delegate, type Emitter } from "@duesabati/evento";
 
 const REPO = "ritajhq/ensemble";
 const ASSET_NAME = "ensemble-linux-x64";
+/** Gzipped copy of ASSET_NAME, published alongside it from 0.45.0 on — preferred when present (~3x smaller download). */
+const COMPRESSED_ASSET_NAME = `${ASSET_NAME}.gz`;
 const VERSION_MARKER = ".version";
 
 export interface SemVer {
@@ -47,6 +50,16 @@ export type BumpKind = "major" | "minor" | "patch";
 export interface InstallResult {
   tag: string;
   previous?: SemVer;
+  /** False when the requested release was already installed and nothing was downloaded. */
+  changed: boolean;
+}
+
+interface ReleaseAsset {
+  tag: string;
+  version: SemVer;
+  assetUrl: string;
+  /** Whether assetUrl points at the gzipped asset and must be decompressed on the way to disk. */
+  compressed: boolean;
 }
 
 /**
@@ -55,22 +68,59 @@ export interface InstallResult {
  * call rather than threading them through free functions.
  */
 export class SelfUpdateService {
-  private async listReleases(): Promise<{ tag: string; version: SemVer; assetUrl: string }[]> {
-    const response = await fetch(`https://api.github.com/repos/${REPO}/releases?per_page=100`, {
+  private readonly downloadStart = new Delegate<[string, number | undefined]>();
+  private readonly downloadProgress = new Delegate<[number, number | undefined]>();
+
+  /** Fires with the release tag and total size in bytes (undefined if the server didn't say) right before the binary download begins. */
+  get OnDownloadStart(): Emitter<[string, number | undefined]> {
+    return this.downloadStart;
+  }
+
+  /** Fires with bytes received so far and the total size (if known) as each chunk of the binary arrives. */
+  get OnDownloadProgress(): Emitter<[number, number | undefined]> {
+    return this.downloadProgress;
+  }
+
+  private async fetchGithub(path: string): Promise<Response> {
+    return await fetch(`https://api.github.com/repos/${REPO}/${path}`, {
       headers: { Accept: "application/vnd.github+json", "Cache-Control": "no-cache" },
     });
+  }
+
+  private toReleaseAsset(release: GithubRelease): ReleaseAsset | undefined {
+    const version = parseVersionTag(release.tag_name);
+    if (!version) return undefined;
+    const compressed = release.assets.find((a) => a.name === COMPRESSED_ASSET_NAME);
+    if (compressed) {
+      return { tag: release.tag_name, version, assetUrl: compressed.browser_download_url, compressed: true };
+    }
+    const raw = release.assets.find((a) => a.name === ASSET_NAME);
+    if (!raw) return undefined;
+    return { tag: release.tag_name, version, assetUrl: raw.browser_download_url, compressed: false };
+  }
+
+  private async listReleases(): Promise<ReleaseAsset[]> {
+    const response = await this.fetchGithub("releases?per_page=100");
     if (!response.ok) {
       throw new Error(`Failed to list releases: ${response.status} ${response.statusText}`);
     }
     const releases = await response.json() as GithubRelease[];
     return releases
-      .map((release) => {
-        const version = parseVersionTag(release.tag_name);
-        const asset = release.assets.find((a) => a.name === ASSET_NAME);
-        if (!version || !asset) return undefined;
-        return { tag: release.tag_name, version, assetUrl: asset.browser_download_url };
-      })
-      .filter((entry): entry is { tag: string; version: SemVer; assetUrl: string } => entry !== undefined);
+      .map((release) => this.toReleaseAsset(release))
+      .filter((entry): entry is ReleaseAsset => entry !== undefined);
+  }
+
+  /** Looks up a single release by tag — a few KB, versus listing every release. */
+  private async findRelease(tag: string): Promise<ReleaseAsset | undefined> {
+    const response = await this.fetchGithub(`releases/tags/${encodeURIComponent(tag)}`);
+    if (response.status === 404) {
+      await response.body?.cancel();
+      return undefined;
+    }
+    if (!response.ok) {
+      throw new Error(`Failed to look up release ${tag}: ${response.status} ${response.statusText}`);
+    }
+    return this.toReleaseAsset(await response.json() as GithubRelease);
   }
 
   /** Whether we're running as a compiled `ens` binary, as opposed to under `deno run`/`deno task`. */
@@ -108,7 +158,7 @@ export class SelfUpdateService {
     return parseVersionTag(tag);
   }
 
-  private async downloadAndInstall(tag: string, assetUrl: string): Promise<void> {
+  private async downloadAndInstall({ tag, assetUrl, compressed }: ReleaseAsset): Promise<void> {
     const response = await fetch(assetUrl);
     if (!response.ok || !response.body) {
       throw new Error(`Failed to download ${assetUrl}: ${response.status} ${response.statusText}`);
@@ -116,9 +166,25 @@ export class SelfUpdateService {
 
     const execPath = this.currentExecutablePath();
     const tmpPath = `${execPath}.download`;
+    const lengthHeader = Number(response.headers.get("content-length"));
+    const total = lengthHeader > 0 ? lengthHeader : undefined;
+    this.downloadStart.Invoke(tag, total);
+
+    let received = 0;
+    const progress = new TransformStream<Uint8Array<ArrayBuffer>, Uint8Array<ArrayBuffer>>({
+      transform: (chunk, controller) => {
+        received += chunk.byteLength;
+        this.downloadProgress.Invoke(received, total);
+        controller.enqueue(chunk);
+      },
+    });
+
     const file = await Deno.open(tmpPath, { create: true, write: true, truncate: true, mode: 0o755 });
     try {
-      await response.body.pipeTo(file.writable);
+      // Progress counts bytes off the wire, so it's measured before decompression to match content-length.
+      const downloaded = response.body.pipeThrough(progress);
+      const binary = compressed ? downloaded.pipeThrough(new DecompressionStream("gzip")) : downloaded;
+      await binary.pipeTo(file.writable);
     } catch (error) {
       await Deno.remove(tmpPath).catch(() => {});
       throw error;
@@ -159,19 +225,21 @@ export class SelfUpdateService {
     }
 
     const best = candidates.reduce((max, c) => (compareSemVer(c.version, max.version) > 0 ? c : max));
-    await this.downloadAndInstall(best.tag, best.assetUrl);
-    return { tag: best.tag, previous: current };
+    await this.downloadAndInstall(best);
+    return { tag: best.tag, previous: current, changed: true };
   }
 
   /** Installs a specific released version, if it exists. */
   async installSet(version: string): Promise<InstallResult> {
     const current = await this.getInstalledVersion();
-    const releases = await this.listReleases();
-    const match = releases.find((r) => r.tag === version || r.tag === `v${version}`);
+    const match = await this.findRelease(version) ?? await this.findRelease(`v${version}`);
     if (!match) {
       throw new Error(`Release "${version}" not found (or has no "${ASSET_NAME}" asset).`);
     }
-    await this.downloadAndInstall(match.tag, match.assetUrl);
-    return { tag: match.tag, previous: current };
+    if (current && compareSemVer(current, match.version) === 0) {
+      return { tag: match.tag, previous: current, changed: false };
+    }
+    await this.downloadAndInstall(match);
+    return { tag: match.tag, previous: current, changed: true };
   }
 }
