@@ -14,6 +14,13 @@ export interface SyncRule {
 export interface DevelopmentBlock {
   readonly sync: readonly SyncRule[];
   readonly "sync+restart": readonly SyncRule[];
+  /**
+   * Environment variables only `ens develop` adds to the resource (a
+   * frontend's live reload, say). Additions only — a kit rejects one that
+   * names a variable the resource already sets, so development never
+   * replaces what production runs with, it can only run with more.
+   */
+  readonly env: Readonly<Record<string, string>>;
 }
 
 export class DevelopmentBlockError extends Error {
@@ -24,7 +31,7 @@ export class DevelopmentBlockError extends Error {
 }
 
 const SYNC_ACTIONS: readonly SyncAction[] = ["sync", "sync+restart"];
-const KNOWN_TOP_LEVEL_KEYS = new Set<string>(SYNC_ACTIONS);
+const KNOWN_TOP_LEVEL_KEYS = new Set<string>([...SYNC_ACTIONS, "env"]);
 const KNOWN_SYNC_KEYS = new Set(["app", "path", "ignore"]);
 
 /**
@@ -51,7 +58,26 @@ export function parseDevelopmentBlock(raw: unknown): DevelopmentBlock {
   return {
     sync: parseSyncRules(record.sync, "sync"),
     "sync+restart": parseSyncRules(record["sync+restart"], "sync+restart"),
+    env: parseEnv(record.env),
   };
+}
+
+/** `development.env`: a mapping of variable name to a scalar, stringified the way compose and every container runtime receive it. */
+function parseEnv(raw: unknown): Readonly<Record<string, string>> {
+  if (raw === undefined) return {};
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+    throw new DevelopmentBlockError("development.env must be a mapping.");
+  }
+  const env: Record<string, string> = {};
+  for (const [name, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!["string", "number", "boolean"].includes(typeof value)) {
+      throw new DevelopmentBlockError(
+        `development.env.${name} must be a string, number, or boolean.`,
+      );
+    }
+    env[name] = String(value);
+  }
+  return env;
 }
 
 function parseSyncRules(

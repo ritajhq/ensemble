@@ -358,6 +358,11 @@
         "sync+restart": {
           "type": "array",
           "items": { "$ref": "#/definitions/syncRule" }
+        },
+        "env": {
+          "description": "Environment variables only `ens develop` adds. Additions only: naming a variable the resource already sets is an error.",
+          "type": "object",
+          "additionalProperties": { "type": ["string", "number", "boolean"] }
         }
       }
     },
