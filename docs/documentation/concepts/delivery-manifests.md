@@ -77,7 +77,11 @@ without re-deriving it itself.
 read their value from `ens`'s own process environment, making
 per-environment values explicit: declared in the manifest, but supplied by
 the surrounding pipeline (a real deploy pipeline loads them from its
-secrets manager before invoking `ens`; locally, you export them yourself).
+secrets manager before invoking `ens`; locally, you export them yourself). A
+variable declared `type: list` resolves its comma-separated value to a list
+of its trimmed, non-empty entries (an empty value is an empty list), for a
+param that takes one — a gateway's `networks`, say — as a whole
+`${variables.<name>.value}`.
 How a secret then reaches the workload is up to the deploy kit — `compose`
 wires it as a native `${VAR}` env-var interpolation and only supports
 `source: environment` today; `source: file`, for a secret whose value

@@ -67,9 +67,19 @@
           "additionalProperties": { "$ref": "#/definitions/secretDeclaration" }
         },
         "variables": {
-          "description": "Developer-owned, valueless entries supplied at deploy time. Permissive passthrough bag.",
+          "description": "Developer-owned entries supplied at deploy time from process env, falling back to `default`.",
           "type": "object",
-          "additionalProperties": { "type": "object" }
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "description": "`list` resolves the comma-separated value to its trimmed, non-empty entries (empty → []); `string` (the default) is the value as-is.",
+                "enum": ["string", "list"]
+              },
+              "default": { "type": "string" }
+            }
+          }
         },
         "external": {
           "description": "Resources ens does not provision, only references.",
@@ -374,7 +384,7 @@
     "gatewayResource": {
       "description": "A `gateway.v1` entry (kit-sdk/deploy/contracts/seeds/gateway.ts) — an HTTP ingress that host/path-routes to compute targets. Implemented only on compose today (Caddy); declaring one targeting aws has no provisioner to satisfy it.",
       "type": "object",
-      "required": ["type", "network", "routes"],
+      "required": ["type", "routes"],
       "properties": {
         "type": {
           "type": "string",
@@ -389,9 +399,10 @@
           "type": "object",
           "additionalProperties": { "type": ["boolean", "number"] }
         },
-        "network": {
-          "description": "The (typically external) network this gateway joins, usually ${external.<name>.name}.",
-          "type": "string"
+        "networks": {
+          "description": "The ingress networks something in front of the gateway reaches it through — a list of ${external.<name>.name} references, or one whole ${variables.<name>.value} of a `type: list` variable. None means nothing fronts it, so it's published on the host.",
+          "type": ["array", "string"],
+          "items": { "type": "string" }
         },
         "routes": {
           "description": "Host/path routes to compute targets.",

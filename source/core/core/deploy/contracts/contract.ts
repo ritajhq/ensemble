@@ -1,6 +1,7 @@
 import type { Category } from "../workload.ts";
 import type { ResourceDeclaration } from "../resource.ts";
 import { KeySuggester } from "../manifest/key-suggester.ts";
+import { ReferenceSyntax } from "../reference.ts";
 import { ContractError } from "./errors.ts";
 
 /** The ordered, portable core class vocabulary (Section 2) — every contract accepts the full vocabulary at the interface layer; a realization decides what each class expands to (Phase 4/5). */
@@ -47,6 +48,7 @@ export class ResourceContract {
     readonly outputs: readonly string[],
     readonly classes: readonly string[] = CORE_CLASSES,
     private readonly keySuggester: KeySuggester = new KeySuggester(),
+    private readonly syntax: ReferenceSyntax = new ReferenceSyntax(),
   ) {}
 
   /** The `category.type` this contract governs — how a `ContractRegistry` keys its lookups. */
@@ -88,6 +90,10 @@ export class ResourceContract {
         }
         continue;
       }
+      // A whole reference's type is only known once it resolves (a `list`
+      // variable feeding an array param, say) — the provisioner consuming
+      // the resolved value owns that check.
+      if (this.syntax.isWhole(value)) continue;
       if (!this.matchesType(value, field.type)) {
         throw new ContractError(
           `${this.id} param "${field.name}" must be a ${field.type}.`,

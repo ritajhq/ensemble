@@ -39,7 +39,7 @@ Five resource kinds have a dedicated schema definition, matching a seeded
 | `storageVolumeResource`         | `storage`    | `volume`                 | _(none beyond `type`)_                                    | `name`                                            |
 | `objectStorageResource`         | `storage`    | `object-storage`         | `bucket`                                                  | `url`, `bucket`                                   |
 | `relationalResource`            | `databases`  | `relational`             | `engine`, `version`, `user`, `database`, `passwordSecret` | `host`, `port`, `user`, `database`, `url`         |
-| `gatewayResource`               | `networking` | `gateway`                | `network`, `routes`                                       | (none — nothing references `${networking.*}` yet) |
+| `gatewayResource`               | `networking` | `gateway`                | `routes` (optional `networks`)                            | (none — nothing references `${networking.*}` yet) |
 
 A `container-orchestrated` compute's `ports` map is itself the reference surface
 for its ports (`${compute.<name>.<port-name>}`) rather than a separate `outputs`

@@ -5,7 +5,9 @@ import type {
   ResourceDeclaration,
   SecretDeclaration,
   VariableDeclaration,
+  VariableType,
 } from "../resource.ts";
+import { VARIABLE_TYPES } from "../resource.ts";
 import type { PublishSpec, Release } from "../release.ts";
 import type { Task } from "../task.ts";
 import { ManifestError } from "./errors.ts";
@@ -16,7 +18,7 @@ const ENVELOPE_KEYS = ["version", "release", "deploy", "tasks"] as const;
 const RELEASE_KEYS = ["kit", "mode", "outputName", "publish"] as const;
 const PUBLISH_KEYS = ["target", "name", "options"] as const;
 const SECRET_KEYS = ["source"] as const;
-const VARIABLE_KEYS = ["default"] as const;
+const VARIABLE_KEYS = ["type", "default"] as const;
 const EXTERNAL_KEYS = ["type", "name"] as const;
 const RESOURCE_COMMON_KEYS = ["type", "class", "capabilities"] as const;
 const TASK_KEYS = ["run", "script", "arguments"] as const;
@@ -239,7 +241,18 @@ export class Parser {
     if (raw.default !== undefined && typeof raw.default !== "string") {
       throw new ManifestError(`${path}.default must be a string.`);
     }
-    return { default: raw.default as string | undefined };
+    if (
+      raw.type !== undefined &&
+      !VARIABLE_TYPES.includes(raw.type as VariableType)
+    ) {
+      throw new ManifestError(
+        `${path}.type must be one of: ${VARIABLE_TYPES.join(", ")}.`,
+      );
+    }
+    return {
+      ...(raw.type !== undefined && { type: raw.type as VariableType }),
+      default: raw.default as string | undefined,
+    };
   }
 
   private parseExternal(value: unknown, path: string): ExternalDeclaration {

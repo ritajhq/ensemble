@@ -1,5 +1,6 @@
 import type { Reference } from "../reference.ts";
 import type { Workload } from "../workload.ts";
+import type { VariableDeclaration } from "../resource.ts";
 
 export class DeclaredValueError extends Error {
   constructor(message: string) {
@@ -49,8 +50,23 @@ export class DeclaredValues {
    * uppercase/dash-to-underscore convention `secrets` uses), falling back to
    * the declaration's own `default`.
    */
-  private variable(reference: Reference, workload: Workload): string {
+  private variable(
+    reference: Reference,
+    workload: Workload,
+  ): string | string[] {
     const declaration = workload.variables![reference.name];
+    const raw = this.rawVariable(reference, declaration);
+    if (declaration.type !== "list") return raw;
+    return raw.split(",").map((entry) => entry.trim()).filter((entry) =>
+      entry.length > 0
+    );
+  }
+
+  /** The variable's text as supplied: process env first, then `default`. */
+  private rawVariable(
+    reference: Reference,
+    declaration: VariableDeclaration,
+  ): string {
     const envVar = reference.name.toUpperCase().replace(/-/g, "_");
     const fromEnv = Deno.env.get(envVar);
     if (fromEnv !== undefined) return fromEnv;

@@ -85,6 +85,11 @@ export class ReferenceSyntax {
     return { category, name, output };
   }
 
+  /** Whether `raw` is shaped as one whole `${...}` reference, without parsing its segments. */
+  isWhole(raw: unknown): boolean {
+    return typeof raw === "string" && REFERENCE_SHAPE.test(raw);
+  }
+
   /** The references embedded in `raw`, a string that isn't itself one whole reference; empty for anything else. Throws `ReferenceSyntaxError` as `parse` does for one that doesn't parse. */
   embedded(raw: unknown): EmbeddedReference[] {
     if (typeof raw !== "string" || REFERENCE_SHAPE.test(raw)) return [];

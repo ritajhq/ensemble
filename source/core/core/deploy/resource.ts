@@ -28,8 +28,13 @@ export interface SecretDeclaration {
  * reference: straight off the declaration, no provisioner involved.
  */
 export interface VariableDeclaration {
+  /** `list` resolves the comma-separated value to its trimmed, non-empty entries (`""` → `[]`); `string` (the default) is the value as-is. */
+  readonly type?: VariableType;
   readonly default?: string;
 }
+
+export const VARIABLE_TYPES = ["string", "list"] as const;
+export type VariableType = typeof VARIABLE_TYPES[number];
 
 /** An `external` entry — a resource ens does not provision, only references. */
 export interface ExternalDeclaration {

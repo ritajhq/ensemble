@@ -211,7 +211,7 @@ Deno.test("parse: release entries require kit", () => {
   );
 });
 
-Deno.test("parse: a variable's only field is its default", () => {
+Deno.test("parse: a variable's default is its value's fallback", () => {
   const workload = parser.parse(`
 version: v1
 deploy:
@@ -382,4 +382,34 @@ Deno.test("parse: tasks must be a mapping", () => {
     ManifestError,
   );
   assertEquals(error.message, "manifest.tasks must be a mapping.");
+});
+
+Deno.test("parse: a variable may be typed as a list", () => {
+  const workload = parser.parse(`
+version: v1
+deploy:
+  variables:
+    networks: { type: list }
+`);
+  assertEquals(workload.variables?.networks, {
+    type: "list",
+    default: undefined,
+  });
+});
+
+Deno.test("parse: rejects an unknown variable type", () => {
+  const error = assertThrows(
+    () =>
+      parser.parse(`
+version: v1
+deploy:
+  variables:
+    networks: { type: set }
+`),
+    ManifestError,
+  );
+  assertEquals(
+    error.message,
+    "manifest.deploy.variables.networks.type must be one of: string, list.",
+  );
 });

@@ -8,10 +8,12 @@ import { ResourceContract } from "../contract.ts";
  * on aws throws `NoMatchingProvisionerError`, same as `storage.volume` did
  * before it had a second target — not a bug).
  *
- * `network` names the (typically external) network the gateway joins — same
- * `${external.<name>.name}` convention `container-orchestrated.v1`'s own
- * `networks` entries use, singular here since a gateway has exactly one
- * ingress-facing network to join.
+ * `networks` names the ingress networks something in front of the gateway
+ * reaches it through — same `${external.<name>.name}` convention
+ * `container-orchestrated.v1`'s own `networks` entries use, or a whole
+ * `${variables.<name>.value}` of a `type: list` variable so each environment
+ * picks its own. None (absent or empty) means nothing fronts the gateway, so
+ * a kit publishes it on the host instead.
  *
  * `routes` is shallow at the contract level (`type: "array"`), same
  * treatment as `container-orchestrated.v1`'s `mounts`/`development`: the
@@ -42,7 +44,7 @@ export const gatewayV1: ResourceContract = new ResourceContract(
   "gateway",
   "v1",
   [
-    { name: "network", required: true, type: "string" },
+    { name: "networks", required: false, type: "array" },
     { name: "routes", required: true, type: "array" },
     { name: "tls", required: false, type: "string" },
   ],

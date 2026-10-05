@@ -661,7 +661,8 @@ deploy:
   networking:
     gateway:
       type: gateway
-      network: \${external.edge.name}
+      networks:
+        - \${external.edge.name}
       routes:
         - host: example.localhost
           path: /api/*
@@ -699,7 +700,7 @@ async function renderNetworkingWorkload(workload: KitSdk.Deploy.Workload) {
   return { artifacts, graph };
 }
 
-Deno.test("compose kit: a gateway renders as a Caddy service on its ingress network *and* the project network, with a generated Caddyfile", async () => {
+Deno.test("compose kit: a gateway with ingress networks renders as a Caddy service on them *and* the project network, publishing no host port, with a generated Caddyfile", async () => {
   const workload = new KitSdk.Deploy.Manifest.Parser().parse(WITH_GATEWAY);
   const { artifacts, graph } = await renderNetworkingWorkload(workload);
   const document = assembleComposeDocument(artifacts, graph) as {
@@ -716,7 +717,9 @@ Deno.test("compose kit: a gateway renders as a Caddy service on its ingress netw
   };
 
   assertEquals(document.services.gateway.image, "caddy:2.11-alpine");
-  assertEquals(document.services.gateway.ports, ["80:80"]);
+  // Whatever sits on the ingress network reaches it there, so nothing is
+  // bound on the host for anything to reach it around that.
+  assertEquals(document.services.gateway.ports, undefined);
   // Both networks: the manifest's own ingress network, plus the project's,
   // which is where every compute it routes to actually lives — a proxy can
   // only reach an upstream it shares a network with.
@@ -745,9 +748,15 @@ Deno.test("compose kit: a gateway renders as a Caddy service on its ingress netw
   );
 });
 
-const WITH_TLS_GATEWAY = WITH_GATEWAY.replace(
-  "      network: ${external.edge.name}",
-  "      network: ${external.edge.name}\n      tls: internal",
+/** The gateway with nothing in front of it — no ingress networks — so the host is the only way in. */
+const WITH_HOST_GATEWAY = WITH_GATEWAY.replace(
+  "      networks:\n        - ${external.edge.name}\n",
+  "",
+);
+
+const WITH_TLS_GATEWAY = WITH_HOST_GATEWAY.replace(
+  "      type: gateway",
+  "      type: gateway\n      tls: internal",
 );
 
 Deno.test("compose kit: tls: internal publishes HTTPS on 8443 and gets Caddy minting its own certs, with the local CA's /data on a named volume so recreating the gateway doesn't invalidate it", async () => {
@@ -770,11 +779,11 @@ Deno.test("compose kit: tls: internal publishes HTTPS on 8443 and gets Caddy min
   assertEquals(conf.includes("example.localhost {\n\ttls internal\n"), true);
 });
 
-Deno.test("compose kit: tls: none is plain HTTP on 80, for a gateway behind something that already terminates TLS", async () => {
+Deno.test("compose kit: tls: none with nothing in front of the gateway publishes plain HTTP on 80", async () => {
   const workload = new KitSdk.Deploy.Manifest.Parser().parse(
-    WITH_GATEWAY.replace(
-      "      network: ${external.edge.name}",
-      "      network: ${external.edge.name}\n      tls: none",
+    WITH_HOST_GATEWAY.replace(
+      "      type: gateway",
+      "      type: gateway\n      tls: none",
     ),
   );
   const { artifacts, graph } = await renderNetworkingWorkload(workload);
@@ -787,6 +796,49 @@ Deno.test("compose kit: tls: none is plain HTTP on 80, for a gateway behind some
   const conf = document.configs!["gateway-caddyfile"].content;
   assertEquals(conf.includes("tls internal"), false);
   assertEquals(conf.includes("http://example.localhost {"), true);
+});
+
+/** Networks fed by a `list` variable, so each environment picks whether something fronts the gateway. */
+const WITH_VARIABLE_GATEWAY = WITH_GATEWAY
+  .replace(
+    "      networks:\n        - ${external.edge.name}",
+    "      networks: ${variables.gateway_networks.value}",
+  )
+  .replace(
+    "deploy:\n",
+    "deploy:\n  variables:\n    gateway_networks: { type: list }\n",
+  );
+
+async function renderGatewayWithNetworks(value: string) {
+  Deno.env.set("GATEWAY_NETWORKS", value);
+  try {
+    const workload = new KitSdk.Deploy.Manifest.Parser().parse(
+      WITH_VARIABLE_GATEWAY,
+    );
+    const { artifacts, graph } = await renderNetworkingWorkload(workload);
+    return assembleComposeDocument(artifacts, graph) as {
+      services: Record<string, { ports?: string[]; networks?: string[] }>;
+      networks?: Record<string, unknown>;
+    };
+  } finally {
+    Deno.env.delete("GATEWAY_NETWORKS");
+  }
+}
+
+Deno.test("compose kit: a gateway whose list variable is empty is reached from the host, on the project network alone", async () => {
+  const document = await renderGatewayWithNetworks("");
+
+  assertEquals(document.services.gateway.ports, ["80:80"]);
+  assertEquals(document.services.gateway.networks, ["default"]);
+  assertEquals(document.networks, undefined);
+});
+
+Deno.test("compose kit: a gateway whose list variable names a network joins it and publishes nothing", async () => {
+  const document = await renderGatewayWithNetworks("edge");
+
+  assertEquals(document.services.gateway.ports, undefined);
+  assertEquals(document.services.gateway.networks, ["edge", "default"]);
+  assertEquals(document.networks, { edge: { external: true } });
 });
 
 Deno.test("compose kit: rendering the same workload twice produces byte-identical presented content (G5)", async () => {
