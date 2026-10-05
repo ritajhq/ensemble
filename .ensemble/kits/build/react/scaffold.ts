@@ -56,6 +56,7 @@ const INDEX_HTML = `<!doctype html>
 `;
 
 const ctx = KitSdk.Scaffold.getContext();
+await ensureDir(ctx.dest);
 
 await Deno.writeTextFile(join(ctx.dest, "deno.json"), DENO_JSON);
 await Deno.writeTextFile(join(ctx.dest, "main.tsx"), MAIN_TSX);
