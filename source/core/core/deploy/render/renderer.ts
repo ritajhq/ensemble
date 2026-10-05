@@ -11,7 +11,7 @@ import type {
 } from "../resolve/dependency-graph.ts";
 import type { ProvisioningRequest } from "../resolve/provisioning-request.ts";
 import type { SelectedProvisioner } from "../resolve/selected-provisioner.ts";
-import type { ProvisionOutcome } from "../kit/provisioner.ts";
+import type { Mode, ProvisionOutcome } from "../kit/provisioner.ts";
 import type { ReleaseLocatorPort } from "../kit/release-locator.ts";
 import { ReferenceSyntax as ReferenceParser } from "../reference.ts";
 import type { ContractRegistry } from "../contracts/registry.ts";
@@ -61,6 +61,7 @@ export class Renderer {
     private readonly referenceResolver: ReferenceResolver,
     private readonly releaseLocator: ReleaseLocatorPort,
     private readonly registry: ContractRegistry,
+    private readonly mode: Mode = "deployment",
     private readonly syntax: ReferenceSyntax = new ReferenceParser(),
     private readonly declared: DeclaredValues = new DeclaredValues(),
   ) {}
@@ -163,6 +164,7 @@ export class Renderer {
       params,
       values: request.values,
       secrets: workload.secrets ?? {},
+      mode: this.mode,
     });
 
     this.validateOutputs(id, request.type, outcome.outputs);

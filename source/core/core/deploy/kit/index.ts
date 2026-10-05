@@ -1,6 +1,7 @@
 export type { Kit } from "./kit.ts";
 export type { ExternalEmulation } from "./external-emulation.ts";
 export type {
+  Mode,
   Provisioner,
   ProvisionerSet,
   ProvisionOutcome,
@@ -29,11 +30,7 @@ export { parseKitConfig } from "./config-file.ts";
 export { ConfiguredProvisioner } from "./configured-provisioner.ts";
 export { LayeredRealization } from "./layered-realization.ts";
 export { KitConfigLayering } from "./config-layering.ts";
-export {
-  KitLoadError,
-  type KitLoader,
-  type LoadedKit,
-} from "./loader.ts";
+export { type KitLoader, KitLoadError, type LoadedKit } from "./loader.ts";
 export {
   type ArtifactLocator,
   PreresolvedReleaseLocator,

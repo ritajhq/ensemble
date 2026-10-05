@@ -5,6 +5,15 @@ import type { SecretDeclaration } from "../resource.ts";
 import type { ArtifactFragment, InitCommand } from "../render/artifact.ts";
 
 /**
+ * Which command brought the deployment up: `ens develop` (`development`) or
+ * `ens deploy` (`deployment`). The same manifest renders to the same
+ * topology in both; a mode may only *add* to it — what a developer needs to
+ * reach inside the stack from the host (a database's port, a bucket's S3
+ * API), never something production relies on.
+ */
+export type Mode = "development" | "deployment";
+
+/**
  * A `ProvisioningRequest` once the `Renderer` has resolved every reference in
  * its params (Section 8): a static reference becomes its concrete baked
  * value, a dynamic one becomes the target's own native-wiring representation
@@ -23,6 +32,8 @@ export interface ResolvedRequest {
   readonly params: Readonly<Record<string, unknown>>;
   readonly values: Readonly<Record<string, ResolvedValue>>;
   readonly secrets: Readonly<Record<string, SecretDeclaration>>;
+  /** Absent from a core older than the field, which a kit reads as `deployment`: nothing is added. */
+  readonly mode?: Mode;
 }
 
 /** What provisioning one resource produces: its own artifact fragment, the output values it declares for others to reference — raw values here; whether a given output is static or dynamic is the `Realization`'s call, consulted later by `ReferenceResolver`, not decided by the provisioner's return shape — and any init commands the resource needs run against the target once the target's own apply has brought it up. */

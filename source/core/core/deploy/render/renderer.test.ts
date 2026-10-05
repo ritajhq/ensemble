@@ -755,3 +755,45 @@ Deno.test("Renderer.resolveManifestValue: an embedded reference whose wiring is 
     "can't be embedded",
   );
 });
+
+Deno.test("Renderer.render: tells every provisioner which mode the deployment is brought up in, deployment unless told otherwise", async () => {
+  const { workload, requests, graph } = buildPipeline(APPENDIX_A);
+  const modesSeen = async (renderer: Renderer) => {
+    const modes: unknown[] = [];
+    const recording = (
+      provision: (request: ResolvedRequest) => Promise<ProvisionOutcome>,
+    ) => ({
+      matches: () => Promise.resolve(true),
+      provision: (request: ResolvedRequest) => {
+        modes.push(request.mode);
+        return provision(request);
+      },
+    });
+    const selections = new Map<string, SelectedProvisioner>([
+      ["databases.primary", {
+        provisioner: recording(fakeRelationalProvision),
+        gaps: [],
+      }],
+      ["compute.api", {
+        provisioner: recording(fakeComputeProvision),
+        gaps: [],
+      }],
+    ]);
+    await renderer.render(workload, requests, selections, graph, "local");
+    return modes;
+  };
+  const resolver = new ReferenceResolver(new FakeRealization());
+  const locator = new StubReleaseLocator({
+    local: { web: { ref: "ens-local/web:dev" } },
+    published: { web: { ref: "registry.ritaj.app/web:1.4.2" } },
+  });
+
+  assertEquals(
+    await modesSeen(new Renderer(resolver, locator, registry)),
+    ["deployment", "deployment"],
+  );
+  assertEquals(
+    await modesSeen(new Renderer(resolver, locator, registry, "development")),
+    ["development", "development"],
+  );
+});

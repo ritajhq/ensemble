@@ -151,6 +151,7 @@ export async function runDeploy(
     new Deploy.Render.ReferenceResolver(await target.kit.realization()),
     releaseLocator,
     registry,
+    options.watch ? "development" : "deployment",
   );
 
   // A kit's native scoping identifier (a compose project name, a
