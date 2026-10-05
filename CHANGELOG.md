@@ -1,3 +1,13 @@
+## [0.45.0] - 2026-10-05
+
+### 🚀 Features
+
+- *(version)* Add download progress, direct tag lookup, and gzipped release assets
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.44.0
+- *(release)* Bump library versions for 0.45.0
 ## [0.44.0] - 2026-10-05
 
 ### 🚀 Features
