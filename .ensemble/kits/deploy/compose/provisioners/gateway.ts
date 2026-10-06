@@ -82,6 +82,26 @@ function ingressNetworks(value: unknown): readonly string[] {
  * reflect, so publishing 80 alongside it would only produce redirects to a
  * port nothing is listening on.
  */
+/**
+ * Pushes the rendered Caddyfile into the running gateway through Caddy's
+ * admin API (`POST /load`, on the container's own loopback, so it is never
+ * exposed). Compose only reads an inline `configs:` entry when it creates a
+ * container, and doesn't recreate one when only that content changed: without
+ * this, a redeploy that adds a route leaves the gateway serving the old ones.
+ * Loading the same config again is a no-op for Caddy, so it is safe on every
+ * apply. Retried while a freshly started Caddy brings its admin API up.
+ */
+export function caddyReloadScript(service: string, config: string): string {
+  return `for attempt in 1 2 3 4 5 6 7 8 9 10; do
+  docker compose -f "$ENS_ARTIFACT_PATH" -p "$ENS_DEPLOYMENT_NAME" exec -T ${service} \
+    wget -qO- --header 'Content-Type: text/caddyfile' --post-file=/dev/stdin http://127.0.0.1:2019/load <<'ENS_CADDYFILE' && exit 0
+${config.trimEnd()}
+ENS_CADDYFILE
+  sleep 1
+done
+exit 1`;
+}
+
 export function gatewayProvisioner(): KitSdk.Deploy.Provisioner {
   return {
     // deno-lint-ignore require-await
@@ -95,6 +115,7 @@ export function gatewayProvisioner(): KitSdk.Deploy.Provisioner {
       const routes = request.params.routes as Parameters<typeof caddyfile>[0];
       const tls = tlsMode(request.params.tls);
       const ingress = ingressNetworks(request.params.networks);
+      const config = caddyfile(routes, tls);
 
       return {
         fragment: {
@@ -113,12 +134,16 @@ export function gatewayProvisioner(): KitSdk.Deploy.Provisioner {
               volumes: [`${volumeName}:/data`],
             },
             configs: {
-              [configName]: { content: caddyfile(routes, tls) },
+              [configName]: { content: config },
             },
             volumes: { [volumeName]: {} },
           },
         },
         outputs: {},
+        initCommands: [{
+          name: `${request.name}-caddy-reload`,
+          run: caddyReloadScript(request.name, config),
+        }],
       };
     },
   };
