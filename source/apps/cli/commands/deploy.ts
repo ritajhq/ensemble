@@ -8,6 +8,7 @@ const explainCommand = new Command()
     'Explain one resource\'s resolution: which provisioner matched (and why others didn\'t), each value\'s provenance, accepted capability gaps, and resolved outputs. <resource> is given as "category.name" (e.g. "databases.primary").',
   )
   .type("artifacts", new EnumType(["local", "published"]))
+  .type("mode", new EnumType(["development", "deployment"]))
   .arguments("<name:string> <kit:string> <resource:string>")
   .option(
     "--artifacts <artifacts:artifacts>",
@@ -15,6 +16,11 @@ const explainCommand = new Command()
     {
       default: "published" as const,
     },
+  )
+  .option(
+    "--mode <mode:mode>",
+    "What the deployment is for: `development` lets the kit add what only a developer needs (host ports, development blocks) to the same topology.",
+    { default: "deployment" as const },
   )
   .option(
     "--version <version:string>",
@@ -26,17 +32,24 @@ const explainCommand = new Command()
     "Load an env file (repo-root relative or absolute, repeatable) as values beneath the process environment. None by default: a pipeline exports every value itself.",
     { collect: true },
   )
-  .action(async ({ artifacts, version, envFile }, name, kit, resource) => {
-    await runExplain(
-      name,
-      kit,
-      resource,
-      { artifacts, version, envFiles: DeploymentEnvironment.required(envFile) },
-      Host.createPorts().repo,
-      new Host.SubprocessPackKitGateway(),
-      new Host.SubprocessKitLoader(),
-    );
-  });
+  .action(
+    async ({ artifacts, mode, version, envFile }, name, kit, resource) => {
+      await runExplain(
+        name,
+        kit,
+        resource,
+        {
+          artifacts,
+          mode,
+          version,
+          envFiles: DeploymentEnvironment.required(envFile),
+        },
+        Host.createPorts().repo,
+        new Host.SubprocessPackKitGateway(),
+        new Host.SubprocessKitLoader(),
+      );
+    },
+  );
 
 export const deployCommand = new Command()
   .name("deploy")
@@ -45,6 +58,7 @@ export const deployCommand = new Command()
       "Tearing a workload down is out of scope for this rearchitecture's current phases.",
   )
   .type("artifacts", new EnumType(["local", "published"]))
+  .type("mode", new EnumType(["development", "deployment"]))
   .arguments("<name:string> <kit:string>")
   .option(
     "--artifacts <artifacts:artifacts>",
@@ -52,6 +66,11 @@ export const deployCommand = new Command()
     {
       default: "published" as const,
     },
+  )
+  .option(
+    "--mode <mode:mode>",
+    "What the deployment is for: `development` lets the kit add what only a developer needs (host ports, development blocks) to the same topology.",
+    { default: "deployment" as const },
   )
   .option(
     "--version <version:string>",
@@ -99,6 +118,7 @@ export const deployCommand = new Command()
     async (
       {
         artifacts,
+        mode,
         version,
         eject,
         plan,
@@ -134,6 +154,7 @@ export const deployCommand = new Command()
           artifacts,
           version,
           termination,
+          mode,
           acceptCapabilityGaps,
           watch,
           pack,

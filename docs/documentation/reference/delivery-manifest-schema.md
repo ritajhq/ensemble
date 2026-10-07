@@ -179,8 +179,8 @@ a deploy receives them.
   `{ source, path,
   readOnly? }[]`, attaching a `storage.volume` entry's
   `${storage.<name>.name}` output.
-- `development` — what only `ens deploy --watch` (and so `ens develop`) adds to
-  a resource. Sync rules are grouped by action: `sync` (copy files) and
+- `development` — what only `ens deploy --mode development` (and so
+  `ens develop`) adds to a resource. Sync rules are grouped by action: `sync` (copy files) and
   `sync+restart` (copy, then restart the container), each rule
   `{ app, path, ignore? }`. `env` is a mapping of environment variables added
   on top of the resource's own (`env: { LIVE_RELOAD: "true" }`). It may only
