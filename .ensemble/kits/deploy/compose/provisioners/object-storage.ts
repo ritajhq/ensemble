@@ -1,9 +1,10 @@
 import * as KitSdk from "@ensemble/kit-sdk";
 import { composeSecretWiring } from "../secret-wiring.ts";
+import { hostAccess } from "../host-access.ts";
 import { garageSeedScript, garageToml } from "./garage-config.ts";
 
 const GARAGE_IMAGE = "dxflrs/garage:v1.0.1";
-/** The port Garage's own S3 API binds *inside* the container (the `api_bind_addr` `garageToml` renders, and what `${storage.<name>.url}` addresses over the compose network). Published on an ephemeral host port rather than reusing this number as the host port, for the same reason `container-orchestrated`'s own `portMappings` does: the host's port space is global across every local stack, so pinning 3900 there makes this deployment the thing that collides (with a second bucket, or with any other project on the machine that happens to publish 3900) instead of leaving Docker to pick a free port. `docker compose port <service> ${S3_API_PORT}` finds it. */
+/** The port Garage's own S3 API binds *inside* the container (the `api_bind_addr` `garageToml` renders, and what `${storage.<name>.url}` addresses over the compose network). Published on the host only under `ens develop` (`hostAccess`): under `ens deploy` a host-side S3 API would expose the bucket past the stack network. */
 const S3_API_PORT = 3900;
 
 /**
@@ -79,7 +80,7 @@ export function objectStorageProvisioner(): KitSdk.Deploy.Provisioner {
           content: {
             service: {
               image: GARAGE_IMAGE,
-              ports: [`${S3_API_PORT}`],
+              ...hostAccess(request, [S3_API_PORT]),
               configs: [
                 { source: tomlConfigName, target: "/etc/garage.toml" },
               ],

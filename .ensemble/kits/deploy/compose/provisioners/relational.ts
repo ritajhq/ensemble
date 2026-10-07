@@ -1,5 +1,6 @@
 import { basename } from "@std/path";
 import * as KitSdk from "@ensemble/kit-sdk";
+import { hostAccess } from "../host-access.ts";
 import { composeSecretWiring } from "../secret-wiring.ts";
 
 const POSTGRES_PORT = 5432;
@@ -66,6 +67,7 @@ export function relationalProvisioner(): KitSdk.Deploy.Provisioner {
               },
               ...(volumes.length > 0 ? { volumes } : {}),
               ...(critical ? { restart: "always" } : {}),
+              ...hostAccess(request, [POSTGRES_PORT]),
             },
             ...(critical ? { volumes: { [volumeName]: {} } } : {}),
           },

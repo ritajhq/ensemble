@@ -586,7 +586,7 @@ Deno.test("compose kit: object storage renders as a Garage service on its own im
   assertEquals(document.services.bucket.image, "dxflrs/garage:v1.0.1");
   assertEquals("entrypoint" in document.services.bucket, false);
   assertEquals("environment" in document.services.bucket, false);
-  assertEquals(document.services.bucket.ports, ["3900"]);
+  assertEquals("ports" in document.services.bucket, false);
   assertEquals(document.services.bucket.configs, [
     { source: "bucket-garage-toml", target: "/etc/garage.toml" },
   ]);
