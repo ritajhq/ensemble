@@ -41,6 +41,13 @@ variable — and no secret — is ever written there), `${external.*}`, and
 `${deployment.name}`/`${deployment.root}`. With that file, a task runs without
 loading the kit at all.
 
+An argument may also embed references in a larger string, as a resource field
+may (`AUTH_BASE_URL: https://auth.${variables.domain.value}${variables.origin_port.value}`).
+Embedded references the file doesn't need are interpolated when the task runs.
+One that only a render can answer is never written to the file, since the
+string may embed a variable holding a secret, so a task with one always
+renders.
+
 It is used only while it still describes the deployment: if
 `ci/<name>/delivery.yml`, the kit, or `ci/<name>/<kit>.config.yml` has changed
 since that deploy (or the task gained an argument the deploy couldn't know
