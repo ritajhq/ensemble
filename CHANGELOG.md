@@ -1,3 +1,17 @@
+## [0.48.0] - 2026-10-07
+
+### 🚀 Features
+
+- *(deploy)* Select development mode with an explicit --mode flag instead of deriving it from --watch
+
+### 📚 Documentation
+
+- Document develop mode, development.env and embedded references in task arguments
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.47.0
+- *(release)* Bump library versions for 0.48.0
 ## [0.47.0] - 2026-10-07
 
 ### 🐛 Bug Fixes
