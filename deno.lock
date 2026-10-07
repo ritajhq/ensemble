@@ -3012,7 +3012,7 @@
       },
       ".ensemble/kits/deploy/compose": {
         "dependencies": [
-          "jsr:@ensemble/kit-sdk@0.40",
+          "jsr:@ensemble/kit-sdk@0.48",
           "jsr:@std/assert@^1.0.19",
           "jsr:@std/path@1.1.6",
           "jsr:@std/testing@1.0.16",
