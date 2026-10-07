@@ -1,3 +1,14 @@
+## [0.47.0] - 2026-10-07
+
+### 🐛 Bug Fixes
+
+- *(delivery)* Resolve references embedded in a task argument instead of passing them through as text
+- *(react-kit)* Create the app directory before scaffolding into it
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.46.0
+- *(release)* Bump library versions for 0.47.0
 ## [0.46.0] - 2026-10-05
 
 ### 🚀 Features
