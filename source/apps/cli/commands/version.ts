@@ -52,10 +52,13 @@ export const versionCommand = new Command()
   .command(
     "update",
     new Command()
-      .description("Install the newest release within a bump's scope (patch/minor/major) from the installed version.")
+      .description(
+        "Install the newest release within a bump's scope (patch/minor/major) from the installed version, or the latest release when no bump is given.",
+      )
       .type("bump", new EnumType(["patch", "minor", "major"]))
-      .arguments("<bump:bump>")
+      .arguments("[bump:bump]")
       .action(async (_options, bump) => {
+        if (!bump) return await installWithProgress((selfUpdate) => selfUpdate.installLatest());
         await installWithProgress((selfUpdate) => selfUpdate.installNext(bump));
       }),
   )

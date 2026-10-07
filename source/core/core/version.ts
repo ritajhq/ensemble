@@ -224,9 +224,39 @@ export class SelfUpdateService {
       );
     }
 
-    const best = candidates.reduce((max, c) => (compareSemVer(c.version, max.version) > 0 ? c : max));
+    const best = this.newest(candidates);
     await this.downloadAndInstall(best);
     return { tag: best.tag, previous: current, changed: true };
+  }
+
+  /**
+   * Installs the newest release there is, whatever bump that takes — on the
+   * installed version's channel, like `installNext` (a pre-release stays on
+   * its own pre-release tag; otherwise only normal releases count). Already
+   * on it, or on something newer than any release, installs nothing: never a
+   * downgrade.
+   */
+  async installLatest(): Promise<InstallResult> {
+    const current = await this.getInstalledVersion();
+    const channel = (await this.listReleases()).filter(({ version }) =>
+      version.preRelease === current?.preRelease
+    );
+    if (channel.length === 0) {
+      throw new Error(
+        current?.preRelease ? `No "${current.preRelease}" release found.` : "No release found.",
+      );
+    }
+
+    const latest = this.newest(channel);
+    if (current && compareSemVer(latest.version, current) <= 0) {
+      return { tag: formatVersionTag(current), previous: current, changed: false };
+    }
+    await this.downloadAndInstall(latest);
+    return { tag: latest.tag, previous: current, changed: true };
+  }
+
+  private newest(releases: readonly ReleaseAsset[]): ReleaseAsset {
+    return releases.reduce((max, c) => (compareSemVer(c.version, max.version) > 0 ? c : max));
   }
 
   /** Installs a specific released version, if it exists. */

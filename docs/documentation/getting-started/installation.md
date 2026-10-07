@@ -22,6 +22,7 @@ script reads from:
 
 ```sh
 ens version               # show the installed version
+ens version update        # the latest release
 ens version update patch  # or minor / major — newest release within that bump
 ens version set 1.4.0     # install a specific released version
 ```
