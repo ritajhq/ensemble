@@ -179,10 +179,14 @@ a deploy receives them.
   `{ source, path,
   readOnly? }[]`, attaching a `storage.volume` entry's
   `${storage.<name>.name}` output.
-- `development` — developer-owned sync intent for `ens deploy --watch`, grouped
-  by action: `sync` (copy files) and `sync+restart` (copy, then restart the
-  container). Each rule is `{ app, path, ignore? }`. Honored only by
-  provisioners that support it.
+- `development` — what only `ens deploy --watch` (and so `ens develop`) adds to
+  a resource. Sync rules are grouped by action: `sync` (copy files) and
+  `sync+restart` (copy, then restart the container), each rule
+  `{ app, path, ignore? }`. `env` is a mapping of environment variables added
+  on top of the resource's own (`env: { LIVE_RELOAD: "true" }`). It may only
+  add: naming a variable `env` or `envSecrets` already sets fails the render,
+  in either mode, so development never runs with a different value than
+  production, only with more. Honored only by provisioners that support it.
 
 ## Capability negotiation
 

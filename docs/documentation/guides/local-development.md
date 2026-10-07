@@ -31,10 +31,28 @@ paths to sync into which container paths, and whether a sync also needs a
 restart (`sync+restart` vs plain `sync`) for the process to pick the change
 up.
 
+## What develop mode adds
+
+A watched deploy renders the same topology as any other — same services,
+routes and images — and only adds to it. `--watch` is what tells the kit it
+is rendering for development (each provisioner receives `mode:
+"development"` instead of `"deployment"`), and the `compose` kit adds:
+
+- the resource's `development.sync` / `sync+restart` rules and its
+  `development.env` variables (see the
+  [manifest reference](../reference/delivery-manifest-schema.md#mounts-and-development));
+- host access to everything inside the stack: every database, object-storage
+  bucket and compute port is published on an *ephemeral* host port, so `psql`,
+  an S3 client or a debugger can reach it. Find one with
+  `docker compose -p <project> port <service> <container port>` (e.g.
+  `port database 5432`). Without `--watch` nothing is published but the
+  gateway's own ingress.
+
 ## Doing it by hand
 
-`ens develop` is pure sugar — nothing branches on "am I in develop mode."
-The same result, one step at a time:
+`ens develop` is pure sugar for a watched deploy — the only thing that
+depends on develop mode is `--watch` itself. The same result, one step at a
+time:
 
 **1. Build every app the workload needs**, output lands in
 `source/artifacts/<app>`:
