@@ -3,8 +3,8 @@ import { DeploymentEnvironment, runDeploy } from "@ensemble/core";
 import * as Host from "@ensemble/host";
 
 /**
- * Pure sugar for `ens deploy <name> <kit> --artifacts local --watch` — no
- * semantics of its own; nothing in the code branches on "am I develop."
+ * Pure sugar for `ens deploy <name> <kit> --mode development --artifacts
+ * local --emulate-externals --watch` — no semantics of its own.
  * Packs the referenced releases, then runs the kit's long-lived watch
  * command until Ctrl+C. A kit/target with no watch command (aws today)
  * surfaces `WatchNotSupportedError`.
@@ -12,7 +12,7 @@ import * as Host from "@ensemble/host";
 export const developCommand = new Command()
   .name("develop")
   .description(
-    "Deploy a workload locally for development (sugar for `deploy --emulate-externals --artifacts local --watch`).",
+    "Deploy a workload locally for development (sugar for `deploy --mode development --emulate-externals --artifacts local --watch`).",
   )
   .arguments("<name:string>")
   .option("-k, --kit <kit:string>", "Deploy kit to use.", {
@@ -36,6 +36,7 @@ export const developCommand = new Command()
         artifacts: "local",
         version: "latest",
         termination: "apply",
+        mode: "development",
         acceptCapabilityGaps: false,
         watch: true,
         pack: true,

@@ -5,6 +5,8 @@ import type { EnvFile } from "./env-files.ts";
 
 export interface RunExplainOptions {
   artifacts: Deploy.ArtifactsSource;
+  /** Same as `RunDeployOptions.mode`: the render explained is the one this mode deploys. */
+  mode: Deploy.Mode;
   /** Only meaningful if the explained resource's dependency chain reaches a `${release.<name>}` reference for published artifacts — same convention as `ens deploy --version`. */
   version: string;
   /** Same as `RunDeployOptions.envFiles`. */
@@ -55,6 +57,7 @@ export async function runExplain(
     new Deploy.Render.ReferenceResolver(await target.kit.realization()),
     releaseLocator,
     registry,
+    options.mode,
   );
 
   const explainer = new Deploy.Explain.Explainer(registry, renderer);

@@ -44,8 +44,8 @@ the kit's module state lasts that long too, then the process ends with `ens`. It
 resolved workload (not narrowed per-entry, since only the kit knows how its
 target needs every entry assembled together), the dependency-ordered
 batches, run options, and a `KitContext`. Each provisioner's request also
-says which `mode` the deployment is brought up in — `development` under
-`--watch` (`ens develop`), `deployment` otherwise — so a kit can add what only
+says which `mode` the deployment is brought up in — `development` with
+`--mode development` (as `ens develop` passes), `deployment` otherwise — so a kit can add what only
 a developer needs (the `compose` kit publishes host ports) without changing
 the topology production runs. See
 [Delivery manifests](delivery-manifests.md) for what it's handed, and

@@ -16,10 +16,10 @@ For most day-to-day work, one command is enough:
 ens develop website
 ```
 
-`ens develop <name>` is sugar for `ens deploy <name> compose --artifacts
-local --emulate-externals --watch`: it builds and packs every app the
-workload's `release:` section references, brings the workload up, creates
-any `external` resource it knows how to emulate locally (e.g. a shared
+`ens develop <name>` is sugar for `ens deploy <name> compose --mode
+development --artifacts local --emulate-externals --watch`: it builds and
+packs every app the workload's `release:` section references, brings the
+workload up, creates any `external` resource it knows how to emulate locally (e.g. a shared
 Docker network like `ci/website/delivery.yml`'s `edge` network) instead of
 requiring it to already exist, and keeps watching for source changes. Stop
 it with Ctrl+C. Pass `-k, --kit <kit>` to target a different deploy kit
@@ -33,10 +33,12 @@ up.
 
 ## What develop mode adds
 
-A watched deploy renders the same topology as any other — same services,
-routes and images — and only adds to it. `--watch` is what tells the kit it
-is rendering for development (each provisioner receives `mode:
-"development"` instead of `"deployment"`), and the `compose` kit adds:
+A development deploy renders the same topology as any other — same services,
+routes and images — and only adds to it. `--mode development` is what tells
+the kit (each provisioner receives `mode: "development"` instead of
+`"deployment"`); it's independent of `--watch` and `--artifacts`, so
+`ens deploy <name> compose --mode development --eject` shows exactly what
+`ens develop` brings up. The `compose` kit adds:
 
 - the resource's `development.sync` / `sync+restart` rules and its
   `development.env` variables (see the
@@ -45,14 +47,13 @@ is rendering for development (each provisioner receives `mode:
   bucket and compute port is published on an *ephemeral* host port, so `psql`,
   an S3 client or a debugger can reach it. Find one with
   `docker compose -p <project> port <service> <container port>` (e.g.
-  `port database 5432`). Without `--watch` nothing is published but the
+  `port database 5432`). In `deployment` mode nothing is published but the
   gateway's own ingress.
 
 ## Doing it by hand
 
-`ens develop` is pure sugar for a watched deploy — the only thing that
-depends on develop mode is `--watch` itself. The same result, one step at a
-time:
+`ens develop` is pure sugar — no semantics of its own beyond the flags it
+passes. The same result, one step at a time:
 
 **1. Build every app the workload needs**, output lands in
 `source/artifacts/<app>`:
@@ -73,7 +74,7 @@ ens pack website docker
 **3. Deploy against local artifacts, watching:**
 
 ```sh
-ens deploy website compose --artifacts local --emulate-externals --watch
+ens deploy website compose --mode development --artifacts local --emulate-externals --watch
 ```
 
 `--artifacts local` resolves `${release.*}` references to what you just

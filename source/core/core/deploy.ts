@@ -20,6 +20,8 @@ export interface RunDeployOptions {
   /** Which released version `${release.<name>}` resolves to for published artifacts — meaningless for local artifacts, where the local tag is always used regardless. */
   version: string;
   termination: DeployTermination;
+  /** What the deployment is brought up for (`--mode`), handed to every provisioner: `development` lets a kit add what only a developer needs (host access, `development` blocks) to the same topology `deployment` renders. Independent of `artifacts` and `watch`. */
+  mode: Deploy.Mode;
   acceptCapabilityGaps: boolean;
   /** Env files supplying values beneath the process environment (`--env-file`; `ens develop`'s conventional pair). Empty for a real pipeline, which exports every value itself. */
   envFiles: readonly EnvFile[];
@@ -151,7 +153,7 @@ export async function runDeploy(
     new Deploy.Render.ReferenceResolver(await target.kit.realization()),
     releaseLocator,
     registry,
-    options.watch ? "development" : "deployment",
+    options.mode,
   );
 
   // A kit's native scoping identifier (a compose project name, a
