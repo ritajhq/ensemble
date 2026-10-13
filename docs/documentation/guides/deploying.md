@@ -40,6 +40,54 @@ values and no render, only that the manifest and kit exist. A kit with no native
 teardown (aws) reports that instead. Externals, such as the `edge` network, are
 never removed.
 
+## Previews
+
+A preview is an instance (`--instance <slug>`) reachable at
+`<slug>.preview.<domain>`. Two parts make that work with no per-preview
+registration anywhere.
+
+**One router per host**,
+[`ci/preview-router`](../../../ci/preview-router/delivery.yml): a Caddy with a
+wildcard certificate (obtained through Cloudflare's DNS API, so the host needn't
+be reachable from the internet) that proxies `<slug>.preview.<domain>` to
+whichever gateway on the `preview` network took `<slug>` as its alias. Bring it
+up once:
+
+```sh
+export CLOUDFLARE_API_TOKEN=…   # Zone → DNS → Edit on the zone, nothing broader
+ens deploy preview-router compose --artifacts local --emulate-externals
+```
+
+**A previewable manifest** puts its gateway on that network under the instance's
+alias and answers on the instance's hostname. Neither is derived by ens: the
+pipeline exports them, as it does every per-environment value.
+
+```yaml
+deploy:
+  networking:
+    gateway:
+      type: gateway
+      networks: ${variables.ingress_networks.value}
+      alias: ${variables.gateway_alias.value}
+      routes:
+        - host: ${variables.public_host.value}
+          path: /*
+          target: { service: web, port: ${compute.web.http} }
+  variables:
+    ingress_networks: { type: list, default: [edge] }
+    gateway_alias: { default: gateway }
+    public_host: { default: app.ritaj.app }
+```
+
+A preview then deploys with `ingress_networks=preview`, `gateway_alias=<slug>`
+and `public_host=<slug>.preview.ritaj.app` in the environment, and the plain
+deployment keeps its defaults.
+
+The router publishes no host port (nothing does under `ens deploy`), so whatever
+carries traffic to it — the Cloudflare Tunnel connector for WARP clients — has
+to be attached to the `preview` network and able to resolve the slug hostnames
+to the router there.
+
 ## Resolving releases
 
 - `--artifacts local|published` (default `published`) — whether

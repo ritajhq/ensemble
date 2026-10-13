@@ -1,0 +1,24 @@
+# Routes <slug>.<PREVIEW_DOMAIN> to the preview deployment whose gateway took
+# <slug> as its network alias (`alias:` on a gateway). Nothing here knows about
+# any particular preview: a new one is reachable the moment its gateway joins
+# the network, and an unknown slug is simply an upstream that doesn't resolve.
+#
+# The wildcard certificate is obtained through Cloudflare's DNS API, so the
+# router never needs to be reachable from the internet to get or renew it.
+
+*.{$PREVIEW_DOMAIN} {
+	tls {
+		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+	}
+
+	@preview header_regexp preview Host ^([a-z0-9-]+)\.
+	handle @preview {
+		# The Host header is passed through unchanged, which is what the
+		# preview's own gateway matches its routes on.
+		reverse_proxy {re.preview.1}:80
+	}
+
+	handle {
+		respond "Not a preview host" 404
+	}
+}

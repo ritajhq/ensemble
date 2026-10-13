@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../../docs/delivery.schema.json
+version: v1
+
+# The one router in front of every preview deployment (`ens deploy <name>
+# <kit> --instance <slug>`). Bring it up once per host, with
+# `--emulate-externals` the first time so the `preview` network exists:
+#
+#   ens deploy preview-router compose --artifacts local --emulate-externals
+#
+# A previewable manifest puts its gateway on the same network under an alias,
+# and points its host at <slug>.<preview_domain>; see the Previews section of the deploying guide.
+release:
+  preview-router:
+    kit: docker
+
+deploy:
+  compute:
+    router:
+      type: container-orchestrated
+      image: ${release.preview-router}
+      replicas: 1
+      ports:
+        https: 443
+      networks:
+        - ${external.preview.name}
+      env:
+        PREVIEW_DOMAIN: ${variables.preview_domain.value}
+      envSecrets:
+        CLOUDFLARE_API_TOKEN: cloudflare-api-token
+      mounts:
+        # Caddy keeps the issued certificate and its ACME account here; a
+        # recreated container without it would ask for a new one each time.
+        - source: ${storage.certificates.name}
+          path: /data
+
+  storage:
+    certificates:
+      type: volume
+
+  secrets:
+    # Exported as CLOUDFLARE_API_TOKEN: a token with Zone → DNS → Edit on the
+    # zone `preview_domain` lives in, nothing broader.
+    cloudflare-api-token:
+      source: environment
+
+  variables:
+    preview_domain:
+      default: preview.ritaj.app
+
+  external:
+    preview:
+      type: network
+      name: preview
