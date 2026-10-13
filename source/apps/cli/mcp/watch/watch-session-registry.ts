@@ -22,7 +22,9 @@ export class WatchSessionRegistry {
   Get(id: string): WatchSession {
     const session = this.sessions.get(id);
     if (!session) {
-      throw new Error(`No watch session "${id}". Use ensemble_watch_list to see active ones.`);
+      throw new Error(
+        `No watch session "${id}". Use ensemble_watch_list to see active ones.`,
+      );
     }
     return session;
   }

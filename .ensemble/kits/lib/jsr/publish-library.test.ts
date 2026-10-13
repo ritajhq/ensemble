@@ -1,6 +1,10 @@
 import { join } from "@std/path";
 import { assertEquals } from "@std/assert";
-import { publishLibrary, stampLibrary, type PublishRunner } from "./publish-library.ts";
+import {
+  publishLibrary,
+  type PublishRunner,
+  stampLibrary,
+} from "./publish-library.ts";
 
 class FakeRunner implements PublishRunner {
   calls: string[] = [];

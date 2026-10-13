@@ -12,9 +12,9 @@ sharing a locally-authored one out to its own repository. See
 ens kit new my-deploy-target deploy
 ```
 
-Scaffolds `.ensemble/kits/deploy/my-deploy-target`. `<role>` is one of
-`build`, `pack`, `deploy`, or `lib` (a kit-shaped package a library
-publishes through — see [Managing libraries](managing-libraries.md)).
+Scaffolds `.ensemble/kits/deploy/my-deploy-target`. `<role>` is one of `build`,
+`pack`, `deploy`, or `lib` (a kit-shaped package a library publishes through —
+see [Managing libraries](managing-libraries.md)).
 
 ## Install a kit someone else wrote
 
@@ -35,8 +35,8 @@ ens kit update my-deploy-target            # next patch release (default)
 ens kit update my-deploy-target minor      # next minor release
 ```
 
-`update` looks at the kit's own tags and moves to the next release within
-the given bump scope from whatever ref it's currently pinned to.
+`update` looks at the kit's own tags and moves to the next release within the
+given bump scope from whatever ref it's currently pinned to.
 
 ## Sharing a locally-authored kit
 
@@ -48,20 +48,19 @@ ens kit eject my-deploy-target git@github.com:org/my-deploy-target.git
 ```
 
 Pushes the kit to its own repository and registers this repo's copy as a
-vendored checkout of it — from then on it's managed the same way an
-installed kit is (`pin`/`update`).
+vendored checkout of it — from then on it's managed the same way an installed
+kit is (`pin`/`update`).
 
 ## Contributing a change back
 
-If you've made a local change to an installed (non-locally-authored) kit
-and want to upstream it:
+If you've made a local change to an installed (non-locally-authored) kit and
+want to upstream it:
 
 ```sh
 ens kit contribute my-deploy-target
 ```
 
-Pushes the local change and opens a pull request against the kit's own
-remote.
+Pushes the local change and opens a pull request against the kit's own remote.
 
 ## Full reference
 

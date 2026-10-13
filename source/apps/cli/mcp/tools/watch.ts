@@ -35,7 +35,9 @@ export class WatchTools {
         description:
           "Returns the lines a watch session has produced since `after` (omit or pass 0 for its full history so far), plus a cursor to pass next time.",
         inputSchema: {
-          id: z.string().describe("Session id, from ensemble_develop_start or ensemble_watch_list."),
+          id: z.string().describe(
+            "Session id, from ensemble_develop_start or ensemble_watch_list.",
+          ),
           after: z.number().int().min(0).default(0).describe(
             "Cursor from a previous call; 0 for the full history so far.",
           ),
@@ -55,7 +57,8 @@ export class WatchTools {
       "ensemble_watch_stop",
       {
         title: "Stop a watch session",
-        description: "Sends SIGINT to a watch session's process — the same as Ctrl+C on the CLI.",
+        description:
+          "Sends SIGINT to a watch session's process — the same as Ctrl+C on the CLI.",
         inputSchema: { id: z.string().describe("Session id to stop.") },
       },
       ({ id }) =>

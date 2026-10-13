@@ -14,10 +14,14 @@ async function readDenoJsonName(dir: string): Promise<string> {
   try {
     parsed = JSON.parse(await Deno.readTextFile(path));
   } catch {
-    throw new Error(`No deno.json found at ${path} — doesn't look like an installable lib.`);
+    throw new Error(
+      `No deno.json found at ${path} — doesn't look like an installable lib.`,
+    );
   }
   if (typeof parsed.name !== "string" || parsed.name.length === 0) {
-    throw new Error(`deno.json at ${path} is missing a "name" — doesn't look like an installable lib.`);
+    throw new Error(
+      `deno.json at ${path} is missing a "name" — doesn't look like an installable lib.`,
+    );
   }
   return parsed.name;
 }
@@ -75,7 +79,10 @@ export class LibInstaller {
 
       const entry: Entry = { repo: url, ref: resolvedRef, path: relativePath };
       await this.registry.register(entry);
-      await new EnsembleConfigStore(this.repoRoot).setLibPackage(name, packageName);
+      await new EnsembleConfigStore(this.repoRoot).setLibPackage(
+        name,
+        packageName,
+      );
       return entry;
     } finally {
       if (await exists(scratchDir)) {

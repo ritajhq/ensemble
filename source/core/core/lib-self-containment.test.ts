@@ -27,8 +27,12 @@ async function writeMember(
     const libName = member.relativePath.split("/").pop()!;
     await Deno.mkdir(join(repoRoot, ".ensemble"), { recursive: true });
     const configPath = join(repoRoot, ".ensemble", "config.yaml");
-    const existing = await Deno.readTextFile(configPath).catch(() => "publish:\n  libs:\n");
-    const withoutTrailingNewline = existing.endsWith("\n") ? existing : `${existing}\n`;
+    const existing = await Deno.readTextFile(configPath).catch(() =>
+      "publish:\n  libs:\n"
+    );
+    const withoutTrailingNewline = existing.endsWith("\n")
+      ? existing
+      : `${existing}\n`;
     await Deno.writeTextFile(
       configPath,
       `${withoutTrailingNewline}    - name: ${libName}\n      package: "${member.name}"\n`,

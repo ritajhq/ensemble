@@ -10,7 +10,10 @@ export function Footer() {
           <Logo className="h-4 w-4 opacity-60" />
           <span>Ensemble · MIT License</span>
         </div>
-        <a href={GITHUB_URL} className="font-medium text-slate-600 transition hover:text-blue-600">
+        <a
+          href={GITHUB_URL}
+          className="font-medium text-slate-600 transition hover:text-blue-600"
+        >
           github.com/ritajhq/ensemble
         </a>
       </Container>

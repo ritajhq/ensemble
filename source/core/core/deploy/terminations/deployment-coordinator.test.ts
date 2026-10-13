@@ -124,7 +124,10 @@ function fakeKit(
       Promise.resolve({ filename: "compose.yaml", content: presentedContent }),
     applyCommand: (path) => Promise.resolve([...applyCommand, path]),
     ...(watchCommand
-      ? { watchCommand: (path: string) => Promise.resolve([...watchCommand, path]) }
+      ? {
+        watchCommand: (path: string) =>
+          Promise.resolve([...watchCommand, path]),
+      }
       : {}),
     ...(emulateExternals ? { emulateExternals } : {}),
   };
@@ -283,7 +286,12 @@ Deno.test("DeploymentCoordinator.deploy: a published apply fails when the availa
     verify: () =>
       Promise.resolve({ available: false, detail: "not found in registry" }),
   };
-  const coordinator = await buildCoordinator(kit, sink, cache, unavailableGateway);
+  const coordinator = await buildCoordinator(
+    kit,
+    sink,
+    cache,
+    unavailableGateway,
+  );
   const target: Target = { kit };
 
   await assertRejects(

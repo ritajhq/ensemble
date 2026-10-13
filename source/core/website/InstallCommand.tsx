@@ -15,18 +15,24 @@ export function InstallCommand() {
 
   return (
     <div>
-      <p className="mb-2 text-sm font-medium text-slate-500">Install Ensemble v0.0.11</p>
+      <p className="mb-2 text-sm font-medium text-slate-500">
+        Install Ensemble v0.0.11
+      </p>
 
       <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 font-mono text-sm text-slate-700">
         <span className="select-none text-blue-600">$</span>
-        <code className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{INSTALL_COMMAND}</code>
+        <code className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
+          {INSTALL_COMMAND}
+        </code>
         <button
           type="button"
           onClick={copyCommand}
           aria-label="Copy install command"
           className="shrink-0 text-slate-400 transition hover:text-slate-600"
         >
-          {copied ? <CheckIcon className="h-4 w-4 text-blue-600" /> : <CopyIcon className="h-4 w-4" />}
+          {copied
+            ? <CheckIcon className="h-4 w-4 text-blue-600" />
+            : <CopyIcon className="h-4 w-4" />}
         </button>
       </div>
 

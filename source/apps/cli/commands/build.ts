@@ -8,11 +8,17 @@ export const buildCommand = new Command()
   .description("Build an app using its configured kit.")
   .type("mode", new EnumType(["development", "production"]))
   .arguments("<name:string>")
-  .option("-m, --mode <mode:mode>", "Build mode.", { default: "development" as const })
-  .option("-w, --watch", "Rebuild on source changes.")
-  .option("-v, --var <var:string>", "Override a build var (KEY=VALUE). Repeatable.", {
-    collect: true,
+  .option("-m, --mode <mode:mode>", "Build mode.", {
+    default: "development" as const,
   })
+  .option("-w, --watch", "Rebuild on source changes.")
+  .option(
+    "-v, --var <var:string>",
+    "Override a build var (KEY=VALUE). Repeatable.",
+    {
+      collect: true,
+    },
+  )
   .action(async ({ mode, watch, var: vars }, name) => {
     const code = await runBuild(name, {
       mode,

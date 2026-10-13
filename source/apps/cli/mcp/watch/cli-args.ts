@@ -2,6 +2,8 @@
 export class CliArgs {
   static VarFlags(flag: string, overrides?: Record<string, string>): string[] {
     if (!overrides) return [];
-    return Object.entries(overrides).flatMap(([key, value]) => [flag, `${key}=${value}`]);
+    return Object.entries(overrides).flatMap((
+      [key, value],
+    ) => [flag, `${key}=${value}`]);
   }
 }

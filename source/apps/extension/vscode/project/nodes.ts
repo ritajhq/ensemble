@@ -28,7 +28,8 @@ const open = (root: vscode.Uri, path: string): vscode.Command => ({
   arguments: [vscode.Uri.joinPath(root, path)],
 });
 
-const vendoredAt = (vendored?: Status.Vendoring) => vendored ? `@ ${vendored.ref}` : "local";
+const vendoredAt = (vendored?: Status.Vendoring) =>
+  vendored ? `@ ${vendored.ref}` : "local";
 
 export class AppNode extends Node {
   constructor(readonly app: Status.App, private readonly root: vscode.Uri) {
@@ -37,7 +38,9 @@ export class AppNode extends Node {
 
   item(): vscode.TreeItem {
     const item = new vscode.TreeItem(this.app.name);
-    item.description = this.app.target ? `${this.app.kit} · ${this.app.target}` : this.app.kit;
+    item.description = this.app.target
+      ? `${this.app.kit} · ${this.app.target}`
+      : this.app.kit;
     item.iconPath = new vscode.ThemeIcon("package");
     item.contextValue = "app";
     item.command = reveal(this.root, `source/apps/${this.app.name}`);
@@ -46,12 +49,18 @@ export class AppNode extends Node {
 }
 
 export class WorkloadNode extends Node {
-  constructor(readonly workload: Status.Workload, private readonly root: vscode.Uri) {
+  constructor(
+    readonly workload: Status.Workload,
+    private readonly root: vscode.Uri,
+  ) {
     super();
   }
 
   item(): vscode.TreeItem {
-    const item = new vscode.TreeItem(this.workload.name, vscode.TreeItemCollapsibleState.Collapsed);
+    const item = new vscode.TreeItem(
+      this.workload.name,
+      vscode.TreeItemCollapsibleState.Collapsed,
+    );
     item.description = this.workload.ships.map((ship) => ship.name).join(", ");
     item.iconPath = new vscode.ThemeIcon("server-environment");
     item.contextValue = "workload";
@@ -61,12 +70,16 @@ export class WorkloadNode extends Node {
   }
 
   override children(): Node[] {
-    const ships = this.workload.ships.map((ship) => new Leaf(ship.name, ship.kit, "archive", "ship"));
-    const resources = Object.entries(this.workload.resources).map(([category, names]) =>
-      new Leaf(category, names.join(", "), "symbol-field", "resources")
+    const ships = this.workload.ships.map((ship) =>
+      new Leaf(ship.name, ship.kit, "archive", "ship")
     );
+    const resources = Object.entries(this.workload.resources).map((
+      [category, names],
+    ) => new Leaf(category, names.join(", "), "symbol-field", "resources"));
     // `tasks` is newer than `ens status --json` itself; an older `ens` simply has none to list.
-    const tasks = (this.workload.tasks ?? []).length === 0 ? [] : [new TasksNode(this.workload)];
+    const tasks = (this.workload.tasks ?? []).length === 0
+      ? []
+      : [new TasksNode(this.workload)];
     return [...ships, ...resources, ...tasks];
   }
 }
@@ -77,13 +90,18 @@ class TasksNode extends Node {
   }
 
   item(): vscode.TreeItem {
-    const item = new vscode.TreeItem("tasks", vscode.TreeItemCollapsibleState.Expanded);
+    const item = new vscode.TreeItem(
+      "tasks",
+      vscode.TreeItemCollapsibleState.Expanded,
+    );
     item.iconPath = new vscode.ThemeIcon("checklist");
     return item;
   }
 
   override children(): Node[] {
-    return this.workload.tasks.map((task) => new TaskNode(this.workload.name, task));
+    return this.workload.tasks.map((task) =>
+      new TaskNode(this.workload.name, task)
+    );
   }
 }
 
@@ -98,7 +116,11 @@ export class TaskNode extends Node {
     item.description = this.task.command;
     item.tooltip = new vscode.MarkdownString(
       `\`${this.task.command}\`` +
-        (this.task.arguments.length > 0 ? `\n\nArguments: ${this.task.arguments.map((a) => `\`${a}\``).join(", ")}` : ""),
+        (this.task.arguments.length > 0
+          ? `\n\nArguments: ${
+            this.task.arguments.map((a) => `\`${a}\``).join(", ")
+          }`
+          : ""),
     );
     item.iconPath = new vscode.ThemeIcon("terminal");
     item.contextValue = "task";
@@ -127,12 +149,18 @@ class Leaf extends Node {
 }
 
 class KitRoleNode extends Node {
-  constructor(private readonly role: Status.KitRole, private readonly kits: KitNode[]) {
+  constructor(
+    private readonly role: Status.KitRole,
+    private readonly kits: KitNode[],
+  ) {
     super();
   }
 
   item(): vscode.TreeItem {
-    const item = new vscode.TreeItem(this.role, vscode.TreeItemCollapsibleState.Expanded);
+    const item = new vscode.TreeItem(
+      this.role,
+      vscode.TreeItemCollapsibleState.Expanded,
+    );
     item.iconPath = new vscode.ThemeIcon("folder-library");
     item.description = this.kits.length === 0 ? "none" : undefined;
     return item;
@@ -151,7 +179,9 @@ export class KitNode extends Node {
   item(): vscode.TreeItem {
     const item = new vscode.TreeItem(this.kit.name);
     item.description = vendoredAt(this.kit.vendored);
-    item.tooltip = this.kit.vendored ? `${this.kit.vendored.repo} @ ${this.kit.vendored.ref}` : this.kit.path;
+    item.tooltip = this.kit.vendored
+      ? `${this.kit.vendored.repo} @ ${this.kit.vendored.ref}`
+      : this.kit.path;
     item.iconPath = new vscode.ThemeIcon("tools");
     item.contextValue = this.kit.vendored ? "kit.vendored" : "kit.local";
     item.command = reveal(this.root, this.kit.path);
@@ -160,12 +190,18 @@ export class KitNode extends Node {
 }
 
 class LibraryScopeNode extends Node {
-  constructor(private readonly label: string, private readonly libraries: LibraryNode[]) {
+  constructor(
+    private readonly label: string,
+    private readonly libraries: LibraryNode[],
+  ) {
     super();
   }
 
   item(): vscode.TreeItem {
-    const item = new vscode.TreeItem(this.label, vscode.TreeItemCollapsibleState.Expanded);
+    const item = new vscode.TreeItem(
+      this.label,
+      vscode.TreeItemCollapsibleState.Expanded,
+    );
     item.iconPath = new vscode.ThemeIcon("folder-library");
     item.description = this.libraries.length === 0 ? "none" : undefined;
     return item;
@@ -177,14 +213,21 @@ class LibraryScopeNode extends Node {
 }
 
 export class LibraryNode extends Node {
-  constructor(readonly library: Status.Library, private readonly root: vscode.Uri) {
+  constructor(
+    readonly library: Status.Library,
+    private readonly root: vscode.Uri,
+  ) {
     super();
   }
 
   item(): vscode.TreeItem {
     const item = new vscode.TreeItem(this.library.package);
-    item.description = this.library.scope === "core" ? this.library.kits.join(", ") : vendoredAt(this.library.vendored);
-    item.tooltip = this.library.vendored ? `${this.library.vendored.repo} @ ${this.library.vendored.ref}` : this.library.path;
+    item.description = this.library.scope === "core"
+      ? this.library.kits.join(", ")
+      : vendoredAt(this.library.vendored);
+    item.tooltip = this.library.vendored
+      ? `${this.library.vendored.repo} @ ${this.library.vendored.ref}`
+      : this.library.path;
     item.iconPath = new vscode.ThemeIcon("library");
     item.contextValue = this.contextValue();
     item.command = reveal(this.root, this.library.path);
@@ -200,21 +243,29 @@ export class LibraryNode extends Node {
 
 /** Each pane's top-level rows, built from one `ens status --json` document. */
 export const Roots = {
-  apps: (status: Status.Document, root: vscode.Uri): Node[] => status.apps.map((app) => new AppNode(app, root)),
+  apps: (status: Status.Document, root: vscode.Uri): Node[] =>
+    status.apps.map((app) => new AppNode(app, root)),
 
   workloads: (status: Status.Document, root: vscode.Uri): Node[] =>
     status.workloads.map((workload) => new WorkloadNode(workload, root)),
 
   kits: (status: Status.Document, root: vscode.Uri): Node[] =>
     ROLES.map((role) =>
-      new KitRoleNode(role, status.kits.filter((kit) => kit.role === role).map((kit) => new KitNode(kit, root)))
+      new KitRoleNode(
+        role,
+        status.kits.filter((kit) => kit.role === role).map((kit) =>
+          new KitNode(kit, root)
+        ),
+      )
     ),
 
   libraries: (status: Status.Document, root: vscode.Uri): Node[] =>
     LIBRARY_SCOPES.map(({ scope, label }) =>
       new LibraryScopeNode(
         label,
-        status.libraries.filter((library) => library.scope === scope).map((library) => new LibraryNode(library, root)),
+        status.libraries.filter((library) => library.scope === scope).map((
+          library,
+        ) => new LibraryNode(library, root)),
       )
     ),
 };

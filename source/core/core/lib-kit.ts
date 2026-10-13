@@ -19,14 +19,26 @@ export class LibKit {
   ) {}
 
   async stamp(input: Lib.Context): Promise<void> {
-    await this.run("stamp", input, `Stamping "${input.package}" with lib kit "${this.kit}" failed.`);
+    await this.run(
+      "stamp",
+      input,
+      `Stamping "${input.package}" with lib kit "${this.kit}" failed.`,
+    );
   }
 
   async publish(input: Lib.Context): Promise<void> {
-    await this.run("publish", input, `Publishing "${input.package}" with lib kit "${this.kit}" failed.`);
+    await this.run(
+      "publish",
+      input,
+      `Publishing "${input.package}" with lib kit "${this.kit}" failed.`,
+    );
   }
 
-  private async run(mode: "stamp" | "publish", input: Lib.Context, failureMessage: string): Promise<void> {
+  private async run(
+    mode: "stamp" | "publish",
+    input: Lib.Context,
+    failureMessage: string,
+  ): Promise<void> {
     const repoRoot = await this.ports.repo.findRepoRoot();
     const kitDir = join(repoRoot, ".ensemble", "kits", "lib", this.kit);
     const kitEntry = join(kitDir, "main.ts");

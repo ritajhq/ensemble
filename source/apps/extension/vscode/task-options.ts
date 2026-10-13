@@ -16,7 +16,10 @@ interface Choice {
  * answers for that task, and returns the `ens delivery task` arguments.
  */
 export class TaskOptions {
-  constructor(private readonly cli: Cli, private readonly memory: vscode.Memento) {}
+  constructor(
+    private readonly cli: Cli,
+    private readonly memory: vscode.Memento,
+  ) {}
 
   async ask(workload: string, task: string): Promise<string[] | undefined> {
     const last = this.memory.get<Choice>(this.key(workload, task));
@@ -35,11 +38,20 @@ export class TaskOptions {
     return ["delivery", "task", workload, kit, task, ...this.words(input)];
   }
 
-  private async pickKit(task: string, last?: string): Promise<string | undefined> {
+  private async pickKit(
+    task: string,
+    last?: string,
+  ): Promise<string | undefined> {
     const status = await this.cli.status();
-    const kits = status.kits.filter((kit) => kit.role === "deploy").map((kit) => kit.name);
-    const ordered = [...kits].sort((a, b) => Number(b === last) - Number(a === last));
-    const items = ordered.map((label) => label === last ? { label, description: "last used" } : { label });
+    const kits = status.kits.filter((kit) => kit.role === "deploy").map((kit) =>
+      kit.name
+    );
+    const ordered = [...kits].sort((a, b) =>
+      Number(b === last) - Number(a === last)
+    );
+    const items = ordered.map((label) =>
+      label === last ? { label, description: "last used" } : { label }
+    );
     const chosen = await vscode.window.showQuickPick(items, {
       title: `Run ${task}: deploy kit to resolve its arguments with`,
       ignoreFocusOut: true,
@@ -48,7 +60,9 @@ export class TaskOptions {
   }
 
   private words(input: string): string[] {
-    return [...input.matchAll(WORDS)].map((match) => match[1] ?? match[2] ?? match[3]);
+    return [...input.matchAll(WORDS)].map((match) =>
+      match[1] ?? match[2] ?? match[3]
+    );
   }
 
   private key(workload: string, task: string): string {

@@ -14,8 +14,8 @@ ens config set-build-kit web react
 ## `ens config set-build-var <app> KEY=VALUE`
 
 Set a personal default build var for an app, stored in the gitignored
-`config.local.yaml` — for things you build the same way every time
-locally. Repeated calls accumulate keys rather than overwrite them.
+`config.local.yaml` — for things you build the same way every time locally.
+Repeated calls accumulate keys rather than overwrite them.
 
 ```sh
 ens config set-build-var web API_URL=http://localhost:4000

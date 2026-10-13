@@ -12,7 +12,9 @@ export class ToolResult {
     return { content: [{ type: "text", text: message }] };
   }
 
-  static async from(action: () => string | Promise<string>): Promise<CallToolResult> {
+  static async from(
+    action: () => string | Promise<string>,
+  ): Promise<CallToolResult> {
     ConsoleCapture.reset();
     try {
       const summary = await action();

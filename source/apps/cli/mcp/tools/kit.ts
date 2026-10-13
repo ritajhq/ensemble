@@ -43,7 +43,11 @@ export class KitTools {
       },
       ({ url }) =>
         ToolResult.from(async () => {
-          const entry = await runKitInstall(url, Host.createPorts().repo, new Host.GitPackageSource());
+          const entry = await runKitInstall(
+            url,
+            Host.createPorts().repo,
+            new Host.GitPackageSource(),
+          );
           return `Installed kit at ${entry.path} (${entry.repo}@${entry.ref}).`;
         }),
     );
@@ -79,7 +83,12 @@ export class KitTools {
       },
       ({ name, ref }) =>
         ToolResult.from(async () => {
-          const entry = await runKitPin(name, ref, Host.createPorts().repo, new Host.GitPackageSource());
+          const entry = await runKitPin(
+            name,
+            ref,
+            Host.createPorts().repo,
+            new Host.GitPackageSource(),
+          );
           return `Pinned ${entry.path} to ${entry.repo}@${entry.ref}.`;
         }),
     );
@@ -116,7 +125,11 @@ export class KitTools {
       },
       ({ name }) =>
         ToolResult.from(async () => {
-          const pr = await runKitContribute(name, Host.createPorts().repo, new Host.GitPackageSource());
+          const pr = await runKitContribute(
+            name,
+            Host.createPorts().repo,
+            new Host.GitPackageSource(),
+          );
           return `Opened pull request: ${pr.url}`;
         }),
     );

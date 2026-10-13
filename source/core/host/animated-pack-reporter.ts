@@ -1,5 +1,9 @@
 import { green, red } from "@std/fmt/colors";
-import { PlainPackReporter, type PackProgress, type PackReporter } from "@ensemble/core";
+import {
+  type PackProgress,
+  type PackReporter,
+  PlainPackReporter,
+} from "@ensemble/core";
 import { AnimatedProgressLine } from "./animated-progress-line.ts";
 
 /**

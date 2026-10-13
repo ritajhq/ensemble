@@ -18,7 +18,11 @@ export class WatchSession {
   private readonly process: Deno.ChildProcess;
   private readonly lines: string[] = [];
 
-  constructor(readonly id: string, readonly label: string, command: readonly string[]) {
+  constructor(
+    readonly id: string,
+    readonly label: string,
+    command: readonly string[],
+  ) {
     const [cmd, ...args] = command;
     this.process = new Deno.Command(cmd, {
       args,

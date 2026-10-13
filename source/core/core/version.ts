@@ -21,11 +21,18 @@ export function parseVersionTag(tag: string): SemVer | undefined {
   const match = SEMVER_TAG_PATTERN.exec(tag);
   if (!match) return undefined;
   const [, major, minor, patch, preRelease] = match;
-  return { major: Number(major), minor: Number(minor), patch: Number(patch), preRelease };
+  return {
+    major: Number(major),
+    minor: Number(minor),
+    patch: Number(patch),
+    preRelease,
+  };
 }
 
 export function formatVersionTag(version: SemVer): string {
-  return `${version.major}.${version.minor}.${version.patch}${version.preRelease ? `-${version.preRelease}` : ""}`;
+  return `${version.major}.${version.minor}.${version.patch}${
+    version.preRelease ? `-${version.preRelease}` : ""
+  }`;
 }
 
 /** Semver precedence: a pre-release has lower precedence than its associated normal version. */
@@ -36,7 +43,13 @@ function compareSemVer(a: SemVer, b: SemVer): number {
   const aPre = a.preRelease !== undefined;
   const bPre = b.preRelease !== undefined;
   if (aPre !== bPre) return aPre ? -1 : 1;
-  if (aPre && bPre) return a.preRelease! < b.preRelease! ? -1 : a.preRelease! > b.preRelease! ? 1 : 0;
+  if (aPre && bPre) {
+    return a.preRelease! < b.preRelease!
+      ? -1
+      : a.preRelease! > b.preRelease!
+      ? 1
+      : 0;
+  }
   return 0;
 }
 
@@ -69,7 +82,9 @@ interface ReleaseAsset {
  */
 export class SelfUpdateService {
   private readonly downloadStart = new Delegate<[string, number | undefined]>();
-  private readonly downloadProgress = new Delegate<[number, number | undefined]>();
+  private readonly downloadProgress = new Delegate<
+    [number, number | undefined]
+  >();
 
   /** Fires with the release tag and total size in bytes (undefined if the server didn't say) right before the binary download begins. */
   get OnDownloadStart(): Emitter<[string, number | undefined]> {
@@ -83,26 +98,43 @@ export class SelfUpdateService {
 
   private async fetchGithub(path: string): Promise<Response> {
     return await fetch(`https://api.github.com/repos/${REPO}/${path}`, {
-      headers: { Accept: "application/vnd.github+json", "Cache-Control": "no-cache" },
+      headers: {
+        Accept: "application/vnd.github+json",
+        "Cache-Control": "no-cache",
+      },
     });
   }
 
   private toReleaseAsset(release: GithubRelease): ReleaseAsset | undefined {
     const version = parseVersionTag(release.tag_name);
     if (!version) return undefined;
-    const compressed = release.assets.find((a) => a.name === COMPRESSED_ASSET_NAME);
+    const compressed = release.assets.find((a) =>
+      a.name === COMPRESSED_ASSET_NAME
+    );
     if (compressed) {
-      return { tag: release.tag_name, version, assetUrl: compressed.browser_download_url, compressed: true };
+      return {
+        tag: release.tag_name,
+        version,
+        assetUrl: compressed.browser_download_url,
+        compressed: true,
+      };
     }
     const raw = release.assets.find((a) => a.name === ASSET_NAME);
     if (!raw) return undefined;
-    return { tag: release.tag_name, version, assetUrl: raw.browser_download_url, compressed: false };
+    return {
+      tag: release.tag_name,
+      version,
+      assetUrl: raw.browser_download_url,
+      compressed: false,
+    };
   }
 
   private async listReleases(): Promise<ReleaseAsset[]> {
     const response = await this.fetchGithub("releases?per_page=100");
     if (!response.ok) {
-      throw new Error(`Failed to list releases: ${response.status} ${response.statusText}`);
+      throw new Error(
+        `Failed to list releases: ${response.status} ${response.statusText}`,
+      );
     }
     const releases = await response.json() as GithubRelease[];
     return releases
@@ -112,13 +144,17 @@ export class SelfUpdateService {
 
   /** Looks up a single release by tag — a few KB, versus listing every release. */
   private async findRelease(tag: string): Promise<ReleaseAsset | undefined> {
-    const response = await this.fetchGithub(`releases/tags/${encodeURIComponent(tag)}`);
+    const response = await this.fetchGithub(
+      `releases/tags/${encodeURIComponent(tag)}`,
+    );
     if (response.status === 404) {
       await response.body?.cancel();
       return undefined;
     }
     if (!response.ok) {
-      throw new Error(`Failed to look up release ${tag}: ${response.status} ${response.statusText}`);
+      throw new Error(
+        `Failed to look up release ${tag}: ${response.status} ${response.statusText}`,
+      );
     }
     return this.toReleaseAsset(await response.json() as GithubRelease);
   }
@@ -158,10 +194,14 @@ export class SelfUpdateService {
     return parseVersionTag(tag);
   }
 
-  private async downloadAndInstall({ tag, assetUrl, compressed }: ReleaseAsset): Promise<void> {
+  private async downloadAndInstall(
+    { tag, assetUrl, compressed }: ReleaseAsset,
+  ): Promise<void> {
     const response = await fetch(assetUrl);
     if (!response.ok || !response.body) {
-      throw new Error(`Failed to download ${assetUrl}: ${response.status} ${response.statusText}`);
+      throw new Error(
+        `Failed to download ${assetUrl}: ${response.status} ${response.statusText}`,
+      );
     }
 
     const execPath = this.currentExecutablePath();
@@ -171,7 +211,10 @@ export class SelfUpdateService {
     this.downloadStart.Invoke(tag, total);
 
     let received = 0;
-    const progress = new TransformStream<Uint8Array<ArrayBuffer>, Uint8Array<ArrayBuffer>>({
+    const progress = new TransformStream<
+      Uint8Array<ArrayBuffer>,
+      Uint8Array<ArrayBuffer>
+    >({
       transform: (chunk, controller) => {
         received += chunk.byteLength;
         this.downloadProgress.Invoke(received, total);
@@ -179,11 +222,18 @@ export class SelfUpdateService {
       },
     });
 
-    const file = await Deno.open(tmpPath, { create: true, write: true, truncate: true, mode: 0o755 });
+    const file = await Deno.open(tmpPath, {
+      create: true,
+      write: true,
+      truncate: true,
+      mode: 0o755,
+    });
     try {
       // Progress counts bytes off the wire, so it's measured before decompression to match content-length.
       const downloaded = response.body.pipeThrough(progress);
-      const binary = compressed ? downloaded.pipeThrough(new DecompressionStream("gzip")) : downloaded;
+      const binary = compressed
+        ? downloaded.pipeThrough(new DecompressionStream("gzip"))
+        : downloaded;
       await binary.pipeTo(file.writable);
     } catch (error) {
       await Deno.remove(tmpPath).catch(() => {});
@@ -220,7 +270,9 @@ export class SelfUpdateService {
     if (candidates.length === 0) {
       throw new Error(
         `No newer release found for bump "${bump}"` +
-          (current ? ` from the installed version ${current.major}.${current.minor}.${current.patch}.` : "."),
+          (current
+            ? ` from the installed version ${current.major}.${current.minor}.${current.patch}.`
+            : "."),
       );
     }
 
@@ -243,28 +295,40 @@ export class SelfUpdateService {
     );
     if (channel.length === 0) {
       throw new Error(
-        current?.preRelease ? `No "${current.preRelease}" release found.` : "No release found.",
+        current?.preRelease
+          ? `No "${current.preRelease}" release found.`
+          : "No release found.",
       );
     }
 
     const latest = this.newest(channel);
     if (current && compareSemVer(latest.version, current) <= 0) {
-      return { tag: formatVersionTag(current), previous: current, changed: false };
+      return {
+        tag: formatVersionTag(current),
+        previous: current,
+        changed: false,
+      };
     }
     await this.downloadAndInstall(latest);
     return { tag: latest.tag, previous: current, changed: true };
   }
 
   private newest(releases: readonly ReleaseAsset[]): ReleaseAsset {
-    return releases.reduce((max, c) => (compareSemVer(c.version, max.version) > 0 ? c : max));
+    return releases.reduce((
+      max,
+      c,
+    ) => (compareSemVer(c.version, max.version) > 0 ? c : max));
   }
 
   /** Installs a specific released version, if it exists. */
   async installSet(version: string): Promise<InstallResult> {
     const current = await this.getInstalledVersion();
-    const match = await this.findRelease(version) ?? await this.findRelease(`v${version}`);
+    const match = await this.findRelease(version) ??
+      await this.findRelease(`v${version}`);
     if (!match) {
-      throw new Error(`Release "${version}" not found (or has no "${ASSET_NAME}" asset).`);
+      throw new Error(
+        `Release "${version}" not found (or has no "${ASSET_NAME}" asset).`,
+      );
     }
     if (current && compareSemVer(current, match.version) === 0) {
       return { tag: match.tag, previous: current, changed: false };

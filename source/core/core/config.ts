@@ -90,7 +90,9 @@ export class EnsembleConfigStore {
 
   /** Loads config.yaml, or {} if it doesn't exist yet — unlike load(), which requires it. */
   async loadOrEmpty(): Promise<EnsembleConfig> {
-    return await exists(this.configPath, { isFile: true }) ? await this.load() : {};
+    return await exists(this.configPath, { isFile: true })
+      ? await this.load()
+      : {};
   }
 
   /**
@@ -109,7 +111,11 @@ export class EnsembleConfigStore {
   }
 
   /** Returns the locally configured default vars for a given app/ship name, or {} if none are set. */
-  getVars(config: LocalEnsembleConfig, kind: VarKind, name: string): Record<string, string> {
+  getVars(
+    config: LocalEnsembleConfig,
+    kind: VarKind,
+    name: string,
+  ): Record<string, string> {
     return config.vars?.[kind]?.[name] ?? {};
   }
 
@@ -119,7 +125,12 @@ export class EnsembleConfigStore {
    * This is a plain parse-modify-rewrite of the YAML, so any hand-written
    * comments in an existing config.local.yaml are not preserved across this call.
    */
-  async setVar(kind: VarKind, name: string, key: string, value: string): Promise<void> {
+  async setVar(
+    kind: VarKind,
+    name: string,
+    key: string,
+    value: string,
+  ): Promise<void> {
     const existingConfig = await this.loadLocal();
 
     const config: LocalEnsembleConfig = {
@@ -132,7 +143,10 @@ export class EnsembleConfigStore {
         },
       } as Record<VarKind, Record<string, Record<string, string>>>,
     };
-    await Deno.writeTextFile(this.localConfigPath, stringifyYaml(config as unknown as Record<string, unknown>));
+    await Deno.writeTextFile(
+      this.localConfigPath,
+      stringifyYaml(config as unknown as Record<string, unknown>),
+    );
   }
 
   getAppBuildConfig(config: EnsembleConfig, name: string): BuildAppConfig {
@@ -144,7 +158,9 @@ export class EnsembleConfigStore {
       );
     }
     if (!appConfig.kit) {
-      throw new Error(`App "${name}" is missing a "kit" property in .ensemble/config.yaml`);
+      throw new Error(
+        `App "${name}" is missing a "kit" property in .ensemble/config.yaml`,
+      );
     }
     return appConfig;
   }
@@ -156,8 +172,19 @@ export class EnsembleConfigStore {
    * any hand-written comments in an existing config.yaml are not preserved
    * across this call.
    */
-  async setAppBuildKit(appName: string, kit: string, target?: string): Promise<void> {
-    const kitEntry = join(this.repoRoot, ".ensemble", "kits", "build", kit, "main.ts");
+  async setAppBuildKit(
+    appName: string,
+    kit: string,
+    target?: string,
+  ): Promise<void> {
+    const kitEntry = join(
+      this.repoRoot,
+      ".ensemble",
+      "kits",
+      "build",
+      kit,
+      "main.ts",
+    );
     if (!await exists(kitEntry, { isFile: true })) {
       throw new Error(`Build kit "${kit}" not found (expected ${kitEntry})`);
     }
@@ -169,9 +196,15 @@ export class EnsembleConfigStore {
 
     const config: EnsembleConfig = {
       ...existingConfig,
-      build: { ...existingConfig.build, [appName]: target ? { kit, target } : { kit } },
+      build: {
+        ...existingConfig.build,
+        [appName]: target ? { kit, target } : { kit },
+      },
     };
-    await Deno.writeTextFile(path, stringifyYaml(config as unknown as Record<string, unknown>));
+    await Deno.writeTextFile(
+      path,
+      stringifyYaml(config as unknown as Record<string, unknown>),
+    );
   }
 
   /**
@@ -189,7 +222,11 @@ export class EnsembleConfigStore {
 
     const libs = existingConfig.publish?.libs ?? [];
     const existingEntry = libs.find((lib) => lib.name === name);
-    const updatedEntry: LibConfig = { ...existingEntry, name, package: packageName };
+    const updatedEntry: LibConfig = {
+      ...existingEntry,
+      name,
+      package: packageName,
+    };
 
     const config: EnsembleConfig = {
       ...existingConfig,
@@ -200,6 +237,9 @@ export class EnsembleConfigStore {
           : [...libs, updatedEntry],
       },
     };
-    await Deno.writeTextFile(path, stringifyYaml(config as unknown as Record<string, unknown>));
+    await Deno.writeTextFile(
+      path,
+      stringifyYaml(config as unknown as Record<string, unknown>),
+    );
   }
 }

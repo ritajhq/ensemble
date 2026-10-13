@@ -81,7 +81,11 @@ const KNOWN_TOP_LEVEL_KEYS = new Set([
   "permissions",
 ]);
 
-const KNOWN_PERMISSION_KEYS = new Set<string>(["allow-all", ...ALLOW_KEYS, ...DENY_KEYS]);
+const KNOWN_PERMISSION_KEYS = new Set<string>([
+  "allow-all",
+  ...ALLOW_KEYS,
+  ...DENY_KEYS,
+]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -110,7 +114,9 @@ function validatePermissions(raw: unknown): CompilePermissions | undefined {
   }
   for (const key of ALLOW_KEYS) {
     const value = raw[key];
-    if (value !== undefined && typeof value !== "boolean" && !isStringArray(value)) {
+    if (
+      value !== undefined && typeof value !== "boolean" && !isStringArray(value)
+    ) {
       fail(`"permissions.${key}" must be a boolean or a list of strings.`);
     }
   }
@@ -136,23 +142,47 @@ function validateConfig(raw: unknown): CompileConfig {
   if (typeof raw.source !== "string" || raw.source.length === 0) {
     fail(`"source" is required and must name an app under source/apps/.`);
   }
-  if (raw.output !== undefined && typeof raw.output !== "string") fail(`"output" must be a string.`);
-  if (raw.target !== undefined && typeof raw.target !== "string") fail(`"target" must be a string.`);
-  if (raw["app-name"] !== undefined && typeof raw["app-name"] !== "string") fail(`"app-name" must be a string.`);
-  if (raw.icon !== undefined && typeof raw.icon !== "string") fail(`"icon" must be a string.`);
-  if (raw.bundle !== undefined && typeof raw.bundle !== "boolean") fail(`"bundle" must be a boolean.`);
-  if (raw.minify !== undefined && typeof raw.minify !== "boolean") fail(`"minify" must be a boolean.`);
-  if (raw["no-terminal"] !== undefined && typeof raw["no-terminal"] !== "boolean") {
+  if (raw.output !== undefined && typeof raw.output !== "string") {
+    fail(`"output" must be a string.`);
+  }
+  if (raw.target !== undefined && typeof raw.target !== "string") {
+    fail(`"target" must be a string.`);
+  }
+  if (raw["app-name"] !== undefined && typeof raw["app-name"] !== "string") {
+    fail(`"app-name" must be a string.`);
+  }
+  if (raw.icon !== undefined && typeof raw.icon !== "string") {
+    fail(`"icon" must be a string.`);
+  }
+  if (raw.bundle !== undefined && typeof raw.bundle !== "boolean") {
+    fail(`"bundle" must be a boolean.`);
+  }
+  if (raw.minify !== undefined && typeof raw.minify !== "boolean") {
+    fail(`"minify" must be a boolean.`);
+  }
+  if (
+    raw["no-terminal"] !== undefined && typeof raw["no-terminal"] !== "boolean"
+  ) {
     fail(`"no-terminal" must be a boolean.`);
   }
-  if (raw["self-extracting"] !== undefined && typeof raw["self-extracting"] !== "boolean") {
+  if (
+    raw["self-extracting"] !== undefined &&
+    typeof raw["self-extracting"] !== "boolean"
+  ) {
     fail(`"self-extracting" must be a boolean.`);
   }
-  if (raw["exclude-unused-npm"] !== undefined && typeof raw["exclude-unused-npm"] !== "boolean") {
+  if (
+    raw["exclude-unused-npm"] !== undefined &&
+    typeof raw["exclude-unused-npm"] !== "boolean"
+  ) {
     fail(`"exclude-unused-npm" must be a boolean.`);
   }
-  if (raw.include !== undefined && !isStringArray(raw.include)) fail(`"include" must be a list of strings.`);
-  if (raw.exclude !== undefined && !isStringArray(raw.exclude)) fail(`"exclude" must be a list of strings.`);
+  if (raw.include !== undefined && !isStringArray(raw.include)) {
+    fail(`"include" must be a list of strings.`);
+  }
+  if (raw.exclude !== undefined && !isStringArray(raw.exclude)) {
+    fail(`"exclude" must be a list of strings.`);
+  }
 
   return {
     ...raw,
@@ -168,7 +198,10 @@ function validateConfig(raw: unknown): CompileConfig {
 function resolvePath(raw: string): string {
   if (isAbsolute(raw)) return raw;
   if (raw === "artifacts" || raw.startsWith("artifacts/")) {
-    return join(ctx.artifacts, raw.slice("artifacts".length).replace(/^\/+/, ""));
+    return join(
+      ctx.artifacts,
+      raw.slice("artifacts".length).replace(/^\/+/, ""),
+    );
   }
   if (raw === "packages" || raw.startsWith("packages/")) {
     return join(ctx.packages, raw.slice("packages".length).replace(/^\/+/, ""));
@@ -203,11 +236,15 @@ const config = validateConfig(parseYaml(await Deno.readTextFile(configPath)));
 const workspace = dirname(ctx.artifacts);
 const entrypoint = join(workspace, "apps", config.source, "main.ts");
 if (!await exists(entrypoint, { isFile: true })) {
-  throw new Error(`compile.yml: source "${config.source}" not found (expected ${entrypoint}).`);
+  throw new Error(
+    `compile.yml: source "${config.source}" not found (expected ${entrypoint}).`,
+  );
 }
 
 // --output-name, when explicitly passed, overrides compile.yml's own `output:`.
-const outputRelative = ctx.outputNameExplicit ? `${ctx.outputName}.exe` : (config.output ?? `${ctx.outputName}.exe`);
+const outputRelative = ctx.outputNameExplicit
+  ? `${ctx.outputName}.exe`
+  : (config.output ?? `${ctx.outputName}.exe`);
 const output = join(ctx.packages, outputRelative);
 await ensureDir(dirname(output));
 
@@ -220,8 +257,12 @@ if (config.minify) args.push("--minify");
 if (config["no-terminal"]) args.push("--no-terminal");
 if (config["self-extracting"]) args.push("--self-extracting");
 if (config["exclude-unused-npm"]) args.push("--exclude-unused-npm");
-for (const path of config.include ?? []) args.push("--include", resolvePath(path));
-for (const path of config.exclude ?? []) args.push("--exclude", resolvePath(path));
+for (const path of config.include ?? []) {
+  args.push("--include", resolvePath(path));
+}
+for (const path of config.exclude ?? []) {
+  args.push("--exclude", resolvePath(path));
+}
 args.push(...permissionArgs(config.permissions));
 
 // --watch itself keeps `deno compile` running (restarting the compile on every

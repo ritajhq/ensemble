@@ -35,7 +35,10 @@ async function spawn(
   try {
     if (capture) {
       const output = await child.output();
-      return { code: output.code, stdout: new TextDecoder().decode(output.stdout).trim() };
+      return {
+        code: output.code,
+        stdout: new TextDecoder().decode(output.stdout).trim(),
+      };
     }
     const status = await child.status;
     return { code: status.code, stdout: "" };
@@ -72,7 +75,11 @@ export class NativeProcessRunner implements ProcessRunner {
   ): Promise<void> {
     const { code } = await spawn(command, args, options, false);
     if (code !== 0) {
-      throw new Error(`Command "${commandLine(command, args)}" failed with exit code ${code}.`);
+      throw new Error(
+        `Command "${
+          commandLine(command, args)
+        }" failed with exit code ${code}.`,
+      );
     }
   }
 
@@ -83,7 +90,11 @@ export class NativeProcessRunner implements ProcessRunner {
   ): Promise<string> {
     const { code, stdout } = await spawn(command, args, options, true);
     if (code !== 0) {
-      throw new Error(`Command "${commandLine(command, args)}" failed with exit code ${code}.`);
+      throw new Error(
+        `Command "${
+          commandLine(command, args)
+        }" failed with exit code ${code}.`,
+      );
     }
     return stdout;
   }

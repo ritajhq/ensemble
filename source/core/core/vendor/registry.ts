@@ -47,7 +47,10 @@ export class FileRegistry implements Registry {
     const gitignorePath = join(this.repoRoot, ".gitignore");
     if (!await exists(gitignorePath, { isFile: true })) return;
     const lines = (await Deno.readTextFile(gitignorePath)).split("\n");
-    await Deno.writeTextFile(gitignorePath, lines.filter((line) => line !== path).join("\n"));
+    await Deno.writeTextFile(
+      gitignorePath,
+      lines.filter((line) => line !== path).join("\n"),
+    );
   }
 
   private async ignorePath(path: string): Promise<void> {

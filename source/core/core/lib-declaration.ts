@@ -13,7 +13,10 @@ export interface LibDeclaration {
   readonly publish: readonly PublishEntry[];
 }
 
-function toDeclaration(configKey: "libs" | "core", libConfig: LibConfig): LibDeclaration {
+function toDeclaration(
+  configKey: "libs" | "core",
+  libConfig: LibConfig,
+): LibDeclaration {
   if (!libConfig.package) {
     throw new Error(
       `"publish.${configKey}" entry "${libConfig.name}" in .ensemble/config.yaml is missing a "package" name.`,
@@ -21,7 +24,10 @@ function toDeclaration(configKey: "libs" | "core", libConfig: LibConfig): LibDec
   }
   return {
     package: libConfig.package,
-    publish: (libConfig.publish ?? []).map(({ kit, target }) => ({ kit, target })),
+    publish: (libConfig.publish ?? []).map(({ kit, target }) => ({
+      kit,
+      target,
+    })),
   };
 }
 

@@ -9,7 +9,8 @@ import type { Kit } from "../../kit.ts";
  * dropped until a real `--emulate-externals` run surfaced it.
  */
 const kit: Kit = {
-  provisioners: () => Promise.resolve([{ matches: () => Promise.resolve(true) }]),
+  provisioners: () =>
+    Promise.resolve([{ matches: () => Promise.resolve(true) }]),
   realization: () =>
     Promise.resolve({
       classPreset: () => Promise.resolve(undefined),

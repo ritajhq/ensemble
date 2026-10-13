@@ -31,7 +31,10 @@ const INDEX_TS_TEMPLATE = `export {};\n`;
  * member glob (set up by `ens init`), so no separate workspace registration
  * step is needed.
  */
-export async function runLibNew(name: string, repo: RepoLocator): Promise<void> {
+export async function runLibNew(
+  name: string,
+  repo: RepoLocator,
+): Promise<void> {
   const trimmed = name.trim();
   if (!LIB_NAME_PATTERN.test(trimmed)) {
     throw new Error(

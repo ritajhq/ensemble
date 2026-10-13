@@ -12,7 +12,10 @@ import {
 /** Selects the first provisioner in a kit's set that matches a resource (Section 10's first-match rule), and reports any capability gaps against that kit's realization. */
 export class ProvisionerSelector {
   /** Throws `NoMatchingProvisionerError` if nothing in the kit's provisioner set matches at all. */
-  async select(resource: MatchedResource, target: Target): Promise<SelectedProvisioner> {
+  async select(
+    resource: MatchedResource,
+    target: Target,
+  ): Promise<SelectedProvisioner> {
     const runtime = this.effectiveRuntime(resource, target);
     let provisioner: Provisioner | undefined;
     for (const candidate of await target.kit.provisioners()) {
@@ -53,7 +56,10 @@ export class ProvisionerSelector {
     return target.runtime;
   }
 
-  private async describe(provisioner: Provisioner, index: number): Promise<string> {
+  private async describe(
+    provisioner: Provisioner,
+    index: number,
+  ): Promise<string> {
     return await provisioner.describe?.() ?? `provisioner #${index + 1}`;
   }
 

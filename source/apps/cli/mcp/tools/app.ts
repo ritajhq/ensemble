@@ -15,8 +15,12 @@ export class AppTools {
         description:
           "Scaffolds a new app under source/apps/ with a build kit's hello-world template.",
         inputSchema: {
-          kit: z.string().describe('Build kit to scaffold with, e.g. "deno.bundle".'),
-          name: z.string().describe("App name — becomes the source/apps/<name> directory."),
+          kit: z.string().describe(
+            'Build kit to scaffold with, e.g. "deno.bundle".',
+          ),
+          name: z.string().describe(
+            "App name — becomes the source/apps/<name> directory.",
+          ),
           target: z.string().optional().describe(
             'Static build variant to scaffold for (e.g. the react kit\'s "ssr").',
           ),

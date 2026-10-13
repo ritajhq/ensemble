@@ -12,6 +12,12 @@ export async function runLibUninstall(
 ): Promise<Vendor.Entry> {
   const repoRoot = await repo.findRepoRoot();
   const registry = new Vendor.FileRegistry(repoRoot);
-  const usages = await new Status.Survey(repoRoot, registry).describeTo(new Status.LibraryUsages(name));
-  return await new Vendor.Uninstaller(repoRoot, registry, source).uninstall(join("source", "libs", name), usages, options);
+  const usages = await new Status.Survey(repoRoot, registry).describeTo(
+    new Status.LibraryUsages(name),
+  );
+  return await new Vendor.Uninstaller(repoRoot, registry, source).uninstall(
+    join("source", "libs", name),
+    usages,
+    options,
+  );
 }

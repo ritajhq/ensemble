@@ -44,9 +44,12 @@ export class GitPackageSource implements Vendor.PackageSource {
   }
 
   async hasLocalChanges(dir: string): Promise<boolean> {
-    const uncommitted = (await $`git status --porcelain`.cwd(dir).text()).trim();
+    const uncommitted = (await $`git status --porcelain`.cwd(dir).text())
+      .trim();
     if (uncommitted.length > 0) return true;
-    const unpublished = (await $`git rev-list HEAD --not --remotes --tags`.cwd(dir).text()).trim();
+    const unpublished =
+      (await $`git rev-list HEAD --not --remotes --tags`.cwd(dir).text())
+        .trim();
     return unpublished.length > 0;
   }
 

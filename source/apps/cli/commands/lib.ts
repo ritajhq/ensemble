@@ -5,8 +5,8 @@ import {
   runLibInstall,
   runLibNew,
   runLibPin,
-  runLibUninstall,
   runLibPublish,
+  runLibUninstall,
   runLibUpdate,
 } from "@ensemble/core";
 import * as Host from "@ensemble/host";
@@ -72,7 +72,10 @@ export const libCommand = new Command()
         "Remove a vendored lib: its checkout, lockfile entry and .gitignore line. Refuses while the project still uses it or it has local changes.",
       )
       .arguments("<name:string>")
-      .option("-f, --force", "Uninstall even if the project still uses it, or discard its local changes.")
+      .option(
+        "-f, --force",
+        "Uninstall even if the project still uses it, or discard its local changes.",
+      )
       .action(async ({ force }, name) => {
         const entry = await runLibUninstall(
           name,
@@ -80,7 +83,9 @@ export const libCommand = new Command()
           Host.createPorts().repo,
           new Host.GitPackageSource(),
         );
-        console.log(`Uninstalled ${entry.path} (was ${entry.repo}@${entry.ref}).`);
+        console.log(
+          `Uninstalled ${entry.path} (was ${entry.repo}@${entry.ref}).`,
+        );
       }),
   )
   .command(

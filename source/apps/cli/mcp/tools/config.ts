@@ -18,7 +18,10 @@ export class ConfigTools {
       ({ app, kit }) =>
         ToolResult.from(async () => {
           const repoRoot = await Host.createPorts().repo.findRepoRoot();
-          await new Core.Config.EnsembleConfigStore(repoRoot).setAppBuildKit(app, kit);
+          await new Core.Config.EnsembleConfigStore(repoRoot).setAppBuildKit(
+            app,
+            kit,
+          );
           return `Set build.${app}.kit = ${kit}`;
         }),
     );
@@ -35,7 +38,12 @@ export class ConfigTools {
       ({ app, key, value }) =>
         ToolResult.from(async () => {
           const repoRoot = await Host.createPorts().repo.findRepoRoot();
-          await new Core.Config.EnsembleConfigStore(repoRoot).setVar("build", app, key, value);
+          await new Core.Config.EnsembleConfigStore(repoRoot).setVar(
+            "build",
+            app,
+            key,
+            value,
+          );
           return `Set local default build var ${key}=${value} for "${app}".`;
         }),
     );
@@ -52,7 +60,12 @@ export class ConfigTools {
       ({ ship, key, value }) =>
         ToolResult.from(async () => {
           const repoRoot = await Host.createPorts().repo.findRepoRoot();
-          await new Core.Config.EnsembleConfigStore(repoRoot).setVar("pack", ship, key, value);
+          await new Core.Config.EnsembleConfigStore(repoRoot).setVar(
+            "pack",
+            ship,
+            key,
+            value,
+          );
           return `Set local default pack var ${key}=${value} for "${ship}".`;
         }),
     );

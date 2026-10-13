@@ -40,7 +40,9 @@ export class PackTools {
             varOverrides,
           }, Host.createPorts());
           if (code !== 0) {
-            throw new Error(`Packing "${ship}" via "${kit}" failed with exit code ${code}.`);
+            throw new Error(
+              `Packing "${ship}" via "${kit}" failed with exit code ${code}.`,
+            );
           }
           return `Packed "${ship}" via "${kit}".`;
         }),

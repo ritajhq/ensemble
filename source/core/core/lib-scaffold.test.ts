@@ -59,7 +59,9 @@ Deno.test("runLibNew: registers a publish.libs[] entry with the lib's package in
   await withProjectRoot(async (repoRoot) => {
     await runLibNew("widgets", repoAt(repoRoot));
 
-    const declaration = await new LibDeclarationLoader(repoRoot).load("widgets");
+    const declaration = await new LibDeclarationLoader(repoRoot).load(
+      "widgets",
+    );
     assertEquals(declaration, { package: "widgets", publish: [] });
   });
 });

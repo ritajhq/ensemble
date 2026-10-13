@@ -9,7 +9,9 @@ import type { Ports } from "./ports.ts";
 /** `libKitFor` is always overridden by a fake in these tests, so the default's dependency on real ports never actually runs. */
 const UNUSED_PORTS: Ports = {
   repo: { findRepoRoot: () => Promise.reject(new Error("not used")) },
-  denoExe: { resolveDenoExecutable: () => Promise.reject(new Error("not used")) },
+  denoExe: {
+    resolveDenoExecutable: () => Promise.reject(new Error("not used")),
+  },
   process: {
     run: () => Promise.reject(new Error("not used")),
     exec: () => Promise.reject(new Error("not used")),

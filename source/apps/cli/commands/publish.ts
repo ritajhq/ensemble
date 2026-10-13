@@ -16,9 +16,13 @@ export const publishCommand = new Command()
     "Version to publish this artifact under, alongside its :latest tag.",
     { default: "latest" },
   )
-  .option("-v, --var <var:string>", "Override a publish var (KEY=VALUE). Repeatable.", {
-    collect: true,
-  })
+  .option(
+    "-v, --var <var:string>",
+    "Override a publish var (KEY=VALUE). Repeatable.",
+    {
+      collect: true,
+    },
+  )
   .action(async ({ outputName, version, var: vars }, ship, kit, target) => {
     const code = await runPublish(ship, kit, {
       target,

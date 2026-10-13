@@ -10,7 +10,10 @@ export class View implements vscode.TreeDataProvider<Node>, vscode.Disposable {
 
   constructor(
     private readonly source: Source,
-    private readonly roots: (status: Status.Document, root: vscode.Uri) => Node[],
+    private readonly roots: (
+      status: Status.Document,
+      root: vscode.Uri,
+    ) => Node[],
   ) {
     source.OnChange.Do(() => this.changed.fire());
   }

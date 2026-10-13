@@ -30,7 +30,9 @@ export const configCommand = new Command()
         const config = new Core.Config.EnsembleConfigStore(repoRoot);
         const [key, value] = CliUtil.splitPair(pair);
         await config.setVar("build", app, key, value);
-        console.log(`Set local default build var ${key}=${value} for "${app}".`);
+        console.log(
+          `Set local default build var ${key}=${value} for "${app}".`,
+        );
       }),
   )
   .command(
@@ -45,6 +47,8 @@ export const configCommand = new Command()
         const config = new Core.Config.EnsembleConfigStore(repoRoot);
         const [key, value] = CliUtil.splitPair(pair);
         await config.setVar("pack", ship, key, value);
-        console.log(`Set local default pack var ${key}=${value} for "${ship}".`);
+        console.log(
+          `Set local default pack var ${key}=${value} for "${ship}".`,
+        );
       }),
   );

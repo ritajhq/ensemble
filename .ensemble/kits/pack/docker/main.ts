@@ -17,14 +17,19 @@ const dependencies = await referencedApps(ctx.ship, ctx.apps);
 
 const artifactContextArgs: string[] = [];
 for (const app of dependencies) {
-  artifactContextArgs.push("--build-context", `${app}=${join(ctx.artifacts, app)}`);
+  artifactContextArgs.push(
+    "--build-context",
+    `${app}=${join(ctx.artifacts, app)}`,
+  );
 }
 
 const modes = await KitSdk.Pack.loadModes(kitDir);
 const format = modes[ctx.mode];
 if (!format) {
   const available = Object.keys(modes).join(", ") || "(none declared)";
-  throw new Error(`Unknown mode "${ctx.mode}" for the docker kit. Available modes: ${available}`);
+  throw new Error(
+    `Unknown mode "${ctx.mode}" for the docker kit. Available modes: ${available}`,
+  );
 }
 
 // ctx.outputName (the ship name by default, but overridable via

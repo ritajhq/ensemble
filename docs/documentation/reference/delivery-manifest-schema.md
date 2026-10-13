@@ -51,9 +51,9 @@ where anything that needs a compute reaches it as `<service>:<port>`, the same
 address a compute's own `${compute.*}` references and the gateway's routes
 resolve to. From the host itself, `docker compose exec <service> ...` reaches a
 compute directly, and on native Linux Docker so does its container IP
-(`docker network inspect` finds it) — neither needs a published port, and
-Docker Desktop's own VM-based networking can't reach either without one, so
-this manifest field never tries to bridge that gap.
+(`docker network inspect` finds it) — neither needs a published port, and Docker
+Desktop's own VM-based networking can't reach either without one, so this
+manifest field never tries to bridge that gap.
 
 `relationalResource` also accepts an optional `init` — a list of repo-relative
 SQL/shell file paths run against a fresh database on startup. `compose` mounts
@@ -85,9 +85,9 @@ bakes to a bare number, never the compute's own name. `tls:
 internal` is
 rendered on `compose`: Caddy mints its own local CA and serves HTTPS on 8443,
 keeping that CA on a named volume so a recreated gateway doesn't invalidate a
-certificate you already trusted. `tls: none` — the same as leaving it unset —
-is plain HTTP on 80, for a gateway behind something that already terminates
-TLS (a Cloudflare tunnel). Any other value is rejected. Since it may be a
+certificate you already trusted. `tls: none` — the same as leaving it unset — is
+plain HTTP on 80, for a gateway behind something that already terminates TLS (a
+Cloudflare tunnel). Any other value is rejected. Since it may be a
 `${variables.<name>.value}` reference, a deployment can use `internal` in
 development and `none` in production.
 
@@ -117,8 +117,8 @@ particular field until you've checked the deploy kit you're targeting.
 
 ### References inside a string
 
-A reference may be the whole value (`port: ${compute.web.http}`) or sit inside
-a larger string (`host: dashboard.${variables.domain.value}`). An embedded
+A reference may be the whole value (`port: ${compute.web.http}`) or sit inside a
+larger string (`host: dashboard.${variables.domain.value}`). An embedded
 `${...}` is only treated as a reference when it starts with a reference category
 (`compute.`, `variables.`, `external.`, `release.`, …), so shell or compose
 syntax such as `${HOME}` passes through untouched. Each embedded reference must
@@ -170,8 +170,8 @@ That namespace is the reason tasks exist: a script takes `"$artifact"` and
 hardcoding the container or network name `docker compose` derives
 (`<project>-gateway-1`, `<project>_default`) and a rename would silently break.
 Secrets need no argument at all: the task process inherits `ens`'s environment,
-which already carries your variables and secrets (plus any `--env-file`), exactly as
-a deploy receives them.
+which already carries your variables and secrets (plus any `--env-file`),
+exactly as a deploy receives them.
 
 ## `mounts` and `development`
 
@@ -180,13 +180,13 @@ a deploy receives them.
   readOnly? }[]`, attaching a `storage.volume` entry's
   `${storage.<name>.name}` output.
 - `development` — what only `ens deploy --mode development` (and so
-  `ens develop`) adds to a resource. Sync rules are grouped by action: `sync` (copy files) and
-  `sync+restart` (copy, then restart the container), each rule
-  `{ app, path, ignore? }`. `env` is a mapping of environment variables added
-  on top of the resource's own (`env: { LIVE_RELOAD: "true" }`). It may only
-  add: naming a variable `env` or `envSecrets` already sets fails the render,
-  in either mode, so development never runs with a different value than
-  production, only with more. Honored only by provisioners that support it.
+  `ens develop`) adds to a resource. Sync rules are grouped by action: `sync`
+  (copy files) and `sync+restart` (copy, then restart the container), each rule
+  `{ app, path, ignore? }`. `env` is a mapping of environment variables added on
+  top of the resource's own (`env: { LIVE_RELOAD: "true" }`). It may only add:
+  naming a variable `env` or `envSecrets` already sets fails the render, in
+  either mode, so development never runs with a different value than production,
+  only with more. Honored only by provisioners that support it.
 
 ## Capability negotiation
 

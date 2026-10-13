@@ -20,7 +20,10 @@ export class CliUpdates implements vscode.Disposable {
 
   constructor(cli: Cli) {
     if (!isAbsolute(cli.executable)) return;
-    const pattern = new vscode.RelativePattern(vscode.Uri.file(dirname(cli.executable)), basename(cli.executable));
+    const pattern = new vscode.RelativePattern(
+      vscode.Uri.file(dirname(cli.executable)),
+      basename(cli.executable),
+    );
     this.watcher = vscode.workspace.createFileSystemWatcher(pattern);
     this.watcher.onDidCreate(() => this.settle());
     this.watcher.onDidChange(() => this.settle());

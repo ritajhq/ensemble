@@ -81,7 +81,9 @@ export class FakeRealization implements Realization {
     type: string,
     className: string,
   ): Promise<ClassPreset | undefined> {
-    return Promise.resolve(this.presets.get(`${category}.${type}.${className}`));
+    return Promise.resolve(
+      this.presets.get(`${category}.${type}.${className}`),
+    );
   }
 
   defaultFor(

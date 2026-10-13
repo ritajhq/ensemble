@@ -56,7 +56,10 @@ export class WorkloadResolver {
     this.matcher = new ContractMatcher(registry);
   }
 
-  async resolve(workload: Workload, target: Target): Promise<WorkloadResolution> {
+  async resolve(
+    workload: Workload,
+    target: Target,
+  ): Promise<WorkloadResolution> {
     const matches = new Map<string, MatchedResource>();
     const selections = new Map<string, SelectedProvisioner>();
     const values = new Map<string, ResolvedValues>();

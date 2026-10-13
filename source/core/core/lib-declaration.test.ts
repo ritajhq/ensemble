@@ -15,7 +15,10 @@ async function withRepoRoot(
   }
 }
 
-async function writeConfigYaml(repoRoot: string, content: string): Promise<void> {
+async function writeConfigYaml(
+  repoRoot: string,
+  content: string,
+): Promise<void> {
   await Deno.mkdir(join(repoRoot, ".ensemble"), { recursive: true });
   await Deno.writeTextFile(join(repoRoot, ".ensemble", "config.yaml"), content);
 }
@@ -27,7 +30,9 @@ Deno.test("LibDeclarationLoader.load: parses package and publish entries from pu
       `publish:\n  libs:\n    - name: widgets\n      package: "@x/widgets"\n      publish:\n        - kit: jsr\n        - kit: npm\n          target: private-registry\n`,
     );
 
-    const declaration = await new LibDeclarationLoader(repoRoot).load("widgets");
+    const declaration = await new LibDeclarationLoader(repoRoot).load(
+      "widgets",
+    );
     assertEquals(declaration, {
       package: "@x/widgets",
       publish: [{ kit: "jsr", target: undefined }, {
@@ -40,9 +45,14 @@ Deno.test("LibDeclarationLoader.load: parses package and publish entries from pu
 
 Deno.test("LibDeclarationLoader.load: a libs entry with no publish entries loads with an empty list", async () => {
   await withRepoRoot(async (repoRoot) => {
-    await writeConfigYaml(repoRoot, `publish:\n  libs:\n    - name: widgets\n      package: "widgets"\n`);
+    await writeConfigYaml(
+      repoRoot,
+      `publish:\n  libs:\n    - name: widgets\n      package: "widgets"\n`,
+    );
 
-    const declaration = await new LibDeclarationLoader(repoRoot).load("widgets");
+    const declaration = await new LibDeclarationLoader(repoRoot).load(
+      "widgets",
+    );
     assertEquals(declaration, { package: "widgets", publish: [] });
   });
 });

@@ -26,7 +26,9 @@ export class Source implements vscode.Disposable {
 
   constructor(private readonly cli: Cli, readonly root: vscode.Uri) {
     this.watchers = WATCHED.map((glob) => {
-      const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(root, glob));
+      const watcher = vscode.workspace.createFileSystemWatcher(
+        new vscode.RelativePattern(root, glob),
+      );
       watcher.onDidCreate(() => this.refreshSoon());
       watcher.onDidChange(() => this.refreshSoon());
       watcher.onDidDelete(() => this.refreshSoon());
@@ -63,7 +65,11 @@ export class Source implements vscode.Disposable {
     try {
       return await this.cli.status();
     } catch (error) {
-      vscode.window.showWarningMessage(`Ensemble: couldn't read the project status (${(error as Error).message}).`);
+      vscode.window.showWarningMessage(
+        `Ensemble: couldn't read the project status (${
+          (error as Error).message
+        }).`,
+      );
       return undefined;
     }
   }

@@ -36,7 +36,9 @@ deploy:
 const catalog = new ContractCatalog(SEEDED);
 const syntax = new ReferenceSyntax();
 
-function formatted(targets: { reference: Parameters<ReferenceSyntax["format"]>[0] }[]): string[] {
+function formatted(
+  targets: { reference: Parameters<ReferenceSyntax["format"]>[0] }[],
+): string[] {
   return targets.map(({ reference }) => syntax.format(reference));
 }
 
@@ -53,7 +55,11 @@ Deno.test("ReferenceTargets: lists releases, contract outputs, ports and declara
       "${external.edge.name}",
     ]
   ) {
-    assertEquals(targets.includes(expected), true, `missing ${expected} in ${targets.join(", ")}`);
+    assertEquals(
+      targets.includes(expected),
+      true,
+      `missing ${expected} in ${targets.join(", ")}`,
+    );
   }
   assertEquals(targets.some((t) => t.startsWith("${storage.mystery")), false);
 });
@@ -62,13 +68,18 @@ Deno.test("ReferenceTargets: every listed target passes ReferenceValidator", () 
   const workload = new Parser().parse(MANIFEST);
   const validator = new ReferenceValidator(catalog);
 
-  for (const { reference } of new ReferenceTargets(catalog).ofWorkload(workload)) {
+  for (
+    const { reference } of new ReferenceTargets(catalog).ofWorkload(workload)
+  ) {
     const probe = {
       ...workload,
       storage: undefined,
       compute: {
         ...workload.compute,
-        probe: { type: "container-orchestrated", params: { image: syntax.format(reference), replicas: 1 } },
+        probe: {
+          type: "container-orchestrated",
+          params: { image: syntax.format(reference), replicas: 1 },
+        },
       },
     };
     validator.validate(probe);

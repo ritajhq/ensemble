@@ -1,7 +1,7 @@
 # `ens lsp`
 
-Run a language server for Ensemble's own files over stdio, for an editor's
-LSP client.
+Run a language server for Ensemble's own files over stdio, for an editor's LSP
+client.
 
 ```sh
 ens lsp --stdio

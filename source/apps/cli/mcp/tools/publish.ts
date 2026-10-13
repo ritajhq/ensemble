@@ -12,7 +12,8 @@ export class PublishTools {
       "ensemble_publish",
       {
         title: "Publish a packed ship",
-        description: "Publishes a previously packed ship using the given pack kit.",
+        description:
+          "Publishes a previously packed ship using the given pack kit.",
         inputSchema: {
           ship: z.string().describe("Ship name to publish."),
           kit: z.string().describe("Pack kit that produced the artifact."),

@@ -43,5 +43,9 @@ export interface Realization {
     capability: string,
   ): Promise<boolean>;
   /** Not consumed until Phase 5's `ReferenceResolver` — declared now so `Realization`'s shape doesn't change once Render lands. */
-  knowabilityOf(category: Category, type: string, output: string): Promise<Knowability>;
+  knowabilityOf(
+    category: Category,
+    type: string,
+    output: string,
+  ): Promise<Knowability>;
 }

@@ -26,7 +26,11 @@ Deno.test("LayeredRealization: falls through to the underlying realization with 
     { concernValues: { backupRetention: 35 } },
   );
   assertEquals(
-    await layered.supportsCapability("databases", "relational", "read-replicas"),
+    await layered.supportsCapability(
+      "databases",
+      "relational",
+      "read-replicas",
+    ),
     true,
   );
 });
@@ -121,7 +125,11 @@ Deno.test("LayeredRealization: capability support and output knowability always 
   const layered = new LayeredRealization({}, underlying);
 
   assertEquals(
-    await layered.supportsCapability("databases", "relational", "read-replicas"),
+    await layered.supportsCapability(
+      "databases",
+      "relational",
+      "read-replicas",
+    ),
     true,
   );
   assertEquals(

@@ -11,7 +11,13 @@ export interface Document {
 
 /** `ens status --json`'s machine-readable report: the survey as one JSON document. */
 export class Json extends Core.Status.Builder<string> {
-  private readonly document: Document = { version: 1, apps: [], kits: [], libraries: [], workloads: [] };
+  private readonly document: Document = {
+    version: 1,
+    apps: [],
+    kits: [],
+    libraries: [],
+    workloads: [],
+  };
 
   apps(apps: readonly Core.Status.App[]): void {
     this.document.apps = apps;

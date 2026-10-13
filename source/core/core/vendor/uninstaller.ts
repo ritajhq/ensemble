@@ -24,7 +24,11 @@ export class Uninstaller {
     private readonly source: PackageSource,
   ) {}
 
-  async uninstall(path: string, usages: readonly string[], options: UninstallOptions): Promise<Entry> {
+  async uninstall(
+    path: string,
+    usages: readonly string[],
+    options: UninstallOptions,
+  ): Promise<Entry> {
     const entry = await this.registry.entryFor(path);
     if (!entry) {
       throw new Error(
@@ -47,12 +51,17 @@ export class Uninstaller {
   private refuseWhileUsed(path: string, usages: readonly string[]): void {
     if (usages.length === 0) return;
     throw new Error(
-      `"${path}" is still used by:\n${usages.map((usage) => `  - ${usage}`).join("\n")}\n` +
+      `"${path}" is still used by:\n${
+        usages.map((usage) => `  - ${usage}`).join("\n")
+      }\n` +
         `Remove those uses first, or pass --force to uninstall anyway.`,
     );
   }
 
-  private async refuseWithLocalChanges(path: string, dir: string): Promise<void> {
+  private async refuseWithLocalChanges(
+    path: string,
+    dir: string,
+  ): Promise<void> {
     if (!await this.source.hasLocalChanges(dir)) return;
     throw new Error(
       `"${path}" has local changes its remote doesn't have, which uninstalling would lose. ` +

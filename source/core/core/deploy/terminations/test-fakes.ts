@@ -28,7 +28,9 @@ export class FakePresentingKit implements Kit {
     return Promise.resolve([...this.command, artifactPath]);
   }
   watchCommand(artifactPath: string): Promise<readonly string[] | undefined> {
-    return Promise.resolve(this.watch ? [...this.watch, artifactPath] : undefined);
+    return Promise.resolve(
+      this.watch ? [...this.watch, artifactPath] : undefined,
+    );
   }
 }
 

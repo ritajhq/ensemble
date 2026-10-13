@@ -105,7 +105,10 @@ Deno.test("ProvisionerSelector.explain: reports every provisioner's own match re
     new FakeRealization(),
   );
 
-  const explanation = await selector.explain(matchedRelational(), fakeTarget(kit));
+  const explanation = await selector.explain(
+    matchedRelational(),
+    fakeTarget(kit),
+  );
   assertEquals(explanation, [
     { description: "container-orchestrated", matched: false },
     { description: "relational", matched: true },
@@ -118,7 +121,10 @@ Deno.test("ProvisionerSelector.explain: falls back to a positional label when a 
     new FakeRealization(),
   );
 
-  const explanation = await selector.explain(matchedRelational(), fakeTarget(kit));
+  const explanation = await selector.explain(
+    matchedRelational(),
+    fakeTarget(kit),
+  );
   assertEquals(explanation, [{ description: "provisioner #1", matched: true }]);
 });
 
@@ -128,7 +134,10 @@ Deno.test("ProvisionerSelector.explain: never throws when nothing matches (unlik
     new FakeRealization(),
   );
 
-  const explanation = await selector.explain(matchedRelational(), fakeTarget(kit));
+  const explanation = await selector.explain(
+    matchedRelational(),
+    fakeTarget(kit),
+  );
   assertEquals(explanation, [{ description: "relational", matched: false }]);
 });
 

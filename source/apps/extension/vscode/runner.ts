@@ -2,7 +2,8 @@ import * as vscode from "vscode";
 import type { Cli } from "./cli.ts";
 
 const SAFE = /^[\w@%+=:,./-]+$/;
-const quote = (arg: string) => SAFE.test(arg) ? arg : `'${arg.replaceAll("'", `'\\''`)}'`;
+const quote = (arg: string) =>
+  SAFE.test(arg) ? arg : `'${arg.replaceAll("'", `'\\''`)}'`;
 
 /** Runs `ens` commands in one reusable "Ensemble" terminal, so their output stays visible and interactive prompts (e.g. `ens release`'s confirmation) still work. */
 export class Runner {
@@ -20,8 +21,13 @@ export class Runner {
   }
 
   private ownTerminal(): vscode.Terminal {
-    if (this.terminal && this.terminal.exitStatus === undefined) return this.terminal;
-    this.terminal = vscode.window.createTerminal({ name: "Ensemble", cwd: this.projectRoot });
+    if (this.terminal && this.terminal.exitStatus === undefined) {
+      return this.terminal;
+    }
+    this.terminal = vscode.window.createTerminal({
+      name: "Ensemble",
+      cwd: this.projectRoot,
+    });
     return this.terminal;
   }
 }

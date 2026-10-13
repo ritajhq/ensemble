@@ -20,7 +20,10 @@ export interface RunAppCreateOptions {
  * EnsembleConfigStore.setAppBuildKit — so the app is immediately buildable
  * with `ens build <name>`.
  */
-export async function runAppCreate(options: RunAppCreateOptions, ports: Ports): Promise<void> {
+export async function runAppCreate(
+  options: RunAppCreateOptions,
+  ports: Ports,
+): Promise<void> {
   const name = options.name.trim();
   if (!APP_NAME_PATTERN.test(name)) {
     throw new Error(
@@ -33,7 +36,9 @@ export async function runAppCreate(options: RunAppCreateOptions, ports: Ports): 
   const kitDir = join(repoRoot, ".ensemble", "kits", "build", options.kit);
   const scaffoldEntry = join(kitDir, "scaffold.ts");
   if (!await exists(scaffoldEntry, { isFile: true })) {
-    throw new Error(`Build kit "${options.kit}" has no scaffold.ts (expected ${scaffoldEntry})`);
+    throw new Error(
+      `Build kit "${options.kit}" has no scaffold.ts (expected ${scaffoldEntry})`,
+    );
   }
 
   const sourceDir = join(repoRoot, "source", "apps", name);

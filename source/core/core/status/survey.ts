@@ -4,9 +4,19 @@ import { EnsembleConfigStore, type LibConfig } from "../config.ts";
 import * as Deploy from "../deploy/index.ts";
 import * as Vendor from "../vendor/index.ts";
 import type { Builder } from "./builder.ts";
-import { type App, type Kit, KIT_ROLES, type KitRole, type Library, type Task, type Vendoring, type Workload } from "./project.ts";
+import {
+  type App,
+  type Kit,
+  KIT_ROLES,
+  type KitRole,
+  type Library,
+  type Task,
+  type Vendoring,
+  type Workload,
+} from "./project.ts";
 
-const byName = <T extends { name: string }>(a: T, b: T) => a.name.localeCompare(b.name);
+const byName = <T extends { name: string }>(a: T, b: T) =>
+  a.name.localeCompare(b.name);
 
 /**
  * Gathers every app, kit, library and workload this project knows about —
@@ -18,12 +28,16 @@ const byName = <T extends { name: string }>(a: T, b: T) => a.name.localeCompare(
 export class Survey {
   constructor(
     private readonly repoRoot: string,
-    private readonly vendor: Vendor.Registry = new Vendor.FileRegistry(repoRoot),
+    private readonly vendor: Vendor.Registry = new Vendor.FileRegistry(
+      repoRoot,
+    ),
   ) {}
 
   async describeTo<Output>(builder: Builder<Output>): Promise<Output> {
     const config = await new EnsembleConfigStore(this.repoRoot).loadOrEmpty();
-    const vendored = new Map((await this.vendor.all()).map((entry) => [entry.path, entry]));
+    const vendored = new Map(
+      (await this.vendor.all()).map((entry) => [entry.path, entry]),
+    );
 
     builder.apps(this.apps(config.build ?? {}));
     builder.kits(await this.kits(vendored));
@@ -46,7 +60,10 @@ export class Survey {
     return kits;
   }
 
-  private async kitsOf(role: KitRole, vendored: Map<string, Vendoring>): Promise<Kit[]> {
+  private async kitsOf(
+    role: KitRole,
+    vendored: Map<string, Vendoring>,
+  ): Promise<Kit[]> {
     const dir = join(this.repoRoot, ".ensemble", "kits", role);
     if (!await exists(dir, { isDirectory: true })) return [];
 
@@ -54,7 +71,12 @@ export class Survey {
     for await (const entry of Deno.readDir(dir)) {
       if (!entry.isDirectory) continue;
       const path = join(".ensemble", "kits", role, entry.name);
-      kits.push({ name: entry.name, role, path, vendored: this.vendoringOf(path, vendored) });
+      kits.push({
+        name: entry.name,
+        role,
+        path,
+        vendored: this.vendoringOf(path, vendored),
+      });
     }
     return kits.sort(byName);
   }
@@ -96,7 +118,9 @@ export class Survey {
       workloads.push({
         name: entry.name,
         manifest: relative(this.repoRoot, manifestPath),
-        ships: Object.entries(workload.release ?? {}).map(([name, release]) => ({ name, kit: release.kit })),
+        ships: Object.entries(workload.release ?? {}).map((
+          [name, release],
+        ) => ({ name, kit: release.kit })),
         resources: this.resourcesOf(workload),
         tasks: this.tasksOf(workload),
       });
@@ -123,7 +147,10 @@ export class Survey {
       .sort(byName);
   }
 
-  private vendoringOf(path: string, vendored: Map<string, Vendoring>): Vendoring | undefined {
+  private vendoringOf(
+    path: string,
+    vendored: Map<string, Vendoring>,
+  ): Vendoring | undefined {
     const entry = vendored.get(path);
     return entry ? { repo: entry.repo, ref: entry.ref } : undefined;
   }

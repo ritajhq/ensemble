@@ -11,7 +11,11 @@ interface ReleaseFilter {
   skip?: string[];
 }
 
-function filterByName<T>(items: T[], nameOf: (item: T) => string, filter: ReleaseFilter): T[] {
+function filterByName<T>(
+  items: T[],
+  nameOf: (item: T) => string,
+  filter: ReleaseFilter,
+): T[] {
   let result = items;
   if (filter.only) {
     const only = new Set(filter.only);
@@ -28,9 +32,15 @@ async function collectReleases(
   repoRoot: string,
   ports: Core.Ports,
   filter: ReleaseFilter,
-): Promise<{ ships: Core.Release.ShipRelease[]; coreLibs: Core.CoreLibRelease[] }> {
+): Promise<
+  { ships: Core.Release.ShipRelease[]; coreLibs: Core.CoreLibRelease[] }
+> {
   const ceremony = new Core.Release.ReleaseCeremony(repoRoot, ports);
-  const ships = filterByName(await ceremony.collectShipReleases(), (s) => s.name, filter);
+  const ships = filterByName(
+    await ceremony.collectShipReleases(),
+    (s) => s.name,
+    filter,
+  );
   const coreLibs = filterByName(
     await ceremony.collectCoreLibReleases(),
     (l) => l.declaration.package,
@@ -45,12 +55,18 @@ function describeReleaseScope(
 ): string {
   const lines: string[] = [];
   if (ships.length > 0) {
-    lines.push(`Ships: ${ships.map((s) => `${s.name} (via ${s.kit})`).join(", ")}`);
+    lines.push(
+      `Ships: ${ships.map((s) => `${s.name} (via ${s.kit})`).join(", ")}`,
+    );
   }
   if (coreLibs.length > 0) {
-    lines.push(`Core libs: ${coreLibs.map((l) => l.declaration.package).join(", ")}`);
+    lines.push(
+      `Core libs: ${coreLibs.map((l) => l.declaration.package).join(", ")}`,
+    );
   }
-  return lines.length > 0 ? lines.join("\n") : "Nothing to build or publish for this tag.";
+  return lines.length > 0
+    ? lines.join("\n")
+    : "Nothing to build or publish for this tag.";
 }
 
 /**
@@ -71,11 +87,16 @@ async function tagAndRunCeremony(
   const { ships, coreLibs } = await collectReleases(repoRoot, ports, {});
   const scope = describeReleaseScope(ships, coreLibs);
   if (dryRun) {
-    return `Would create tag: ${preview.tag} (from ${preview.lastTag ?? "no previous tag"})\n${scope}`;
+    return `Would create tag: ${preview.tag} (from ${
+      preview.lastTag ?? "no previous tag"
+    })\n${scope}`;
   }
 
   if (coreLibs.length > 0) {
-    await new Core.Release.ReleaseCeremony(repoRoot, ports).stampCoreLibs(coreLibs, preview.tag);
+    await new Core.Release.ReleaseCeremony(repoRoot, ports).stampCoreLibs(
+      coreLibs,
+      preview.tag,
+    );
     // Includes deno.lock alongside each lib's own directory: stamping spawns
     // a deno run subprocess per lib kit, and every such invocation resolves
     // the workspace's module graph against the freshly-bumped versions,
@@ -92,7 +113,9 @@ async function tagAndRunCeremony(
   await release.pushCommits(remote);
   await release.pushTag(preview.tag, remote);
   if (ships.length > 0) await ceremony.publishShips(ships, preview.tag);
-  if (coreLibs.length > 0) await ceremony.releaseCoreLibs(coreLibs, preview.tag);
+  if (coreLibs.length > 0) {
+    await ceremony.releaseCoreLibs(coreLibs, preview.tag);
+  }
 
   const hooks = new Core.Hooks.Hooks(repoRoot, ports.process);
   const releaseHooks = await hooks.releaseAfter();
@@ -104,7 +127,9 @@ async function tagAndRunCeremony(
     ...coreLibs.map((l) => l.declaration.package),
   ];
   return `Created tag: ${preview.tag}\n${
-    released.length > 0 ? `Released: ${released.join(", ")}` : "Nothing to build or publish."
+    released.length > 0
+      ? `Released: ${released.join(", ")}`
+      : "Nothing to build or publish."
   }`;
 }
 
@@ -134,10 +159,18 @@ export class ReleaseTools {
           "then packs and publishes every declared ship/library under it. Defaults to a dry-run preview.",
         inputSchema: {
           bump: z.enum(["patch", "minor", "major"]),
-          dryRun: z.boolean().default(true).describe("Preview without making changes."),
-          preRelease: z.string().optional().describe('Append a "-<suffix>" pre-release identifier.'),
-          meta: z.string().optional().describe('Append a "+<suffix>" build metadata identifier.'),
-          remote: z.string().default("origin").describe("Remote to push the tag/commits to."),
+          dryRun: z.boolean().default(true).describe(
+            "Preview without making changes.",
+          ),
+          preRelease: z.string().optional().describe(
+            'Append a "-<suffix>" pre-release identifier.',
+          ),
+          meta: z.string().optional().describe(
+            'Append a "+<suffix>" build metadata identifier.',
+          ),
+          remote: z.string().default("origin").describe(
+            "Remote to push the tag/commits to.",
+          ),
           confirmUncommittedChanges: z.boolean().default(false).describe(
             "Required to proceed (non-dry-run) when there are uncommitted changes.",
           ),
@@ -147,10 +180,28 @@ export class ReleaseTools {
         ToolResult.from(async () => {
           const ports = Host.createPorts();
           const repoRoot = await ports.repo.findRepoRoot();
-          const release = new Core.Release.ReleaseService(repoRoot, ports.process);
-          await requireCommittedOrConfirmed(release, dryRun, confirmUncommittedChanges);
-          const preview = await release.next(bump, { dryRun, preRelease, meta });
-          return await tagAndRunCeremony(repoRoot, ports, release, preview, remote, dryRun);
+          const release = new Core.Release.ReleaseService(
+            repoRoot,
+            ports.process,
+          );
+          await requireCommittedOrConfirmed(
+            release,
+            dryRun,
+            confirmUncommittedChanges,
+          );
+          const preview = await release.next(bump, {
+            dryRun,
+            preRelease,
+            meta,
+          });
+          return await tagAndRunCeremony(
+            repoRoot,
+            ports,
+            release,
+            preview,
+            remote,
+            dryRun,
+          );
         }),
     );
 
@@ -164,23 +215,58 @@ export class ReleaseTools {
           "every declared ship/library under it. Defaults to a dry-run preview.",
         inputSchema: {
           version: z.string().describe("Version to release, shape x.y.z."),
-          dryRun: z.boolean().default(true).describe("Preview without making changes."),
-          preRelease: z.string().optional().describe('Append a "-<suffix>" pre-release identifier.'),
-          meta: z.string().optional().describe('Append a "+<suffix>" build metadata identifier.'),
-          remote: z.string().default("origin").describe("Remote to push the tag/commits to."),
+          dryRun: z.boolean().default(true).describe(
+            "Preview without making changes.",
+          ),
+          preRelease: z.string().optional().describe(
+            'Append a "-<suffix>" pre-release identifier.',
+          ),
+          meta: z.string().optional().describe(
+            'Append a "+<suffix>" build metadata identifier.',
+          ),
+          remote: z.string().default("origin").describe(
+            "Remote to push the tag/commits to.",
+          ),
           confirmUncommittedChanges: z.boolean().default(false).describe(
             "Required to proceed (non-dry-run) when there are uncommitted changes.",
           ),
         },
       },
-      ({ version, dryRun, preRelease, meta, remote, confirmUncommittedChanges }) =>
+      (
+        {
+          version,
+          dryRun,
+          preRelease,
+          meta,
+          remote,
+          confirmUncommittedChanges,
+        },
+      ) =>
         ToolResult.from(async () => {
           const ports = Host.createPorts();
           const repoRoot = await ports.repo.findRepoRoot();
-          const release = new Core.Release.ReleaseService(repoRoot, ports.process);
-          await requireCommittedOrConfirmed(release, dryRun, confirmUncommittedChanges);
-          const preview = await release.set(version, { dryRun, preRelease, meta });
-          return await tagAndRunCeremony(repoRoot, ports, release, preview, remote, dryRun);
+          const release = new Core.Release.ReleaseService(
+            repoRoot,
+            ports.process,
+          );
+          await requireCommittedOrConfirmed(
+            release,
+            dryRun,
+            confirmUncommittedChanges,
+          );
+          const preview = await release.set(version, {
+            dryRun,
+            preRelease,
+            meta,
+          });
+          return await tagAndRunCeremony(
+            repoRoot,
+            ports,
+            release,
+            preview,
+            remote,
+            dryRun,
+          );
         }),
     );
 
@@ -194,24 +280,37 @@ export class ReleaseTools {
           "finishing a release after a partial failure. Defaults to a dry-run preview.",
         inputSchema: {
           tag: z.string().describe("Existing local tag to resume."),
-          dryRun: z.boolean().default(true).describe("Preview without making changes."),
+          dryRun: z.boolean().default(true).describe(
+            "Preview without making changes.",
+          ),
           remote: z.string().default("origin").describe("Remote to push to."),
-          only: z.array(z.string()).optional().describe("Ship/library names to include."),
-          skip: z.array(z.string()).optional().describe("Ship/library names to exclude."),
+          only: z.array(z.string()).optional().describe(
+            "Ship/library names to include.",
+          ),
+          skip: z.array(z.string()).optional().describe(
+            "Ship/library names to exclude.",
+          ),
         },
       },
       ({ tag, dryRun, remote, only, skip }) =>
         ToolResult.from(async () => {
           const ports = Host.createPorts();
           const repoRoot = await ports.repo.findRepoRoot();
-          const release = new Core.Release.ReleaseService(repoRoot, ports.process);
+          const release = new Core.Release.ReleaseService(
+            repoRoot,
+            ports.process,
+          );
           if (!await release.hasTag(tag)) {
             throw new Error(
               `No local tag "${tag}" — create it first with ensemble_release_next or ensemble_release_set.`,
             );
           }
           const filter: ReleaseFilter = { only, skip };
-          const { ships, coreLibs } = await collectReleases(repoRoot, ports, filter);
+          const { ships, coreLibs } = await collectReleases(
+            repoRoot,
+            ports,
+            filter,
+          );
           const scope = describeReleaseScope(ships, coreLibs);
           if (dryRun) return `Would resume ${tag}:\n${scope}`;
 
@@ -220,7 +319,9 @@ export class ReleaseTools {
           await release.pushCommits(remote);
           await release.pushTag(tag, remote);
           if (ships.length > 0) await ceremony.publishShips(ships, tag);
-          if (coreLibs.length > 0) await ceremony.releaseCoreLibs(coreLibs, tag);
+          if (coreLibs.length > 0) {
+            await ceremony.releaseCoreLibs(coreLibs, tag);
+          }
 
           const hooks = new Core.Hooks.Hooks(repoRoot, ports.process);
           const releaseHooks = await hooks.releaseAfter();
@@ -231,7 +332,9 @@ export class ReleaseTools {
             ...ships.map((s) => s.name),
             ...coreLibs.map((l) => l.declaration.package),
           ];
-          return `Resumed ${tag}. Released: ${released.join(", ") || "(nothing)"}`;
+          return `Resumed ${tag}. Released: ${
+            released.join(", ") || "(nothing)"
+          }`;
         }),
     );
 
@@ -240,10 +343,15 @@ export class ReleaseTools {
       "ensemble_release_undo",
       {
         title: "Delete the last release tag",
-        description: "Deletes the last tag locally, and optionally from a remote. Doesn't touch any commit.",
+        description:
+          "Deletes the last tag locally, and optionally from a remote. Doesn't touch any commit.",
         inputSchema: {
-          dryRun: z.boolean().default(true).describe("Preview without making changes."),
-          remote: z.string().default("origin").describe("Remote to also delete the tag from."),
+          dryRun: z.boolean().default(true).describe(
+            "Preview without making changes.",
+          ),
+          remote: z.string().default("origin").describe(
+            "Remote to also delete the tag from.",
+          ),
           deleteFromRemote: z.boolean().default(false).describe(
             "Also delete the tag from `remote`, not just locally.",
           ),
@@ -253,7 +361,10 @@ export class ReleaseTools {
         ToolResult.from(async () => {
           const ports = Host.createPorts();
           const repoRoot = await ports.repo.findRepoRoot();
-          const release = new Core.Release.ReleaseService(repoRoot, ports.process);
+          const release = new Core.Release.ReleaseService(
+            repoRoot,
+            ports.process,
+          );
           const result = await release.undo({ dryRun });
           if (dryRun) return `Would delete tag: ${result.tag}`;
           if (!deleteFromRemote) return `Deleted tag: ${result.tag}`;

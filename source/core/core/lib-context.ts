@@ -43,7 +43,10 @@ export interface Actions {
  * the stamp/publish split (and the CLI contract for reaching it) lives once
  * here rather than being hand-rolled per kit.
  */
-export async function run(actions: Actions, args: string[] = Deno.args): Promise<void> {
+export async function run(
+  actions: Actions,
+  args: string[] = Deno.args,
+): Promise<void> {
   const [mode, ...rest] = args;
   const handlers: Record<string, (context: Context) => Promise<void>> = {
     stamp: actions.stamp,
@@ -51,7 +54,9 @@ export async function run(actions: Actions, args: string[] = Deno.args): Promise
   };
   const handler = handlers[mode];
   if (!handler) {
-    throw new Error(`Unknown lib kit mode "${mode}" (expected "stamp" or "publish")`);
+    throw new Error(
+      `Unknown lib kit mode "${mode}" (expected "stamp" or "publish")`,
+    );
   }
   await handler(getContext(rest));
 }

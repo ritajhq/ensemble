@@ -16,12 +16,16 @@ export class ConfiguredProvisioner implements Provisioner {
   describe(): Promise<string> {
     const implementation = this.entry.implementation.kind;
     return Promise.resolve(
-      `${this.entry.id ?? this.entry.type} (project-declared, ${implementation})`,
+      `${
+        this.entry.id ?? this.entry.type
+      } (project-declared, ${implementation})`,
     );
   }
 
   matches(resource: MatchedResource): Promise<boolean> {
-    if (resource.declaration.type !== this.entry.type) return Promise.resolve(false);
+    if (resource.declaration.type !== this.entry.type) {
+      return Promise.resolve(false);
+    }
     if (
       this.entry.category !== undefined &&
       resource.category !== this.entry.category

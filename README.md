@@ -118,9 +118,9 @@ ens version set <version>
 
 ## Quickstart
 
-The shortest path from nothing to a running app: scaffold a project, scaffold
-an app, build it, and bring it up locally. If you haven't installed `ens` yet,
-see [Installation](#installation).
+The shortest path from nothing to a running app: scaffold a project, scaffold an
+app, build it, and bring it up locally. If you haven't installed `ens` yet, see
+[Installation](#installation).
 
 ### 1. Scaffold a project
 
@@ -168,11 +168,11 @@ Every command's full flag list lives in the
 ## Local development
 
 Bringing a whole workload up on your machine is the same source → build → pack →
-deploy flow as a real deployment, pointed at a local target (the `compose` deploy
-kit). The steps below assume a project whose delivery manifest lives at
+deploy flow as a real deployment, pointed at a local target (the `compose`
+deploy kit). The steps below assume a project whose delivery manifest lives at
 `ci/<name>/delivery.yml` — `portal` is used as the concrete example.
 
-**1. Build every app.** `ens develop` runs the *packed images*, so each app has
+**1. Build every app.** `ens develop` runs the _packed images_, so each app has
 to be built first (output lands in `source/artifacts/<app>`):
 
 ```sh
@@ -208,13 +208,13 @@ pgpassword=devpassword
 # ...every variable/secret the manifest declares
 ```
 
-Env files are flat `KEY=value` lists — no `$` interpolation, and the same key
-in two files is an error. Any value already exported in the environment wins
-over them. `ens deploy` and `ens delivery task` read no file unless given
+Env files are flat `KEY=value` lists — no `$` interpolation, and the same key in
+two files is an error. Any value already exported in the environment wins over
+them. `ens deploy` and `ens delivery task` read no file unless given
 `--env-file <path>` (repeatable), so a real pipeline never picks up a committed
 dev value: before rendering, every variable without a `default:` and every
-environment-sourced secret must have a value, or the deploy fails naming all
-the missing ones.
+environment-sourced secret must have a value, or the deploy fails naming all the
+missing ones.
 
 **4. Bring the stack up in dev mode.** `ens develop` watches for source changes
 and auto-creates `external` resources (like a shared `edge` network) instead of
@@ -229,28 +229,28 @@ storage and gateway the manifest declares, and keeps watching. You reach the
 services through the gateway's hosts (e.g. `https://<name>.localhost:8443`, with
 a self-signed cert under `tls: internal`).
 
-**5. Run any one-off provisioning.** Work that can only happen *after* the stack
+**5. Run any one-off provisioning.** Work that can only happen _after_ the stack
 is up — an app's own schema migration, trusting the gateway's local CA — is
-declared under `tasks` in the manifest and invoked by hand (a task is never fired
-by a deploy, so a failing one can't fail a deployment):
+declared under `tasks` in the manifest and invoked by hand (a task is never
+fired by a deploy, so a failing one can't fail a deployment):
 
 ```sh
 ens delivery task <name> <kit>                  # list what the workload declares
 ens delivery task <name> <kit> auth-migrate     # e.g. portal's auth schema migration
 ```
 
-A task's `arguments` reach its script as environment variables, resolved from the
-same manifest values the deploy's own env blocks use, plus `${deployment.name}`,
-`${deployment.artifact}` and `${deployment.root}` for the deployment's own
-identity — which is what lets that script address the stack through
-`docker compose -p "$project" -f "$artifact"` rather than hardcoding the
+A task's `arguments` reach its script as environment variables, resolved from
+the same manifest values the deploy's own env blocks use, plus
+`${deployment.name}`, `${deployment.artifact}` and `${deployment.root}` for the
+deployment's own identity — which is what lets that script address the stack
+through `docker compose -p "$project" -f "$artifact"` rather than hardcoding the
 container, network, and artifact names compose derives from the deployment. See
 [`tasks` in the manifest schema](docs/documentation/reference/delivery-manifest-schema.md#tasks).
 
 > **Note.** A large database seed loaded through `docker-entrypoint-initdb.d`
-> keeps Postgres on a local-only socket until it finishes, so a migration run too
-> early gets `connection refused` — wait for the DB log to go quiet first. A seed
-> written as bulk `COPY` rather than one-`INSERT`-per-row loads in seconds
+> keeps Postgres on a local-only socket until it finishes, so a migration run
+> too early gets `connection refused` — wait for the DB log to go quiet first. A
+> seed written as bulk `COPY` rather than one-`INSERT`-per-row loads in seconds
 > instead of minutes.
 
 To change an app while the stack runs, just edit its source — `ens develop`

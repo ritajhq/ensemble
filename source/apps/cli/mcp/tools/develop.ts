@@ -26,7 +26,13 @@ export class DevelopTools {
       },
       ({ name, kit, verbose }) =>
         ToolResult.from(() => {
-          const args = ["develop", name, "--kit", kit, ...(verbose ? ["--verbose"] : [])];
+          const args = [
+            "develop",
+            name,
+            "--kit",
+            kit,
+            ...(verbose ? ["--verbose"] : []),
+          ];
           const session = WatchSessionRegistry.Instance.Start(
             `develop ${name}`,
             SelfInvocation.Command(args),

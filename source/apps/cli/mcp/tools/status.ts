@@ -22,7 +22,9 @@ export class StatusTools {
       () =>
         ToolResult.from(async () => {
           const repoRoot = await Host.createPorts().repo.findRepoRoot();
-          return await new Core.Status.Survey(repoRoot).describeTo(new StatusFormats.Json());
+          return await new Core.Status.Survey(repoRoot).describeTo(
+            new StatusFormats.Json(),
+          );
         }),
     );
   }

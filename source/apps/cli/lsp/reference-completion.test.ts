@@ -22,7 +22,9 @@ tasks:
       ROOT: \${}
 `;
 
-const workload = new Core.Deploy.Manifest.Parser().parse(MANIFEST.replace("${rel", "x").replace("${}", "x"));
+const workload = new Core.Deploy.Manifest.Parser().parse(
+  MANIFEST.replace("${rel", "x").replace("${}", "x"),
+);
 const completion = new ReferenceCompletion();
 
 function at(needle: string, offset: number) {
@@ -38,7 +40,12 @@ Deno.test("ReferenceCompletion: offers workload targets inside an open reference
   assertEquals(labels.includes("${release.web}"), true);
   assertEquals(labels.includes("${databases.db.host}"), true);
   assertEquals(labels.some((l) => l.startsWith("${deployment.")), false);
-  assertEquals(items[0].textEdit && "range" in items[0].textEdit ? items[0].textEdit.range.start.character : -1, at("${rel", 0).character);
+  assertEquals(
+    items[0].textEdit && "range" in items[0].textEdit
+      ? items[0].textEdit.range.start.character
+      : -1,
+    at("${rel", 0).character,
+  );
 });
 
 Deno.test("ReferenceCompletion: adds deployment targets under tasks, and swallows an auto-closed brace", () => {
@@ -47,7 +54,10 @@ Deno.test("ReferenceCompletion: adds deployment targets under tasks, and swallow
   const edit = items[0].textEdit;
 
   assertEquals(labels.includes("${deployment.root}"), true);
-  assertEquals(edit && "range" in edit ? edit.range.end.character : -1, at("${}", 3).character);
+  assertEquals(
+    edit && "range" in edit ? edit.range.end.character : -1,
+    at("${}", 3).character,
+  );
 });
 
 Deno.test("ReferenceCompletion: offers nothing outside a reference", () => {

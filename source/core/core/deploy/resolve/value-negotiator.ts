@@ -10,13 +10,20 @@ import type { ResolvedValue, ResolvedValues } from "./resolved-values.ts";
  * recording provenance and — on a clamp — a warning at every step.
  */
 export class ValueNegotiator {
-  async negotiate(resource: MatchedResource, target: Target): Promise<ResolvedValues> {
+  async negotiate(
+    resource: MatchedResource,
+    target: Target,
+  ): Promise<ResolvedValues> {
     const realization = await target.kit.realization();
     const values: Record<string, ResolvedValue> = {};
     const warnings: string[] = [];
 
     for (const concern of resource.contract.resolvableConcerns) {
-      const resolved = await this.resolveConcern(resource, realization, concern);
+      const resolved = await this.resolveConcern(
+        resource,
+        realization,
+        concern,
+      );
       if (!resolved) continue;
       values[concern] = await this.clamp(
         resource,

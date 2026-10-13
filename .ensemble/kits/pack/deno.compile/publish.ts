@@ -24,7 +24,9 @@ const compilePath = join(shipDir, "compile.yml");
 if (!await exists(compilePath, { isFile: true })) {
   throw new Error(`Missing compile.yml at ${compilePath}`);
 }
-const compileConfig = parseYaml(await Deno.readTextFile(compilePath)) as { output?: string };
+const compileConfig = parseYaml(await Deno.readTextFile(compilePath)) as {
+  output?: string;
+};
 const outputFile = compileConfig.output ?? `${ctx.outputName}.exe`;
 
 const binary = join(repoRoot, "source", "artifacts", "packages", outputFile);
@@ -58,10 +60,13 @@ try {
   // Create the release for this version if it doesn't exist yet (the release
   // ceremony creates and pushes the git tag, but not the GitHub release
   // object), otherwise attach/replace the asset on the existing one.
-  const existing = await $`gh release view ${ctx.version} ${repoArgs}`.quiet().noThrow();
+  const existing = await $`gh release view ${ctx.version} ${repoArgs}`.quiet()
+    .noThrow();
   const result = existing.code === 0
-    ? await $`gh release upload ${ctx.version} ${asset} ${compressedAsset} ${repoArgs} --clobber`.noThrow()
-    : await $`gh release create ${ctx.version} ${asset} ${compressedAsset} ${repoArgs} --title ${ctx.version} --generate-notes`.noThrow();
+    ? await $`gh release upload ${ctx.version} ${asset} ${compressedAsset} ${repoArgs} --clobber`
+      .noThrow()
+    : await $`gh release create ${ctx.version} ${asset} ${compressedAsset} ${repoArgs} --title ${ctx.version} --generate-notes`
+      .noThrow();
 
   Deno.exit(result.code);
 } finally {
@@ -70,6 +75,12 @@ try {
 
 async function gzip(source: string, destination: string): Promise<void> {
   const input = await Deno.open(source, { read: true });
-  const output = await Deno.open(destination, { create: true, write: true, truncate: true });
-  await input.readable.pipeThrough(new CompressionStream("gzip")).pipeTo(output.writable);
+  const output = await Deno.open(destination, {
+    create: true,
+    write: true,
+    truncate: true,
+  });
+  await input.readable.pipeThrough(new CompressionStream("gzip")).pipeTo(
+    output.writable,
+  );
 }

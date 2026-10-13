@@ -10,13 +10,23 @@ import { Vsce } from "./vsce.ts";
 const ctx = KitSdk.Pack.getPublishContext();
 
 if (!Deno.env.get("VSCE_PAT")) {
-  throw new Error("VSCE_PAT must hold a Visual Studio Marketplace personal access token to publish.");
+  throw new Error(
+    "VSCE_PAT must hold a Visual Studio Marketplace personal access token to publish.",
+  );
 }
 
 const repoRoot = await findRepoRoot();
-const folder = join(repoRoot, "source", "artifacts", "packages", ctx.outputName);
+const folder = join(
+  repoRoot,
+  "source",
+  "artifacts",
+  "packages",
+  ctx.outputName,
+);
 if (!await exists(join(folder, "package.json"), { isFile: true })) {
-  throw new Error(`Packed extension not found at ${folder} — run \`ens pack ${ctx.name} vscode\` first.`);
+  throw new Error(
+    `Packed extension not found at ${folder} — run \`ens pack ${ctx.name} vscode\` first.`,
+  );
 }
 
 const stageDir = await Deno.makeTempDir({ prefix: "ens-publish-vscode-" });
@@ -25,7 +35,10 @@ try {
   const manifestPath = join(stageDir, "package.json");
   const manifest = JSON.parse(await Deno.readTextFile(manifestPath));
   manifest.version = ctx.version.replace(/^v/, "");
-  await Deno.writeTextFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
+  await Deno.writeTextFile(
+    manifestPath,
+    JSON.stringify(manifest, null, 2) + "\n",
+  );
 
   const vsce = await Vsce.resolve();
   Deno.exit(await vsce.publish(stageDir));

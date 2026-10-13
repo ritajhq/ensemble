@@ -20,7 +20,11 @@ export class KitUsages extends Builder<string[]> {
 
   libraries(libraries: readonly Library[]): void {
     if (this.role !== "lib") return;
-    for (const library of libraries.filter((library) => library.kits.includes(this.name))) {
+    for (
+      const library of libraries.filter((library) =>
+        library.kits.includes(this.name)
+      )
+    ) {
       this.usages.push(`library ${library.package} (publish.${library.scope})`);
     }
   }
@@ -28,7 +32,9 @@ export class KitUsages extends Builder<string[]> {
   workloads(workloads: readonly Workload[]): void {
     if (this.role !== "pack") return;
     for (const workload of workloads) {
-      for (const ship of workload.ships.filter((ship) => ship.kit === this.name)) {
+      for (
+        const ship of workload.ships.filter((ship) => ship.kit === this.name)
+      ) {
         this.usages.push(`release ${ship.name} (${workload.manifest})`);
       }
     }
@@ -52,8 +58,14 @@ export class LibraryUsages extends Builder<string[]> {
   kits(_kits: readonly Kit[]): void {}
 
   libraries(libraries: readonly Library[]): void {
-    for (const library of libraries.filter((library) => library.scope === "libs" && library.name === this.name)) {
-      this.usages.push(`library ${library.package} (publish.libs in .ensemble/config.yaml)`);
+    for (
+      const library of libraries.filter((library) =>
+        library.scope === "libs" && library.name === this.name
+      )
+    ) {
+      this.usages.push(
+        `library ${library.package} (publish.libs in .ensemble/config.yaml)`,
+      );
     }
   }
 

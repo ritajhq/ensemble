@@ -43,7 +43,11 @@ export class LibTools {
       },
       ({ url }) =>
         ToolResult.from(async () => {
-          const entry = await runLibInstall(url, Host.createPorts().repo, new Host.GitPackageSource());
+          const entry = await runLibInstall(
+            url,
+            Host.createPorts().repo,
+            new Host.GitPackageSource(),
+          );
           return `Installed lib at ${entry.path} (${entry.repo}@${entry.ref}).`;
         }),
     );
@@ -79,7 +83,12 @@ export class LibTools {
       },
       ({ name, ref }) =>
         ToolResult.from(async () => {
-          const entry = await runLibPin(name, ref, Host.createPorts().repo, new Host.GitPackageSource());
+          const entry = await runLibPin(
+            name,
+            ref,
+            Host.createPorts().repo,
+            new Host.GitPackageSource(),
+          );
           return `Pinned ${entry.path} to ${entry.repo}@${entry.ref}.`;
         }),
     );
@@ -110,12 +119,17 @@ export class LibTools {
       "ensemble_lib_contribute",
       {
         title: "Contribute a vendored library's local change upstream",
-        description: "Pushes a vendored lib's local change upstream and opens a PR against its remote.",
+        description:
+          "Pushes a vendored lib's local change upstream and opens a PR against its remote.",
         inputSchema: { name: z.string() },
       },
       ({ name }) =>
         ToolResult.from(async () => {
-          const pr = await runLibContribute(name, Host.createPorts().repo, new Host.GitPackageSource());
+          const pr = await runLibContribute(
+            name,
+            Host.createPorts().repo,
+            new Host.GitPackageSource(),
+          );
           return `Opened pull request: ${pr.url}`;
         }),
     );

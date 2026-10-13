@@ -9,7 +9,9 @@ class Confirmation {
   constructor(private readonly assumeYes: boolean) {}
 
   async ask(message: string): Promise<boolean> {
-    if (!this.assumeYes) return await Confirm.prompt({ message, default: false });
+    if (!this.assumeYes) {
+      return await Confirm.prompt({ message, default: false });
+    }
     console.log(`${message} yes (--yes)`);
     return true;
   }
@@ -456,21 +458,31 @@ export const releaseCommand = new Command()
     const repoRoot = await ports.repo.findRepoRoot();
     const release = new Core.Release.ReleaseService(repoRoot, ports.process);
     const confirmation = new Confirmation(Boolean(yes));
-    if (!dryRun && !await confirmUncommittedChanges(release, confirmation)) return;
+    if (!dryRun && !await confirmUncommittedChanges(release, confirmation)) {
+      return;
+    }
     const preview = await release.next(bump, { dryRun, preRelease, meta });
     printPreview(dryRun ? "Would create" : "Will create", preview);
     if (dryRun) {
       await printReleaseCeremonyPreview(repoRoot, ports, preview.tag);
       return;
     }
-    if (!await confirmReleaseWork(repoRoot, ports, preview.tag, {}, confirmation)) {
+    if (
+      !await confirmReleaseWork(repoRoot, ports, preview.tag, {}, confirmation)
+    ) {
       console.log("Release cancelled — nothing was changed.");
       return;
     }
     await stampAndCommitCoreLibs(repoRoot, ports, release, preview.tag);
     await release.createReleaseTag(preview);
     console.log(`Created tag: ${preview.tag}`);
-    const code = await runReleaseCeremony(repoRoot, ports, release, preview.tag, remote);
+    const code = await runReleaseCeremony(
+      repoRoot,
+      ports,
+      release,
+      preview.tag,
+      remote,
+    );
     if (code !== 0) Deno.exit(code);
   })
   .reset()
@@ -484,21 +496,31 @@ export const releaseCommand = new Command()
     const repoRoot = await ports.repo.findRepoRoot();
     const release = new Core.Release.ReleaseService(repoRoot, ports.process);
     const confirmation = new Confirmation(Boolean(yes));
-    if (!dryRun && !await confirmUncommittedChanges(release, confirmation)) return;
+    if (!dryRun && !await confirmUncommittedChanges(release, confirmation)) {
+      return;
+    }
     const preview = await release.set(version, { dryRun, preRelease, meta });
     printPreview(dryRun ? "Would create" : "Will create", preview);
     if (dryRun) {
       await printReleaseCeremonyPreview(repoRoot, ports, preview.tag);
       return;
     }
-    if (!await confirmReleaseWork(repoRoot, ports, preview.tag, {}, confirmation)) {
+    if (
+      !await confirmReleaseWork(repoRoot, ports, preview.tag, {}, confirmation)
+    ) {
       console.log("Release cancelled — nothing was changed.");
       return;
     }
     await stampAndCommitCoreLibs(repoRoot, ports, release, preview.tag);
     await release.createReleaseTag(preview);
     console.log(`Created tag: ${preview.tag}`);
-    const code = await runReleaseCeremony(repoRoot, ports, release, preview.tag, remote);
+    const code = await runReleaseCeremony(
+      repoRoot,
+      ports,
+      release,
+      preview.tag,
+      remote,
+    );
     if (code !== 0) Deno.exit(code);
   })
   .reset()
@@ -532,13 +554,28 @@ export const releaseCommand = new Command()
       await printReleaseCeremonyPreview(repoRoot, ports, tag, filter);
       return;
     }
-    if (!await confirmReleaseWork(repoRoot, ports, tag, filter, new Confirmation(Boolean(yes)))) {
+    if (
+      !await confirmReleaseWork(
+        repoRoot,
+        ports,
+        tag,
+        filter,
+        new Confirmation(Boolean(yes)),
+      )
+    ) {
       console.log(
         `Tag ${tag} exists locally only — run "ens release resume ${tag}" whenever you're ready.`,
       );
       return;
     }
-    const code = await runReleaseCeremony(repoRoot, ports, release, tag, remote, filter);
+    const code = await runReleaseCeremony(
+      repoRoot,
+      ports,
+      release,
+      tag,
+      remote,
+      filter,
+    );
     if (code !== 0) Deno.exit(code);
   })
   .reset()

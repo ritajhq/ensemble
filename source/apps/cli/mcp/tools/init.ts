@@ -13,7 +13,9 @@ export class InitTools {
       {
         title: "Scaffold a new Ensemble project",
         description: "Scaffolds a new Ensemble project at <name>/.",
-        inputSchema: { name: z.string().describe("Directory name for the new project.") },
+        inputSchema: {
+          name: z.string().describe("Directory name for the new project."),
+        },
       },
       ({ name }) =>
         ToolResult.from(async () => {

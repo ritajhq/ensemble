@@ -73,7 +73,10 @@ export const kitCommand = new Command()
         "Remove a vendored kit: its checkout, lockfile entry and .gitignore line. Refuses while the project still uses it or it has local changes.",
       )
       .arguments("<name:string>")
-      .option("-f, --force", "Uninstall even if the project still uses it, or discard its local changes.")
+      .option(
+        "-f, --force",
+        "Uninstall even if the project still uses it, or discard its local changes.",
+      )
       .action(async ({ force }, name) => {
         const entry = await runKitUninstall(
           name,
@@ -81,7 +84,9 @@ export const kitCommand = new Command()
           Host.createPorts().repo,
           new Host.GitPackageSource(),
         );
-        console.log(`Uninstalled ${entry.path} (was ${entry.repo}@${entry.ref}).`);
+        console.log(
+          `Uninstalled ${entry.path} (was ${entry.repo}@${entry.ref}).`,
+        );
       }),
   )
   .command(

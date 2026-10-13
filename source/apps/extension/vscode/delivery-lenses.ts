@@ -20,13 +20,25 @@ export class DeliveryLenses implements vscode.CodeLensProvider {
       const range = new vscode.Range(line, 0, line, 0);
       if (DEPLOY.test(text)) {
         lenses.push(
-          new vscode.CodeLens(range, { title: "$(play) Develop", command: "ensemble.develop", arguments: [workload] }),
-          new vscode.CodeLens(range, { title: "$(cloud-upload) Deploy…", command: "ensemble.deploy", arguments: [workload] }),
+          new vscode.CodeLens(range, {
+            title: "$(play) Develop",
+            command: "ensemble.develop",
+            arguments: [workload],
+          }),
+          new vscode.CodeLens(range, {
+            title: "$(cloud-upload) Deploy…",
+            command: "ensemble.deploy",
+            arguments: [workload],
+          }),
         );
       }
       if (RELEASE.test(text)) {
         lenses.push(
-          new vscode.CodeLens(range, { title: "$(tag) Release…", command: "ensemble.release", arguments: [] }),
+          new vscode.CodeLens(range, {
+            title: "$(tag) Release…",
+            command: "ensemble.release",
+            arguments: [],
+          }),
         );
       }
     }

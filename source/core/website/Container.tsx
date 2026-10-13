@@ -7,5 +7,9 @@ interface ContainerProps {
 
 /** The one page-width every section aligns to — change it here, not per-section. */
 export function Container({ className = "", children }: ContainerProps) {
-  return <div className={`mx-auto max-w-5xl px-6 ${className}`.trim()}>{children}</div>;
+  return (
+    <div className={`mx-auto max-w-5xl px-6 ${className}`.trim()}>
+      {children}
+    </div>
+  );
 }

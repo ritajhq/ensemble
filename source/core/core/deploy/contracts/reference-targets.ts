@@ -34,7 +34,9 @@ export class ReferenceTargets {
       reference: { category: "release", name },
       detail: "release",
     }));
-    const resources = CATEGORIES.flatMap((category) => this.ofCategory(workload, category));
+    const resources = CATEGORIES.flatMap((category) =>
+      this.ofCategory(workload, category)
+    );
     return [...releases, ...resources];
   }
 
@@ -46,7 +48,10 @@ export class ReferenceTargets {
     }));
   }
 
-  private ofCategory(workload: Workload, category: Category): ReferenceTarget[] {
+  private ofCategory(
+    workload: Workload,
+    category: Category,
+  ): ReferenceTarget[] {
     const resources = workload[category] as Record<string, unknown> | undefined;
     if (!resources) return [];
 
@@ -58,23 +63,41 @@ export class ReferenceTargets {
     );
   }
 
-  private outputsOf(category: Category, resource: unknown): { output: string; detail: string }[] {
+  private outputsOf(
+    category: Category,
+    resource: unknown,
+  ): { output: string; detail: string }[] {
     const fields = DECLARATION_FIELDS[category];
-    if (fields) return fields.map((output) => ({ output, detail: `${category} field` }));
+    if (fields) {
+      return fields.map((output) => ({ output, detail: `${category} field` }));
+    }
 
     const declaration = resource as Partial<ResourceDeclaration>;
-    const contract = declaration.type ? this.registry.contractFor(category, declaration.type) : undefined;
+    const contract = declaration.type
+      ? this.registry.contractFor(category, declaration.type)
+      : undefined;
     if (!contract) return [];
 
-    const outputs = contract.outputs.map((output) => ({ output, detail: `${contract.id} output` }));
+    const outputs = contract.outputs.map((output) => ({
+      output,
+      detail: `${contract.id} output`,
+    }));
     if (category !== "compute") return outputs;
 
-    const ports = Object.keys(this.portsOf(declaration)).map((output) => ({ output, detail: "port" }));
+    const ports = Object.keys(this.portsOf(declaration)).map((output) => ({
+      output,
+      detail: "port",
+    }));
     return [...outputs, ...ports];
   }
 
-  private portsOf(declaration: Partial<ResourceDeclaration>): Record<string, unknown> {
-    const ports = (declaration.params as Record<string, unknown> | undefined)?.ports;
-    return typeof ports === "object" && ports !== null ? ports as Record<string, unknown> : {};
+  private portsOf(
+    declaration: Partial<ResourceDeclaration>,
+  ): Record<string, unknown> {
+    const ports = (declaration.params as Record<string, unknown> | undefined)
+      ?.ports;
+    return typeof ports === "object" && ports !== null
+      ? ports as Record<string, unknown>
+      : {};
   }
 }

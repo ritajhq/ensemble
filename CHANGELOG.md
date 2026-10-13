@@ -2,326 +2,388 @@
 
 ### 🚀 Features
 
-- *(deploy)* Select development mode with an explicit --mode flag instead of deriving it from --watch
+- _(deploy)_ Select development mode with an explicit --mode flag instead of
+  deriving it from --watch
 
 ### 📚 Documentation
 
-- Document develop mode, development.env and embedded references in task arguments
+- Document develop mode, development.env and embedded references in task
+  arguments
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.47.0
-- *(release)* Bump library versions for 0.48.0
+- _(changelog)_ Update for 0.47.0
+- _(release)_ Bump library versions for 0.48.0
+
 ## [0.47.0] - 2026-10-07
 
 ### 🐛 Bug Fixes
 
-- *(delivery)* Resolve references embedded in a task argument instead of passing them through as text
-- *(react-kit)* Create the app directory before scaffolding into it
+- _(delivery)_ Resolve references embedded in a task argument instead of passing
+  them through as text
+- _(react-kit)_ Create the app directory before scaffolding into it
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.46.0
-- *(release)* Bump library versions for 0.47.0
+- _(changelog)_ Update for 0.46.0
+- _(release)_ Bump library versions for 0.47.0
+
 ## [0.46.0] - 2026-10-05
 
 ### 🚀 Features
 
-- *(deploy)* Tell provisioners whether ens develop or ens deploy brought the stack up
-- *(deploy)* Let a development block add environment variables only ens develop runs with
+- _(deploy)_ Tell provisioners whether ens develop or ens deploy brought the
+  stack up
+- _(deploy)_ Let a development block add environment variables only ens develop
+  runs with
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.45.0
-- *(release)* Bump library versions for 0.46.0
+- _(changelog)_ Update for 0.45.0
+- _(release)_ Bump library versions for 0.46.0
+
 ## [0.45.0] - 2026-10-05
 
 ### 🚀 Features
 
-- *(version)* Add download progress, direct tag lookup, and gzipped release assets
+- _(version)_ Add download progress, direct tag lookup, and gzipped release
+  assets
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.44.0
-- *(release)* Bump library versions for 0.45.0
+- _(changelog)_ Update for 0.44.0
+- _(release)_ Bump library versions for 0.45.0
+
 ## [0.44.0] - 2026-10-05
 
 ### 🚀 Features
 
-- *(deploy)* Add list-typed variables and optional gateway networks
+- _(deploy)_ Add list-typed variables and optional gateway networks
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.43.0
-- *(release)* Bump library versions for 0.44.0
+- _(changelog)_ Update for 0.43.0
+- _(release)_ Bump library versions for 0.44.0
+
 ## [0.43.0] - 2026-10-04
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.42.0
-- *(release)* Bump library versions for 0.43.0
+- _(changelog)_ Update for 0.42.0
+- _(release)_ Bump library versions for 0.43.0
+
 ## [0.42.0] - 2026-10-04
 
 ### 🚀 Features
 
-- *(kits/compose)* Accept gateway tls: none for plain HTTP and reject unknown tls values
-- *(core/deploy)* Read deployment values from the environment only, with repeatable --env-file opt-in and ens develop defaulting to dev.env + secrets.env
-- *(core/deploy)* Resolve references embedded inside strings when each resolves to a plain value
+- _(kits/compose)_ Accept gateway tls: none for plain HTTP and reject unknown
+  tls values
+- _(core/deploy)_ Read deployment values from the environment only, with
+  repeatable --env-file opt-in and ens develop defaulting to dev.env +
+  secrets.env
+- _(core/deploy)_ Resolve references embedded inside strings when each resolves
+  to a plain value
 
 ### 🐛 Bug Fixes
 
-- *(release)* Ignore pack-only ships when deciding what is left to publish so the release hook runs again
-- *(kits/compose)* Render env-sourced secrets as ${VAR:?} so an unset one fails instead of deploying empty
+- _(release)_ Ignore pack-only ships when deciding what is left to publish so
+  the release hook runs again
+- _(kits/compose)_ Render env-sourced secrets as ${VAR:?} so an unset one fails
+  instead of deploying empty
 
 ### 📚 Documentation
 
-- *(cli)* Note that --env-file also accepts absolute paths
+- _(cli)_ Note that --env-file also accepts absolute paths
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.41.0
-- *(changelog)* Backfill 0.20.0 through 0.40.0
-- *(release)* Bump library versions for 0.42.0
+- _(changelog)_ Update for 0.41.0
+- _(changelog)_ Backfill 0.20.0 through 0.40.0
+- _(release)_ Bump library versions for 0.42.0
+
 ## [0.41.0] - 2026-10-04
 
 ### 🚀 Features
 
-- *(core/deploy)* Interpolate .ensemble/deploy/<name>/secrets.env keys into variables.env
+- _(core/deploy)_ Interpolate .ensemble/deploy/<name>/secrets.env keys into
+  variables.env
 
 ### 🐛 Bug Fixes
 
-- *(host)* Type the workspace config settle timer as setTimeout's return type
+- _(host)_ Type the workspace config settle timer as setTimeout's return type
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(kits)* Pin @ensemble/kit-sdk to ^0.40.0 so kits never resolve an older sdk
-- *(deploy)* Drop InProcessKitLoader from the kit barrel and document that deploy kits always run in a subprocess
-- *(release)* Bump library versions for 0.41.0
+- _(kits)_ Pin @ensemble/kit-sdk to ^0.40.0 so kits never resolve an older sdk
+- _(deploy)_ Drop InProcessKitLoader from the kit barrel and document that
+  deploy kits always run in a subprocess
+- _(release)_ Bump library versions for 0.41.0
+
 ## [0.40.0] - 2026-10-02
 
 ### 🚀 Features
 
-- *(kits/build)* Restart deno bundle watchers on workspace config changes and resolve workspace stylesheet imports for tailwind
+- _(kits/build)_ Restart deno bundle watchers on workspace config changes and
+  resolve workspace stylesheet imports for tailwind
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(release)* Bump library versions for 0.40.0
+- _(release)_ Bump library versions for 0.40.0
+
 ## [0.39.0] - 2026-10-02
 
 ### 🚀 Features
 
-- *(extension/vscode)* Split the sidebar into apps, workloads, kits and libraries panes, run delivery tasks with input, follow ens updates and read ens output without colours
+- _(extension/vscode)_ Split the sidebar into apps, workloads, kits and
+  libraries panes, run delivery tasks with input, follow ens updates and read
+  ens output without colours
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(release)* Bump library versions for 0.39.0
+- _(release)_ Bump library versions for 0.39.0
+
 ## [0.38.0] - 2026-10-02
 
 ### 🚀 Features
 
-- *(extension/vscode)* Add project sidebar, delivery code lenses and ens version status bar, backed by ens status --json and new kit/lib uninstall
+- _(extension/vscode)_ Add project sidebar, delivery code lenses and ens version
+  status bar, backed by ens status --json and new kit/lib uninstall
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(release)* Bump library versions for 0.38.0
+- _(release)_ Bump library versions for 0.38.0
+
 ## [0.37.0] - 2026-10-02
 
 ### 🐛 Bug Fixes
 
-- *(extension/vscode)* Find ens at the installer's default location or an ensemble.executable setting when it isn't on the editor's PATH
+- _(extension/vscode)_ Find ens at the installer's default location or an
+  ensemble.executable setting when it isn't on the editor's PATH
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(release)* Bump library versions for 0.37.0
+- _(release)_ Bump library versions for 0.37.0
+
 ## [0.36.0] - 2026-10-02
 
 ### 🐛 Bug Fixes
 
-- *(ship/extension-vscode)* New name to avoid collision again
+- _(ship/extension-vscode)_ New name to avoid collision again
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(release)* Bump library versions for 0.36.0
+- _(release)_ Bump library versions for 0.36.0
+
 ## [0.35.0] - 2026-10-02
 
 ### 🐛 Bug Fixes
 
-- *(cli/release)* Exit non-zero when packing or publishing fails
-- *(ship/extension-vscode)* New name to avoid collision
+- _(cli/release)_ Exit non-zero when packing or publishing fails
+- _(ship/extension-vscode)_ New name to avoid collision
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(release)* Bump library versions for 0.35.0
+- _(release)_ Bump library versions for 0.35.0
+
 ## [0.34.0] - 2026-10-02
 
 ### 🚀 Features
 
-- *(extension/vscode)* Prepare marketplace publish with icon, readme, metadata and a missing-ens prompt
-- *(release)* Warn when a ci workload has no delivery manifest instead of silently skipping it
-- *(cli/release)* Add --yes to answer every confirmation prompt for unattended runs
+- _(extension/vscode)_ Prepare marketplace publish with icon, readme, metadata
+  and a missing-ens prompt
+- _(release)_ Warn when a ci workload has no delivery manifest instead of
+  silently skipping it
+- _(cli/release)_ Add --yes to answer every confirmation prompt for unattended
+  runs
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(ship/cli)* Exclude unused npm packages from the compiled binary
-- *(release)* Bump library versions for 0.34.0
+- _(ship/cli)_ Exclude unused npm packages from the compiled binary
+- _(release)_ Bump library versions for 0.34.0
+
 ## [0.33.0] - 2026-10-02
 
 ### 🚀 Features
 
-- *(core/release)* Move publish secrets to .ensemble/release/secrets.env and resume state to release/state
+- _(core/release)_ Move publish secrets to .ensemble/release/secrets.env and
+  resume state to release/state
 
 ### 🐛 Bug Fixes
 
-- *(ship/extension-vscode)* Correct publisher id
+- _(ship/extension-vscode)_ Correct publisher id
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(release)* Bump library versions for 0.33.0
+- _(release)_ Bump library versions for 0.33.0
+
 ## [0.32.0] - 2026-10-01
 
 ### 🚀 Features
 
-- *(extension/vscode)* Add hello-world VS Code extension with vscode pack kit and marketplace release
-- *(cli/lsp)* Add ens lsp with delivery manifest reference completion, wired into the VS Code extension
-- *(core/deploy)* Accept an extensionless delivery manifest alongside delivery.yml
-- *(extension/vscode)* Treat extensionless ci/*/delivery files as delivery manifests
+- _(extension/vscode)_ Add hello-world VS Code extension with vscode pack kit
+  and marketplace release
+- _(cli/lsp)_ Add ens lsp with delivery manifest reference completion, wired
+  into the VS Code extension
+- _(core/deploy)_ Accept an extensionless delivery manifest alongside
+  delivery.yml
+- _(extension/vscode)_ Treat extensionless ci/*/delivery files as delivery
+  manifests
 
 ### ⚙️ Miscellaneous Tasks
 
 - Remove Copilot instructions from the repository
-- *(release)* Bump library versions for 0.32.0
+- _(release)_ Bump library versions for 0.32.0
+
 ## [0.31.0] - 2026-10-01
 
 ### 🚀 Features
 
-- *(core/build)* Pass build.<name>.options from config.yaml through to build kits
+- _(core/build)_ Pass build.<name>.options from config.yaml through to build
+  kits
 
 ### 🐛 Bug Fixes
 
-- *(kits/compose)* Initial_sync every watch rule so a write landing before watch attaches still reaches the container
+- _(kits/compose)_ Initial_sync every watch rule so a write landing before watch
+  attaches still reaches the container
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(release)* Bump library versions for 0.31.0
+- _(release)_ Bump library versions for 0.31.0
+
 ## [0.30.0] - 2026-09-29
 
 ### 🚀 Features
 
-- *(init)* Write .ensemble/.gitignore instead of a root .gitignore
+- _(init)_ Write .ensemble/.gitignore instead of a root .gitignore
 
 ### 🐛 Bug Fixes
 
-- *(core/deploy)* Tear down watch children on any exit and reclaim a crashed session's watcher on the next run
+- _(core/deploy)_ Tear down watch children on any exit and reclaim a crashed
+  session's watcher on the next run
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(kits/react)* Ignore its own .bin folder
-- *(release)* Bump library versions for 0.30.0
+- _(kits/react)_ Ignore its own .bin folder
+- _(release)_ Bump library versions for 0.30.0
+
 ## [0.29.0] - 2026-09-28
 
 ### 🚀 Features
 
-- *(release)* Add confirmation step before packing and publishing ships/core libs
+- _(release)_ Add confirmation step before packing and publishing ships/core
+  libs
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(release)* Bump library versions for 0.29.0
+- _(release)_ Bump library versions for 0.29.0
+
 ## [0.28.0] - 2026-09-28
 
 ### 🚀 Features
 
-- *(website)* Hand-roll a docs site in website/server
-- *(git-sync)* Pluggable trigger adapters + a local test UI
-- *(ci/website)* Add manual trigger to git-sync config
+- _(website)_ Hand-roll a docs site in website/server
+- _(git-sync)_ Pluggable trigger adapters + a local test UI
+- _(ci/website)_ Add manual trigger to git-sync config
 
 ### 🐛 Bug Fixes
 
-- *(website)* Point the landing page's docs links at /docs
-- *(git-sync)* Install ca-certificates so git can clone over HTTPS
+- _(website)_ Point the landing page's docs links at /docs
+- _(git-sync)_ Install ca-certificates so git can clone over HTTPS
 - Update gitignore to correctly exclude the artifacts/deploy folder
-- *(readme)* Update logo image path to correct branding location
+- _(readme)_ Update logo image path to correct branding location
 
 ### 📚 Documentation
 
-- *(readme)* Update usage section to quickstart format and streamline commands
+- _(readme)_ Update usage section to quickstart format and streamline commands
 
 ### ⚡ Performance
 
-- *(host)* Serve every call into a deploy kit from one long-lived kit process
-- *(core/deploy)* Resolve task arguments from the last deploy, or render only what they reference
+- _(host)_ Serve every call into a deploy kit from one long-lived kit process
+- _(core/deploy)_ Resolve task arguments from the last deploy, or render only
+  what they reference
 
 ### ⚙️ Miscellaneous Tasks
 
 - Update deploy artifacts
-- *(release)* Bump library versions for 0.28.0
+- _(release)_ Bump library versions for 0.28.0
+
 ## [0.27.0] - 2026-09-24
 
 ### 🚀 Features
 
-- *(core/deploy)* Run tasks a workload declares in its manifest
+- _(core/deploy)_ Run tasks a workload declares in its manifest
 
 ### 🐛 Bug Fixes
 
-- *(kits)* Render the gateway as Caddy with tls internal, on both networks
-- *(core/init)* Keep rendered deploy documents tracked and ignore the render cache
+- _(kits)_ Render the gateway as Caddy with tls internal, on both networks
+- _(core/init)_ Keep rendered deploy documents tracked and ignore the render
+  cache
 
 ### 📚 Documentation
 
-- *(readme)* Point one-off provisioning at manifest-declared tasks
+- _(readme)_ Point one-off provisioning at manifest-declared tasks
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(release)* Bump library versions for 0.27.0
+- _(release)_ Bump library versions for 0.27.0
+
 ## [0.26.0] - 2026-09-24
 
 ### 🐛 Bug Fixes
 
-- *(kits)* Publish ports on ephemeral host ports, never the container's number
+- _(kits)_ Publish ports on ephemeral host ports, never the container's number
 
 ### 🧪 Testing
 
-- *(kits)* Keep the Garage seed-script tests runnable against an older pinned kit-sdk
+- _(kits)_ Keep the Garage seed-script tests runnable against an older pinned
+  kit-sdk
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(release)* Bump library versions for 0.26.0
+- _(release)_ Bump library versions for 0.26.0
+
 ## [0.25.0] - 2026-09-24
 
 ### 🐛 Bug Fixes
 
-- *(core/deploy)* Run apply-time init commands on the host, seeding Garage from there
+- _(core/deploy)_ Run apply-time init commands on the host, seeding Garage from
+  there
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(release)* Bump library versions for 0.25.0
+- _(release)_ Bump library versions for 0.25.0
+
 ## [0.24.0] - 2026-09-23
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(release)* Bump library versions for 0.24.0
+- _(release)_ Bump library versions for 0.24.0
+
 ## [0.23.0] - 2026-09-23
 
 ### 🐛 Bug Fixes
 
-- *(ci/website)* Change git-sync port
+- _(ci/website)_ Change git-sync port
 - Update gitignore to correctly exclude the artifacts/deploy folder
-- *(core/deploy)* Resolve cross-compute port references at render time
+- _(core/deploy)_ Resolve cross-compute port references at render time
 
 ### ⚙️ Miscellaneous Tasks
 
 - Update deploy rendering
-- *(release)* Bump library versions for 0.23.0
+- _(release)_ Bump library versions for 0.23.0
+
 ## [0.22.0] - 2026-09-22
 
 ### 🚀 Features
 
-- *(core/deploy)* Add envSecrets to container-orchestrated contract
-- *(git-sync)* Scaffold webhook-triggered docs syncer app
-- *(website)* Wire docs-content volume and git-sync target into delivery manifest
+- _(core/deploy)_ Add envSecrets to container-orchestrated contract
+- _(git-sync)_ Scaffold webhook-triggered docs syncer app
+- _(website)_ Wire docs-content volume and git-sync target into delivery
+  manifest
 
 ### 🐛 Bug Fixes
 
-- *(core/deploy)* Wire the variables category to its own references
+- _(core/deploy)_ Wire the variables category to its own references
 
 ### 📚 Documentation
 
@@ -329,268 +391,302 @@
 
 ### 🚜 Refactor
 
-- *(website)* Move git-sync's REPOS config from secrets to variables
+- _(website)_ Move git-sync's REPOS config from secrets to variables
 
 ### ⚙️ Miscellaneous Tasks
 
 - Move file to its place
 - Update deno.lock for git-sync's dependencies
 - Moving files to their correct place
-- *(release)* Bump library versions for 0.22.0
+- _(release)_ Bump library versions for 0.22.0
+
 ## [0.21.0] - 2026-09-20
 
 ### 🚀 Features
 
-- *(website)* Update copy
-- *(status)* Add ens status to discover apps/kits/libraries/workloads
+- _(website)_ Update copy
+- _(status)_ Add ens status to discover apps/kits/libraries/workloads
 
 ### 🐛 Bug Fixes
 
-- *(.ensemble)* Update gitignore
+- _(.ensemble)_ Update gitignore
 
 ### 📚 Documentation
 
-- *(agent-context)* Fix stale deploy paths, add aws kit, add CLAUDE.md pointer
+- _(agent-context)_ Fix stale deploy paths, add aws kit, add CLAUDE.md pointer
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(release)* Bump library versions for 0.21.0
+- _(release)_ Bump library versions for 0.21.0
+
 ## [0.20.0] - 2026-09-19
 
 ### 🚀 Features
 
-- *(core/deploy)* Add mounts to container-orchestrated via a storage.volume contract
+- _(core/deploy)_ Add mounts to container-orchestrated via a storage.volume
+  contract
 
 ### 🐛 Bug Fixes
 
-- *(compose)* Render sync+restart rules into develop.watch
-- *(deploy)* Wire animated pack/build reporters through ens deploy/develop
+- _(compose)_ Render sync+restart rules into develop.watch
+- _(deploy)_ Wire animated pack/build reporters through ens deploy/develop
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.19.0
-- *(release)* Bump library versions for 0.20.0
+- _(changelog)_ Update for 0.19.0
+- _(release)_ Bump library versions for 0.20.0
+
 ## [0.19.0] - 2026-09-17
 
 ### 🚀 Features
 
-- *(release)* Persist ceremony progress and auto-continue past packing
+- _(release)_ Persist ceremony progress and auto-continue past packing
 
 ### 🐛 Bug Fixes
 
-- *(release)* Don't re-run release hooks from resume
+- _(release)_ Don't re-run release hooks from resume
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.18.1
-- *(changelog)* Update for 0.18.1
-- *(changelog)* Remove duplicated 0.18.1 section
-- *(release)* Bump library versions for 0.19.0
+- _(changelog)_ Update for 0.18.1
+- _(changelog)_ Update for 0.18.1
+- _(changelog)_ Remove duplicated 0.18.1 section
+- _(release)_ Bump library versions for 0.19.0
+
 ## [0.18.1] - 2026-09-17
 
 ### 🐛 Bug Fixes
 
-- *(deploy)* Group development sync rules by action
-- *(schema)* Group development sync rules by action
+- _(deploy)_ Group development sync rules by action
+- _(schema)_ Group development sync rules by action
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.17.0
-- *(release)* Bump library versions for 0.18.0
-- *(changelog)* Update for 0.18.0
-- *(release)* Bump library versions for 0.18.1
+- _(changelog)_ Update for 0.17.0
+- _(release)_ Bump library versions for 0.18.0
+- _(changelog)_ Update for 0.18.0
+- _(release)_ Bump library versions for 0.18.1
+
 ## [0.18.0] - 2026-09-17
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.17.0
-- *(release)* Bump library versions for 0.18.0
+- _(changelog)_ Update for 0.17.0
+- _(release)_ Bump library versions for 0.18.0
+
 ## [0.17.0] - 2026-09-17
 
 ### 🐛 Bug Fixes
 
-- *(lib-kit)* Forward JSR_TOKEN as --token when publishing to JSR
-- *(release,pack)* Thread animated pack/build reporters through the release ceremony
+- _(lib-kit)_ Forward JSR_TOKEN as --token when publishing to JSR
+- _(release,pack)_ Thread animated pack/build reporters through the release
+  ceremony
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.16.0
-- *(release)* Bump library versions for 0.17.0
+- _(changelog)_ Update for 0.16.0
+- _(release)_ Bump library versions for 0.17.0
+
 ## [0.16.0] - 2026-09-17
 
 ### 🐛 Bug Fixes
 
-- *(core)* Load deploy kits via one-shot subprocess spawns instead of in-process import
+- _(core)_ Load deploy kits via one-shot subprocess spawns instead of in-process
+  import
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.15.0
+- _(changelog)_ Update for 0.15.0
 - Update lock
-- *(release)* Bump library versions for 0.16.0
+- _(release)_ Bump library versions for 0.16.0
+
 ## [0.15.0] - 2026-09-17
 
 ### 🐛 Bug Fixes
 
-- *(cli)* Include deno.lock in the core-lib version-bump commit, since stamping's subprocess spawns drift it too
+- _(cli)_ Include deno.lock in the core-lib version-bump commit, since
+  stamping's subprocess spawns drift it too
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.14.0
+- _(changelog)_ Update for 0.14.0
 - Update lock
-- *(release)* Bump library versions for 0.15.0
+- _(release)_ Bump library versions for 0.15.0
+
 ## [0.14.0] - 2026-09-17
 
 ### 🐛 Bug Fixes
 
-- *(core)* Pin versions as required by jsr
-- *(core)* Repin sibling core-lib imports before stamping, so a version bump doesn't break workspace resolution
-- *(core)* Bump every core lib's own version before any lib kit subprocess runs, so the first stamp doesn't see a stale workspace copy
+- _(core)_ Pin versions as required by jsr
+- _(core)_ Repin sibling core-lib imports before stamping, so a version bump
+  doesn't break workspace resolution
+- _(core)_ Bump every core lib's own version before any lib kit subprocess runs,
+  so the first stamp doesn't see a stale workspace copy
 
 ### 🚜 Refactor
 
-- *(core)* Move coreLibs/libs config under a unified publish.core/publish.libs list schema
+- _(core)_ Move coreLibs/libs config under a unified publish.core/publish.libs
+  list schema
 
 ### ⚙️ Miscellaneous Tasks
 
 - Update lock
-- *(release)* Bump library versions for 0.14.0
+- _(release)_ Bump library versions for 0.14.0
+
 ## [0.13.0] - 2026-09-17
 
 ### 🐛 Bug Fixes
 
-- *(release)* Correct core libs publishing order
+- _(release)_ Correct core libs publishing order
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(release)* Bump library versions for 0.13.0
+- _(release)_ Bump library versions for 0.13.0
+
 ## [0.12.0] - 2026-09-16
 
 ### 🚀 Features
 
-- *(cli)* Add an ens mcp server exposing commands as MCP tools for agents
+- _(cli)_ Add an ens mcp server exposing commands as MCP tools for agents
 
 ### 🐛 Bug Fixes
 
-- *(cli)* Don't run release hooks when the ceremony was declined
-- *(core,cli)* Report ens develop app/config errors cleanly instead of crashing
+- _(cli)_ Don't run release hooks when the ceremony was declined
+- _(core,cli)_ Report ens develop app/config errors cleanly instead of crashing
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.11.0
-- *(release)* Bump library versions for 0.12.0
+- _(changelog)_ Update for 0.11.0
+- _(release)_ Bump library versions for 0.12.0
+
 ## [0.11.0] - 2026-09-16
 
 ### 🚀 Features
 
-- *(release)* Push whatever the release.after hooks committed
-- *(core)* Declare @ensemble/core as a publishable core lib
+- _(release)_ Push whatever the release.after hooks committed
+- _(core)_ Declare @ensemble/core as a publishable core lib
 
 ### 🚜 Refactor
 
-- *(core)* Declare core libs in .ensemble/config.yaml, not lib.yml
-- *(core)* Drop lib.yml entirely, track every lib in .ensemble/config.yaml
+- _(core)_ Declare core libs in .ensemble/config.yaml, not lib.yml
+- _(core)_ Drop lib.yml entirely, track every lib in .ensemble/config.yaml
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.10.0
+- _(changelog)_ Update for 0.10.0
+
 ## [0.10.0] - 2026-09-16
 
 ### 🚜 Refactor
 
-- *(cli)* Make kit eject take remote as a positional argument
-- *(release)* Give release.after hooks names and run them as a list
-- *(release)* Stamp and commit core-lib version bumps before tagging
+- _(cli)_ Make kit eject take remote as a positional argument
+- _(release)_ Give release.after hooks names and run them as a list
+- _(release)_ Stamp and commit core-lib version bumps before tagging
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.9.0
+- _(changelog)_ Update for 0.9.0
 - Update version to 0.9.0 in deno.json
-- *(release)* Bump library versions for 0.10.0
+- _(release)_ Bump library versions for 0.10.0
+
 ## [0.9.0] - 2026-09-16
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.8.0
-- *(changelog)* Scope git-cliff to the latest tag and prepend instead of full regeneration
-- *(changelog)* Move cliff.toml into .ensemble/configs
+- _(changelog)_ Update for 0.8.0
+- _(changelog)_ Scope git-cliff to the latest tag and prepend instead of full
+  regeneration
+- _(changelog)_ Move cliff.toml into .ensemble/configs
+
 ## [0.8.0] - 2026-09-16
 
 ### 🚀 Features
 
-- *(kit-sdk)* Wire kit-sdk into the core-lib release cascade for jsr publishing
-- *(release)* Push tag only after ceremony succeeds, add resume for partial failures
-- *(release)* Pack every ship before publishing any of them
+- _(kit-sdk)_ Wire kit-sdk into the core-lib release cascade for jsr publishing
+- _(release)_ Push tag only after ceremony succeeds, add resume for partial
+  failures
+- _(release)_ Pack every ship before publishing any of them
 
 ### 🐛 Bug Fixes
 
-- *(release)* Push the tag before publishing, not after, and clean up failure messaging
+- _(release)_ Push the tag before publishing, not after, and clean up failure
+  messaging
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.7.0
+- _(changelog)_ Update for 0.7.0
+
 ## [0.7.0] - 2026-09-16
 
 ### 🚀 Features
 
-- *(kit)* Add kit new and eject for authoring kits in-project
+- _(kit)_ Add kit new and eject for authoring kits in-project
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.6.0
+- _(changelog)_ Update for 0.6.0
+
 ## [0.6.0] - 2026-09-16
 
 ### 🚀 Features
 
-- *(vendor)* Add kit/lib install, pin, update, contribute, eject, and lib publish
+- _(vendor)_ Add kit/lib install, pin, update, contribute, eject, and lib
+  publish
 
 ### 🐛 Bug Fixes
 
-- *(init)* Scaffold the top-level ci folder
-- *(schema)* Update delivery.yml schema references for resource types
-- *(init)* Vendor kits at the git tag matching the installed ens version
+- _(init)_ Scaffold the top-level ci folder
+- _(schema)_ Update delivery.yml schema references for resource types
+- _(init)_ Vendor kits at the git tag matching the installed ens version
 
 ### 📚 Documentation
 
-- *(deploy)* Add JSON schema for delivery.yml autocomplete
+- _(deploy)_ Add JSON schema for delivery.yml autocomplete
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.5.0
+- _(changelog)_ Update for 0.5.0
+
 ## [0.5.0] - 2026-09-15
 
 ### 🚀 Features
 
-- *(init)* Scaffold source/core and add it to the workspace
-- *(init)* Scaffold a README describing the workspace and ens commands
+- _(init)_ Scaffold source/core and add it to the workspace
+- _(init)_ Scaffold a README describing the workspace and ens commands
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.4.0
+- _(changelog)_ Update for 0.4.0
+
 ## [0.4.0] - 2026-09-15
 
 ### 🚀 Features
 
-- *(kit-sdk)* Pass build target through to app scaffolding
+- _(kit-sdk)_ Pass build target through to app scaffolding
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.3.4
+- _(changelog)_ Update for 0.3.4
+
 ## [0.3.4] - 2026-09-15
 
 ### 🐛 Bug Fixes
 
-- *(deno.compile kit)* Report its single actual dependency instead of every declared app
-- *(init)* Scope artifacts gitignore to the artifacts folder itself
+- _(deno.compile kit)_ Report its single actual dependency instead of every
+  declared app
+- _(init)_ Scope artifacts gitignore to the artifacts folder itself
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.3.3
+- _(changelog)_ Update for 0.3.3
+
 ## [0.3.3] - 2026-09-15
 
 ### 🚀 Features
 
 - Animated build progress reporter with a rotating spinner for ens build
-- Green pack progress reporter with --verbose to show the kit's raw build-tool output
+- Green pack progress reporter with --verbose to show the kit's raw build-tool
+  output
 
 ### 🐛 Bug Fixes
 
@@ -598,16 +694,19 @@
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.3.2
+- _(changelog)_ Update for 0.3.2
+
 ## [0.3.2] - 2026-09-15
 
 ### 🐛 Bug Fixes
 
-- *(react kit)* Silence Tailwind's routine build/watch chatter, keep its errors visible
+- _(react kit)_ Silence Tailwind's routine build/watch chatter, keep its errors
+  visible
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.3.1
+- _(changelog)_ Update for 0.3.1
+
 ## [0.3.1] - 2026-09-15
 
 ### 🚀 Features
@@ -617,39 +716,46 @@
 ### 🐛 Bug Fixes
 
 - Swallow the already-terminated race when a build watcher's kill signal fires
-- *(website)* Actually attach the server to the declared edge network
+- _(website)_ Actually attach the server to the declared edge network
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.3.0
+- _(changelog)_ Update for 0.3.0
+
 ## [0.3.0] - 2026-09-15
 
 ### 🐛 Bug Fixes
 
-- Forward emulateExternals through KitLoader, and skip double-building apps ens develop already watches
+- Forward emulateExternals through KitLoader, and skip double-building apps ens
+  develop already watches
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.2.2
+- _(changelog)_ Update for 0.2.2
+
 ## [0.2.2] - 2026-09-15
 
 ### 🚀 Features
 
 - Let pack kits report which apps they depend on before packing runs
-- Build a ship's app dependencies before packing, drop the stale meta.ship.artifacts record
+- Build a ship's app dependencies before packing, drop the stale
+  meta.ship.artifacts record
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.2.1
+- _(changelog)_ Update for 0.2.1
+
 ## [0.2.1] - 2026-09-15
 
 ### 🚀 Features
 
-- Attach compute to external Docker networks, with --emulate-externals to stand them up locally
+- Attach compute to external Docker networks, with --emulate-externals to stand
+  them up locally
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.2.0
+- _(changelog)_ Update for 0.2.0
+
 ## [0.2.0] - 2026-09-14
 
 ### 🚀 Features
@@ -658,418 +764,498 @@
 
 ### 🐛 Bug Fixes
 
-- *(cli/delivery)* Add version
+- _(cli/delivery)_ Add version
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.1.0
+- _(changelog)_ Update for 0.1.0
 - Formatting
 - Typo
+
 ## [0.1.0] - 2026-09-08
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.0.12
+- _(changelog)_ Update for 0.0.12
 
 ### 💼 Other
 
 - Save delivery output
+
 ## [0.0.11] - 2026-09-06
 
 ### 🚀 Features
 
-- *(core)* Skip ens build when source is unchanged
-- *(kits/pack/docker)* Register per-app build contexts by Dockerfile reference
+- _(core)_ Skip ens build when source is unchanged
+- _(kits/pack/docker)_ Register per-app build contexts by Dockerfile reference
 
 ### 🐛 Bug Fixes
 
-- *(release)* Remove deno publishing of event lib
+- _(release)_ Remove deno publishing of event lib
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.0.10
+- _(changelog)_ Update for 0.0.10
 - Remove unused files
+
 ## [0.0.10] - 2026-08-30
 
 ### 🚀 Features
 
-- *(release)* Add images_only input to control versioning and release updates
-- *(github-trigger)* Support push.branches alongside push.tags
+- _(release)_ Add images_only input to control versioning and release updates
+- _(github-trigger)_ Support push.branches alongside push.tags
 
 ### 🐛 Bug Fixes
 
-- *(kits/pack/docker)* Restore build cache
+- _(kits/pack/docker)_ Restore build cache
 
 ### ⚙️ Miscellaneous Tasks
 
 - Update backlog
+
 ## [0.0.9] - 2026-08-25
 
 ### 🚀 Features
 
-- *(git-integration)* Add per-repository GitHub webhook secrets
+- _(git-integration)_ Add per-repository GitHub webhook secrets
 
 ### 🐛 Bug Fixes
 
-- *(runner)* Alias deno run to ens so workflow steps can shell out to it
-- *(deploy)* Derive SERVER_HOST_WORKFLOWS_PATH from SERVER_WORKSPACE_PATH instead of a separately declared context.variable
+- _(runner)_ Alias deno run to ens so workflow steps can shell out to it
+- _(deploy)_ Derive SERVER_HOST_WORKFLOWS_PATH from SERVER_WORKSPACE_PATH
+  instead of a separately declared context.variable
 
 ### ⚡ Performance
 
-- *(dashboard)* Skip redundant git ls-remote when a workflow's page was resynced recently
+- _(dashboard)_ Skip redundant git ls-remote when a workflow's page was resynced
+  recently
 
 ### 🚜 Refactor
 
-- *(core)* Namespace package barrels and convert resource-threading functions to classes
-- *(platform)* Move route paths to app-layer config, dedupe handler boilerplate
+- _(core)_ Namespace package barrels and convert resource-threading functions to
+  classes
+- _(platform)_ Move route paths to app-layer config, dedupe handler boilerplate
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.0.8
+- _(changelog)_ Update for 0.0.8
+
 ## [0.0.8] - 2026-08-21
 
 ### 🚀 Features
 
-- *(platform)* Add GET /v1/debug reporting the running image tag and mounted routes
-- *(workflow)* Authenticate private repo clones for self and resources.repositories
+- _(platform)_ Add GET /v1/debug reporting the running image tag and mounted
+  routes
+- _(workflow)_ Authenticate private repo clones for self and
+  resources.repositories
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.0.7
+- _(changelog)_ Update for 0.0.7
+
 ## [0.0.7] - 2026-08-21
 
 ### 🐛 Bug Fixes
 
-- *(cli)* Don't crash getInstalledVersion under deno run, only installNext/installSet need the compiled binary
+- _(cli)_ Don't crash getInstalledVersion under deno run, only
+  installNext/installSet need the compiled binary
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.0.6
+- _(changelog)_ Update for 0.0.6
+
 ## [0.0.6] - 2026-08-21
 
 ### 🐛 Bug Fixes
 
-- *(git-integration)* Skip re-cloning a workflow's git link when the remote SHA hasn't moved
+- _(git-integration)_ Skip re-cloning a workflow's git link when the remote SHA
+  hasn't moved
 
 ### 📚 Documentation
 
-- *(agent-context)* Add AI/contributor onboarding doc
+- _(agent-context)_ Add AI/contributor onboarding doc
 
 ### 🚜 Refactor
 
-- *(deploy)* Matrix-ify watch_build jobs and ship runner/server from cli bundle instead of compiled binary
+- _(deploy)_ Matrix-ify watch_build jobs and ship runner/server from cli bundle
+  instead of compiled binary
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.0.5
+- _(changelog)_ Update for 0.0.5
+
 ## [0.0.5] - 2026-08-21
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.0.4
+- _(changelog)_ Update for 0.0.4
+
 ## [0.0.4] - 2026-08-20
 
 ### 🚀 Features
 
-- *(workflow)* Resolve self repository for server/containerized runs
-- *(dashboard)* Stream run status updates over WebSocket instead of SSE
-- *(dashboard)* Add workflow settings page with rename and delete
+- _(workflow)_ Resolve self repository for server/containerized runs
+- _(dashboard)_ Stream run status updates over WebSocket instead of SSE
+- _(dashboard)_ Add workflow settings page with rename and delete
 
 ### 🐛 Bug Fixes
 
-- *(workflow)* Make self a job/step in.repository value, not a resources.repositories entry
+- _(workflow)_ Make self a job/step in.repository value, not a
+  resources.repositories entry
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.0.3
+- _(changelog)_ Update for 0.0.3
+
 ## [0.0.3] - 2026-08-20
 
 ### 🚀 Features
 
-- *(workflow)* Replace config.local.yaml repo overrides with in: self + --local/--repository
+- _(workflow)_ Replace config.local.yaml repo overrides with in: self +
+  --local/--repository
 
 ### 🐛 Bug Fixes
 
-- *(version,release)* Scope bump target to current pre-release line
+- _(version,release)_ Scope bump target to current pre-release line
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.0.2
+- _(changelog)_ Update for 0.0.2
+
 ## [0.0.2] - 2026-08-20
 
 ### 🐛 Bug Fixes
 
-- *(init)* Disable minimum dependency age in scaffolded projects' deno.json
-- *(kits)* Scope minimum-dependency-age bypass to kit subprocess spawns, not project deno.json
+- _(init)_ Disable minimum dependency age in scaffolded projects' deno.json
+- _(kits)_ Scope minimum-dependency-age bypass to kit subprocess spawns, not
+  project deno.json
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.0.1
+- _(changelog)_ Update for 0.0.1
+
 ## [0.0.1] - 2026-08-20
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 1.0.10-alpha
+- _(changelog)_ Update for 1.0.10-alpha
 - Update deno.lock
+
 ## [1.0.10-alpha] - 2026-08-20
 
 ### 🐛 Bug Fixes
 
-- *(release)* Pass --allow-dirty to deno publish after pinning workspace deps
+- _(release)_ Pass --allow-dirty to deno publish after pinning workspace deps
+
 ## [1.0.9-alpha] - 2026-08-20
 
 ### 🐛 Bug Fixes
 
-- *(ship/runner)* Add jq back to the Dockerfile (dropped by earlier reset)
+- _(ship/runner)_ Add jq back to the Dockerfile (dropped by earlier reset)
+
 ## [1.0.8-alpha] - 2026-08-20
 
 ### 🐛 Bug Fixes
 
-- *(release)* Pin workspace-internal jsr: deps to release version before publishing
+- _(release)_ Pin workspace-internal jsr: deps to release version before
+  publishing
+
 ## [1.0.7-alpha] - 2026-08-20
 
 ### 🐛 Bug Fixes
 
-- *(workflow)* Replace text import attribute with readTextFile for JSR compat
+- _(workflow)_ Replace text import attribute with readTextFile for JSR compat
+
 ## [1.0.6-alpha] - 2026-08-20
 
 ### 🚀 Features
 
-- *(jsr)* Publish kit-sdk, core, workflow, and event to JSR on production release
-- *(workflows/release)* Add JSR_TOKEN secret
+- _(jsr)_ Publish kit-sdk, core, workflow, and event to JSR on production
+  release
+- _(workflows/release)_ Add JSR_TOKEN secret
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 1.0.5-alpha
+- _(changelog)_ Update for 1.0.5-alpha
+
 ## [1.0.5-alpha] - 2026-08-19
 
 ### 🐛 Bug Fixes
 
-- *(deploy)* Resolve docker GID from socket stat instead of getent
+- _(deploy)_ Resolve docker GID from socket stat instead of getent
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 1.0.4-alpha
+- _(changelog)_ Update for 1.0.4-alpha
+
 ## [1.0.4-alpha] - 2026-08-19
 
 ### 🚀 Features
 
-- *(kits)* Add scaffold.ts to build kits, wire ens app create
+- _(kits)_ Add scaffold.ts to build kits, wire ens app create
+
 ## [1.0.3-alpha] - 2026-08-19
 
 ### 🚀 Features
 
-- *(ship/runner)* Add docker-cli-compose and coreutils to the Dockerfile dependencies
+- _(ship/runner)_ Add docker-cli-compose and coreutils to the Dockerfile
+  dependencies
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 1.0.2-alpha
+- _(changelog)_ Update for 1.0.2-alpha
+
 ## [1.0.2-alpha] - 2026-08-19
 
 ### 🚀 Features
 
-- *(workflow/deploy)* Take image tag as manual git-tags input
-- *(runs)* Persist and surface a run's resolved deploy context in the dashboard
-- *(workflow/dashboard)* Add per-workflow endpoint that resyncs its git link
-- *(cli/init)* Drop self-vendoring, sparse-checkout kits, scaffold example test workflow
-- *(workflow/dashboard)* Render git-tags manual inputs as a searchable combobox
-- *(web)* Replace secrets/variables tabs with stacked sections, each with its own search
+- _(workflow/deploy)_ Take image tag as manual git-tags input
+- _(runs)_ Persist and surface a run's resolved deploy context in the dashboard
+- _(workflow/dashboard)_ Add per-workflow endpoint that resyncs its git link
+- _(cli/init)_ Drop self-vendoring, sparse-checkout kits, scaffold example test
+  workflow
+- _(workflow/dashboard)_ Render git-tags manual inputs as a searchable combobox
+- _(web)_ Replace secrets/variables tabs with stacked sections, each with its
+  own search
 
 ### 🐛 Bug Fixes
 
-- *(workflow/release)* Narrow test-tag exclusion to only *-test, not any pre-release tag
-- *(workflow/dashboard)* Resync git-linked workflows before listing
+- _(workflow/release)_ Narrow test-tag exclusion to only *-test, not any
+  pre-release tag
+- _(workflow/dashboard)_ Resync git-linked workflows before listing
 
 ### 🎨 Styling
 
-- *(web)* Subtle theme-aware scrollbars, stable scrollbar gutter, and a fixed workflow tab strip
+- _(web)_ Subtle theme-aware scrollbars, stable scrollbar gutter, and a fixed
+  workflow tab strip
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 1.0.1-alpha
+- _(changelog)_ Update for 1.0.1-alpha
+
 ## [1.0.1-alpha] - 2026-08-18
 
 ### 🚀 Features
 
-- *(workflow)* Let github triggers declare a per-tag-pattern deploy context
-- *(workflow/release)* Add github trigger context
+- _(workflow)_ Let github triggers declare a per-tag-pattern deploy context
+- _(workflow/release)_ Add github trigger context
+
 ## [1.0.0-alpha] - 2026-08-18
 
 ### 🚀 Features
 
-- *(web)* Convert job selects to Select component, fix broken select.tsx theme classes
-- *(pack)* Support --watch for kits that declare it
-- *(deploy)* Watch-build cli/server/web and sync the compiled cli into server
-- *(workflow)* Make the job manual input always a list, add multi-select combobox
-- *(deploy)* Add watch_runner job to keep the runner image in sync with the compiled cli
-- *(release)* Add a manual trigger with local/production context branching
-- *(web)* Keep relative timestamps live and add hover tooltips
-- *(workflow)* Expose a workflow's contexts/ subfolder names as a trigger UI picker
-- *(release)* Add hot-server build/publish, remove workflows/server
-- *(workflows)* Remove local workflow files and configurations
-- *(workflow,platform)* Replace server-side vault with git-committed encrypted secrets
-- *(workflows)* Migrate deploy, release, and demo to encrypted secrets.enc
-- *(web,platform)* Add a git integration detail page with editable access, secrets key, and unregister
-- *(web,platform)* Enhance SecretsView with edit functionality and improved error handling for Git integration
-- *(workflow)* Restructure context.files and split context.secrets into variables/files
-- *(cli)* Support editing context.secrets.files via workflow secrets edit
-- *(platform,web)* Dashboard support for context.secrets.files
-- *(workflow)* Add ensemble.artifacts()/ensemble.packages() namespaced expression functions
-- *(workflow)* Auto-apply set -euo pipefail to run: steps
-- *(platform,web)* Add Secrets and variables tab with plain context.variables/files view
-- *(workflow/deploy)* Simplify API path matching in Caddyfile
-- *(workflow/release)* Reintroduce changelog update and GitHub release steps
+- _(web)_ Convert job selects to Select component, fix broken select.tsx theme
+  classes
+- _(pack)_ Support --watch for kits that declare it
+- _(deploy)_ Watch-build cli/server/web and sync the compiled cli into server
+- _(workflow)_ Make the job manual input always a list, add multi-select
+  combobox
+- _(deploy)_ Add watch_runner job to keep the runner image in sync with the
+  compiled cli
+- _(release)_ Add a manual trigger with local/production context branching
+- _(web)_ Keep relative timestamps live and add hover tooltips
+- _(workflow)_ Expose a workflow's contexts/ subfolder names as a trigger UI
+  picker
+- _(release)_ Add hot-server build/publish, remove workflows/server
+- _(workflows)_ Remove local workflow files and configurations
+- _(workflow,platform)_ Replace server-side vault with git-committed encrypted
+  secrets
+- _(workflows)_ Migrate deploy, release, and demo to encrypted secrets.enc
+- _(web,platform)_ Add a git integration detail page with editable access,
+  secrets key, and unregister
+- _(web,platform)_ Enhance SecretsView with edit functionality and improved
+  error handling for Git integration
+- _(workflow)_ Restructure context.files and split context.secrets into
+  variables/files
+- _(cli)_ Support editing context.secrets.files via workflow secrets edit
+- _(platform,web)_ Dashboard support for context.secrets.files
+- _(workflow)_ Add ensemble.artifacts()/ensemble.packages() namespaced
+  expression functions
+- _(workflow)_ Auto-apply set -euo pipefail to run: steps
+- _(platform,web)_ Add Secrets and variables tab with plain
+  context.variables/files view
+- _(workflow/deploy)_ Simplify API path matching in Caddyfile
+- _(workflow/release)_ Reintroduce changelog update and GitHub release steps
 
 ### 🐛 Bug Fixes
 
-- *(workflow/server)* Make manual trigger's job input a list default
-- *(deploy)* Rename production tfvars to the name terraform_apply expects, add unused-caddy placeholder
-- *(workflows/deploy)* Correct image reference for web service in dockercompose stack
-- *(platform,web)* Handle missing git write access for secrets, fix Select showing raw values
-- *(docs)* Update backlog
+- _(workflow/server)_ Make manual trigger's job input a list default
+- _(deploy)_ Rename production tfvars to the name terraform_apply expects, add
+  unused-caddy placeholder
+- _(workflows/deploy)_ Correct image reference for web service in dockercompose
+  stack
+- _(platform,web)_ Handle missing git write access for secrets, fix Select
+  showing raw values
+- _(docs)_ Update backlog
 
 ### 📚 Documentation
 
-- *(deploy)* Add a production deploy guide
+- _(deploy)_ Add a production deploy guide
 
 ### 🚜 Refactor
 
-- *(deploy)* Replace Terraform with plain Docker Compose and structured context.variables
-- *(workflows)* Migrate demo and release to context.secrets.variables/files
-- *(workflow)* Standardize context variables/secrets storage on .yml
+- _(deploy)_ Replace Terraform with plain Docker Compose and structured
+  context.variables
+- _(workflows)_ Migrate demo and release to context.secrets.variables/files
+- _(workflow)_ Standardize context variables/secrets storage on .yml
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.0.32-test
-- *(deploy)* Bump dockercompose provider lockfile to v0.2.2
+- _(changelog)_ Update for 0.0.32-test
+- _(deploy)_ Bump dockercompose provider lockfile to v0.2.2
+
 ## [0.0.32-test] - 2026-08-09
 
 ### 🚀 Features
 
-- *(workflow)* Add context.name and ensembleArtifacts() expression functions
-- *(deploy)* Resolve terraform artifacts/caddy paths via contextFile()/ensembleArtifacts()
+- _(workflow)_ Add context.name and ensembleArtifacts() expression functions
+- _(deploy)_ Resolve terraform artifacts/caddy paths via
+  contextFile()/ensembleArtifacts()
 
 ### 🐛 Bug Fixes
 
-- *(kit)* Force-touch react.spa's css output so watch always syncs it
+- _(kit)_ Force-touch react.spa's css output so watch always syncs it
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.0.31-test
-- Log build success in deno.bundle kit, ignore deploy's workspace dir, backlog note
+- _(changelog)_ Update for 0.0.31-test
+- Log build success in deno.bundle kit, ignore deploy's workspace dir, backlog
+  note
+
 ## [0.0.31-test] - 2026-08-08
 
 ### 🚀 Features
 
-- *(workflow)* Replace contexts:/secrets: with a unified context: block and pluggable loaders
-- *(workflow,platform)* Decouple git registration from workflow creation
-- *(workflow)* Expose context.variables via dot-access interpolation
-- *(workflow)* Change context.variables from a map to a list, matching context.secrets
-- *(workflow)* Add contextFile()/contextSecretFile() interpolation for raw context files
-- *(deploy)* Add dev-only Caddy gateway via docker-compose profiles
+- _(workflow)_ Replace contexts:/secrets: with a unified context: block and
+  pluggable loaders
+- _(workflow,platform)_ Decouple git registration from workflow creation
+- _(workflow)_ Expose context.variables via dot-access interpolation
+- _(workflow)_ Change context.variables from a map to a list, matching
+  context.secrets
+- _(workflow)_ Add contextFile()/contextSecretFile() interpolation for raw
+  context files
+- _(deploy)_ Add dev-only Caddy gateway via docker-compose profiles
 
 ### 🐛 Bug Fixes
 
-- *(workflow)* Collect context.variables/secrets into one shared .env file per context
-- *(deploy)* Use abspath() for the Caddyfile bind mount
+- _(workflow)_ Collect context.variables/secrets into one shared .env file per
+  context
+- _(deploy)_ Use abspath() for the Caddyfile bind mount
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.0.30-test
-- *(deploy)* Bump dockercompose provider lockfile to v0.2.1
+- _(changelog)_ Update for 0.0.30-test
+- _(deploy)_ Bump dockercompose provider lockfile to v0.2.1
+
 ## [0.0.30-test] - 2026-08-07
 
 ### 🚀 Features
 
-- *(workflow,dashboard)* Add manual trigger to deploy, dashboard context picker for contexts:
-- *(ui)* Export Select component, use it for the context picker
-- *(workflow/deploy)* Add artifacts_dir variable to terraform apply step
-- *(workflow/server)* Add .gitignore to exclude .env files
+- _(workflow,dashboard)_ Add manual trigger to deploy, dashboard context picker
+  for contexts:
+- _(ui)_ Export Select component, use it for the context picker
+- _(workflow/deploy)_ Add artifacts_dir variable to terraform apply step
+- _(workflow/server)_ Add .gitignore to exclude .env files
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.0.29-test
+- _(changelog)_ Update for 0.0.29-test
+
 ## [0.0.29-test] - 2026-08-07
 
 ### 🐛 Bug Fixes
 
-- *(workflow)* Let secrets: be satisfied by caller variables, not just Deno.env
-- *(workflow)* Always forward HOME to secrets:-scoped steps
+- _(workflow)_ Let secrets: be satisfied by caller variables, not just Deno.env
+- _(workflow)_ Always forward HOME to secrets:-scoped steps
+
 ## [0.0.28-test] - 2026-08-07
 
 ### 🚀 Features
 
-- *(cli)* Add --env-file to ens workflow for loading variables/secrets from a .env file
+- _(cli)_ Add --env-file to ens workflow for loading variables/secrets from a
+  .env file
 
 ### 🐛 Bug Fixes
 
-- *(platform)* Resync git-integrated workflows automatically before every run
+- _(platform)_ Resync git-integrated workflows automatically before every run
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for null
+- _(changelog)_ Update for null
+
 ## [0.0.27-test] - 2026-08-07
 
 ### 🚀 Features
 
-- *(workflow)* Reject stale or forward-referenced steps.<id> at parse time
+- _(workflow)_ Reject stale or forward-referenced steps.<id> at parse time
 
 ### 🐛 Bug Fixes
 
-- *(workflows/release)* Use trigger.tag instead of git describe
+- _(workflows/release)_ Use trigger.tag instead of git describe
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.0.26-test
+- _(changelog)_ Update for 0.0.26-test
+
 ## [0.0.26-test] - 2026-08-07
 
 ### 🐛 Bug Fixes
 
-- *(workflows/release)* Reference the tag step by its actual id
+- _(workflows/release)_ Reference the tag step by its actual id
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.0.25-test
+- _(changelog)_ Update for 0.0.25-test
+
 ## [0.0.25-test] - 2026-08-07
 
 ### 🐛 Bug Fixes
 
-- *(workflow)* Move docker login step to the beginning of the release job
+- _(workflow)_ Move docker login step to the beginning of the release job
+
 ## [0.0.24-test] - 2026-08-06
 
 ### 🚀 Features
 
-- *(workflow)* Add secrets: to scope which env vars steps can read
+- _(workflow)_ Add secrets: to scope which env vars steps can read
 
 ### 🚜 Refactor
 
-- *(workflows/release)* Docker login once per job instead of per push step
+- _(workflows/release)_ Docker login once per job instead of per push step
+
 ## [0.0.23-test] - 2026-08-06
 
 ### 🚀 Features
 
-- *(workflow)* Add resources.repositories for declarative checkout
-- *(ship)* Add dedicated runner image, trim server to just docker-cli
-- *(workflow)* Run server-triggered workflows in a spawned container
-- *(workflows/local)* Wire docker socket + host path so server can spawn runner containers
-- *(workflow)* Allow local config.local.yaml overrides for resources.repositories
-- *(workflow)* Add step-level in.repository to default a step's cwd to a checkout
-- *(workflows)* Convert server and local to resources.repositories + in.repository
-- *(workflow)* Allow job-level in.repository as every step's default
-- *(workflow)* Add contexts: for required, validated, local-or-remote deploy contexts
-- *(workflows/deploy)* Add deploy workflow for ensemble's own server+web via Terraform
-- *(workflow)* Add packing and pushing steps for runner
-- *(ship/server)* Add git and curl
-- *(workflow/server)* Split in multiple jobs
-- *(workflow/server)* Add manual job input for workflow
-- *(workflow)* Support running multiple jobs via -j/--job and manual job inputs
+- _(workflow)_ Add resources.repositories for declarative checkout
+- _(ship)_ Add dedicated runner image, trim server to just docker-cli
+- _(workflow)_ Run server-triggered workflows in a spawned container
+- _(workflows/local)_ Wire docker socket + host path so server can spawn runner
+  containers
+- _(workflow)_ Allow local config.local.yaml overrides for
+  resources.repositories
+- _(workflow)_ Add step-level in.repository to default a step's cwd to a
+  checkout
+- _(workflows)_ Convert server and local to resources.repositories +
+  in.repository
+- _(workflow)_ Allow job-level in.repository as every step's default
+- _(workflow)_ Add contexts: for required, validated, local-or-remote deploy
+  contexts
+- _(workflows/deploy)_ Add deploy workflow for ensemble's own server+web via
+  Terraform
+- _(workflow)_ Add packing and pushing steps for runner
+- _(ship/server)_ Add git and curl
+- _(workflow/server)_ Split in multiple jobs
+- _(workflow/server)_ Add manual job input for workflow
+- _(workflow)_ Support running multiple jobs via -j/--job and manual job inputs
 
 ### 🐛 Bug Fixes
 
-- *(workflows/release)* Install git-cliff to /tmp instead of /usr/local/bin
-- *(workflow/server)* Dedupe compile_cli into its own job to avoid a concurrent-write race
-- *(core)* Mount docker socket into spawned runner containers
-- *(core)* Forward server's env into spawned runner containers
+- _(workflows/release)_ Install git-cliff to /tmp instead of /usr/local/bin
+- _(workflow/server)_ Dedupe compile_cli into its own job to avoid a
+  concurrent-write race
+- _(core)_ Mount docker socket into spawned runner containers
+- _(core)_ Forward server's env into spawned runner containers
 
 ### 📚 Documentation
 
@@ -1077,106 +1263,118 @@
 
 ### 🚜 Refactor
 
-- *(core/config)* Namespace local repository overrides under workflows:
+- _(core/config)_ Namespace local repository overrides under workflows:
+
 ## [0.0.22-test] - 2026-08-05
 
 ### 🐛 Bug Fixes
 
-- *(kits/build/react.spa)* Download the musl Tailwind binary on Alpine, install libstdc++/libgcc to run it
+- _(kits/build/react.spa)_ Download the musl Tailwind binary on Alpine, install
+  libstdc++/libgcc to run it
+
 ## [0.0.20-test] - 2026-08-05
 
 ### 🚀 Features
 
-- *(dashboard)* Add realtime run/step status via SSE
-- *(dashboard)* Add run deletion with confirmation dialog
+- _(dashboard)_ Add realtime run/step status via SSE
+- _(dashboard)_ Add run deletion with confirmation dialog
 
 ### 🐛 Bug Fixes
 
-- *(core)* Prefer walking cwd over ENSEMBLE_WORKSPACE in findRepoRoot
-- *(kits/pack/docker)* Disable build cache to avoid stale COPY --from=packages layers
-- *(ship/server)* Copy ensemble-linux-x64 instead of stale cli.exe
-- *(core)* Silence remaining deno subprocess logs, chunk step logs to fit Deno KV's size limit
-- *(apps/web)* Update import path for Table component
-- *(workflow/server)* Add production flag to build_server and build_web steps
+- _(core)_ Prefer walking cwd over ENSEMBLE_WORKSPACE in findRepoRoot
+- _(kits/pack/docker)_ Disable build cache to avoid stale COPY --from=packages
+  layers
+- _(ship/server)_ Copy ensemble-linux-x64 instead of stale cli.exe
+- _(core)_ Silence remaining deno subprocess logs, chunk step logs to fit Deno
+  KV's size limit
+- _(apps/web)_ Update import path for Table component
+- _(workflow/server)_ Add production flag to build_server and build_web steps
+
 ## [0.0.19-test] - 2026-08-05
 
 ### 🚀 Features
 
-- *(workflows/server)* Log in to registry before pushing server image
-- *(workflows/server)* Add packing and pushing for web artifacts
-- *(ship/web)* Use hot-server image
+- _(workflows/server)_ Log in to registry before pushing server image
+- _(workflows/server)_ Add packing and pushing for web artifacts
+- _(ship/web)_ Use hot-server image
 
 ### 🐛 Bug Fixes
 
-- *(workflows)* Add manual publishing to workflow server and correct s3 path in workflow release
-- *(deno)* Silence download/cache output with -q flag
-- *(ship/server)* Install minio-client and alias it to mc
-- *(ship/server)* Add env vars in dockerfile as reference
-- *(workflows/server)* Correct s3 env var names
-- *(workflows/server)* Cd to ENSEMBLE_WORKSPACE before referencing source/ paths
-- *(workflows)* Correct release bucket name
-- *(workflows/server)* Mirror web artifacts instead of cp to avoid stale files
-- *(workflows/release)* Mirror web artifacts instead of cp to avoid stale files
-- *(ship/server)* Remove secrets from Dockerfile ENV to avoid baking them into image layers
-- *(workflows/server)* Add hot-server publishing
-- *(workflows/server)* Simplify hot-server packing and tagging
-- *(platform)* Remove dashboard-static feature, hot-server owns serving the web app
-- *(workflows/release)* Update web image build and publish steps for production
+- _(workflows)_ Add manual publishing to workflow server and correct s3 path in
+  workflow release
+- _(deno)_ Silence download/cache output with -q flag
+- _(ship/server)_ Install minio-client and alias it to mc
+- _(ship/server)_ Add env vars in dockerfile as reference
+- _(workflows/server)_ Correct s3 env var names
+- _(workflows/server)_ Cd to ENSEMBLE_WORKSPACE before referencing source/ paths
+- _(workflows)_ Correct release bucket name
+- _(workflows/server)_ Mirror web artifacts instead of cp to avoid stale files
+- _(workflows/release)_ Mirror web artifacts instead of cp to avoid stale files
+- _(ship/server)_ Remove secrets from Dockerfile ENV to avoid baking them into
+  image layers
+- _(workflows/server)_ Add hot-server publishing
+- _(workflows/server)_ Simplify hot-server packing and tagging
+- _(platform)_ Remove dashboard-static feature, hot-server owns serving the web
+  app
+- _(workflows/release)_ Update web image build and publish steps for production
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.0.18-test
+- _(changelog)_ Update for 0.0.18-test
+
 ## [0.0.18-test] - 2026-08-05
 
 ### 🚀 Features
 
-- *(workflow)* Emit job and step lifecycle events
-- *(core)* Add git-integration and kv-backed run tracking
-- *(platform)* Add v1 dashboard, run, and git-integration routes
-- *(libs)* Add shared ui component library
-- *(apps/web)* Add workflow dashboard application
-- *(ship)* Add hot-server for local dev asset serving
-- *(cli)* Resolve --version from the installed binary marker
+- _(workflow)_ Emit job and step lifecycle events
+- _(core)_ Add git-integration and kv-backed run tracking
+- _(platform)_ Add v1 dashboard, run, and git-integration routes
+- _(libs)_ Add shared ui component library
+- _(apps/web)_ Add workflow dashboard application
+- _(ship)_ Add hot-server for local dev asset serving
+- _(cli)_ Resolve --version from the installed binary marker
 - Add react/jsx workspace config and dashboard dependencies
 - Add workflow variables block, run: interpolation, and structured context
 - Replace http trigger with manual trigger and typed inputs
-- Add -v/--var flag to pack, rename build's to -v, and support local var defaults
-- *(ui)* Add InputGroup and Tabs components, fix table theme colors
-- *(platform)* Track integrated git repos, support refresh/remove/restore
-- *(dashboard)* Redesign workflows/runs UI, track run trigger source
-- *(workflows)* Add demo workflow that always succeeds
-- *(dashboard)* Show an icon per breadcrumb, add padding and larger text
-- *(dashboard)* Trigger-specific run buttons with input sheets
-- *(workflows/demo)* Take a message input, sleep 5s to simulate work
-- *(dashboard)* Run detail view with job dependency flow diagram
-- *(dashboard)* Line numbers, resizable sheet, and copy button for step logs
-- *(workflow)* Support outputs on run: steps via $WORKFLOW_OUTPUT
+- Add -v/--var flag to pack, rename build's to -v, and support local var
+  defaults
+- _(ui)_ Add InputGroup and Tabs components, fix table theme colors
+- _(platform)_ Track integrated git repos, support refresh/remove/restore
+- _(dashboard)_ Redesign workflows/runs UI, track run trigger source
+- _(workflows)_ Add demo workflow that always succeeds
+- _(dashboard)_ Show an icon per breadcrumb, add padding and larger text
+- _(dashboard)_ Trigger-specific run buttons with input sheets
+- _(workflows/demo)_ Take a message input, sleep 5s to simulate work
+- _(dashboard)_ Run detail view with job dependency flow diagram
+- _(dashboard)_ Line numbers, resizable sheet, and copy button for step logs
+- _(workflow)_ Support outputs on run: steps via $WORKFLOW_OUTPUT
 
 ### 🐛 Bug Fixes
 
-- *(ship/server)* Enable deno kv for the server image
+- _(ship/server)_ Enable deno kv for the server image
 - Add variables to the workflow.yml JSON schema
 - Rename workflow's --var short flag from -e to -v
-- *(workflows/local)* Run container as non-root, fix caddy port, ignore all kv files
-- *(kits/build/react.spa)* Re-render index.html on change during --watch
-- *(dashboard)* Show git repositories' last-synced time as relative
-- *(ui)* Drop dead cn-font-heading class, use muted-foreground token
-- *(workflows/local)* Use port 8999 for caddy to avoid local conflict
+- _(workflows/local)_ Run container as non-root, fix caddy port, ignore all kv
+  files
+- _(kits/build/react.spa)_ Re-render index.html on change during --watch
+- _(dashboard)_ Show git repositories' last-synced time as relative
+- _(ui)_ Drop dead cn-font-heading class, use muted-foreground token
+- _(workflows/local)_ Use port 8999 for caddy to avoid local conflict
 
 ### 📚 Documentation
 
-- *(platform)* Update route paths for v1 prefix
+- _(platform)_ Update route paths for v1 prefix
 - Describe project principles and add logo
 - Rewrite root README usage/intro, document all commands in detail
 - Clarify README opening thesis wording
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.0.17-test
-- *(libs)* Add event delegate library
-- *(apps)* Relocate placeholder spa from apps/web to apps/demo
-- *(ship/web)* Relocate spa dockerfile and pack config
-- *(config)* Point web and demo/spa at the react.spa kit
+- _(changelog)_ Update for 0.0.17-test
+- _(libs)_ Add event delegate library
+- _(apps)_ Relocate placeholder spa from apps/web to apps/demo
+- _(ship/web)_ Relocate spa dockerfile and pack config
+- _(config)_ Point web and demo/spa at the react.spa kit
 - Relocate ensemble ignore rules under .ensemble
 - Add devcontainer setup
 - Add local dev-loop workflow with caddy reverse proxy
@@ -1184,33 +1382,38 @@
 - Relocate tokens.json under .ensemble/platform/
 - Update backlog
 - Tidy up local workflow resources
-- *(dev)* Add kivi devcontainer extension, keep tailwind css watch alive
-- *(workflows/local)* Gitignore synced workflow clone directory
-- *(web)* Default to dark mode
+- _(dev)_ Add kivi devcontainer extension, keep tailwind css watch alive
+- _(workflows/local)_ Gitignore synced workflow clone directory
+- _(web)_ Default to dark mode
+
 ## [0.0.17-test] - 2026-07-28
 
 ### 🚀 Features
 
-- *(cli/workflow)* Add context flag
+- _(cli/workflow)_ Add context flag
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.0.16-test
+- _(changelog)_ Update for 0.0.16-test
+
 ## [0.0.16-test] - 2026-07-26
 
 ### 🐛 Bug Fixes
 
-- *(release)* Build server and pack cli before building image
+- _(release)_ Build server and pack cli before building image
+
 ## [0.0.15-test] - 2026-07-26
 
 ### 🐛 Bug Fixes
 
-- *(ship/server)* Add docker-cli-buildx for buildx build support
+- _(ship/server)_ Add docker-cli-buildx for buildx build support
+
 ## [0.0.14-test] - 2026-07-26
 
 ### 🚀 Features
 
-- *(ship/server)* Add docker-cli
+- _(ship/server)_ Add docker-cli
+
 ## [0.0.13-test] - 2026-07-26
 
 ### 📚 Documentation
@@ -1219,126 +1422,147 @@
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.0.12-test
+- _(changelog)_ Update for 0.0.12-test
+
 ## [0.0.12-test] - 2026-07-26
 
 ### 🚀 Features
 
-- *(workflow)* Wrap step logs in start/end markers with name/type label
-- *(workflows/server)* Add server image publishing in release workflow
+- _(workflow)_ Wrap step logs in start/end markers with name/type label
+- _(workflows/server)_ Add server image publishing in release workflow
 
 ### 🐛 Bug Fixes
 
-- *(cli/release)* Show tag preview before confirmation prompts, not just in dry-run
+- _(cli/release)_ Show tag preview before confirmation prompts, not just in
+  dry-run
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.0.11-test
+- _(changelog)_ Update for 0.0.11-test
+
 ## [0.0.11-test] - 2026-07-25
 
 ### 🐛 Bug Fixes
 
-- *(workflow)* Let run: steps' ens subcommands find the repo root
-- *(workflows/server)* Use ens bin instead of task
+- _(workflow)_ Let run: steps' ens subcommands find the repo root
+- _(workflows/server)_ Use ens bin instead of task
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.0.10-test
+- _(changelog)_ Update for 0.0.10-test
+
 ## [0.0.10-test] - 2026-07-25
 
 ### 🚀 Features
 
-- *(release)* Name the compiled cli binary ensemble-linux-x64
+- _(release)_ Name the compiled cli binary ensemble-linux-x64
 - Add install.sh for curl-based installation
-- *(cli)* Add ens version command to check and self-update the installed binary
+- _(cli)_ Add ens version command to check and self-update the installed binary
 
 ### 🐛 Bug Fixes
 
-- *(workflows/release)* Retry the changelog push with rebase if main moved
+- _(workflows/release)_ Retry the changelog push with rebase if main moved
 
 ### 📚 Documentation
 
 - Add installation section to README
+
 ## [0.0.9-test] - 2026-07-25
 
 ### 🐛 Bug Fixes
 
-- *(workflows/release)* Wire gh as git credential helper so the changelog push authenticates
+- _(workflows/release)_ Wire gh as git credential helper so the changelog push
+  authenticates
+
 ## [0.0.8-test] - 2026-07-25
 
 ### 🐛 Bug Fixes
 
-- *(workflows/release)* Pin git-cliff to 2.13.1, download via wget instead of curl pipe
+- _(workflows/release)_ Pin git-cliff to 2.13.1, download via wget instead of
+  curl pipe
+
 ## [0.0.7-test] - 2026-07-25
 
 ### 🐛 Bug Fixes
 
-- *(workflows/release)* Install git-cliff from release tarball, not broken installer script
+- _(workflows/release)_ Install git-cliff from release tarball, not broken
+  installer script
+
 ## [0.0.5-test] - 2026-07-25
 
 ### 🐛 Bug Fixes
 
-- *(workflow)* Give each run a fresh scratch cwd instead of reusing workflowDir
-- *(release)* Create tag only after all prompts are answered
+- _(workflow)_ Give each run a fresh scratch cwd instead of reusing workflowDir
+- _(release)_ Create tag only after all prompts are answered
+
 ## [0.0.4-test] - 2026-07-25
 
 ### 🐛 Bug Fixes
 
-- *(ship/server)* Add curl in docker image
+- _(ship/server)_ Add curl in docker image
+
 ## [0.0.3-test] - 2026-07-25
 
 ### 🚀 Features
 
-- *(ship/server)* Add git and gh cli
-- *(workflows)* Add ensemble server recipe to ease manual updates
-- *(schemas)* Add json schema for workflow.yml
-- *(workflow)* Add --remote flag and workflow remote configure for remote triggering
-- *(workflow)* Add remote upload command using the existing registry endpoint
-- *(platform)* Replace per-feature bearer tokens with .ensemble/tokens.json permissions
-- *(workflows)* Add release workflow
+- _(ship/server)_ Add git and gh cli
+- _(workflows)_ Add ensemble server recipe to ease manual updates
+- _(schemas)_ Add json schema for workflow.yml
+- _(workflow)_ Add --remote flag and workflow remote configure for remote
+  triggering
+- _(workflow)_ Add remote upload command using the existing registry endpoint
+- _(platform)_ Replace per-feature bearer tokens with .ensemble/tokens.json
+  permissions
+- _(workflows)_ Add release workflow
 
 ### 💼 Other
 
-- *(workflows)* Move ensemble server recipe to just server folder since ensemble is already the whole proejct
+- _(workflows)_ Move ensemble server recipe to just server folder since ensemble
+  is already the whole proejct
+
 ## [0.0.2-test] - 2026-07-24
 
 ### 🚀 Features
 
-- *(pack)* Add deno.compile pack kit, envs/pack/<ship>.env support
+- _(pack)_ Add deno.compile pack kit, envs/pack/<ship>.env support
 
 ### 🐛 Bug Fixes
 
-- *(pack)* Let -o/--output-name override compile.yml's output field
-- *(pack)* Add packages build context
+- _(pack)_ Let -o/--output-name override compile.yml's output field
+- _(pack)_ Add packages build context
 
 ### 🚜 Refactor
 
-- *(workflow)* Flatten github trigger's event.push to push
+- _(workflow)_ Flatten github trigger's event.push to push
+
 ## [0.0.1-test] - 2026-07-24
 
 ### 🚀 Features
 
-- *(workflow)* Add @ensemble/workflow CI-style pipeline engine with matrix jobs
-- *(cli)* Add ens init to scaffold a new project by vendoring ensemble
-- *(platform)* Add server platform with trigger-workflow feature
-- *(workflow)* Add on: triggers (http, github push-tags) with trigger.* context
-- *(ship/server)* Add server ship image with mandatory trigger authentication
-- *(platform)* Add workflow-registry feature for tar.gz upload to workflows/<name>
-- *(cli)* Add --output-name flag to pack for separate ship output naming
-- *(cli)* Add ens config set-build-kit command
-- *(cli)* Add ens release command (next/set/undo)
-- *(ship/server)* Add md guide, use /workspace as workdir
-- *(release)* Prompt to push commits+tag, warn on uncommitted changes before tagging
+- _(workflow)_ Add @ensemble/workflow CI-style pipeline engine with matrix jobs
+- _(cli)_ Add ens init to scaffold a new project by vendoring ensemble
+- _(platform)_ Add server platform with trigger-workflow feature
+- _(workflow)_ Add on: triggers (http, github push-tags) with trigger.* context
+- _(ship/server)_ Add server ship image with mandatory trigger authentication
+- _(platform)_ Add workflow-registry feature for tar.gz upload to
+  workflows/<name>
+- _(cli)_ Add --output-name flag to pack for separate ship output naming
+- _(cli)_ Add ens config set-build-kit command
+- _(cli)_ Add ens release command (next/set/undo)
+- _(ship/server)_ Add md guide, use /workspace as workdir
+- _(release)_ Prompt to push commits+tag, warn on uncommitted changes before
+  tagging
 
 ### 🐛 Bug Fixes
 
-- *(core/release)* Drop v prefix from release tags
-- *(core/releases)* Use h3 for version number heading
-- *(cli/release)* Hoist --dry-run/-p/-m/-r to global options shown on all subcommands
+- _(core/release)_ Drop v prefix from release tags
+- _(core/releases)_ Use h3 for version number heading
+- _(cli/release)_ Hoist --dry-run/-p/-m/-r to global options shown on all
+  subcommands
 
 ### 🚜 Refactor
 
-- *(release)* Remove changelog generation, tag creation only
+- _(release)_ Remove changelog generation, tag creation only
 
 ### ⚙️ Miscellaneous Tasks
 

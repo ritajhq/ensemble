@@ -9,7 +9,9 @@ function App() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-2 bg-slate-950 text-slate-50">
       <h1 className="text-4xl font-bold">Hello, world!</h1>
-      <p className="text-slate-400">API_ENDPOINT: {globalThis.env.API_ENDPOINT ?? "unset"}</p>
+      <p className="text-slate-400">
+        API_ENDPOINT: {globalThis.env.API_ENDPOINT ?? "unset"}
+      </p>
     </div>
   );
 }

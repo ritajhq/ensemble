@@ -9,7 +9,9 @@ import { exists } from "@std/fs";
  * process that `cd`s into its own checkout isn't shadowed by a stale
  * `ENSEMBLE_WORKSPACE` inherited from whoever dispatched it.
  */
-export async function findRepoRoot(startDir: string = Deno.cwd()): Promise<string> {
+export async function findRepoRoot(
+  startDir: string = Deno.cwd(),
+): Promise<string> {
   let dir = resolve(startDir);
   while (true) {
     if (await exists(join(dir, ".ensemble"), { isDirectory: true })) {

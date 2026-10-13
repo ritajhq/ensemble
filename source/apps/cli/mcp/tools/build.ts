@@ -17,7 +17,9 @@ export class BuildTools {
         title: "Build an app",
         description: "Builds an app using its configured build kit.",
         inputSchema: {
-          name: z.string().describe("App name, as declared under build.<name> in .ensemble/config.yaml."),
+          name: z.string().describe(
+            "App name, as declared under build.<name> in .ensemble/config.yaml.",
+          ),
           mode: z.enum(["development", "production"]).default("development"),
           varOverrides: z.record(z.string()).optional().describe(
             "Build var overrides, keyed by name.",
@@ -26,8 +28,16 @@ export class BuildTools {
       },
       ({ name, mode, varOverrides }) =>
         ToolResult.from(async () => {
-          const code = await runBuild(name, { mode, watch: false, varOverrides }, Host.createPorts());
-          if (code !== 0) throw new Error(`Build of "${name}" failed with exit code ${code}.`);
+          const code = await runBuild(name, {
+            mode,
+            watch: false,
+            varOverrides,
+          }, Host.createPorts());
+          if (code !== 0) {
+            throw new Error(
+              `Build of "${name}" failed with exit code ${code}.`,
+            );
+          }
           return `Built "${name}" (${mode}).`;
         }),
     );
@@ -41,7 +51,9 @@ export class BuildTools {
           "Starts `ens build <name> --watch` as a background session, rebuilding on source changes until stopped. " +
           "Returns immediately with a session id: poll ensemble_watch_logs to see rebuilds, and ensemble_watch_stop to tear it down.",
         inputSchema: {
-          name: z.string().describe("App name, as declared under build.<name> in .ensemble/config.yaml."),
+          name: z.string().describe(
+            "App name, as declared under build.<name> in .ensemble/config.yaml.",
+          ),
           mode: z.enum(["development", "production"]).default("development"),
           varOverrides: z.record(z.string()).optional().describe(
             "Build var overrides, keyed by name.",

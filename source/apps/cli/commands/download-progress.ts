@@ -16,12 +16,16 @@ export class DownloadProgress {
 
   Begin(total: number | undefined): void {
     if (this.interactive) return;
-    this.write(`${this.label}${total ? ` (${this.megabytes(total)})` : ""}...\n`);
+    this.write(
+      `${this.label}${total ? ` (${this.megabytes(total)})` : ""}...\n`,
+    );
   }
 
   Advance(received: number, total: number | undefined): void {
     if (!this.interactive) return;
-    const frame = total ? this.boundedFrame(received, total) : this.unboundedFrame(received);
+    const frame = total
+      ? this.boundedFrame(received, total)
+      : this.unboundedFrame(received);
     if (frame === this.lastFrame) return;
     this.lastFrame = frame;
     this.write(`\r\x1b[2K${frame}`);
@@ -40,7 +44,9 @@ export class DownloadProgress {
     const filled = Math.round(ratio * BAR_WIDTH);
     const bar = "█".repeat(filled) + "░".repeat(BAR_WIDTH - filled);
     const percent = String(Math.floor(ratio * 100)).padStart(3);
-    return `${this.label} ${bar} ${percent}% ${this.megabytes(received)}/${this.megabytes(total)} ${this.speed(received)}`;
+    return `${this.label} ${bar} ${percent}% ${this.megabytes(received)}/${
+      this.megabytes(total)
+    } ${this.speed(received)}`;
   }
 
   private unboundedFrame(received: number): string {
@@ -48,7 +54,10 @@ export class DownloadProgress {
   }
 
   private speed(received: number): string {
-    const seconds = Math.max((performance.now() - this.startedAt) / 1000, 0.001);
+    const seconds = Math.max(
+      (performance.now() - this.startedAt) / 1000,
+      0.001,
+    );
     return `${(received / MEBIBYTE / seconds).toFixed(1)} MB/s`;
   }
 

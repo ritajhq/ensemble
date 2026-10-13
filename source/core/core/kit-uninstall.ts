@@ -12,6 +12,12 @@ export async function runKitUninstall(
   const repoRoot = await repo.findRepoRoot();
   const registry = new Vendor.FileRegistry(repoRoot);
   const { role, path } = await Vendor.resolveLocalKitPath(repoRoot, name);
-  const usages = await new Status.Survey(repoRoot, registry).describeTo(new Status.KitUsages(role, name));
-  return await new Vendor.Uninstaller(repoRoot, registry, source).uninstall(path, usages, options);
+  const usages = await new Status.Survey(repoRoot, registry).describeTo(
+    new Status.KitUsages(role, name),
+  );
+  return await new Vendor.Uninstaller(repoRoot, registry, source).uninstall(
+    path,
+    usages,
+    options,
+  );
 }

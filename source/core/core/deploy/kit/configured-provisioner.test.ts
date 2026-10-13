@@ -36,8 +36,14 @@ Deno.test("ConfiguredProvisioner.matches: a declared class must match exactly", 
     class: "critical",
     implementation: { kind: "command", command: "x" },
   });
-  assertEquals(await provisioner.matches(resource({ class: "critical" })), true);
-  assertEquals(await provisioner.matches(resource({ class: "standard" })), false);
+  assertEquals(
+    await provisioner.matches(resource({ class: "critical" })),
+    true,
+  );
+  assertEquals(
+    await provisioner.matches(resource({ class: "standard" })),
+    false,
+  );
 });
 
 Deno.test("ConfiguredProvisioner.matches: a declared category must match the resource's category", async () => {

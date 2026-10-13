@@ -25,7 +25,10 @@ const TOOL_REGISTRARS: (new () => ToolRegistrar)[] = [
 
 /** Exposes `ens`'s commands as MCP tools over stdio, for an LLM agent host (e.g. an editor's MCP client) to call directly instead of shelling out to the CLI. */
 export class EnsembleMcpServer {
-  private readonly server = new McpServer({ name: "ensemble", version: "0.1.0" });
+  private readonly server = new McpServer({
+    name: "ensemble",
+    version: "0.1.0",
+  });
 
   constructor() {
     for (const Registrar of TOOL_REGISTRARS) {

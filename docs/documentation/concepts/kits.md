@@ -1,10 +1,10 @@
 # Kits
 
 A kit is the pluggable piece that does the actual work behind `ens build`,
-`ens pack`, and `ens deploy`. Nothing about "kit" is special-cased per kit
-name in the engine — this is the seam that lets a new app type or a new
-deployment target show up as a new kit directory, without ever touching
-`ens`'s own command implementations.
+`ens pack`, and `ens deploy`. Nothing about "kit" is special-cased per kit name
+in the engine — this is the seam that lets a new app type or a new deployment
+target show up as a new kit directory, without ever touching `ens`'s own command
+implementations.
 
 There are three kit roles, each speaking a different contract:
 
@@ -12,51 +12,54 @@ There are three kit roles, each speaking a different contract:
 
 A build kit is an executable that receives a fixed CLI contract —
 `--source --name --out --mode <development|production> --workspace --vars
-<json> [--watch] [--target <t>] [--options <json>]` — and must build from
-`source`, writing output to `out`. `--options` carries the app's
-`build.<name>.options` from `.ensemble/config.yaml` untouched, for the kit to
-interpret (e.g. `deno.bundle`'s `format` and `external`).
-An app states which build kit it uses via `ens config set-build-kit`; `ens
-build <app>` runs it as a subprocess.
+<json> [--watch] [--target <t>] [--options <json>]`
+— and must build from `source`, writing output to `out`. `--options` carries the
+app's `build.<name>.options` from `.ensemble/config.yaml` untouched, for the kit
+to interpret (e.g. `deno.bundle`'s `format` and `external`). An app states which
+build kit it uses via `ens config set-build-kit`; `ens
+build <app>` runs it as a
+subprocess.
 
-Built-in build kits: `deno.bundle` (a plain TypeScript service) and `react`
-(a React SPA, with an `ssr` variant via `ens app create react <name>
+Built-in build kits: `deno.bundle` (a plain TypeScript service) and `react` (a
+React SPA, with an `ssr` variant via
+`ens app create react <name>
 --target ssr`).
 
 ## Pack kits
 
-A pack kit is also a subprocess, invoked with a positional ship directory
-plus `--name --output-name --artifacts --packages --mode --vars <json>
-[--watch]`. It packages a built app into a deployable artifact — a Docker
-image, an OCI tarball, a compiled binary. A pack kit declares its own
-`modes` in a `kit.yml` manifest (mode name → kit-internal flags).
+A pack kit is also a subprocess, invoked with a positional ship directory plus
+`--name --output-name --artifacts --packages --mode --vars <json>
+[--watch]`. It
+packages a built app into a deployable artifact — a Docker image, an OCI
+tarball, a compiled binary. A pack kit declares its own `modes` in a `kit.yml`
+manifest (mode name → kit-internal flags).
 
 Built-in pack kits: `docker` and `deno.compile`.
 
 ## Deploy kits
 
-Unlike build/pack kits, a deploy kit isn't a CLI: its `main.ts`
-default-exports a configured `KitSdk.Deploy.Kit`. `ens` never imports it
-in-process: it starts one long-lived `deno run` child process for the kit (from
-the kit's directory, so the kit resolves its own dependencies), which imports
-`main.ts` and answers `ens`'s calls over RPC for as long as the command runs —
-the kit's module state lasts that long too, then the process ends with `ens`. It receives the whole
+Unlike build/pack kits, a deploy kit isn't a CLI: its `main.ts` default-exports
+a configured `KitSdk.Deploy.Kit`. `ens` never imports it in-process: it starts
+one long-lived `deno run` child process for the kit (from the kit's directory,
+so the kit resolves its own dependencies), which imports `main.ts` and answers
+`ens`'s calls over RPC for as long as the command runs — the kit's module state
+lasts that long too, then the process ends with `ens`. It receives the whole
 resolved workload (not narrowed per-entry, since only the kit knows how its
-target needs every entry assembled together), the dependency-ordered
-batches, run options, and a `KitContext`. Each provisioner's request also
-says which `mode` the deployment is brought up in — `development` with
-`--mode development` (as `ens develop` passes), `deployment` otherwise — so a kit can add what only
-a developer needs (the `compose` kit publishes host ports) without changing
-the topology production runs. See
-[Delivery manifests](delivery-manifests.md) for what it's handed, and
-[Deploying](../guides/deploying.md) for how `ens deploy` drives it.
+target needs every entry assembled together), the dependency-ordered batches,
+run options, and a `KitContext`. Each provisioner's request also says which
+`mode` the deployment is brought up in — `development` with `--mode development`
+(as `ens develop` passes), `deployment` otherwise — so a kit can add what only a
+developer needs (the `compose` kit publishes host ports) without changing the
+topology production runs. See [Delivery manifests](delivery-manifests.md) for
+what it's handed, and [Deploying](../guides/deploying.md) for how `ens deploy`
+drives it.
 
 Built-in deploy kits: `compose` (Docker Compose — the fullest reference
 implementation) and `aws` (CloudFormation — ECS task definitions, RDS
-instances). Support is uneven by design: each kit documents its own drops
-(e.g. `aws` silently drops `ports`/`networks`, but hard-fails on a
-`storage.volume` entry rather than dropping it, since it has no provisioner
-for storage yet). There is no `kubernetes` deploy kit in this repo.
+instances). Support is uneven by design: each kit documents its own drops (e.g.
+`aws` silently drops `ports`/`networks`, but hard-fails on a `storage.volume`
+entry rather than dropping it, since it has no provisioner for storage yet).
+There is no `kubernetes` deploy kit in this repo.
 
 ## Authoring, installing, and sharing kits
 

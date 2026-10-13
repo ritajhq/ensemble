@@ -17,8 +17,8 @@ curl -fsSL https://raw.githubusercontent.com/ritajhq/ensemble/main/.ensemble/ins
 
 ## Updating
 
-`ens` updates itself in place, using the same release tags the install
-script reads from:
+`ens` updates itself in place, using the same release tags the install script
+reads from:
 
 ```sh
 ens version               # show the installed version
@@ -29,5 +29,5 @@ ens version set 1.4.0     # install a specific released version
 
 ## Next
 
-Continue to the [quickstart](quickstart.md) to scaffold a project and run
-your first build → pack → develop loop.
+Continue to the [quickstart](quickstart.md) to scaffold a project and run your
+first build → pack → develop loop.

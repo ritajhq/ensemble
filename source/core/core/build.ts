@@ -18,13 +18,19 @@ export interface RunBuildOptions {
 }
 
 /** Resolves an app's configured kit and spawns it with the standard kit CLI contract. */
-export async function runBuild(name: string, options: RunBuildOptions, ports: Ports): Promise<number> {
+export async function runBuild(
+  name: string,
+  options: RunBuildOptions,
+  ports: Ports,
+): Promise<number> {
   const repoRoot = await ports.repo.findRepoRoot();
   const workspace = join(repoRoot, "source");
 
   const sourceDir = join(workspace, "apps", name);
   if (!await exists(sourceDir, { isDirectory: true })) {
-    throw new Error(`App "${name}" does not exist (expected a directory at ${sourceDir})`);
+    throw new Error(
+      `App "${name}" does not exist (expected a directory at ${sourceDir})`,
+    );
   }
 
   const configStore = new EnsembleConfigStore(repoRoot);
@@ -34,7 +40,9 @@ export async function runBuild(name: string, options: RunBuildOptions, ports: Po
   const kitDir = join(repoRoot, ".ensemble", "kits", "build", appConfig.kit);
   const kitEntry = join(kitDir, "main.ts");
   if (!await exists(kitEntry, { isFile: true })) {
-    throw new Error(`Build kit "${appConfig.kit}" not found (expected ${kitEntry})`);
+    throw new Error(
+      `Build kit "${appConfig.kit}" not found (expected ${kitEntry})`,
+    );
   }
 
   const outDir = join(workspace, "artifacts", name);
@@ -48,7 +56,9 @@ export async function runBuild(name: string, options: RunBuildOptions, ports: Po
 
   const watchArgs = options.watch ? ["--watch"] : [];
   const targetArgs = appConfig.target ? ["--target", appConfig.target] : [];
-  const optionsArgs = appConfig.options ? ["--options", JSON.stringify(appConfig.options)] : [];
+  const optionsArgs = appConfig.options
+    ? ["--options", JSON.stringify(appConfig.options)]
+    : [];
   const denoExe = await ports.denoExe.resolveDenoExecutable();
 
   const progress = options.watch

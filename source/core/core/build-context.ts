@@ -23,7 +23,13 @@ export interface Context {
   options: Record<string, unknown>;
 }
 
-const REQUIRED_STRING_FLAGS = ["source", "name", "out", "mode", "workspace"] as const;
+const REQUIRED_STRING_FLAGS = [
+  "source",
+  "name",
+  "out",
+  "mode",
+  "workspace",
+] as const;
 
 function parseJsonObject(flag: string, raw: string): Record<string, unknown> {
   let parsed: unknown;
@@ -33,7 +39,9 @@ function parseJsonObject(flag: string, raw: string): Record<string, unknown> {
     throw new Error(`Invalid --${flag} JSON payload: ${raw}`);
   }
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    throw new Error(`Invalid --${flag} JSON payload: expected an object, got ${raw}`);
+    throw new Error(
+      `Invalid --${flag} JSON payload: expected an object, got ${raw}`,
+    );
   }
   return parsed as Record<string, unknown>;
 }
@@ -52,7 +60,9 @@ export function getContext(args: string[] = Deno.args): Context {
   const workspace = requireFlag(flags, "workspace");
   const mode = requireFlag(flags, "mode");
   if (mode !== "development" && mode !== "production") {
-    throw new Error(`Invalid --mode "${mode}", expected "development" or "production".`);
+    throw new Error(
+      `Invalid --mode "${mode}", expected "development" or "production".`,
+    );
   }
 
   return {

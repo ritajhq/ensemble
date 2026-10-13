@@ -63,7 +63,11 @@ export class LayeredRealization implements Realization {
     return this.underlying.supportsCapability(category, type, capability);
   }
 
-  knowabilityOf(category: Category, type: string, output: string): Promise<Knowability> {
+  knowabilityOf(
+    category: Category,
+    type: string,
+    output: string,
+  ): Promise<Knowability> {
     return this.underlying.knowabilityOf(category, type, output);
   }
 }

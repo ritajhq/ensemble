@@ -1,6 +1,7 @@
 import * as Core from "@ensemble/core";
 
-const describeVendoring = (vendored?: Core.Status.Vendoring) => vendored ? ` (vendored from ${vendored.repo} @ ${vendored.ref})` : "";
+const describeVendoring = (vendored?: Core.Status.Vendoring) =>
+  vendored ? ` (vendored from ${vendored.repo} @ ${vendored.ref})` : "";
 
 /** `ens status`'s human-readable report: one titled section per kind of thing, naming where in the project it's declared. */
 export class Text extends Core.Status.Builder<string> {
@@ -10,7 +11,11 @@ export class Text extends Core.Status.Builder<string> {
     this.section("Apps (build.<name> in .ensemble/config.yaml)");
     if (apps.length === 0) this.lines.push("  (none configured)");
     for (const app of apps) {
-      this.lines.push(`  ${app.name} — kit ${app.kit}${app.target ? ` (target ${app.target})` : ""}`);
+      this.lines.push(
+        `  ${app.name} — kit ${app.kit}${
+          app.target ? ` (target ${app.target})` : ""
+        }`,
+      );
     }
   }
 
@@ -18,8 +23,12 @@ export class Text extends Core.Status.Builder<string> {
     this.section("Installed kits (.ensemble/kits/<role>/)");
     for (const role of Core.Status.KIT_ROLES) {
       const ofRole = kits.filter((kit) => kit.role === role);
-      const names = ofRole.map((kit) => `${kit.name}${describeVendoring(kit.vendored)}`);
-      this.lines.push(`  ${role}: ${names.length > 0 ? names.join(", ") : "(none)"}`);
+      const names = ofRole.map((kit) =>
+        `${kit.name}${describeVendoring(kit.vendored)}`
+      );
+      this.lines.push(
+        `  ${role}: ${names.length > 0 ? names.join(", ") : "(none)"}`,
+      );
     }
   }
 
@@ -27,8 +36,12 @@ export class Text extends Core.Status.Builder<string> {
     this.section("Publishable libraries (publish.* in .ensemble/config.yaml)");
     for (const scope of ["core", "libs"] as const) {
       const ofScope = libraries.filter((library) => library.scope === scope);
-      const names = ofScope.map((library) => `${library.package}${describeVendoring(library.vendored)}`);
-      this.lines.push(`  ${scope}: ${names.length > 0 ? names.join(", ") : "(none)"}`);
+      const names = ofScope.map((library) =>
+        `${library.package}${describeVendoring(library.vendored)}`
+      );
+      this.lines.push(
+        `  ${scope}: ${names.length > 0 ? names.join(", ") : "(none)"}`,
+      );
     }
   }
 
@@ -37,12 +50,18 @@ export class Text extends Core.Status.Builder<string> {
     if (workloads.length === 0) this.lines.push("  (none)");
     for (const workload of workloads) {
       const ships = workload.ships.map((ship) => ship.name);
-      this.lines.push(`  ${workload.name} — ships: ${ships.length > 0 ? ships.join(", ") : "(none)"}`);
+      this.lines.push(
+        `  ${workload.name} — ships: ${
+          ships.length > 0 ? ships.join(", ") : "(none)"
+        }`,
+      );
       for (const [category, names] of Object.entries(workload.resources)) {
         this.lines.push(`    ${category}: ${names.join(", ")}`);
       }
       if (workload.tasks.length > 0) {
-        this.lines.push(`    tasks: ${workload.tasks.map((task) => task.name).join(", ")}`);
+        this.lines.push(
+          `    tasks: ${workload.tasks.map((task) => task.name).join(", ")}`,
+        );
       }
     }
   }

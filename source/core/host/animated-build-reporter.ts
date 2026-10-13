@@ -1,5 +1,9 @@
 import { blue, green, red } from "@std/fmt/colors";
-import { PlainBuildReporter, type BuildProgress, type BuildReporter } from "@ensemble/core";
+import {
+  type BuildProgress,
+  type BuildReporter,
+  PlainBuildReporter,
+} from "@ensemble/core";
 import { AnimatedProgressLine } from "./animated-progress-line.ts";
 
 /**

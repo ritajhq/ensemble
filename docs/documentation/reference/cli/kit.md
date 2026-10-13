@@ -1,8 +1,8 @@
 # `ens kit`
 
 Author, install, and manage kits under `.ensemble/kits/`. See
-[Authoring a kit](../../guides/authoring-a-kit.md) for the workflow this
-command group supports end-to-end.
+[Authoring a kit](../../guides/authoring-a-kit.md) for the workflow this command
+group supports end-to-end.
 
 ## `ens kit new <name> <role>`
 
@@ -26,8 +26,8 @@ ens kit install https://github.com/org/their-kit@v1.2.0   # pinned to a ref
 
 ## `ens kit eject <name> <remote>`
 
-Push a locally-authored kit to its own repository and register it as a
-vendored checkout.
+Push a locally-authored kit to its own repository and register it as a vendored
+checkout.
 
 ```sh
 ens kit eject my-deploy-target git@github.com:org/my-deploy-target.git
@@ -53,8 +53,8 @@ ens kit update my-deploy-target minor
 
 ## `ens kit contribute <name>`
 
-Push an installed kit's local change upstream and open a pull request
-against its remote.
+Push an installed kit's local change upstream and open a pull request against
+its remote.
 
 ```sh
 ens kit contribute my-deploy-target
@@ -62,8 +62,8 @@ ens kit contribute my-deploy-target
 
 ## `ens kit uninstall`
 
-Remove a vendored kit — the inverse of `ens kit install`: its checkout,
-its `.ensemble/vendor.lock.yml` entry, and its `.gitignore` line. Aliases:
+Remove a vendored kit — the inverse of `ens kit install`: its checkout, its
+`.ensemble/vendor.lock.yml` entry, and its `.gitignore` line. Aliases:
 `ens kit remove`, `ens kit rm`.
 
 ```sh
@@ -71,9 +71,9 @@ ens kit uninstall <name>
 ens kit rm <name> --force
 ```
 
-Only vendored kits can be uninstalled: one authored in this project was
-never installed, and deleting it is deleting your own code. Without
-`-f, --force`, it refuses while
-an app, release or library still declares the kit (a `build.<app>.kit`, a release's `kit:`, a library's `publish:` kit),
-or while the checkout holds changes its remote doesn't have (uncommitted, or
-commits on no remote branch or tag) — `ens kit contribute` them first.
+Only vendored kits can be uninstalled: one authored in this project was never
+installed, and deleting it is deleting your own code. Without `-f, --force`, it
+refuses while an app, release or library still declares the kit (a
+`build.<app>.kit`, a release's `kit:`, a library's `publish:` kit), or while the
+checkout holds changes its remote doesn't have (uncommitted, or commits on no
+remote branch or tag) — `ens kit contribute` them first.

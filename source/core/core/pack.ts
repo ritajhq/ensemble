@@ -73,7 +73,11 @@ export async function runPack(
     // A kit that declares modes: default to the first and validate against them.
     mode ??= declaredModes[0];
     if (!Object.hasOwn(modes, mode)) {
-      throw new Error(`Unknown mode "${mode}" for pack kit "${kit}". Available modes: ${declaredModes.join(", ")}`);
+      throw new Error(
+        `Unknown mode "${mode}" for pack kit "${kit}". Available modes: ${
+          declaredModes.join(", ")
+        }`,
+      );
     }
   } else {
     // A kit with no modes (e.g. deno.compile, driven by the ship's own config).
@@ -86,7 +90,9 @@ export async function runPack(
 
   const denoExe = await ports.denoExe.resolveDenoExecutable();
 
-  const outputNameArgs = options.outputName ? ["--output-name", options.outputName] : [];
+  const outputNameArgs = options.outputName
+    ? ["--output-name", options.outputName]
+    : [];
   const watchArgs = options.watch ? ["--watch"] : [];
   const verboseArgs = options.verbose ? ["--verbose"] : [];
 
@@ -100,7 +106,12 @@ export async function runPack(
   const ensembleConfig = await config.load();
   const apps = Object.keys(ensembleConfig.build ?? {});
 
-  const dependencies = await resolvePackDependencies(shipName, kit, apps, ports);
+  const dependencies = await resolvePackDependencies(
+    shipName,
+    kit,
+    apps,
+    ports,
+  );
   for (const app of dependencies) {
     if (options.skipBuildingApps?.has(app)) continue;
     const buildCode = await runBuild(app, {

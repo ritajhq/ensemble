@@ -8,7 +8,9 @@
 export class SelfInvocation {
   static Command(args: string[]): string[] {
     const mainModule = new URL(Deno.mainModule);
-    if (mainModule.protocol === "file:" && mainModule.pathname.endsWith(".ts")) {
+    if (
+      mainModule.protocol === "file:" && mainModule.pathname.endsWith(".ts")
+    ) {
       return [Deno.execPath(), "run", "-A", mainModule.pathname, ...args];
     }
     return [Deno.execPath(), ...args];
