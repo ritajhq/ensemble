@@ -127,10 +127,15 @@ class SubprocessKit implements Deploy.Kit {
     },
   ) {
     if (capabilities.watchCommand) {
-      this.watchCommand = (artifactPath: string, name: string) =>
+      this.watchCommand = (
+        artifactPath: string,
+        name: string,
+        options?: Deploy.WatchOptions,
+      ) =>
         this.host.call("kit", "watchCommand", [
           artifactPath,
           name,
+          options,
         ]) as Promise<readonly string[] | undefined>;
     }
     if (capabilities.destroyCommand) {

@@ -34,7 +34,7 @@ export interface RunDeployOptions {
   pack: boolean;
   /** Before a real apply, stand up a local substitute for each `deploy.external` entry the target's kit knows how to emulate, instead of assuming it already exists elsewhere (`docker network create` for a compose external network). Ignored by `eject`/`plan`. */
   emulateExternals: boolean;
-  /** Let a local apply's pack step show the kit's own build-tool output (e.g. `docker buildx build`'s progress log) instead of hiding it behind the pack spinner (ignored for published artifacts, which never pack), and a watch session show the watch command's and init commands' own stdout instead of only their stderr. */
+  /** Let a local apply's pack step show the kit's own build-tool output (e.g. `docker buildx build`'s progress log) instead of hiding it behind the pack spinner (ignored for published artifacts, which never pack), and a watch session show the watch command's and init commands' own output instead of only their warnings and errors. */
   verbose: boolean;
   /** How to report a local apply's pack step to the terminal — same semantics as `RunPackOptions.reporter` (ignored for `watch: true` or `verbose: true`). Defaults to `PlainPackReporter`; the CLI passes `Host.AnimatedPackReporter` instead for an interactive terminal. */
   reporter?: PackReporter;
@@ -193,8 +193,8 @@ export async function runDeploy(
     : new Set<string>();
 
   // A watch session's console is for what the developer opens; the target's
-  // own stdout (a compose watch's progress) only with --verbose.
-  const watchStdout = options.verbose ? "inherit" : "null";
+  // own output (a compose watch's progress and sync log) only with --verbose.
+  const quietWatch = !options.verbose;
 
   const coordinator = new Deploy.Terminations.DeploymentCoordinator(
     registry,
@@ -214,10 +214,10 @@ export async function runDeploy(
     ),
     new Deploy.Terminations.WatchRunner(
       sink,
-      new Deploy.Terminations.InitRunner(watchStdout),
+      new Deploy.Terminations.InitRunner(quietWatch ? "null" : "inherit"),
       deployed,
       Deploy.Terminations.WatchSessionRecord.for(repoRoot, scope),
-      watchStdout,
+      quietWatch,
     ),
     new Deploy.Terminations.ExternalsEmulator(),
   );

@@ -1,6 +1,6 @@
 import { exists } from "@std/fs";
 import { parse as parseYaml } from "@std/yaml";
-import type { Kit } from "./kit.ts";
+import type { Kit, WatchOptions } from "./kit.ts";
 import type { Workload } from "../workload.ts";
 import type { KitConfig } from "./config.ts";
 import { parseKitConfig } from "./config-file.ts";
@@ -64,8 +64,11 @@ export class KitConfigLayering {
         kit.applyCommand(artifactPath, name),
       ...(kit.watchCommand
         ? {
-          watchCommand: (artifactPath: string, name: string) =>
-            kit.watchCommand!(artifactPath, name),
+          watchCommand: (
+            artifactPath: string,
+            name: string,
+            options?: WatchOptions,
+          ) => kit.watchCommand!(artifactPath, name, options),
         }
         : {}),
       ...(kit.destroyCommand

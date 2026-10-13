@@ -4,7 +4,7 @@ import type { Kit } from "../kit/kit.ts";
 import type { ArtifactSink } from "./artifact-sink.ts";
 import type { OutputsLedger } from "../render/outputs-ledger.ts";
 import type { DeployedState } from "./deployed-state.ts";
-import { InitRunner, type KitStdout } from "./init-runner.ts";
+import { InitRunner } from "./init-runner.ts";
 import { ProcessTree } from "./process-tree.ts";
 import { WatchSessionRecord } from "./watch-session-record.ts";
 
@@ -40,11 +40,11 @@ export class WatchNotSupportedError extends Error {
  * the stack up is exactly what that command does, and every init command is
  * free to poll until whatever it seeds is actually reachable.
  *
- * `stdout` is where the watch command's own stdout goes; `"null"` keeps the
- * target's chatter off the console (its stderr — warnings and errors — still
- * reaches it), and once the init commands have brought the stack up the
- * render pass's entrypoints are listed instead, so what's left on screen is
- * where to point a browser.
+ * `quiet` keeps the target's chatter off the console: the watch command's
+ * stdout is discarded and the kit is asked (`WatchOptions.quiet`) to keep its
+ * tool to warnings and errors on stderr, which still reach the console. Once
+ * the init commands have brought the stack up the render pass's entrypoints
+ * are listed instead, so what's left on screen is where to point a browser.
  */
 export class WatchRunner {
   constructor(
@@ -52,7 +52,7 @@ export class WatchRunner {
     private readonly initRunner: InitRunner = new InitRunner(),
     private readonly deployed?: DeployedState,
     private readonly session?: WatchSessionRecord,
-    private readonly stdout: KitStdout = "inherit",
+    private readonly quiet: boolean = false,
   ) {}
 
   async watch(
@@ -67,7 +67,9 @@ export class WatchRunner {
     await this.sink.write(presented);
 
     const artifactPath = this.sink.pathFor(presented);
-    const command = await kit.watchCommand?.(artifactPath, name);
+    const command = await kit.watchCommand?.(artifactPath, name, {
+      quiet: this.quiet,
+    });
     if (!command) {
       throw new WatchNotSupportedError(
         "This kit has no watch command for the current target — pick a runtime/target that supports watching.",
@@ -84,7 +86,7 @@ export class WatchRunner {
 
     const process = new Deno.Command(executable, {
       args,
-      stdout: this.stdout,
+      stdout: this.quiet ? "null" : "inherit",
     }).spawn();
     await this.session?.begin(process.pid);
     const tree = new ProcessTree(process.pid);

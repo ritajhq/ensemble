@@ -209,6 +209,16 @@ Deno.test("compose kit: watchCommand runs docker compose watch scoped by the dep
   );
 });
 
+Deno.test("compose kit: a quiet watchCommand drops compose's progress display, which it writes to stderr beside real errors", async () => {
+  const command = await composeKit.watchCommand?.(
+    "/repo/source/artifacts/deploy/website/compose.yaml",
+    "website",
+    { quiet: true },
+  );
+
+  assertEquals(command?.slice(-3), ["--progress", "quiet", "watch"]);
+});
+
 const WITH_SHARED_PORT = `
 version: v1
 release:

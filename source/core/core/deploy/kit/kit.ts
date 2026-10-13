@@ -15,6 +15,17 @@ import type { Realization } from "./realization.ts";
  * (`applyCommand`, e.g. `docker compose -f <path> up -d`) — so the core's
  * `Ejector`/`Planner`/`Applier` (Phase 6) can stay target-agnostic.
  */
+/**
+ * How a watch session wants the kit's native watch tool to talk. `quiet` asks
+ * it to keep to warnings and errors (`docker compose --progress quiet`): the
+ * core already discards the tool's stdout then, but a tool's own progress
+ * display usually goes to stderr, which only the kit knows how to silence.
+ * Absent from a core older than the parameter, which a kit reads as not quiet.
+ */
+export interface WatchOptions {
+  readonly quiet?: boolean;
+}
+
 export interface Kit {
   provisioners(): Promise<ProvisionerSet>;
   realization(): Promise<Realization>;
@@ -44,6 +55,7 @@ export interface Kit {
   watchCommand?(
     artifactPath: string,
     name: string,
+    options?: WatchOptions,
   ): Promise<readonly string[] | undefined>;
   /**
    * The argv that takes a deployment down again, mirroring `applyCommand` —
