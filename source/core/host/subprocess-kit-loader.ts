@@ -120,7 +120,11 @@ class SubprocessKit implements Deploy.Kit {
 
   constructor(
     private readonly host: KitHost,
-    capabilities: { watchCommand: boolean; emulateExternals: boolean },
+    capabilities: {
+      watchCommand: boolean;
+      destroyCommand: boolean;
+      emulateExternals: boolean;
+    },
   ) {
     if (capabilities.watchCommand) {
       this.watchCommand = (artifactPath: string, name: string) =>
@@ -128,6 +132,12 @@ class SubprocessKit implements Deploy.Kit {
           artifactPath,
           name,
         ]) as Promise<readonly string[] | undefined>;
+    }
+    if (capabilities.destroyCommand) {
+      this.destroyCommand = (name: string) =>
+        this.host.call("kit", "destroyCommand", [
+          name,
+        ]) as Promise<readonly string[]>;
     }
     if (capabilities.emulateExternals) {
       this.emulateExternals = (workload: Deploy.Workload) =>
@@ -138,6 +148,7 @@ class SubprocessKit implements Deploy.Kit {
   }
 
   watchCommand?: Deploy.Kit["watchCommand"];
+  destroyCommand?: Deploy.Kit["destroyCommand"];
   emulateExternals?: Deploy.Kit["emulateExternals"];
 
   provisioners(): Promise<Deploy.ProvisionerSet> {
@@ -227,7 +238,11 @@ export class SubprocessKitLoader implements Deploy.KitLoader {
       "kit",
       "$describe",
       [],
-    ) as { watchCommand: boolean; emulateExternals: boolean };
+    ) as {
+      watchCommand: boolean;
+      destroyCommand: boolean;
+      emulateExternals: boolean;
+    };
     const kit = new SubprocessKit(host, capabilities);
 
     return await this.layering.apply(kit, sidecarConfigPaths);

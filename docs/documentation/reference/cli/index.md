@@ -13,6 +13,7 @@ Every top-level `ens` command, as registered in `source/apps/cli/main.ts`:
 | [`publish`](publish.md)   | Publish a previously packed ship.                          |
 | [`deploy`](deploy.md)     | Deploy a workload using the given deploy kit.              |
 | [`delivery`](delivery.md) | Run a task declared by a deployed workload.                |
+| [`destroy`](destroy.md)   | Take a deployed workload down and drop its recorded state. |
 | [`develop`](develop.md)   | Deploy a workload locally for development.                 |
 | [`config`](config.md)     | Manage `.ensemble/config.yaml`.                            |
 | [`release`](release.md)   | Create, resume, or undo a semver release.                  |

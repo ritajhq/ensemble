@@ -68,6 +68,11 @@ export class KitConfigLayering {
             kit.watchCommand!(artifactPath, name),
         }
         : {}),
+      ...(kit.destroyCommand
+        ? {
+          destroyCommand: (name: string) => kit.destroyCommand!(name),
+        }
+        : {}),
       ...(kit.emulateExternals
         ? {
           emulateExternals: (workload: Workload) =>

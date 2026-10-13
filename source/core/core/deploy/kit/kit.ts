@@ -18,7 +18,10 @@ import type { Realization } from "./realization.ts";
 export interface Kit {
   provisioners(): Promise<ProvisionerSet>;
   realization(): Promise<Realization>;
-  present(artifacts: Artifacts, graph: DependencyGraph): Promise<PresentedArtifact>;
+  present(
+    artifacts: Artifacts,
+    graph: DependencyGraph,
+  ): Promise<PresentedArtifact>;
   /**
    * The argv to run against `artifactPath` (the file `present`'s output was
    * written to) to actually apply it — `["docker", "compose", "-f",
@@ -42,6 +45,16 @@ export interface Kit {
     artifactPath: string,
     name: string,
   ): Promise<readonly string[] | undefined>;
+  /**
+   * The argv that takes a deployment down again, mirroring `applyCommand` —
+   * `["docker", "compose", "-p", name, "down", "--volumes"]` for compose.
+   * Scoped by `name` alone — the deployment's own identity, as
+   * `applyCommand` receives it — so a deployment can be destroyed without
+   * rendering it, or even with its rendered artifact gone. Optional, and `undefined` is a legitimate answer
+   * (not an error): a kit that can't tear down natively — aws today —
+   * doesn't implement it, which `ens destroy` reports as unsupported.
+   */
+  destroyCommand?(name: string): Promise<readonly string[]>;
   /**
    * `--emulate-externals`'s hook: for each `deploy.external` entry this kit
    * knows how to stand up locally, a `check`/`create` command pair (Section

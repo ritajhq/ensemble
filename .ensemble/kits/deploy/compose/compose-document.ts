@@ -37,6 +37,13 @@ interface ComposeFragmentContent {
 
 /** Compose's own implicit per-project network: every service that declares no `networks` of its own is attached to it, and a service can list it explicitly to join it *in addition* to an external one. It is compose's to create, never ens's to declare `external: true` — so it never reaches the top-level `networks:` block, and the fragment's own service entry is left to reference it by this name. */
 export const PROJECT_NETWORK = "default";
+/** A service's `networks` is a list of names, or — when it gives any of them settings such as aliases — a map keyed by name. */
+function networkNames(networks: unknown): string[] {
+  if (Array.isArray(networks)) return networks as string[];
+  if (networks && typeof networks === "object") return Object.keys(networks);
+  return [];
+}
+
 export function assembleComposeDocument(
   artifacts: KitSdk.Deploy.Render.Artifacts,
   graph: KitSdk.Deploy.Resolve.DependencyGraph,
@@ -65,9 +72,7 @@ export function assembleComposeDocument(
         : content.service;
       serviceKeys.add(`${fragment.category}.${fragment.name}`);
 
-      for (
-        const name of (content.service.networks as string[] | undefined) ?? []
-      ) {
+      for (const name of networkNames(content.service.networks)) {
         if (name === PROJECT_NETWORK) continue;
         networks[name] = { external: true };
       }

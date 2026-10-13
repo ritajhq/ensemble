@@ -15,6 +15,11 @@ import { ResourceContract } from "../contract.ts";
  * picks its own. None (absent or empty) means nothing fronts the gateway, so
  * a kit publishes it on the host instead.
  *
+ * `alias` is the DNS name the gateway answers to on those ingress networks,
+ * for a network several gateways share (one per preview deployment, behind
+ * one router): a gateway's service is named alike in every stack, so the name
+ * alone would be ambiguous there. Unset, the service name is all there is.
+ *
  * `routes` is shallow at the contract level (`type: "array"`), same
  * treatment as `container-orchestrated.v1`'s `mounts`/`development`: the
  * per-entry shape — `{ host, path, target: { service, port } }`, `path`
@@ -45,6 +50,7 @@ export const gatewayV1: ResourceContract = new ResourceContract(
   "v1",
   [
     { name: "networks", required: false, type: "array" },
+    { name: "alias", required: false, type: "string" },
     { name: "routes", required: true, type: "array" },
     { name: "tls", required: false, type: "string" },
   ],

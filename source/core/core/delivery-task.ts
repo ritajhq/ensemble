@@ -13,6 +13,7 @@ import {
   type TaskSnapshot,
   TaskSnapshotFile,
 } from "./task-snapshot.ts";
+import type { Instance } from "./instance.ts";
 import type { RepoLocator } from "./ports.ts";
 import type { EnvFile } from "./env-files.ts";
 
@@ -46,6 +47,8 @@ export interface RunDeliveryTaskOptions {
   readonly version: string;
   /** Same as `RunDeployOptions.envFiles`. */
   readonly envFiles: readonly EnvFile[];
+  /** The instance of the workload whose deployment the task acts on (`ens deploy --instance`); absent is its plain deployment. */
+  readonly instance?: Instance;
 }
 
 /** What `${deployment.<name>}` may name (`./deploy/task.ts` documents the set from the manifest's side). */
@@ -107,15 +110,24 @@ export async function runDeliveryTask(
     );
   }
 
+  // Same scope `runDeploy` keeps the deployment's name and state under.
+  const scope = options.instance ? options.instance.scope(name) : name;
   const deployment: Record<string, string> = {
-    name: deploymentNameFor(repoRoot, name),
+    name: deploymentNameFor(repoRoot, scope),
     root: repoRoot,
   };
 
-  const snapshot = await deployedSnapshot(context, name, kit, taskName, task);
+  const snapshot = await deployedSnapshot(
+    context,
+    name,
+    scope,
+    kit,
+    taskName,
+    task,
+  );
   const env = snapshot
     ? argumentsFromSnapshot(task, taskName, snapshot, deployment, workload)
-    : await argumentsFromRender(task, context, deployment, name, {
+    : await argumentsFromRender(task, context, deployment, scope, {
       options,
       gateway,
       kitLoader,
@@ -136,17 +148,18 @@ export async function runDeliveryTask(
 async function deployedSnapshot(
   context: WorkloadContext,
   name: string,
+  scope: string,
   kit: string,
   taskName: string,
   task: Deploy.Task,
 ): Promise<TaskSnapshot | undefined> {
-  const snapshot = await TaskSnapshotFile.for(context.repoRoot, name, kit)
+  const snapshot = await TaskSnapshotFile.for(context.repoRoot, scope, kit)
     .read();
   if (!snapshot) return undefined;
 
   if (snapshot.fingerprint !== await DeploymentFingerprint.of(context)) {
     console.warn(
-      `note: ci/${name}/delivery.yml or the "${kit}" kit changed since "${name}" was last deployed with it — resolving the task's arguments from the manifest as it is now, which may not be what's running.`,
+      `note: ci/${name}/delivery.yml or the "${kit}" kit changed since "${scope}" was last deployed with it — resolving the task's arguments from the manifest as it is now, which may not be what's running.`,
     );
     return undefined;
   }
@@ -238,7 +251,7 @@ async function argumentsFromRender(
   task: Deploy.Task,
   context: WorkloadContext,
   deployment: Record<string, string>,
-  name: string,
+  scope: string,
   deps: {
     readonly options: RunDeliveryTaskOptions;
     readonly gateway: Deploy.PackKitGateway;
@@ -290,7 +303,7 @@ async function argumentsFromRender(
   if (needsArtifact) {
     const presented = await target.kit.present(artifacts, graph);
     deployment.artifact = new Deploy.Terminations.FileArtifactSink(
-      join(repoRoot, "source", "artifacts", "deploy", name),
+      join(repoRoot, "source", "artifacts", "deploy", scope),
     ).pathFor(presented);
   }
 

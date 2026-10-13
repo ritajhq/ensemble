@@ -65,11 +65,15 @@ const kit = {
     filename: "fixture.yaml",
     content: JSON.stringify({
       artifacts,
-      apiDependencies: graph.dependenciesOf({ category: "compute", name: "api" }),
+      apiDependencies: graph.dependenciesOf({
+        category: "compute",
+        name: "api",
+      }),
     }),
   }),
   applyCommand: (path: string, name: string) => ["fixture-apply", path, name],
   watchCommand: (path: string, name: string) => ["fixture-watch", path, name],
+  destroyCommand: (name: string) => ["fixture-destroy", name],
 };
 
 export default kit;

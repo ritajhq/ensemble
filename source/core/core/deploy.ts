@@ -10,6 +10,7 @@ import { RunPackReleasePacker } from "./release-packer.ts";
 import { runBuild } from "./build.ts";
 import type { Ports } from "./ports.ts";
 import type { EnvFile } from "./env-files.ts";
+import type { Instance } from "./instance.ts";
 import type { PackReporter } from "./pack-reporter.ts";
 import type { BuildReporter } from "./build-reporter.ts";
 
@@ -20,6 +21,8 @@ export interface RunDeployOptions {
   /** Which released version `${release.<name>}` resolves to for published artifacts — meaningless for local artifacts, where the local tag is always used regardless. */
   version: string;
   termination: DeployTermination;
+  /** Which of several concurrent deployments of this manifest this is (`--instance`); absent is the manifest's one plain deployment. */
+  instance?: Instance;
   /** What the deployment is brought up for (`--mode`), handed to every provisioner: `development` lets a kit add what only a developer needs (host access, `development` blocks) to the same topology `deployment` renders. Independent of `artifacts` and `watch`. */
   mode: Deploy.Mode;
   acceptCapabilityGaps: boolean;
@@ -163,19 +166,23 @@ export async function runDeploy(
   // Prefixing with the repo dir's own basename (e.g. "ensemble-website"
   // rather than a bare "website") keeps two different repos — or two
   // worktrees of the same one — from colliding on the same host.
-  const deploymentName = deploymentNameFor(repoRoot, name);
+  // `name` finds the manifest; everything the deployment itself owns is
+  // scoped by instance, so concurrent instances of one manifest never share
+  // a project name, rendered artifact, cache or task snapshot.
+  const scope = options.instance ? options.instance.scope(name) : name;
+  const deploymentName = deploymentNameFor(repoRoot, scope);
 
-  const outputsDir = join(repoRoot, "source", "artifacts", "deploy", name);
+  const outputsDir = join(repoRoot, "source", "artifacts", "deploy", scope);
   const sink = new Deploy.Terminations.FileArtifactSink(outputsDir);
   const cache = new Deploy.Terminations.FileRenderCache(
-    join(repoRoot, ".ensemble", "deploy", name, "last-rendered.txt"),
+    join(repoRoot, ".ensemble", "deploy", scope, "last-rendered.txt"),
   );
 
   // Once it's up, what the deployment was rendered from is kept for its
   // tasks, so `ens delivery task` can resolve their arguments without
   // rendering again (see ./task-snapshot.ts).
   const deployed = new TaskSnapshotRecorder(
-    TaskSnapshotFile.for(repoRoot, name, kit),
+    TaskSnapshotFile.for(repoRoot, scope, kit),
     await DeploymentFingerprint.of(context),
     renderer,
     workload,
@@ -205,7 +212,7 @@ export async function runDeploy(
       sink,
       undefined,
       deployed,
-      Deploy.Terminations.WatchSessionRecord.for(repoRoot, name),
+      Deploy.Terminations.WatchSessionRecord.for(repoRoot, scope),
     ),
     new Deploy.Terminations.ExternalsEmulator(),
   );

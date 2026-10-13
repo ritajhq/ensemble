@@ -53,6 +53,13 @@ export {
   runDeploy,
   type RunDeployOptions,
 } from "./deploy.ts";
+export {
+  DestroyError,
+  DestroyUnsupportedError,
+  runDestroy,
+  type RunDestroyOptions,
+} from "./destroy.ts";
+export { Instance } from "./instance.ts";
 export { runExplain, type RunExplainOptions } from "./explain.ts";
 export { DeploymentEnvironment, type EnvFile } from "./env-files.ts";
 export {

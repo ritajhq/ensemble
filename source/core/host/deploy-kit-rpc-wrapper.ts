@@ -29,7 +29,7 @@
  * A handful of `$`-prefixed pseudo-methods exist only for this wrapper's own
  * bookkeeping, never forwarded to the real kit/provisioner object:
  * `target: "kit"`'s `$describe` (reports which optional `Kit` capabilities —
- * `watchCommand`, `emulateExternals` — this kit actually implements) and
+ * `watchCommand`, `destroyCommand`, `emulateExternals` — this kit actually implements) and
  * `$provisionersCount` (the kit's `provisioners()` array length, so the
  * caller can build one proxy per index without ever needing the real,
  * non-serializable `Provisioner` objects to leave this process);
@@ -82,6 +82,7 @@ async function serveKit(method: string, args: any[]) {
   if (method === "$describe") {
     return {
       watchCommand: typeof kit.watchCommand === "function",
+      destroyCommand: typeof kit.destroyCommand === "function",
       emulateExternals: typeof kit.emulateExternals === "function",
     };
   }

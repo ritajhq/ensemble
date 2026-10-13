@@ -409,6 +409,10 @@
           "type": ["array", "string"],
           "items": { "type": "string" }
         },
+        "alias": {
+          "description": "The DNS name the gateway answers to on its ingress networks — for a network several stacks share (one gateway per preview deployment behind one router), where the service name alone would be ambiguous. May be a `${variables.*}` reference.",
+          "type": "string"
+        },
         "routes": {
           "description": "Host/path routes to compute targets.",
           "type": "array",

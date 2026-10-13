@@ -19,6 +19,11 @@ ens delivery task portal compose auth-migrate    # run
 ens delivery task portal compose trust-gateway-ca --force
 ```
 
+`--instance <slug>` runs the task against that named instance of the workload
+(see [`ens deploy --instance`](deploy.md)): `${deployment.name}` and
+`${deployment.artifact}` name the instance's own deployment, and the snapshot
+below is the one that instance's deploy left.
+
 Trailing arguments are handed to the task as `$1..$n`. A task that exits
 non-zero makes this command exit non-zero too — that invocation failed; no
 deploy started, so there is nothing to roll back.
@@ -30,23 +35,23 @@ the workload to resolve those.
 
 ### Where argument values come from
 
-A task acts on what is deployed, so it first looks for what the last deploy
-left for it. Every `ens deploy` that applies (or starts a watch session, as
+A task acts on what is deployed, so it first looks for what the last deploy left
+for it. Every `ens deploy` that applies (or starts a watch session, as
 `ens develop` does) keeps each task argument only a render can answer — a
 provisioner's output, a port, a release — in
 `.ensemble/deploy/<name>/<kit>.tasks.json`, gitignored like the render cache
 next to it. The rest are resolved when the task runs, as always: literals,
-`${variables.*}` (from the environment and any `--env-file`, so no
-variable — and no secret — is ever written there), `${external.*}`, and
+`${variables.*}` (from the environment and any `--env-file`, so no variable —
+and no secret — is ever written there), `${external.*}`, and
 `${deployment.name}`/`${deployment.root}`. With that file, a task runs without
 loading the kit at all.
 
 An argument may also embed references in a larger string, as a resource field
-may (`AUTH_BASE_URL: https://auth.${variables.domain.value}${variables.origin_port.value}`).
+may
+(`AUTH_BASE_URL: https://auth.${variables.domain.value}${variables.origin_port.value}`).
 Embedded references the file doesn't need are interpolated when the task runs.
-One that only a render can answer is never written to the file, since the
-string may embed a variable holding a secret, so a task with one always
-renders.
+One that only a render can answer is never written to the file, since the string
+may embed a variable holding a secret, so a task with one always renders.
 
 It is used only while it still describes the deployment: if
 `ci/<name>/delivery.yml`, the kit, or `ci/<name>/<kit>.config.yml` has changed
@@ -64,8 +69,8 @@ than halfway through a migration.
   this says: they are what's running.
 - `--version <version>` — the released version to resolve those references to
   when rendering. Defaults to `latest`.
-- `--env-file <path>` — load an env file (repo-root relative or absolute, repeatable) as
-  values beneath the process environment. None by default: a real
+- `--env-file <path>` — load an env file (repo-root relative or absolute,
+  repeatable) as values beneath the process environment. None by default: a real
   environment's pipeline exports every value itself.
 
 See [`tasks` in the manifest schema](../delivery-manifest-schema.md#tasks) for

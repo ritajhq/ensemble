@@ -102,6 +102,26 @@ done
 exit 1`;
 }
 
+/**
+ * What the gateway's `networks` entry renders: the plain list, or — given an
+ * `alias` — a map putting that alias on every ingress network. Every
+ * gateway's service is named alike (`gateway`), so several stacks sharing one
+ * ingress network would otherwise answer each other's lookups for it; the
+ * alias is what lets one router reach exactly one of them. The project's own
+ * network keeps its default name only: the alias is for whatever reaches in
+ * from the ingress network.
+ */
+function networkAttachments(
+  ingress: readonly string[],
+  alias: string | undefined,
+): readonly string[] | Record<string, unknown> {
+  if (alias === undefined) return [...ingress, PROJECT_NETWORK];
+  return {
+    ...Object.fromEntries(ingress.map((name) => [name, { aliases: [alias] }])),
+    [PROJECT_NETWORK]: null,
+  };
+}
+
 export function gatewayProvisioner(): KitSdk.Deploy.Provisioner {
   return {
     // deno-lint-ignore require-await
@@ -115,6 +135,7 @@ export function gatewayProvisioner(): KitSdk.Deploy.Provisioner {
       const routes = request.params.routes as Parameters<typeof caddyfile>[0];
       const tls = tlsMode(request.params.tls);
       const ingress = ingressNetworks(request.params.networks);
+      const alias = request.params.alias as string | undefined;
       const config = caddyfile(routes, tls);
 
       return {
@@ -127,7 +148,7 @@ export function gatewayProvisioner(): KitSdk.Deploy.Provisioner {
               ...(ingress.length === 0
                 ? { ports: [...PUBLISHED_PORTS[tls]] }
                 : {}),
-              networks: [...ingress, PROJECT_NETWORK],
+              networks: networkAttachments(ingress, alias),
               configs: [
                 { source: configName, target: "/etc/caddy/Caddyfile" },
               ],

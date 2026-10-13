@@ -139,6 +139,16 @@ Deno.test("SubprocessKitLoader.load: applyCommand()/watchCommand() round-trip re
   ]);
 });
 
+Deno.test("SubprocessKitLoader.load: destroyCommand() round-trips through the capability handshake", async () => {
+  const loader = new SubprocessKitLoader();
+  const loaded = await loader.load(fixtureKitDir);
+
+  assertEquals(await loaded.kit.destroyCommand?.("myapp"), [
+    "fixture-destroy",
+    "myapp",
+  ]);
+});
+
 Deno.test("SubprocessKitLoader.load: the $describe capability handshake correctly omits emulateExternals", async () => {
   const loader = new SubprocessKitLoader();
   const loaded = await loader.load(fixtureKitDir);

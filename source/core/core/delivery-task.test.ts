@@ -11,6 +11,7 @@ import { InProcessKitLoader } from "./deploy/kit/loader.ts";
 import type { KitLoader } from "./deploy/kit/loader.ts";
 import { loadWorkload } from "./deploy-context.ts";
 import { DeploymentEnvironment, type EnvFile } from "./env-files.ts";
+import { Instance } from "./instance.ts";
 import {
   DeploymentFingerprint,
   type TaskSnapshot,
@@ -198,6 +199,42 @@ Deno.test("runDeliveryTask: hands a script every declared argument as an environ
         "second",
         "",
       ].join("\n"),
+    );
+  });
+});
+
+Deno.test("runDeliveryTask: an instance's task sees that instance's deployment name and artifact, not the plain deployment's", async () => {
+  await withWorkspace(async (repoRoot) => {
+    await runDeliveryTask(
+      "demo",
+      "demo-kit",
+      "record",
+      [],
+      {
+        artifacts: "local",
+        version: "latest",
+        envFiles: [],
+        instance: Instance.parse("feat-foo"),
+      },
+      { findRepoRoot: () => Promise.resolve(repoRoot) },
+      noReleasesGateway,
+      new InProcessKitLoader(),
+    );
+
+    const [project, artifact] = (
+      await Deno.readTextFile(join(repoRoot, "recorded.txt"))
+    ).split("\n");
+    assertEquals(project, `${basename(repoRoot)}-demo--feat-foo`);
+    assertEquals(
+      artifact,
+      join(
+        repoRoot,
+        "source",
+        "artifacts",
+        "deploy",
+        "demo--feat-foo",
+        "compose.yaml",
+      ),
     );
   });
 });

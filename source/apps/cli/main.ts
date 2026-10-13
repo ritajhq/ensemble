@@ -6,6 +6,7 @@ import { buildCommand } from "./commands/build.ts";
 import { configCommand } from "./commands/config.ts";
 import { deliveryCommand } from "./commands/delivery.ts";
 import { deployCommand } from "./commands/deploy.ts";
+import { destroyCommand } from "./commands/destroy.ts";
 import { developCommand } from "./commands/develop.ts";
 import { initCommand } from "./commands/init.ts";
 import { kitCommand } from "./commands/kit.ts";
@@ -37,6 +38,7 @@ try {
     .command("pack", packCommand)
     .command("publish", publishCommand)
     .command("deploy", deployCommand)
+    .command("destroy", destroyCommand)
     .command("develop", developCommand)
     .command("delivery", deliveryCommand)
     .command("config", configCommand)

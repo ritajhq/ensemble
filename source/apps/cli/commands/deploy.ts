@@ -1,5 +1,11 @@
 import { Command, EnumType } from "@cliffy/command";
-import { DeploymentEnvironment, runDeploy, runExplain } from "@ensemble/core";
+import {
+  DeploymentEnvironment,
+  Instance,
+  runDeploy,
+  runDestroy,
+  runExplain,
+} from "@ensemble/core";
 import * as Host from "@ensemble/host";
 
 const explainCommand = new Command()
@@ -55,7 +61,7 @@ export const deployCommand = new Command()
   .name("deploy")
   .description(
     "Deploy a workload using the given deploy kit: render, then eject, plan, or apply (the default). " +
-      "Tearing a workload down is out of scope for this rearchitecture's current phases.",
+      "--destroy tears it down instead (the same as `ens destroy`).",
   )
   .type("artifacts", new EnumType(["local", "published"]))
   .type("mode", new EnumType(["development", "deployment"]))
@@ -76,6 +82,15 @@ export const deployCommand = new Command()
     "--version <version:string>",
     "Released version to resolve ${release.<name>} references to for published artifacts.",
     { default: "latest" },
+  )
+  .option(
+    "--instance <slug:string>",
+    "Deploy as a named instance beside the manifest's plain deployment (a branch's preview, say): its own deployment name, artifact and state. A DNS label.",
+  )
+  .option(
+    "--destroy",
+    "Take the deployment (or --instance) down instead of applying it. Can't be combined with any other termination.",
+    { default: false },
   )
   .option(
     "--eject",
@@ -128,10 +143,28 @@ export const deployCommand = new Command()
         emulateExternals,
         verbose,
         envFile,
+        instance,
+        destroy,
       },
       name,
       kit,
     ) => {
+      if (destroy && (eject || plan || watch || emulateExternals)) {
+        console.error(
+          "error: --destroy can't be used with --eject, --plan, --watch or --emulate-externals.",
+        );
+        Deno.exit(1);
+      }
+      if (destroy) {
+        await runDestroy(
+          name,
+          kit,
+          { instance: instance ? Instance.parse(instance) : undefined },
+          Host.createPorts(),
+          new Host.SubprocessKitLoader(),
+        );
+        return;
+      }
       if (eject && plan) {
         console.error("error: --eject and --plan can't be used together.");
         Deno.exit(1);
@@ -154,6 +187,7 @@ export const deployCommand = new Command()
           artifacts,
           version,
           termination,
+          instance: instance ? Instance.parse(instance) : undefined,
           mode,
           acceptCapabilityGaps,
           watch,

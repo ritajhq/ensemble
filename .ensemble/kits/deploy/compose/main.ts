@@ -49,6 +49,16 @@ const kit: KitSdk.Deploy.Kit = {
     name,
   ) => ["docker", "compose", "-f", artifactPath, "-p", name, "up", "-d"],
   // deno-lint-ignore require-await
+  destroyCommand: async (name) => [
+    "docker",
+    "compose",
+    "-p",
+    name,
+    "down",
+    "--volumes",
+    "--remove-orphans",
+  ],
+  // deno-lint-ignore require-await
   watchCommand: async (artifactPath, name) => [
     "docker",
     "compose",

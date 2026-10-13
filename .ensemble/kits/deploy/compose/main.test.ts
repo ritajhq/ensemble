@@ -749,6 +749,26 @@ Deno.test("compose kit: a gateway with ingress networks renders as a Caddy servi
   );
 });
 
+Deno.test("compose kit: a gateway with an alias carries it on every ingress network, so stacks sharing one network stay individually addressable", async () => {
+  const aliased = WITH_GATEWAY.replace(
+    "      type: gateway",
+    "      type: gateway\n      alias: feat-foo",
+  );
+  const workload = new KitSdk.Deploy.Manifest.Parser().parse(aliased);
+  const { artifacts, graph } = await renderNetworkingWorkload(workload);
+  const document = assembleComposeDocument(artifacts, graph) as {
+    services: Record<string, { networks?: Record<string, unknown> }>;
+    networks?: Record<string, unknown>;
+  };
+
+  assertEquals(document.services.gateway.networks, {
+    edge: { aliases: ["feat-foo"] },
+    default: null,
+  });
+  // The map form still declares only the external network.
+  assertEquals(document.networks, { edge: { external: true } });
+});
+
 Deno.test("compose kit: a gateway declares an apply-time init command that loads its Caddyfile through Caddy's admin API, since compose never recreates a container whose inline config alone changed", async () => {
   const workload = new KitSdk.Deploy.Manifest.Parser().parse(WITH_GATEWAY);
   const { artifacts, graph } = await renderNetworkingWorkload(workload);
