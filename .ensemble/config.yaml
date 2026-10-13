@@ -3,6 +3,8 @@ build:
     kit: deno.bundle
   git-sync:
     kit: deno.bundle
+  preview:
+    kit: deno.bundle
   demo/spa:
     kit: react
   website/content:

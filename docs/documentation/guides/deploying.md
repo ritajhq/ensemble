@@ -105,6 +105,66 @@ host needs a stable address, such as a static DHCP lease, and then:
 Only one stack on the host can publish `443`, so this is the router's, not a
 preview's.
 
+### Deploying on push
+
+`source/apps/preview` is a small service that turns GitHub pushes into
+instances: a push to a tracked branch runs
+`ens deploy <delivery> <kit>
+--instance <slug> --artifacts local` in a checkout
+of that branch, and deleting the branch runs `ens destroy`. Pushes that arrive
+while a preview is deploying are folded into one follow-up deploy of the newest
+commit.
+
+It runs as a process on the host, not in a container: it needs the Docker
+daemon, `git` and `ens`, and a containerised copy would have the checkout's
+paths (init files a manifest mounts) mean something different to the daemon than
+to it. Build it with `ens build preview`; the result is
+`source/artifacts/preview/main.js`.
+
+```yaml
+# preview.yml
+domain: preview.ritaj.app
+network: preview
+workspace: /var/lib/ens-previews
+repositories:
+  portal:
+    repo: ritajhq/portal
+    delivery: portal
+    branches:
+      - main
+      - feat/*
+    envFiles:
+      - ci/portal/preview.env
+```
+
+A preview is `<slug>.<domain>`, where the slug is the branch name made into a
+DNS label (`feat/login` becomes `feat-login-<digest>`). The deploy gets
+`INGRESS_NETWORKS`, `GATEWAY_ALIAS` and `PUBLIC_HOST` — the three variables the
+manifest example above reads. A repository whose manifest names them otherwise
+lists `variables:` mapping its variable name to a template over `{slug}`,
+`{host}`, `{network}` and `{branch}`. Everything else the manifest needs
+(secrets, credentials) comes from the service's own environment and the
+repository's `envFiles`.
+
+```sh
+# WEBHOOK_SECRET_<ID> is per repository id, upper-cased; GITHUB_TOKEN is
+# only needed to clone a private repository.
+export PREVIEW_CONFIG=/etc/ens-preview/preview.yml
+export WEBHOOK_SECRET_PORTAL=…
+export GITHUB_TOKEN=…
+export ENS_BIN=/usr/local/bin/ens
+PORT=8080 deno run -A source/artifacts/preview/main.js
+```
+
+On the repository, add a webhook to
+`https://<where this is reachable>/webhook/<id>` (JSON, the same secret) for the
+**push** and **delete** events. Each request is verified against that
+repository's own secret, and a payload naming any other repository is refused.
+`GET /` lists each preview's last outcome.
+
+The service runs whatever a tracked branch contains on this host, with access to
+its Docker daemon: track only branches whose authors you'd let deploy there.
+
 ## Resolving releases
 
 - `--artifacts local|published` (default `published`) — whether
