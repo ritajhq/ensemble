@@ -1,3 +1,32 @@
+## [0.49.0] - 2026-10-13
+
+### 🚀 Features
+
+- *(version)* Install the latest release when ens version update is given no bump
+- *(compose)* Add develop-only host ports and development.env, unpublish Garage, and reload the gateway Caddyfile
+- *(deploy)* Add --instance, ens destroy and gateway alias for preview deployments
+- *(preview)* Add the preview router delivery with a wildcard-certificate Caddy
+- *(compose)* Let a compute publish a declared port on the host
+- *(preview)* Add the preview service that deploys and destroys instances from branch pushes
+- *(develop)* Hide the kit's stdout in a watch session and list the gateway routes once the stack is up
+
+### 🐛 Bug Fixes
+
+- *(preview)* Name both token permissions the Cloudflare DNS module needs
+
+### 📚 Documentation
+
+- *(preview)* Spell the preview manifest example in block style
+
+### 🎨 Styling
+
+- Format the codebase
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.48.0
+- Update lockfile
+- *(release)* Bump library versions for 0.49.0
 ## [0.48.0] - 2026-10-07
 
 ### 🚀 Features
@@ -22,6 +51,7 @@
 - _(delivery)_ Resolve references embedded in a task argument instead of passing
   them through as text
 - _(react-kit)_ Create the app directory before scaffolding into it
+- _(compose)_ Reload the gateway's Caddyfile through Caddy's admin API on apply
 
 ### ⚙️ Miscellaneous Tasks
 
