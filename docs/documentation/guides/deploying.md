@@ -54,7 +54,7 @@ whichever gateway on the `preview` network took `<slug>` as its alias. Bring it
 up once:
 
 ```sh
-export CLOUDFLARE_API_TOKEN=…   # Zone → DNS → Edit on the zone, nothing broader
+export CLOUDFLARE_API_TOKEN=…   # this zone only: Zone → Zone → Read, Zone → DNS → Edit
 ens deploy preview-router compose --artifacts local --emulate-externals
 ```
 

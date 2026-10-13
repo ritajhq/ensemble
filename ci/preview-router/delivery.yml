@@ -44,8 +44,9 @@ deploy:
       type: volume
 
   secrets:
-    # Exported as CLOUDFLARE_API_TOKEN: a token with Zone → DNS → Edit on the
-    # zone `preview_domain` lives in, nothing broader.
+    # Exported as CLOUDFLARE_API_TOKEN: a token limited to the zone
+    # `preview_domain` lives in, with Zone → Zone → Read and Zone → DNS → Edit
+    # (the Cloudflare DNS module needs both), nothing broader.
     cloudflare-api-token:
       source: environment
 
