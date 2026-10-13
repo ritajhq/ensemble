@@ -72,11 +72,17 @@ deploy:
       routes:
         - host: ${variables.public_host.value}
           path: /*
-          target: { service: web, port: ${compute.web.http} }
+          target:
+            service: web
+            port: ${compute.web.http}
   variables:
-    ingress_networks: { type: list, default: [edge] }
-    gateway_alias: { default: gateway }
-    public_host: { default: app.ritaj.app }
+    ingress_networks:
+      type: list
+      default: edge
+    gateway_alias:
+      default: gateway
+    public_host:
+      default: app.ritaj.app
 ```
 
 A preview then deploys with `ingress_networks=preview`, `gateway_alias=<slug>`
