@@ -1,3 +1,14 @@
+## [0.50.0] - 2026-10-13
+
+### 🐛 Bug Fixes
+
+- *(kits)* Pin the aws and compose kits to @ensemble/kit-sdk ^0.49.0 so they resolve the Entrypoint API outside the workspace
+- *(develop)* Ask the kit to quiet its watch tool so compose's progress display stays off the console
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.49.0
+- *(release)* Bump library versions for 0.50.0
 ## [0.49.0] - 2026-10-13
 
 ### 🚀 Features
