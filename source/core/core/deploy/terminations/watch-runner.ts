@@ -1,10 +1,10 @@
 import type { DependencyGraph } from "../resolve/dependency-graph.ts";
-import type { Artifacts } from "../render/artifact.ts";
+import type { Artifacts, Entrypoint } from "../render/artifact.ts";
 import type { Kit } from "../kit/kit.ts";
 import type { ArtifactSink } from "./artifact-sink.ts";
 import type { OutputsLedger } from "../render/outputs-ledger.ts";
 import type { DeployedState } from "./deployed-state.ts";
-import { InitRunner } from "./init-runner.ts";
+import { InitRunner, type KitStdout } from "./init-runner.ts";
 import { ProcessTree } from "./process-tree.ts";
 import { WatchSessionRecord } from "./watch-session-record.ts";
 
@@ -39,6 +39,12 @@ export class WatchNotSupportedError extends Error {
  * too (`InitRunner`) — once the watch command has been spawned, since bringing
  * the stack up is exactly what that command does, and every init command is
  * free to poll until whatever it seeds is actually reachable.
+ *
+ * `stdout` is where the watch command's own stdout goes; `"null"` keeps the
+ * target's chatter off the console (its stderr — warnings and errors — still
+ * reaches it), and once the init commands have brought the stack up the
+ * render pass's entrypoints are listed instead, so what's left on screen is
+ * where to point a browser.
  */
 export class WatchRunner {
   constructor(
@@ -46,6 +52,7 @@ export class WatchRunner {
     private readonly initRunner: InitRunner = new InitRunner(),
     private readonly deployed?: DeployedState,
     private readonly session?: WatchSessionRecord,
+    private readonly stdout: KitStdout = "inherit",
   ) {}
 
   async watch(
@@ -75,7 +82,10 @@ export class WatchRunner {
       );
     }
 
-    const process = new Deno.Command(executable, { args }).spawn();
+    const process = new Deno.Command(executable, {
+      args,
+      stdout: this.stdout,
+    }).spawn();
     await this.session?.begin(process.pid);
     const tree = new ProcessTree(process.pid);
 
@@ -98,6 +108,7 @@ export class WatchRunner {
         artifactPath,
         deploymentName: name,
       });
+      this.announce(artifacts.entrypoints ?? []);
       // Up for as long as the session lasts, which is when it's used.
       if (ledger) await this.deployed?.record(ledger, artifactPath);
 
@@ -109,6 +120,20 @@ export class WatchRunner {
       await this.session?.end();
       for (const signo of signals) Deno.removeSignalListener(signo, teardown);
       signal?.removeEventListener("abort", teardown);
+    }
+  }
+
+  private announce(entrypoints: readonly Entrypoint[]): void {
+    if (entrypoints.length === 0) return;
+    const serviceWidth = Math.max(...entrypoints.map((e) => e.service.length));
+    const urlWidth = Math.max(...entrypoints.map((e) => e.url.length));
+    console.log("Routes:");
+    for (const entrypoint of entrypoints) {
+      console.log(
+        `  ${entrypoint.service.padEnd(serviceWidth)}  ${
+          entrypoint.url.padEnd(urlWidth)
+        }  ${entrypoint.paths.join(" ")}`,
+      );
     }
   }
 }

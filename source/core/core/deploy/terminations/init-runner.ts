@@ -1,5 +1,8 @@
 import { INIT_COMMAND_ENV, type InitCommand } from "../render/artifact.ts";
 
+/** Where a kit-spawned process's stdout goes: the console, or nowhere. Its stderr — warnings and errors — always reaches the console. */
+export type KitStdout = "inherit" | "null";
+
 /** Thrown when one of a render pass's own init commands exits non-zero — the resource is real and this command is the only way to create the state it needs; the command itself just failed (Garage rejecting a credential that isn't in its own key format, say). */
 export class InitCommandError extends Error {
   constructor(message: string) {
@@ -17,9 +20,13 @@ export class InitCommandError extends Error {
  * host is the only way to drive it at all. Same `sh -c` convention `Hooks`
  * uses for `hooks.release.after`; the artifact path and deployment name reach
  * the script as env (`INIT_COMMAND_ENV`) instead of being interpolated into
- * its text, so a kit never has to quote a path into a script.
+ * its text, so a kit never has to quote a path into a script. `stdout` is
+ * where the scripts' own stdout goes — `"null"` for a watch session that
+ * keeps the target's chatter off the console; stderr always reaches it.
  */
 export class InitRunner {
+  constructor(private readonly stdout: KitStdout = "inherit") {}
+
   async run(
     commands: readonly InitCommand[],
     context: { artifactPath: string; deploymentName: string },
@@ -31,6 +38,7 @@ export class InitRunner {
           [INIT_COMMAND_ENV.artifactPath]: context.artifactPath,
           [INIT_COMMAND_ENV.deploymentName]: context.deploymentName,
         },
+        stdout: this.stdout,
       }).spawn().status;
       if (!success) {
         throw new InitCommandError(

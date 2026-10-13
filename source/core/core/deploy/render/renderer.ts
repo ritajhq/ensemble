@@ -15,7 +15,12 @@ import type { Mode, ProvisionOutcome } from "../kit/provisioner.ts";
 import type { ReleaseLocatorPort } from "../kit/release-locator.ts";
 import { ReferenceSyntax as ReferenceParser } from "../reference.ts";
 import type { ContractRegistry } from "../contracts/registry.ts";
-import type { ArtifactFragment, Artifacts, InitCommand } from "./artifact.ts";
+import type {
+  ArtifactFragment,
+  Artifacts,
+  Entrypoint,
+  InitCommand,
+} from "./artifact.ts";
 import { DeclaredValues } from "./declared-values.ts";
 import { OutputsLedger } from "./outputs-ledger.ts";
 import type { ReferenceResolver } from "./reference-resolver.ts";
@@ -93,6 +98,7 @@ export class Renderer {
     const ledger = new OutputsLedger();
     const fragments: ArtifactFragment[] = [];
     const initCommands: InitCommand[] = [];
+    const entrypoints: Entrypoint[] = [];
 
     for (const batch of graph.batches()) {
       for (const id of batch) {
@@ -107,13 +113,16 @@ export class Renderer {
         if (!outcome) continue;
         fragments.push(outcome.fragment);
         initCommands.push(...outcome.initCommands ?? []);
+        entrypoints.push(...outcome.entrypoints ?? []);
       }
     }
 
     return {
-      artifacts: initCommands.length > 0
-        ? { fragments, initCommands }
-        : { fragments },
+      artifacts: {
+        fragments,
+        ...(initCommands.length > 0 ? { initCommands } : {}),
+        ...(entrypoints.length > 0 ? { entrypoints } : {}),
+      },
       ledger,
     };
   }

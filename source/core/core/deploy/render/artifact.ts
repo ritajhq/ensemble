@@ -41,8 +41,23 @@ export const INIT_COMMAND_ENV = {
   deploymentName: "ENS_DEPLOYMENT_NAME",
 } as const;
 
-/** Every fragment a render pass produced, in the dependency order they were rendered — byte-stable output depends on that order being deterministic (G5) — plus every init command those fragments' own provisioners declared (`ProvisionOutcome.initCommands`), flattened in that same order: the provisioning that can only run *after* the target's apply, which is why it rides alongside the fragments rather than inside any one fragment's content. */
+/**
+ * Somewhere the host can open into the deployment once it's up — a URL plus
+ * the paths served under it, labelled by the service they reach. Only a kit
+ * knows what its target publishes on the host (which port, whether over
+ * TLS), so a provisioner declares these alongside its fragment rather than
+ * the core deriving them from params; `ens develop` lists them once the
+ * stack is up, in place of the target's own output.
+ */
+export interface Entrypoint {
+  readonly service: string;
+  readonly url: string;
+  readonly paths: readonly string[];
+}
+
+/** Every fragment a render pass produced, in the dependency order they were rendered — byte-stable output depends on that order being deterministic (G5) — plus every init command those fragments' own provisioners declared (`ProvisionOutcome.initCommands`), flattened in that same order: the provisioning that can only run *after* the target's apply, which is why it rides alongside the fragments rather than inside any one fragment's content. `entrypoints` are flattened the same way (`ProvisionOutcome.entrypoints`). */
 export interface Artifacts {
   readonly fragments: readonly ArtifactFragment[];
   readonly initCommands?: readonly InitCommand[];
+  readonly entrypoints?: readonly Entrypoint[];
 }

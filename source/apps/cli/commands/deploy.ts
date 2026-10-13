@@ -126,7 +126,7 @@ export const deployCommand = new Command()
   )
   .option(
     "--verbose",
-    "Let a local apply's pack step show the kit's own build-tool output (e.g. docker buildx build's progress log) instead of hiding it behind the pack spinner.",
+    "Let a local apply's pack step show the kit's own build-tool output (e.g. docker buildx build's progress log) instead of hiding it behind the pack spinner, and a --watch session show the kit's own stdout instead of only its warnings and errors.",
     { default: false },
   )
   .action(

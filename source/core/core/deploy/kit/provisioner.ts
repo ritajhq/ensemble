@@ -2,7 +2,11 @@ import type { Category } from "../workload.ts";
 import type { MatchedResource } from "../resolve/matched-resource.ts";
 import type { ResolvedValue } from "../resolve/resolved-values.ts";
 import type { SecretDeclaration } from "../resource.ts";
-import type { ArtifactFragment, InitCommand } from "../render/artifact.ts";
+import type {
+  ArtifactFragment,
+  Entrypoint,
+  InitCommand,
+} from "../render/artifact.ts";
 
 /**
  * Which command brought the deployment up: `ens develop` (`development`) or
@@ -51,6 +55,8 @@ export interface ProvisionOutcome {
    * `InitCommand`).
    */
   readonly initCommands?: readonly InitCommand[];
+  /** What this resource makes reachable from the host once the target is up (see `Entrypoint`) — absent when it publishes nothing there. */
+  readonly entrypoints?: readonly Entrypoint[];
 }
 
 /**

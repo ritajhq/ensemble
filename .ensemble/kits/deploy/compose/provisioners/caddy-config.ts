@@ -1,14 +1,14 @@
-interface RouteTarget {
+export interface RouteTarget {
   readonly service: string;
   readonly port: number;
 }
 
-interface RoutePath {
+export interface RoutePath {
   readonly match: string;
   readonly strip?: boolean;
 }
 
-interface Route {
+export interface Route {
   readonly host: string;
   readonly path: string | RoutePath;
   readonly target: RouteTarget;
@@ -37,6 +37,11 @@ export function tlsMode(value: unknown): Tls {
       JSON.stringify(value)
     }).`,
   );
+}
+
+/** A route's path matcher as the manifest spelled it, plain or `{ match }`. */
+export function routeMatch(route: Route): string {
+  return typeof route.path === "string" ? route.path : route.path.match;
 }
 
 /**

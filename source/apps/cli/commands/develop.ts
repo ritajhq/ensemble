@@ -20,7 +20,7 @@ export const developCommand = new Command()
   })
   .option(
     "--verbose",
-    "Let the initial pack step show the kit's own build-tool output (e.g. docker buildx build's progress log) instead of hiding it behind the pack spinner.",
+    "Let the initial pack step show the kit's own build-tool output (e.g. docker buildx build's progress log) instead of hiding it behind the pack spinner, and the watch session show the kit's own stdout instead of only its warnings and errors.",
     { default: false },
   )
   .option(
