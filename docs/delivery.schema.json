@@ -189,6 +189,11 @@
           "type": "object",
           "additionalProperties": { "type": "number" }
         },
+        "publish": {
+          "description": "Port name → host port: publishes that declared port at the host's own address, which a deploy otherwise never does. For what must be reached at the host itself because nothing can front it; a compute behind a gateway publishes nothing. The names must be declared under `ports`.",
+          "type": "object",
+          "additionalProperties": { "type": ["number", "string"] }
+        },
         "env": {
           "description": "Environment variables, values may be literals or ${...} references.",
           "type": "object",

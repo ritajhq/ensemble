@@ -12,6 +12,14 @@ import { ResourceContract } from "../contract.ts";
  * rather than the contract's `outputs` list — a compute's ports are
  * developer-declared data (a param), not a provisioner-produced output.
  *
+ * `publish` maps a declared port's name to the host port it is reachable on
+ * at the host's own address — the explicit, per-compute opt-in to what a
+ * deploy otherwise never does (the gateway's ingress is the way in). It is
+ * for what must be reached at the host itself because nothing can front it,
+ * such as an ingress for clients arriving over a VPN; a compute behind a
+ * gateway publishes nothing. Host ports are one space shared by every stack
+ * on the host, so a second stack publishing the same one fails to start.
+ *
  * `development` is accepted here only at the shallow, contract level (must
  * be an object) — the compute `development` block is developer-owned,
  * dev-only data whose real shape (`../../development.ts`'s `SyncRule`
@@ -60,6 +68,7 @@ export const containerOrchestratedV1: ResourceContract = new ResourceContract(
     { name: "image", required: true, type: "string" },
     { name: "replicas", required: true, type: "number" },
     { name: "ports", required: false, type: "object" },
+    { name: "publish", required: false, type: "object" },
     { name: "env", required: false, type: "object" },
     { name: "development", required: false, type: "object" },
     { name: "networks", required: false, type: "array" },

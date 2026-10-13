@@ -1,5 +1,6 @@
 import * as KitSdk from "@ensemble/kit-sdk";
 import { composeSecretWiring } from "../secret-wiring.ts";
+import { publishedPorts } from "./published-ports.ts";
 import { hostAccess } from "../host-access.ts";
 
 /**
@@ -146,6 +147,20 @@ export function containerOrchestratedProvisioner(): KitSdk.Deploy.Provisioner {
     // deno-lint-ignore require-await
     provision: async (request) => {
       const develop = developBlock(request.params.development);
+      const published = publishedPorts(
+        request.params.publish,
+        request.params.ports,
+      );
+      // `ens develop`'s ephemeral host ports cover what isn't published
+      // explicitly; a port the manifest published is not also given a second,
+      // random mapping.
+      const ephemeral = hostAccess(
+        request,
+        containerPorts(request.params.ports).filter((port) =>
+          !published.containerPorts.includes(port)
+        ),
+      ).ports ?? [];
+      const hostPorts = [...published.entries, ...ephemeral];
       return {
         fragment: {
           category: request.category,
@@ -167,7 +182,7 @@ export function containerOrchestratedProvisioner(): KitSdk.Deploy.Provisioner {
                 ? { volumes: mountVolumes(request.params.mounts) }
                 : {}),
               ...(develop ? { develop } : {}),
-              ...hostAccess(request, containerPorts(request.params.ports)),
+              ...(hostPorts.length > 0 ? { ports: hostPorts } : {}),
             },
           },
         },

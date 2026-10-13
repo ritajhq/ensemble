@@ -89,10 +89,21 @@ A preview then deploys with `ingress_networks=preview`, `gateway_alias=<slug>`
 and `public_host=<slug>.preview.ritaj.app` in the environment, and the plain
 deployment keeps its defaults.
 
-The router publishes no host port (nothing does under `ens deploy`), so whatever
-carries traffic to it — the Cloudflare Tunnel connector for WARP clients — has
-to be attached to the `preview` network and able to resolve the slug hostnames
-to the router there.
+### Reaching the router over WARP
+
+The router is the one compute that opts in to `publish`: it answers on the
+host's own `443`, which is how a deploy otherwise never exposes anything. The
+host needs a stable address, such as a static DHCP lease, and then:
+
+1. A DNS-only (not proxied) wildcard record `*.preview.<domain>` → the host's
+   address.
+2. A route for that address through the tunnel, for clients off the LAN (Zero
+   Trust → Networks → Routes). Nothing is exposed publicly: the address is
+   private, and the certificate is obtained through the DNS API.
+3. WARP enrolled on each device that opens a preview.
+
+Only one stack on the host can publish `443`, so this is the router's, not a
+preview's.
 
 ## Resolving releases
 

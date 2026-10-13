@@ -7,8 +7,10 @@ version: v1
 #
 #   ens deploy preview-router compose --artifacts local --emulate-externals
 #
-# A previewable manifest puts its gateway on the same network under an alias,
-# and points its host at <slug>.<preview_domain>; see the Previews section of the deploying guide.
+# Reached at the host's own :443 (published below), over WARP. A previewable
+# manifest puts its gateway on the same network under an alias, and points its
+# host at <slug>.<preview_domain>; see the Previews section of the deploying
+# guide.
 release:
   preview-router:
     kit: docker
@@ -20,6 +22,10 @@ deploy:
       image: ${release.preview-router}
       replicas: 1
       ports:
+        https: 443
+      publish:
+        # The one place a deploy opens a host port: the router is reached at
+        # the server's own (static) address by clients arriving over WARP.
         https: 443
       networks:
         - ${external.preview.name}
