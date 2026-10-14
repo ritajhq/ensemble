@@ -3,6 +3,7 @@ import { SelfContainmentChecker } from "./lib-self-containment.ts";
 import { LibDeclarationLoader } from "./lib-declaration.ts";
 import { LibKit } from "./lib-kit.ts";
 import type { Ports } from "./ports.ts";
+import { PublishUnauthorizedError } from "./publish-authorization.ts";
 import * as Vendor from "./vendor/index.ts";
 
 /**
@@ -65,6 +66,13 @@ export class LibPublisher {
       target: publishEntry.target,
     };
     const libKit = this.libKitFor(kit);
+    const authorization = await libKit.authorize(context);
+    if (!authorization.granted) {
+      throw new PublishUnauthorizedError([{
+        publish: `${declaration.package} → ${kit}`,
+        reason: authorization.reason ?? "refused",
+      }]);
+    }
     await libKit.stamp(context);
     await libKit.publish(context);
   }

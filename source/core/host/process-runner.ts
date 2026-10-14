@@ -1,22 +1,35 @@
-import type { ProcessRunner, ProcessRunOptions } from "@ensemble/core";
+import type {
+  ProbeResult,
+  ProcessRunner,
+  ProcessRunOptions,
+} from "@ensemble/core";
 
 interface RunResult {
   readonly code: number;
   readonly stdout: string;
+  readonly stderr: string;
 }
+
+/** Which of the child's output streams are captured rather than inherited. */
+interface Capture {
+  readonly stdout: boolean;
+  readonly stderr: boolean;
+}
+
+const INHERIT_ALL: Capture = { stdout: false, stderr: false };
 
 async function spawn(
   command: string,
   args: readonly string[],
   options: ProcessRunOptions | undefined,
-  capture: boolean,
+  capture: Capture,
 ): Promise<RunResult> {
   const child = new Deno.Command(command, {
     args: [...args],
     cwd: options?.cwd,
     env: options?.env,
-    stdout: capture ? "piped" : "inherit",
-    stderr: "inherit",
+    stdout: capture.stdout ? "piped" : "inherit",
+    stderr: capture.stderr ? "piped" : "inherit",
   }).spawn();
 
   const signal = options?.signal;
@@ -33,15 +46,17 @@ async function spawn(
   }
 
   try {
-    if (capture) {
+    if (capture.stdout || capture.stderr) {
       const output = await child.output();
+      const decoder = new TextDecoder();
       return {
         code: output.code,
-        stdout: new TextDecoder().decode(output.stdout).trim(),
+        stdout: capture.stdout ? decoder.decode(output.stdout).trim() : "",
+        stderr: capture.stderr ? decoder.decode(output.stderr).trim() : "",
       };
     }
     const status = await child.status;
-    return { code: status.code, stdout: "" };
+    return { code: status.code, stdout: "", stderr: "" };
   } finally {
     signal?.removeEventListener("abort", kill);
   }
@@ -64,7 +79,7 @@ export class NativeProcessRunner implements ProcessRunner {
     args: readonly string[],
     options?: ProcessRunOptions,
   ): Promise<number> {
-    const { code } = await spawn(command, args, options, false);
+    const { code } = await spawn(command, args, options, INHERIT_ALL);
     return code;
   }
 
@@ -73,7 +88,7 @@ export class NativeProcessRunner implements ProcessRunner {
     args: readonly string[],
     options?: ProcessRunOptions,
   ): Promise<void> {
-    const { code } = await spawn(command, args, options, false);
+    const { code } = await spawn(command, args, options, INHERIT_ALL);
     if (code !== 0) {
       throw new Error(
         `Command "${
@@ -88,7 +103,10 @@ export class NativeProcessRunner implements ProcessRunner {
     args: readonly string[],
     options?: ProcessRunOptions,
   ): Promise<string> {
-    const { code, stdout } = await spawn(command, args, options, true);
+    const { code, stdout } = await spawn(command, args, options, {
+      stdout: true,
+      stderr: false,
+    });
     if (code !== 0) {
       throw new Error(
         `Command "${
@@ -97,5 +115,17 @@ export class NativeProcessRunner implements ProcessRunner {
       );
     }
     return stdout;
+  }
+
+  async probe(
+    command: string,
+    args: readonly string[],
+    options?: ProcessRunOptions,
+  ): Promise<ProbeResult> {
+    const { code, stderr } = await spawn(command, args, options, {
+      stdout: false,
+      stderr: true,
+    });
+    return { code, stderr };
   }
 }

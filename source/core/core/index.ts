@@ -1,6 +1,7 @@
 export {
   type DenoExecutableResolver,
   type Ports,
+  type ProbeResult,
   type ProcessRunner,
   type ProcessRunOptions,
   type RepoLocator,
@@ -46,8 +47,14 @@ export { PlainPackReporter } from "./plain-pack-reporter.ts";
 export {
   PUBLISH_SECRETS_PATH,
   runPublish,
+  runPublishAuthorization,
   type RunPublishOptions,
 } from "./publish.ts";
+export {
+  type Authorization,
+  type Denial,
+  PublishUnauthorizedError,
+} from "./publish-authorization.ts";
 export {
   type DeployTermination,
   runDeploy,

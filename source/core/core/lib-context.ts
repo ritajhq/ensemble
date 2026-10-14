@@ -1,5 +1,5 @@
 import { parseArgs } from "@std/cli/parse-args";
-import { requireFlag } from "./util.ts";
+import { requireFlag, runAuthorization } from "./util.ts";
 
 /** The parameters `ens` passes to a lib kit's `main.ts` invocation. */
 export interface Context {
@@ -31,15 +31,16 @@ export function getContext(args: string[] = Deno.args): Context {
   };
 }
 
-/** A lib kit's two entry points: `stamp` writes the resolved version into the library's manifest (no network); `publish` pushes it to the registry, assuming the manifest is already correct and committed. */
+/** A lib kit's entry points: `authorize` checks, read-only, that this machine may publish to the registry — resolving grants, throwing denies with the error's message as the reason; `stamp` writes the resolved version into the library's manifest (no network); `publish` pushes it to the registry, assuming the manifest is already correct and committed. */
 export interface Actions {
+  authorize(context: Context): Promise<void>;
   stamp(context: Context): Promise<void>;
   publish(context: Context): Promise<void>;
 }
 
 /**
- * Dispatches a lib kit's `main.ts` to `stamp` or `publish` based on its first
- * CLI argument — the standard entrypoint every lib kit's `main.ts` calls, so
+ * Dispatches a lib kit's `main.ts` to `authorize`, `stamp` or `publish` based
+ * on its first CLI argument — the standard entrypoint every lib kit's `main.ts` calls, so
  * the stamp/publish split (and the CLI contract for reaching it) lives once
  * here rather than being hand-rolled per kit.
  */
@@ -49,13 +50,14 @@ export async function run(
 ): Promise<void> {
   const [mode, ...rest] = args;
   const handlers: Record<string, (context: Context) => Promise<void>> = {
+    authorize: (context) => runAuthorization(() => actions.authorize(context)),
     stamp: actions.stamp,
     publish: actions.publish,
   };
   const handler = handlers[mode];
   if (!handler) {
     throw new Error(
-      `Unknown lib kit mode "${mode}" (expected "stamp" or "publish")`,
+      `Unknown lib kit mode "${mode}" (expected "authorize", "stamp" or "publish")`,
     );
   }
   await handler(getContext(rest));

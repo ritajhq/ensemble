@@ -21,6 +21,22 @@ export class Vsce {
     return result.code;
   }
 
+  /** Checks that VSCE_PAT has publish rights for `publisher`, without publishing anything — the reason vsce gives when it hasn't. */
+  async verifyPublisher(publisher: string): Promise<void> {
+    const result =
+      await $`${this.denoExe} run -A --no-lock npm:@vscode/vsce@3.9.2 verify-pat ${publisher}`
+        .stdout("piped")
+        .stderr("piped")
+        .noThrow();
+    if (result.code === 0) return;
+    throw new Error(
+      `VSCE_PAT can't publish as Marketplace publisher "${publisher}" — ${
+        result.stderr.trim() || result.stdout.trim() ||
+        `vsce exited with code ${result.code}`
+      }`,
+    );
+  }
+
   // The bundle is self-contained, so there are no node_modules to collect, and
   // repository/license are optional metadata vsce would otherwise prompt for.
   private run(extension: string, args: string[]) {

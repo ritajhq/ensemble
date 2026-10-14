@@ -18,6 +18,37 @@ Global flags, available on every subcommand:
   the ceremony's "Proceed?", `undo`'s remote delete), for unattended runs such
   as CI or an agent. Each question is still printed, followed by `yes (--yes)`.
 
+## Publish authorization
+
+Anyone can run a release; what decides who actually _can_ is write access to the
+places it publishes to. So before a release changes anything — before the
+confirmation prompt, the core-library version stamp, the commit, or the tag —
+every publish still left to do is checked from the current machine:
+
+- each ship's pack kit runs its `authorize.ts` (same arguments and
+  `.ensemble/release/secrets.env` credentials as its `publish.ts`);
+- each core library's lib kit runs its `authorize` step.
+
+If any check refuses, the release stops, names every refused publish with the
+kit's reason, and exits non-zero with nothing changed. A pack kit without an
+`authorize.ts` counts as a refusal, since it can't vouch for the publish.
+`--dry-run` runs the same checks and reports whether the release would be
+refused. The standalone `ens publish` and `ens lib publish` commands run the
+same check for their single publish, before publishing or stamping anything.
+
+What the bundled kits check:
+
+| Kit            | Target        | Check                                                                                                         |
+| -------------- | ------------- | ------------------------------------------------------------------------------------------------------------- |
+| `deno.compile` | `github`      | `gh`'s account has write (or maintain/admin) access to the repository.                                        |
+| `vscode`       | `marketplace` | `VSCE_PAT` has publish rights for the manifest's `publisher` (`vsce verify-pat`).                             |
+| `docker`       | `push`        | docker's own credentials can open a blob upload on the target repository (cancelled straight away).           |
+| `jsr` (lib)    | —             | `JSR_TOKEN` is set and its account is a member of the package's scope. Interactive browser auth isn't enough. |
+
+`JSR_TOKEN` must have full API access: JSR won't let a publish-only token read
+its own account's scope memberships, so the check can't vouch for one and
+refuses it.
+
 ## `ens release next <patch|minor|major>`
 
 Bump the version from the last tag and create a new release.
@@ -28,10 +59,11 @@ ens release next minor -p rc.1     # v1.3.0-rc.1
 ```
 
 If you have uncommitted changes, you're asked to confirm before a non-dry-run
-tag is created (the tag won't reflect them). Once the tag exists, this proceeds
-straight into the release ceremony: it lists what it will pack/publish, asks you
-to confirm once, then packs, pushes, and publishes without asking again — a
-mid-ceremony failure leaves an accurate record of what's left
+tag is created (the tag won't reflect them). Then every publish is checked (see
+[Publish authorization](#publish-authorization)). Once the tag exists, this
+proceeds straight into the release ceremony: it lists what it will pack/publish,
+asks you to confirm once, then packs, pushes, and publishes without asking again
+— a mid-ceremony failure leaves an accurate record of what's left
 (`.ensemble/release/state/<tag>.json`) for `resume` to pick up.
 
 ## `ens release set <version>`

@@ -69,6 +69,27 @@ function describeReleaseScope(
     : "Nothing to build or publish for this tag.";
 }
 
+/** One line on whether this machine may perform every publish in `ships`/`coreLibs` — the dry-run counterpart to `ReleaseCeremony.authorizePublishes` refusing a real run. */
+async function describeAuthorization(
+  repoRoot: string,
+  ports: Core.Ports,
+  ships: Core.Release.ShipRelease[],
+  coreLibs: Core.CoreLibRelease[],
+  tag: string,
+): Promise<string> {
+  try {
+    await new Core.Release.ReleaseCeremony(repoRoot, ports).authorizePublishes(
+      ships,
+      coreLibs,
+      tag,
+    );
+    return "This machine is authorized to publish all of it.";
+  } catch (error) {
+    if (!(error instanceof Core.PublishUnauthorizedError)) throw error;
+    return `Would be refused before changing anything. ${error.message}`;
+  }
+}
+
 /**
  * Runs the same tag-then-ceremony flow `commands/release.ts` runs
  * interactively, minus the prompts: uncommitted changes and the
@@ -87,11 +108,25 @@ async function tagAndRunCeremony(
   const { ships, coreLibs } = await collectReleases(repoRoot, ports, {});
   const scope = describeReleaseScope(ships, coreLibs);
   if (dryRun) {
+    const authorization = await describeAuthorization(
+      repoRoot,
+      ports,
+      ships,
+      coreLibs,
+      preview.tag,
+    );
     return `Would create tag: ${preview.tag} (from ${
       preview.lastTag ?? "no previous tag"
-    })\n${scope}`;
+    })\n${scope}\n${authorization}`;
   }
 
+  // Refuses before the stamp, commit, or tag below, so an unauthorized
+  // machine leaves nothing behind.
+  await new Core.Release.ReleaseCeremony(repoRoot, ports).authorizePublishes(
+    ships,
+    coreLibs,
+    preview.tag,
+  );
   if (coreLibs.length > 0) {
     await new Core.Release.ReleaseCeremony(repoRoot, ports).stampCoreLibs(
       coreLibs,
@@ -312,9 +347,19 @@ export class ReleaseTools {
             filter,
           );
           const scope = describeReleaseScope(ships, coreLibs);
-          if (dryRun) return `Would resume ${tag}:\n${scope}`;
+          if (dryRun) {
+            const authorization = await describeAuthorization(
+              repoRoot,
+              ports,
+              ships,
+              coreLibs,
+              tag,
+            );
+            return `Would resume ${tag}:\n${scope}\n${authorization}`;
+          }
 
           const ceremony = new Core.Release.ReleaseCeremony(repoRoot, ports);
+          await ceremony.authorizePublishes(ships, coreLibs, tag);
           if (ships.length > 0) await ceremony.packShips(ships);
           await release.pushCommits(remote);
           await release.pushTag(tag, remote);

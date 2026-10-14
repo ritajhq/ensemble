@@ -32,6 +32,18 @@ export interface ProcessRunner {
     args: readonly string[],
     options?: ProcessRunOptions,
   ): Promise<string>;
+  /** Runs to completion with stdout inherited and stderr captured, never throwing on a non-zero exit — for a check whose exit code is the verdict and whose stderr is the reason (e.g. a kit's publish authorization). */
+  probe(
+    command: string,
+    args: readonly string[],
+    options?: ProcessRunOptions,
+  ): Promise<ProbeResult>;
+}
+
+/** What a `ProcessRunner.probe` call reports: the exit code, plus the stderr the process wrote — its own account of why, when it exits non-zero. */
+export interface ProbeResult {
+  readonly code: number;
+  readonly stderr: string;
 }
 
 /** Locates the repository root `ens` is operating in. */

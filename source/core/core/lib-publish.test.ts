@@ -6,6 +6,10 @@ import { SelfContainmentChecker } from "./lib-self-containment.ts";
 import { LibDeclarationLoader } from "./lib-declaration.ts";
 import { LibPublisher } from "./lib-publish.ts";
 import type { LibKit } from "./lib-kit.ts";
+import {
+  type Authorization,
+  PublishUnauthorizedError,
+} from "./publish-authorization.ts";
 import type { Ports } from "./ports.ts";
 
 /** `libKitFor` is always overridden by a fake in these tests, so the default's dependency on real ports never actually runs. */
@@ -18,14 +22,20 @@ const UNUSED_PORTS: Ports = {
     run: () => Promise.reject(new Error("not used")),
     exec: () => Promise.reject(new Error("not used")),
     capture: () => Promise.reject(new Error("not used")),
+    probe: () => Promise.reject(new Error("not used")),
   },
 };
 
 class FakeLibKit {
   static stampCalls: { kit: string; input: Lib.Context }[] = [];
   static calls: { kit: string; input: Lib.Context }[] = [];
+  static authorization: Authorization = { granted: true };
 
   constructor(private readonly kit: string) {}
+
+  authorize(_input: Lib.Context): Promise<Authorization> {
+    return Promise.resolve(FakeLibKit.authorization);
+  }
 
   stamp(input: Lib.Context): Promise<void> {
     FakeLibKit.stampCalls.push({ kit: this.kit, input });
@@ -203,5 +213,33 @@ Deno.test("LibPublisher.publish: publishing through an undeclared kit rejects", 
     );
     assertEquals(FakeLibKit.stampCalls, []);
     assertEquals(FakeLibKit.calls, []);
+  });
+});
+
+Deno.test("LibPublisher.publish: a refused authorization blocks stamping and publishing", async () => {
+  await withRepoRoot(async (repoRoot) => {
+    FakeLibKit.stampCalls = [];
+    FakeLibKit.calls = [];
+    FakeLibKit.authorization = { granted: false, reason: "not a member" };
+    try {
+      await writeLib(
+        repoRoot,
+        "widgets",
+        `publish:\n  libs:\n    - name: widgets\n      package: "@x/widgets"\n      publish:\n        - kit: jsr\n`,
+      );
+      const { publisher } = makePublisher(repoRoot, []);
+
+      const error = await assertRejects(
+        () => publisher.publish("widgets", "jsr", "1.0.0"),
+        PublishUnauthorizedError,
+      );
+      assertEquals(error.denials, [
+        { publish: "@x/widgets → jsr", reason: "not a member" },
+      ]);
+      assertEquals(FakeLibKit.stampCalls, []);
+      assertEquals(FakeLibKit.calls, []);
+    } finally {
+      FakeLibKit.authorization = { granted: true };
+    }
   });
 });

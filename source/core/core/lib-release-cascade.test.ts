@@ -16,6 +16,7 @@ const UNUSED_PORTS: Ports = {
     run: () => Promise.reject(new Error("not used")),
     exec: () => Promise.reject(new Error("not used")),
     capture: () => Promise.reject(new Error("not used")),
+    probe: () => Promise.reject(new Error("not used")),
   },
 };
 

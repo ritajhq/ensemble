@@ -5,7 +5,11 @@ import * as Deploy from "./deploy/index.ts";
 import { runPack } from "./pack.ts";
 import type { PackReporter } from "./pack-reporter.ts";
 import type { BuildReporter } from "./build-reporter.ts";
-import { runPublish } from "./publish.ts";
+import { runPublish, runPublishAuthorization } from "./publish.ts";
+import {
+  type Denial,
+  PublishUnauthorizedError,
+} from "./publish-authorization.ts";
 import { LibDeclarationLoader } from "./lib-declaration.ts";
 import {
   type CoreLibRelease,
@@ -428,6 +432,43 @@ export class ReleaseCeremony {
   /** Discovers every core lib declared under `publish.core:` in `.ensemble/config.yaml`, resolved against `source/core/<name>` — the core-lib half of the same discovery step, run alongside `collectShipReleases` (Section 9 of the vendoring build plan: core libraries publish via this cascade, never `ens lib publish`). */
   async collectCoreLibReleases(): Promise<CoreLibRelease[]> {
     return await new LibDeclarationLoader(this.repoRoot).discoverCoreLibs();
+  }
+
+  /**
+   * Asks every publish destination whether this machine may publish there —
+   * each ship's pack kit `authorize.ts` and each core library's lib kit
+   * `authorize` — before the release changes anything locally or remotely.
+   * Write access to the destinations is what decides who may release, so
+   * any developer can run the ceremony, but one without that access is
+   * refused here, up front, rather than after the tag is already pushed.
+   * Checks every publish rather than stopping at the first refusal, then
+   * throws `PublishUnauthorizedError` naming each one and why.
+   */
+  async authorizePublishes(
+    ships: readonly ShipRelease[],
+    libs: readonly CoreLibRelease[],
+    version: string,
+  ): Promise<void> {
+    const denials: Denial[] = [];
+    for (const ship of ships) {
+      if (!ship.publish) continue;
+      const authorization = await runPublishAuthorization(ship.name, ship.kit, {
+        target: ship.publish.target,
+        packageName: ship.publish.name,
+        options: ship.publish.options,
+        outputName: ship.outputName,
+        version,
+      }, this.ports);
+      if (authorization.granted) continue;
+      denials.push({
+        publish: `${ship.name} → ${ship.publish.target}`,
+        reason: authorization.reason ?? "refused",
+      });
+    }
+    denials.push(
+      ...await new CoreLibReleaseCascade(this.ports).authorize(version, libs),
+    );
+    if (denials.length > 0) throw new PublishUnauthorizedError(denials);
   }
 
   /**

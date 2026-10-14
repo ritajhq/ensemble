@@ -1,7 +1,7 @@
 import { parseArgs } from "@std/cli/parse-args";
 import { join } from "@std/path";
 import { parse as parseYaml } from "@std/yaml";
-import { requireFlag } from "./util.ts";
+import { requireFlag, runAuthorization } from "./util.ts";
 
 /** The parameters ens passes to every pack kit invocation. */
 export interface Context {
@@ -213,6 +213,21 @@ export function getPublishContext(args: string[] = Deno.args): PublishContext {
     options: parseVars(flags.options),
     vars: parseVars(flags.vars),
   };
+}
+
+/**
+ * The standard entrypoint for a pack kit's `authorize.ts`: answers whether
+ * this machine may publish to the target before `ens release` changes
+ * anything. Receives the same context `publish.ts` would; resolving grants,
+ * throwing denies with the error's message as the reason the release is
+ * refused. Must only read — never push, upload, or create anything that
+ * outlives the check.
+ */
+export async function authorizePublish(
+  check: (context: PublishContext) => Promise<void>,
+  args: string[] = Deno.args,
+): Promise<never> {
+  return await runAuthorization(() => check(getPublishContext(args)));
 }
 
 /** Which locator a release reference is being resolved for — distinct from this kit's own pack `mode` (e.g. docker's image/tar/oci/local). */

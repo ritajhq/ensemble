@@ -3,6 +3,7 @@ import { exists } from "@std/fs";
 import type { LibDeclaration } from "./lib-declaration.ts";
 import { LibKit } from "./lib-kit.ts";
 import type { Ports } from "./ports.ts";
+import type { Denial } from "./publish-authorization.ts";
 
 /** One core library discovered for a release run, alongside its declaration. */
 export interface CoreLibRelease {
@@ -129,6 +130,30 @@ export class CoreLibReleaseCascade {
         `${JSON.stringify(denoJson, null, 2)}\n`,
       );
     }
+  }
+
+  /** Asks every discovered core library's declared lib kits whether this machine may publish it, returning one `Denial` per refused entry — empty when everything is authorized. Read-only: runs before `stamp`. */
+  async authorize(
+    version: string,
+    libs: readonly CoreLibRelease[],
+  ): Promise<Denial[]> {
+    const denials: Denial[] = [];
+    for (const { libRoot, declaration } of libs) {
+      for (const entry of declaration.publish) {
+        const authorization = await this.libKitFor(entry.kit).authorize({
+          libRoot,
+          package: declaration.package,
+          version,
+          target: entry.target,
+        });
+        if (authorization.granted) continue;
+        denials.push({
+          publish: `${declaration.package} → ${entry.kit}`,
+          reason: authorization.reason ?? "refused",
+        });
+      }
+    }
+    return denials;
   }
 
   async publish(

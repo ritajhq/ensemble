@@ -181,6 +181,60 @@ async function collectRemaining(
   };
 }
 
+/** The refusal for publishing `ships` and `coreLibs` from this machine, or `undefined` when every destination authorizes it — see `ReleaseCeremony.authorizePublishes`. */
+async function findPublishRefusal(
+  repoRoot: string,
+  ports: Core.Ports,
+  ships: readonly Core.Release.ShipRelease[],
+  coreLibs: readonly Core.CoreLibRelease[],
+  tag: string,
+): Promise<Core.PublishUnauthorizedError | undefined> {
+  try {
+    await new Core.Release.ReleaseCeremony(repoRoot, ports).authorizePublishes(
+      ships,
+      coreLibs,
+      tag,
+    );
+    return undefined;
+  } catch (error) {
+    if (error instanceof Core.PublishUnauthorizedError) return error;
+    throw error;
+  }
+}
+
+/**
+ * Checks that this machine may perform every publish still left for `tag`,
+ * printing why not when it may not. Callers must check this *before* the
+ * confirmation prompt and any local change (the core-lib stamp, the commit,
+ * the tag), so a refused release leaves nothing behind — releasing is open
+ * to anyone, it's write access to the destinations that decides who
+ * actually can.
+ */
+async function authorizeReleaseWork(
+  repoRoot: string,
+  ports: Core.Ports,
+  tag: string,
+  filter: ReleaseFilter,
+): Promise<boolean> {
+  const state = await new Core.Release.ReleaseStateStore(repoRoot).read(tag);
+  const { shipsToPublish, coreLibsToPublish } = await collectRemaining(
+    repoRoot,
+    ports,
+    filter,
+    state,
+  );
+  const refusal = await findPublishRefusal(
+    repoRoot,
+    ports,
+    shipsToPublish,
+    coreLibsToPublish,
+    tag,
+  );
+  if (!refusal) return true;
+  console.error(refusal.message);
+  return false;
+}
+
 /**
  * Prints the ships/core libs that would be packed and published for `tag`
  * and asks to proceed. Returns true straight away when there's nothing to
@@ -233,12 +287,13 @@ async function printReleaseCeremonyPreview(
   filter: ReleaseFilter = {},
 ): Promise<void> {
   const state = await new Core.Release.ReleaseStateStore(repoRoot).read(tag);
-  const { shipsToPack, coreLibsToPublish } = await collectRemaining(
-    repoRoot,
-    ports,
-    filter,
-    state,
-  );
+  const { shipsToPack, shipsToPublish, coreLibsToPublish } =
+    await collectRemaining(
+      repoRoot,
+      ports,
+      filter,
+      state,
+    );
   if (shipsToPack.length > 0) {
     console.log(
       `Would then build, pack, and publish ${shipsToPack.length} ship(s):`,
@@ -257,6 +312,21 @@ async function printReleaseCeremonyPreview(
     for (const lib of coreLibsToPublish) {
       console.log(`  ${describeCoreLibRelease(lib, tag)}`);
     }
+  }
+
+  if (shipsToPublish.length > 0 || coreLibsToPublish.length > 0) {
+    const refusal = await findPublishRefusal(
+      repoRoot,
+      ports,
+      shipsToPublish,
+      coreLibsToPublish,
+      tag,
+    );
+    console.log(
+      refusal
+        ? `Would be refused before changing anything. ${refusal.message}`
+        : "This machine is authorized to publish all of it.",
+    );
   }
 
   if (!state.hookRan) {
@@ -467,6 +537,10 @@ export const releaseCommand = new Command()
       await printReleaseCeremonyPreview(repoRoot, ports, preview.tag);
       return;
     }
+    if (!await authorizeReleaseWork(repoRoot, ports, preview.tag, {})) {
+      console.log("Release refused — nothing was changed.");
+      Deno.exit(1);
+    }
     if (
       !await confirmReleaseWork(repoRoot, ports, preview.tag, {}, confirmation)
     ) {
@@ -504,6 +578,10 @@ export const releaseCommand = new Command()
     if (dryRun) {
       await printReleaseCeremonyPreview(repoRoot, ports, preview.tag);
       return;
+    }
+    if (!await authorizeReleaseWork(repoRoot, ports, preview.tag, {})) {
+      console.log("Release refused — nothing was changed.");
+      Deno.exit(1);
     }
     if (
       !await confirmReleaseWork(repoRoot, ports, preview.tag, {}, confirmation)
@@ -553,6 +631,10 @@ export const releaseCommand = new Command()
     if (dryRun) {
       await printReleaseCeremonyPreview(repoRoot, ports, tag, filter);
       return;
+    }
+    if (!await authorizeReleaseWork(repoRoot, ports, tag, filter)) {
+      console.log(`Release refused — tag ${tag} was left as it was.`);
+      Deno.exit(1);
     }
     if (
       !await confirmReleaseWork(

@@ -9,6 +9,7 @@ import { LibPublisher } from "./lib-publish.ts";
 import { CoreLibReleaseCascade } from "./lib-release-cascade.ts";
 import { ReleaseCeremony } from "./release.ts";
 import type { LibKit } from "./lib-kit.ts";
+import type { Authorization } from "./publish-authorization.ts";
 import type { PackageSource, PullRequestRef } from "./vendor/package-source.ts";
 import { FileRegistry } from "./vendor/registry.ts";
 import type { Ports } from "./ports.ts";
@@ -27,6 +28,7 @@ const UNUSED_PORTS: Ports = {
     run: () => Promise.reject(new Error("not used")),
     exec: () => Promise.reject(new Error("not used")),
     capture: () => Promise.reject(new Error("not used")),
+    probe: () => Promise.reject(new Error("not used")),
   },
 };
 
@@ -34,6 +36,10 @@ class FakeLibKit {
   static calls: { kit: string; input: Lib.Context }[] = [];
 
   constructor(private readonly kit: string) {}
+
+  authorize(_input: Lib.Context): Promise<Authorization> {
+    return Promise.resolve({ granted: true });
+  }
 
   stamp(_input: Lib.Context): Promise<void> {
     return Promise.resolve();
