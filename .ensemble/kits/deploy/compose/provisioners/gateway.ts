@@ -147,22 +147,57 @@ exit 1`;
 }
 
 /**
- * What the gateway's `networks` entry renders: the plain list, or — given an
- * `alias` — a map putting that alias on every ingress network. Every
- * gateway's service is named alike (`gateway`), so several stacks sharing one
- * ingress network would otherwise answer each other's lookups for it; the
- * alias is what lets one router reach exactly one of them. The project's own
- * network keeps its default name only: the alias is for whatever reaches in
- * from the ingress network.
+ * The name a gateway answers to on its ingress networks when the manifest
+ * gives it no `alias`: its compose project's own, which compose interpolates
+ * from `-p` at apply time — the deployment name, unique per checkout and
+ * instance. Left to compose rather than rendered, since the render never
+ * knows it, and so the committed artifact stays the same for every instance.
+ */
+export const PROJECT_ALIAS = "${COMPOSE_PROJECT_NAME}";
+
+/**
+ * What the gateway's `networks` entry renders: the plain list when it joins
+ * no ingress network, otherwise a map putting its alias on every ingress
+ * network. Every gateway's service is named alike (`gateway`), so several
+ * stacks sharing one ingress network would otherwise answer each other's
+ * lookups for it; the alias is what lets one router reach exactly one of
+ * them. The project's own network keeps its default name only: the alias is
+ * for whatever reaches in from the ingress network.
  */
 function networkAttachments(
   ingress: readonly string[],
-  alias: string | undefined,
+  alias: string,
 ): readonly string[] | Record<string, unknown> {
-  if (alias === undefined) return [...ingress, PROJECT_NETWORK];
+  if (ingress.length === 0) return [PROJECT_NETWORK];
   return {
     ...Object.fromEntries(ingress.map((name) => [name, { aliases: [alias] }])),
     [PROJECT_NETWORK]: null,
+  };
+}
+
+/**
+ * Where a router on the gateway's ingress networks reaches it: Caddy's own
+ * listener for `tls` (nothing is published, so the container port is the
+ * one), and every distinct host its routes match, in declaration order. No
+ * `alias` when the manifest gave none: the gateway then answers to its
+ * deployment's name (`PROJECT_ALIAS`), which whoever records the deployment
+ * fills in.
+ */
+export function gatewayIngress(
+  service: string,
+  networks: readonly string[],
+  alias: string | undefined,
+  routes: readonly Route[],
+  tls: Tls,
+): KitSdk.Deploy.Render.Ingress {
+  const { scheme, containerPort } = HOST_LISTENERS[tls];
+  return {
+    service,
+    networks,
+    ...(alias === undefined ? {} : { alias }),
+    scheme,
+    port: containerPort,
+    hosts: [...new Set(routes.map((route) => route.host))],
   };
 }
 
@@ -193,7 +228,7 @@ export function gatewayProvisioner(): KitSdk.Deploy.Provisioner {
               ...(ingress.length === 0
                 ? { ports: [`${listener.hostPort}:${listener.containerPort}`] }
                 : {}),
-              networks: networkAttachments(ingress, alias),
+              networks: networkAttachments(ingress, alias ?? PROJECT_ALIAS),
               configs: [
                 { source: configName, target: "/etc/caddy/Caddyfile" },
               ],
@@ -212,7 +247,11 @@ export function gatewayProvisioner(): KitSdk.Deploy.Provisioner {
         }],
         ...(ingress.length === 0
           ? { entrypoints: gatewayEntrypoints(routes, tls) }
-          : {}),
+          : {
+            ingresses: [
+              gatewayIngress(request.name, ingress, alias, routes, tls),
+            ],
+          }),
       };
     },
   };

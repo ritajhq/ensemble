@@ -24,10 +24,14 @@ Exactly one of these runs per invocation (the default is `apply`):
 `--instance <slug>` deploys the manifest as a named instance beside its plain
 deployment — a branch's preview, say. The instance gets its own deployment name
 (`<repo>-<name>--<slug>`), rendered artifact, render cache and task snapshot, so
-any number of them run side by side. The slug is a DNS label. What differs
-between instances (the hostname they answer on, which network alias their
-gateway takes) is ordinary per-environment values the pipeline puts in the
-environment — ens doesn't derive them.
+any number of them run side by side. The slug is a DNS label. A gateway on an
+ingress network answers there to that deployment name unless its manifest sets
+`alias`, so instances sharing a network never answer for each other. Each deploy
+records where it can be reached
+(`.ensemble/deploy/<name>--<slug>/<kit>.ingress.json`: networks, alias, port and
+hosts) for whatever fronts it. The hostnames an instance answers on are ordinary
+per-environment values the pipeline puts in the environment — ens doesn't derive
+them.
 
 ```sh
 ens deploy web compose --instance feat-login

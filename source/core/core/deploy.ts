@@ -6,6 +6,7 @@ import {
   TaskSnapshotFile,
   TaskSnapshotRecorder,
 } from "./task-snapshot.ts";
+import { IngressFile, IngressRecorder } from "./ingress-record.ts";
 import { RunPackReleasePacker } from "./release-packer.ts";
 import { runBuild } from "./build.ts";
 import type { Ports } from "./ports.ts";
@@ -180,12 +181,16 @@ export async function runDeploy(
 
   // Once it's up, what the deployment was rendered from is kept for its
   // tasks, so `ens delivery task` can resolve their arguments without
-  // rendering again (see ./task-snapshot.ts).
-  const deployed = new TaskSnapshotRecorder(
-    TaskSnapshotFile.for(repoRoot, scope, kit),
-    await DeploymentFingerprint.of(context),
-    renderer,
-    workload,
+  // rendering again (see ./task-snapshot.ts), and where it can be reached
+  // from a shared network, for whatever fronts it (see ./ingress-record.ts).
+  const deployed = new Deploy.Terminations.DeployedStates(
+    new TaskSnapshotRecorder(
+      TaskSnapshotFile.for(repoRoot, scope, kit),
+      await DeploymentFingerprint.of(context),
+      renderer,
+      workload,
+    ),
+    new IngressRecorder(IngressFile.for(repoRoot, scope, kit), deploymentName),
   );
 
   const watchedApps = options.watch

@@ -5,6 +5,7 @@ import type { SecretDeclaration } from "../resource.ts";
 import type {
   ArtifactFragment,
   Entrypoint,
+  Ingress,
   InitCommand,
 } from "../render/artifact.ts";
 
@@ -57,6 +58,8 @@ export interface ProvisionOutcome {
   readonly initCommands?: readonly InitCommand[];
   /** What this resource makes reachable from the host once the target is up (see `Entrypoint`) — absent when it publishes nothing there. */
   readonly entrypoints?: readonly Entrypoint[];
+  /** Where a router on a shared network reaches this resource (see `Ingress`) — absent when it joins none. */
+  readonly ingresses?: readonly Ingress[];
 }
 
 /**

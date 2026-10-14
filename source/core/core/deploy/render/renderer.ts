@@ -19,6 +19,7 @@ import type {
   ArtifactFragment,
   Artifacts,
   Entrypoint,
+  Ingress,
   InitCommand,
 } from "./artifact.ts";
 import { DeclaredValues } from "./declared-values.ts";
@@ -99,6 +100,7 @@ export class Renderer {
     const fragments: ArtifactFragment[] = [];
     const initCommands: InitCommand[] = [];
     const entrypoints: Entrypoint[] = [];
+    const ingresses: Ingress[] = [];
 
     for (const batch of graph.batches()) {
       for (const id of batch) {
@@ -114,6 +116,7 @@ export class Renderer {
         fragments.push(outcome.fragment);
         initCommands.push(...outcome.initCommands ?? []);
         entrypoints.push(...outcome.entrypoints ?? []);
+        ingresses.push(...outcome.ingresses ?? []);
       }
     }
 
@@ -122,6 +125,7 @@ export class Renderer {
         fragments,
         ...(initCommands.length > 0 ? { initCommands } : {}),
         ...(entrypoints.length > 0 ? { entrypoints } : {}),
+        ...(ingresses.length > 0 ? { ingresses } : {}),
       },
       ledger,
     };

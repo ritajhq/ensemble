@@ -16,9 +16,11 @@ import { ResourceContract } from "../contract.ts";
  * a kit publishes it on the host instead.
  *
  * `alias` is the DNS name the gateway answers to on those ingress networks,
- * for a network several gateways share (one per preview deployment, behind
- * one router): a gateway's service is named alike in every stack, so the name
- * alone would be ambiguous there. Unset, the service name is all there is.
+ * for a network several gateways share (one per deployment, behind one
+ * router): a gateway's service is named alike in every stack, so the name
+ * alone would be ambiguous there. Unset, a kit gives it a name unique to the
+ * deployment (compose: the project name) and reports it as an `Ingress`
+ * without one, for the deployment's own name to fill in.
  *
  * `routes` is shallow at the contract level (`type: "array"`), same
  * treatment as `container-orchestrated.v1`'s `mounts`/`development`: the

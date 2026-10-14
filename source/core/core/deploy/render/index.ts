@@ -2,6 +2,7 @@ export type {
   ArtifactFragment,
   Artifacts,
   Entrypoint,
+  Ingress,
   InitCommand,
 } from "./artifact.ts";
 export { INIT_COMMAND_ENV } from "./artifact.ts";

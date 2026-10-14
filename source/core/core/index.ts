@@ -67,6 +67,11 @@ export {
   type RunDestroyOptions,
 } from "./destroy.ts";
 export { Instance } from "./instance.ts";
+export {
+  IngressFile,
+  type IngressRecord,
+  type RecordedIngress,
+} from "./ingress-record.ts";
 export { runExplain, type RunExplainOptions } from "./explain.ts";
 export { DeploymentEnvironment, type EnvFile } from "./env-files.ts";
 export {

@@ -63,6 +63,6 @@ export class Applier {
     });
 
     await this.cache.writeLast(presented.content);
-    if (ledger) await this.deployed?.record(ledger, artifactPath);
+    if (ledger) await this.deployed?.record(ledger, artifactPath, artifacts);
   }
 }

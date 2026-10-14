@@ -112,7 +112,7 @@ export class WatchRunner {
       });
       this.announce(artifacts.entrypoints ?? []);
       // Up for as long as the session lasts, which is when it's used.
-      if (ledger) await this.deployed?.record(ledger, artifactPath);
+      if (ledger) await this.deployed?.record(ledger, artifactPath, artifacts);
 
       await process.status;
       exited = true;

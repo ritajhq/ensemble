@@ -55,9 +55,30 @@ export interface Entrypoint {
   readonly paths: readonly string[];
 }
 
-/** Every fragment a render pass produced, in the dependency order they were rendered — byte-stable output depends on that order being deterministic (G5) — plus every init command those fragments' own provisioners declared (`ProvisionOutcome.initCommands`), flattened in that same order: the provisioning that can only run *after* the target's apply, which is why it rides alongside the fragments rather than inside any one fragment's content. `entrypoints` are flattened the same way (`ProvisionOutcome.entrypoints`). */
+/**
+ * Where a router sharing one of the deployment's ingress networks reaches
+ * it, and which hosts it answers for there — what an `Entrypoint` is to the
+ * host, this is to whatever fronts the deployment from a shared network.
+ * Only a kit knows how its target joins a network and under which name, so
+ * a provisioner declares these alongside its fragment.
+ *
+ * `alias` is absent when the kit addresses it by the deployment's own name,
+ * which only exists at apply time (a compose project name): whoever records
+ * the deployment fills it in. A `hosts` entry of `""` is a catch-all route.
+ */
+export interface Ingress {
+  readonly service: string;
+  readonly networks: readonly string[];
+  readonly alias?: string;
+  readonly scheme: "http" | "https";
+  readonly port: number;
+  readonly hosts: readonly string[];
+}
+
+/** Every fragment a render pass produced, in the dependency order they were rendered — byte-stable output depends on that order being deterministic (G5) — plus every init command those fragments' own provisioners declared (`ProvisionOutcome.initCommands`), flattened in that same order: the provisioning that can only run *after* the target's apply, which is why it rides alongside the fragments rather than inside any one fragment's content. `entrypoints` and `ingresses` are flattened the same way (`ProvisionOutcome.entrypoints`, `ProvisionOutcome.ingresses`). */
 export interface Artifacts {
   readonly fragments: readonly ArtifactFragment[];
   readonly initCommands?: readonly InitCommand[];
   readonly entrypoints?: readonly Entrypoint[];
+  readonly ingresses?: readonly Ingress[];
 }
