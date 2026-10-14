@@ -70,6 +70,12 @@ ens lib publish my-utils jsr 1.4.0
 `<kit>` is a `lib`-role kit under `.ensemble/kits/lib/<kit>` (e.g. `jsr`, which
 ships with this repo).
 
+Before stamping or publishing anything, the kit's `authorize` step checks that
+this machine may publish the library; a refusal fails the command with the kit's
+reason. For `jsr`, that means a full-access `JSR_TOKEN` whose account is a
+member of the package's scope — see
+[`ens release` — Publish authorization](release.md#publish-authorization).
+
 ## `ens lib uninstall`
 
 Remove a vendored library — the inverse of `ens lib install`: its checkout, its

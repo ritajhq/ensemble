@@ -58,7 +58,10 @@ ens lib publish my-utils jsr 1.4.0
 Publishes `source/libs/my-utils` through one of its declared publish kits (a
 `lib`-role kit under `.ensemble/kits/lib/<kit>` — `jsr` ships with this repo),
 under the given version — independent of `ens release`, for publishing a library
-on its own schedule rather than tying it to a workload's release ceremony. See
+on its own schedule rather than tying it to a workload's release ceremony. The
+kit first checks that this machine may publish there (for `jsr`, a full-access
+`JSR_TOKEN` in `.ensemble/release/secrets.env` whose account is a member of the
+package's scope); without that, nothing is stamped or published. See
 [Kits](../concepts/kits.md) for how a `lib`-role kit relates to
 build/pack/deploy kits.
 

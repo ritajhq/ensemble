@@ -103,5 +103,6 @@ code --extensionDevelopmentPath=$PWD/source/artifacts/packages/extension/vscode
 Repack and run **Developer: Reload Window** in that window after a change. It
 starts `ens lsp` from your `PATH`, so language features need an `ens` that has
 the `lsp` command. Its release is declared in `ci/vscode-extension/delivery.yml`
-and published to the Visual Studio Marketplace by `ens release` (`VSCE_PAT` must
-hold a Marketplace token).
+and published to the Visual Studio Marketplace by `ens release` (`VSCE_PAT`, in
+`.ensemble/release/secrets.env`, must hold a Marketplace token with publish
+rights for the `ritaj` publisher — checked before the release changes anything).

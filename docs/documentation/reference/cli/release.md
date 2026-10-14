@@ -58,13 +58,25 @@ ens release next patch --dry-run
 ens release next minor -p rc.1     # v1.3.0-rc.1
 ```
 
-If you have uncommitted changes, you're asked to confirm before a non-dry-run
-tag is created (the tag won't reflect them). Then every publish is checked (see
-[Publish authorization](#publish-authorization)). Once the tag exists, this
-proceeds straight into the release ceremony: it lists what it will pack/publish,
-asks you to confirm once, then packs, pushes, and publishes without asking again
-— a mid-ceremony failure leaves an accurate record of what's left
+A non-dry-run goes through these steps, in order:
+
+1. If you have uncommitted changes, you're asked to confirm (the tag won't
+   reflect them).
+2. Every publish is checked from this machine (see
+   [Publish authorization](#publish-authorization)). A refusal stops here, with
+   nothing changed.
+3. It lists what it will pack and publish and asks you to confirm once.
+   Declining stops here, with nothing changed.
+4. Core-library versions are stamped and committed, and the tag is created
+   locally.
+5. Ships are packed, commits and tag are pushed, then ships and core libraries
+   are published, without asking again.
+6. `hooks.release.after` runs (once per tag) and whatever it commits is pushed.
+
+A failure during packing or publishing leaves an accurate record of what's left
 (`.ensemble/release/state/<tag>.json`) for `resume` to pick up.
+
+![The ens release flow](../../../assets/ens-release.svg)
 
 ## `ens release set <version>`
 
@@ -79,7 +91,9 @@ ens release set 2.0.0 -r upstream
 
 Re-run the ceremony for a tag that's already been created — for finishing a
 release after a partial failure. Picks up exactly where it left off and never
-re-runs `hooks.release.after` once it's already run for this tag.
+re-runs `hooks.release.after` once it's already run for this tag. The publishes
+still left to do are authorized again first, so a resume from a machine without
+write access is refused before it packs or pushes anything.
 
 ```sh
 ens release resume v1.4.2

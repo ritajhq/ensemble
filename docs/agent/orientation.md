@@ -69,7 +69,8 @@ it here, just the mental model per command:
   declares its own `modes` in its `kit.yml`.
 - **`ens publish <ship> <kit> <target>`** — publishes an already-packed ship to
   a `target` the pack kit supports (e.g. `docker push`, which retags to the
-  configured registry and pushes).
+  configured registry and pushes). The kit's `authorize.ts` runs first; a
+  refusal (or a missing `authorize.ts`) means nothing is published.
 - **`ens deploy <name> <kit>`** — parses `ci/<name>/delivery.yml`, builds the
   resolution batches, and hands the whole workload to the deploy kit
   (`.ensemble/kits/deploy/<kit>`, loaded in-process) to bring up.
@@ -82,7 +83,10 @@ it here, just the mental model per command:
   `.ensemble/config.local.yaml` (personal, gitignored) — kit associations and
   default build/pack vars.
 - **`ens release` / `ens version`** — semver git-tag management, dry-run by
-  default for anything destructive.
+  default for anything destructive. Before changing anything, `ens release` asks
+  every publish's kit whether this machine may publish there, and refuses the
+  whole release if any says no — write access to the destinations, not the
+  command, decides who can release.
 - **`ens status`** — read-only: lists every app/kit/library/workload name the
   commands above expect as an argument, gathered from `.ensemble/config.yaml`,
   `.ensemble/kits/<role>/`, and `ci/<name>/delivery.yml`. Run this first instead
@@ -107,7 +111,11 @@ adding a new app type means adding a new kit directory, never touching
   --output-name --artifacts --packages --mode --vars <json> [--watch]`,
   plus a `kit.yml` manifest declaring its own `modes` map (see
   [.ensemble/kits/pack/docker/kit.yml](../.ensemble/kits/pack/docker/kit.yml)
-  for the shape — mode name → kit-internal flags).
+  for the shape — mode name → kit-internal flags). A publishing pack kit adds
+  `publish.ts` and a read-only `authorize.ts` (both parsed via
+  `getPublishContext()`; `authorize.ts` wraps its check in
+  `Pack.authorizePublish`). Lib kits answer `authorize` alongside `stamp` and
+  `publish` through `Lib.run`.
 
 Existing kits to look at as reference implementations:
 `.ensemble/kits/build/{deno.bundle,react}`,

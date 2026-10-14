@@ -21,3 +21,11 @@ ens publish <ship> <kit> <target>
 ens publish web docker push
 ens publish web docker push --version 1.2.3
 ```
+
+Before publishing, the pack kit's `authorize.ts` checks that this machine may
+publish to `<target>`, with the same arguments and credentials
+(`.ensemble/release/secrets.env`) `publish.ts` would use. If it refuses, or the
+kit has no `authorize.ts`, nothing is published and the command fails with the
+kit's reason. See
+[`ens release` — Publish authorization](release.md#publish-authorization) for
+what each bundled kit checks.

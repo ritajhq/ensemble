@@ -34,6 +34,13 @@ packages a built app into a deployable artifact — a Docker image, an OCI
 tarball, a compiled binary. A pack kit declares its own `modes` in a `kit.yml`
 manifest (mode name → kit-internal flags).
 
+A pack kit that can publish also ships a `publish.ts`, with the targets it
+supports declared under `publish:` in its `kit.yml`, and an `authorize.ts`. The
+`authorize.ts` gets the same arguments as `publish.ts` and only reads: it
+answers whether this machine may publish to the target, and `ens` refuses the
+publish when it says no or is missing. See
+[Publish authorization](../reference/cli/release.md#publish-authorization).
+
 Built-in pack kits: `docker` and `deno.compile`.
 
 ## Deploy kits
