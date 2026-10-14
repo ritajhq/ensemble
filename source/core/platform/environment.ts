@@ -12,11 +12,12 @@ const NAME = /^[a-z0-9]([a-z0-9-]{0,18}[a-z0-9])?$/;
 /**
  * One place a delivery manifest is deployed to, holding the values its
  * variables and secrets take there. Every manifest has at least one, which
- * starts out as `production`; it can be renamed, and others added beside it.
- * Its id stays the same through a rename, so what refers to it does too.
+ * starts out as `production`; others can be added beside it. A name is kept
+ * for good: deployments are named after it, so a new name would orphan
+ * whatever runs under the old one.
  */
 export class Environment {
-  /** What a manifest's first environment is called until someone renames it. */
+  /** What every manifest's first environment is called. */
   static readonly FIRST = "production";
 
   private constructor(
@@ -33,6 +34,20 @@ export class Environment {
       project,
       manifest,
       Environment.FIRST,
+    );
+  }
+
+  /** Another environment of `manifest`, beside the ones it has. */
+  static create(
+    project: string,
+    manifest: string,
+    name: string,
+  ): Environment {
+    return new Environment(
+      crypto.randomUUID(),
+      project,
+      manifest,
+      Environment.validName(name),
     );
   }
 

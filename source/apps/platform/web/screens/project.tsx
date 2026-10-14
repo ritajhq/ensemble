@@ -1,17 +1,8 @@
 import { useEffect, useState } from "react";
-import {
-  Badge,
-  Button,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  useIcon,
-} from "@ritaj/ui";
+import { Badge, Button, useIcon } from "@ritaj/ui";
 import { describe, type Manifest, type Sync } from "../api.ts";
 import { useApi } from "../api-provider.tsx";
+import { Environments } from "../components/environments.tsx";
 import { Notice } from "../components/notice.tsx";
 import { Panel } from "../components/panel.tsx";
 import { useLoad } from "../use-load.ts";
@@ -125,27 +116,30 @@ export function ProjectScreen({ id }: { id: string }) {
       )}
 
       {catalog?.manifests.map((manifest) => (
-        <ManifestPanel key={manifest.name} manifest={manifest} />
+        <ManifestPanel
+          key={manifest.name}
+          project={id}
+          manifest={manifest}
+          onChanged={project.reload}
+        />
       ))}
     </>
   );
 }
 
-/** One delivery manifest: what it releases, where it's deployed, and what each environment has to supply. */
-function ManifestPanel({ manifest }: { manifest: Manifest }) {
+/** One delivery manifest: what it releases, and what each of its environments supplies. */
+function ManifestPanel(
+  { project, manifest, onChanged }: {
+    project: string;
+    manifest: Manifest;
+    onChanged(): void;
+  },
+) {
   return (
     <Panel
       title={manifest.name}
       description={`ci/${manifest.name}/delivery.yml`}
     >
-      <div className="flex flex-wrap items-center gap-2 text-body">
-        <span className="text-muted-foreground">Environments</span>
-        {manifest.environments.map((environment) => (
-          <Badge key={environment.id} color="indigo">
-            {environment.name}
-          </Badge>
-        ))}
-      </div>
       <div className="flex flex-wrap items-center gap-2 text-body">
         <span className="text-muted-foreground">Ships</span>
         {manifest.ships.length === 0 && (
@@ -155,48 +149,11 @@ function ManifestPanel({ manifest }: { manifest: Manifest }) {
           <Badge key={ship} color="gray">{ship}</Badge>
         ))}
       </div>
-      {(manifest.variables.length > 0 || manifest.secrets.length > 0) && (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Value</TableHead>
-              <TableHead>Kind</TableHead>
-              <TableHead>Default</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {manifest.variables.map((variable, i) => (
-              <TableRow key={`variable-${variable.name}`} index={i}>
-                <TableCell className="font-mono text-caption">
-                  {variable.name}
-                </TableCell>
-                <TableCell>
-                  <Badge color="gray">
-                    {variable.list ? "list variable" : "variable"}
-                  </Badge>
-                </TableCell>
-                <TableCell className="font-mono text-caption">
-                  {variable.default ?? "—"}
-                </TableCell>
-              </TableRow>
-            ))}
-            {manifest.secrets.map((secret, i) => (
-              <TableRow
-                key={`secret-${secret}`}
-                index={manifest.variables.length + i}
-              >
-                <TableCell className="font-mono text-caption">
-                  {secret}
-                </TableCell>
-                <TableCell>
-                  <Badge color="amber">secret</Badge>
-                </TableCell>
-                <TableCell>—</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
+      <Environments
+        project={project}
+        manifest={manifest}
+        onChanged={onChanged}
+      />
     </Panel>
   );
 }

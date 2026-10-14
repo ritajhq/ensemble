@@ -37,7 +37,7 @@ Deno.test("Discovery: reads each manifest's ships, variables and environment sec
     ".ensemble/kits/deploy/aws/main.ts": "",
   });
 
-  const catalog = await new Discovery().discover(root, "abc123");
+  const catalog = await Discovery.standard().discover(root, "abc123");
 
   assertEquals(catalog.commit, "abc123");
   assertEquals(catalog.kits, ["aws", "compose"]);
@@ -59,7 +59,7 @@ Deno.test("Discovery: a manifest that doesn't parse is a problem, and never hide
     "ci/web/delivery.yml": WEB,
   });
 
-  const catalog = await new Discovery().discover(root, "abc123");
+  const catalog = await Discovery.standard().discover(root, "abc123");
 
   assertEquals(catalog.manifests.map((manifest) => manifest.name), ["web"]);
   assertEquals(catalog.problems.map((problem) => problem.manifest), [
@@ -68,7 +68,10 @@ Deno.test("Discovery: a manifest that doesn't parse is a problem, and never hide
 });
 
 Deno.test("Discovery: a checkout without manifests or kits offers nothing", async () => {
-  const catalog = await new Discovery().discover(await checkout({}), "abc123");
+  const catalog = await Discovery.standard().discover(
+    await checkout({}),
+    "abc123",
+  );
   assertEquals(catalog.manifests, []);
   assertEquals(catalog.kits, []);
 });

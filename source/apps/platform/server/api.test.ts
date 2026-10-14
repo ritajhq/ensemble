@@ -2,20 +2,31 @@ import { assertEquals } from "@std/assert";
 import * as Platform from "@ensemble/platform";
 import { Api } from "./api.ts";
 import * as Kv from "./kv.ts";
+import { Vault } from "./vault.ts";
+
+const KEY = btoa(String.fromCharCode(...new Uint8Array(32).fill(7)));
 
 async function withApi(
   run: (api: Api, stores: {
     catalogs: Kv.Catalogs;
     environments: Kv.Environments;
+    values: Kv.Values;
   }) => Promise<void>,
 ): Promise<void> {
   const kv = await Deno.openKv(":memory:");
   try {
     const catalogs = new Kv.Catalogs(kv);
     const environments = new Kv.Environments(kv);
+    const values = new Kv.Values(kv, await Vault.of(KEY));
     await run(
-      new Api(new Kv.Projects(kv), catalogs, new Kv.Syncs(kv), environments),
-      { catalogs, environments },
+      new Api(
+        new Kv.Projects(kv),
+        catalogs,
+        new Kv.Syncs(kv),
+        environments,
+        values,
+      ),
+      { catalogs, environments, values },
     );
   } finally {
     kv.close();
@@ -118,5 +129,131 @@ Deno.test("Api: a sync is announced only for a project that exists", async () =>
       404,
     );
     assertEquals(requested, ["portal"]);
+  });
+});
+
+function put(path: string, body: unknown): Request {
+  return new Request(`http://platform.test${path}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+/** A project "portal" whose catalog offers one manifest "web", seeded with its first environment. */
+async function withPortal(
+  run: (
+    api: Api,
+    values: Kv.Values,
+    environments: Kv.Environments,
+  ) => Promise<void>,
+): Promise<void> {
+  await withApi(async (api, { catalogs, environments, values }) => {
+    await api.handle(
+      post("/api/projects", { id: "portal", repository: "ritajhq/portal" }),
+    );
+    const manifest = new Platform.Manifest(
+      "web",
+      ["web"],
+      [{ name: "domain", list: false }],
+      ["db-password"],
+    );
+    await catalogs.save(
+      "portal",
+      new Platform.Catalog("abc123", [manifest], [], ["compose"]),
+    );
+    await environments.ensureFirst("portal", [manifest]);
+    await run(api, values, environments);
+  });
+}
+
+const PRODUCTION = "/api/projects/portal/manifests/web/environments/production";
+
+Deno.test("Api: an environment shows its variables, which secrets it holds but never their values, and what is still missing", async () => {
+  await withPortal(async (api, values, environments) => {
+    assertEquals(
+      (await api.handle(
+        put(`${PRODUCTION}/variables/domain`, { value: "ritaj.app" }),
+      ))
+        .status,
+      204,
+    );
+    assertEquals(
+      (await api.handle(
+        put(`${PRODUCTION}/secrets/db-password`, { value: "hunter2" }),
+      ))
+        .status,
+      204,
+    );
+
+    const text = await (await api.handle(get("/api/projects/portal"))).text();
+    const [production] = JSON.parse(text).catalog.manifests[0].environments;
+    assertEquals(production.variables, { domain: "ritaj.app" });
+    assertEquals(production.secrets, ["db-password"]);
+    assertEquals(production.missing, []);
+    assertEquals(text.includes("hunter2"), false);
+
+    const environment = await environments.get("portal", "web", "production");
+    assertEquals(await values.reveal(environment!, "db-password"), "hunter2");
+  });
+});
+
+Deno.test("Api: a value the manifest doesn't declare is refused", async () => {
+  await withPortal(async (api) => {
+    assertEquals(
+      (await api.handle(put(`${PRODUCTION}/variables/nope`, { value: "x" })))
+        .status,
+      400,
+    );
+    assertEquals(
+      (await api.handle(put(`${PRODUCTION}/secrets/domain`, { value: "x" })))
+        .status,
+      400,
+    );
+  });
+});
+
+Deno.test("Api: a cleared value is missing again", async () => {
+  await withPortal(async (api) => {
+    await api.handle(
+      put(`${PRODUCTION}/variables/domain`, { value: "ritaj.app" }),
+    );
+    const cleared = await api.handle(
+      new Request(`http://platform.test${PRODUCTION}/variables/domain`, {
+        method: "DELETE",
+      }),
+    );
+    assertEquals(cleared.status, 204);
+
+    const body = await (await api.handle(get("/api/projects/portal"))).json();
+    assertEquals(body.catalog.manifests[0].environments[0].missing, [
+      "domain",
+      "db-password",
+    ]);
+  });
+});
+
+Deno.test("Api: another environment is added once per name, and starts with nothing supplied", async () => {
+  await withPortal(async (api) => {
+    const path = "/api/projects/portal/manifests/web/environments";
+    const added = await api.handle(post(path, { name: "staging" }));
+    assertEquals(added.status, 201);
+    assertEquals((await added.json()).missing, ["domain", "db-password"]);
+    assertEquals(
+      (await api.handle(post(path, { name: "staging" }))).status,
+      409,
+    );
+    assertEquals(
+      (await api.handle(post(path, { name: "Staging!" }))).status,
+      400,
+    );
+    assertEquals(
+      (await api.handle(
+        post("/api/projects/portal/manifests/nope/environments", {
+          name: "qa",
+        }),
+      ))
+        .status,
+      404,
+    );
   });
 });

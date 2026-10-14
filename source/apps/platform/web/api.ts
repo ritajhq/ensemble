@@ -19,12 +19,31 @@ export interface Variable {
   readonly default?: string;
 }
 
+/** One environment of a manifest: its variables' values, which secrets it holds (never their values), and what it still lacks. */
+export interface Environment {
+  readonly id: string;
+  readonly name: string;
+  readonly variables: Readonly<Record<string, string>>;
+  readonly secrets: readonly string[];
+  readonly missing: readonly string[];
+}
+
 export interface Manifest {
   readonly name: string;
   readonly ships: readonly string[];
   readonly variables: readonly Variable[];
   readonly secrets: readonly string[];
-  readonly environments: readonly { id: string; name: string }[];
+  readonly environments: readonly Environment[];
+}
+
+/** Which kind of value an environment supplies. */
+export type ValueKind = "variables" | "secrets";
+
+/** Where one environment is, for the calls that change it. */
+export interface EnvironmentPath {
+  readonly project: string;
+  readonly manifest: string;
+  readonly environment: string;
 }
 
 export interface Project extends ProjectSummary {
@@ -66,6 +85,51 @@ export class Api {
     return this.call("POST", `/api/projects/${encodeURIComponent(id)}/sync`);
   }
 
+  addEnvironment(
+    project: string,
+    manifest: string,
+    name: string,
+  ): Promise<Environment> {
+    return this.call(
+      "POST",
+      `${this.manifestPath(project, manifest)}/environments`,
+      { name },
+    );
+  }
+
+  setValue(
+    at: EnvironmentPath,
+    kind: ValueKind,
+    name: string,
+    value: string,
+  ): Promise<void> {
+    return this.call("PUT", this.valuePath(at, kind, name), { value });
+  }
+
+  unsetValue(
+    at: EnvironmentPath,
+    kind: ValueKind,
+    name: string,
+  ): Promise<void> {
+    return this.call("DELETE", this.valuePath(at, kind, name));
+  }
+
+  private manifestPath(project: string, manifest: string): string {
+    return `/api/projects/${encodeURIComponent(project)}/manifests/${
+      encodeURIComponent(manifest)
+    }`;
+  }
+
+  private valuePath(
+    at: EnvironmentPath,
+    kind: ValueKind,
+    name: string,
+  ): string {
+    return `${this.manifestPath(at.project, at.manifest)}/environments/${
+      encodeURIComponent(at.environment)
+    }/${kind}/${encodeURIComponent(name)}`;
+  }
+
   private async call<T>(
     method: string,
     path: string,
@@ -78,6 +142,7 @@ export class Api {
         : { "content-type": "application/json" },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
+    if (response.status === 204) return undefined as T;
     const answer = await response.json().catch(() => ({}));
     if (!response.ok) {
       throw new Refusal(answer.error ?? response.statusText, response.status);

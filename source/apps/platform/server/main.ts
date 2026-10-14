@@ -6,6 +6,7 @@ import { ConfigurationLoader } from "./config.ts";
 import * as Kv from "./kv.ts";
 import { Server, WebApp } from "./server.ts";
 import { Synchronization } from "./synchronization.ts";
+import { Vault } from "./vault.ts";
 
 const configuration = new ConfigurationLoader(
   Deno.env,
@@ -18,12 +19,13 @@ const projects = new Kv.Projects(kv);
 const catalogs = new Kv.Catalogs(kv);
 const syncs = new Kv.Syncs(kv);
 const environments = new Kv.Environments(kv);
+const values = new Kv.Values(kv, await Vault.of(configuration.secretKey));
 
 const synchronization = new Synchronization(
   new Checkouts(configuration.workspace, configuration.githubToken),
-  new Platform.Discovery(),
+  Platform.Discovery.standard(),
 );
-const api = new Api(projects, catalogs, syncs, environments);
+const api = new Api(projects, catalogs, syncs, environments, values);
 
 // What the platform does, in response to what it's asked: a project added or
 // a sync asked for brings its checkout up to date; a sync's outcome is kept,

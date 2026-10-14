@@ -11,11 +11,17 @@ import { Manifest } from "./manifest.ts";
  */
 export class Discovery {
   constructor(
-    private readonly locator = new Deploy.Manifest.Locator(),
-    private readonly loader = new Deploy.Manifest.Loader(
-      new Deploy.Manifest.Parser(),
-    ),
+    private readonly locator: Deploy.Manifest.Locator,
+    private readonly loader: Deploy.Manifest.Loader,
   ) {}
+
+  /** Finding and parsing manifests exactly as `ens` does. */
+  static standard(): Discovery {
+    return new Discovery(
+      new Deploy.Manifest.Locator(),
+      new Deploy.Manifest.Loader(new Deploy.Manifest.Parser()),
+    );
+  }
 
   async discover(checkout: string, commit: string): Promise<Catalog> {
     const manifests: Manifest[] = [];

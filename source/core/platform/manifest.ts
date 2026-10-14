@@ -23,6 +23,16 @@ export class Manifest {
     readonly secrets: readonly string[],
   ) {}
 
+  /** Whether an environment of this manifest can be given a value for `variable`. */
+  declaresVariable(variable: string): boolean {
+    return this.variables.some((declared) => declared.name === variable);
+  }
+
+  /** Whether an environment of this manifest can be given a value for `secret`. */
+  declaresSecret(secret: string): boolean {
+    return this.secrets.includes(secret);
+  }
+
   static of(name: string, workload: Deploy.Workload): Manifest {
     return new Manifest(
       name,

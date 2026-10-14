@@ -54,3 +54,12 @@ Deno.test("Environment: a name is a DNS label", () => {
     InvalidEnvironmentError,
   );
 });
+
+Deno.test("Environment: another one is created under a name it keeps", () => {
+  const staging = Environment.create("portal", "portal", "staging");
+  assertEquals(staging.name, "staging");
+  assertThrows(
+    () => Environment.create("portal", "portal", "Staging"),
+    InvalidEnvironmentError,
+  );
+});

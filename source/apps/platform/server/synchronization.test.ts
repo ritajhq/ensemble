@@ -29,7 +29,7 @@ Deno.test("Synchronization: requests arriving during a sync fold into one more, 
   const checkouts = new HeldCheckouts();
   const synchronization = new Synchronization(
     checkouts as unknown as Checkouts,
-    new Platform.Discovery(),
+    Platform.Discovery.standard(),
   );
   const synced: string[] = [];
   const done = Promise.withResolvers<void>();
@@ -53,7 +53,7 @@ Deno.test("Synchronization: a failing checkout is announced, with its error", as
     {
       update: () => Promise.reject(new Error("no such ref")),
     } as unknown as Checkouts,
-    new Platform.Discovery(),
+    Platform.Discovery.standard(),
   );
   const failed = Promise.withResolvers<unknown>();
   synchronization.OnFailed.Do((_, error) => failed.resolve(error));
