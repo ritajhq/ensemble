@@ -1,4 +1,4 @@
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertRejects } from "@std/assert";
 import * as Platform from "@ensemble/platform";
 import { Checkouts } from "./checkouts.ts";
 import { Process } from "./process.ts";
@@ -49,4 +49,49 @@ Deno.test("Checkouts: work on one project's checkout takes turns, even after one
     "first ends",
     "second at 40-char commit",
   ]);
+});
+
+Deno.test("Checkouts: a failing git never repeats the token it was given", async () => {
+  const checkouts = new Checkouts(await Deno.makeTempDir(), "secret-token");
+  const unreachable = Platform.Project.create({
+    id: "nowhere",
+    repository: "ritajhq/does-not-exist-anywhere",
+    ref: "main",
+  });
+  const error = await assertRejects(() => checkouts.update(unreachable), Error);
+  const credential = btoa("x-access-token:secret-token");
+  assertEquals(error.message.includes(credential), false);
+  assertEquals(error.message.includes("secret-token"), false);
+  assertEquals(error.message.includes("••••"), true);
+});
+
+Deno.test("Checkouts: versions are the checkout's tags, the most recently made first", async () => {
+  const root = await workspace();
+  const tag = (name: string, date: string) =>
+    new Process(
+      "git",
+      [
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@t",
+        "tag",
+        "-a",
+        name,
+        "-m",
+        name,
+      ],
+      { cwd: `${root}/portal`, env: { GIT_COMMITTER_DATE: date } },
+    ).run();
+  await tag("1.0.10-alpha", "2026-08-20T00:00:00Z");
+  await tag("0.50.0", "2026-10-13T00:00:00Z");
+
+  assertEquals(await new Checkouts(root).versions(project), [
+    "0.50.0",
+    "1.0.10-alpha",
+  ]);
+  assertEquals(
+    await new Checkouts(await Deno.makeTempDir()).versions(project),
+    [],
+  );
 });

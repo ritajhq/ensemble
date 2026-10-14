@@ -49,6 +49,8 @@ export interface EnvironmentPath {
 }
 
 export interface Project extends ProjectSummary {
+  /** The names of its release credentials; their values never come back. */
+  readonly credentials: readonly string[];
   readonly catalog?: {
     readonly commit: string;
     readonly kits: readonly string[];
@@ -60,7 +62,30 @@ export interface Project extends ProjectSummary {
 export type Termination = "plan" | "apply";
 export type RunState = "queued" | "running" | "succeeded" | "failed";
 
-/** One time a deployment was carried out. */
+/** A deployment of one environment, as a run carries it out. */
+export interface DeployWork {
+  readonly kind: "deploy";
+  readonly project: string;
+  readonly manifest: string;
+  readonly environment: string;
+  readonly kit: string;
+  readonly version: string;
+  readonly termination: Termination;
+}
+
+export type ReleaseAction = "next" | "set" | "resume";
+
+/** A release of a whole project, as a run carries it out. */
+export interface ReleaseWork {
+  readonly kind: "release";
+  readonly project: string;
+  readonly action: ReleaseAction;
+  readonly argument: string;
+}
+
+export type Work = DeployWork | ReleaseWork;
+
+/** One time some work was carried out on a project. */
 export interface Run {
   readonly id: string;
   readonly state: RunState;
@@ -69,14 +94,7 @@ export interface Run {
   readonly finishedAt?: string;
   readonly commit?: string;
   readonly error?: string;
-  readonly deployment: {
-    readonly project: string;
-    readonly manifest: string;
-    readonly environment: string;
-    readonly kit: string;
-    readonly version: string;
-    readonly termination: Termination;
-  };
+  readonly work: Work;
 }
 
 /** A run with everything it printed so far. */
@@ -162,6 +180,31 @@ export class Api {
       }/deploys`,
       request,
     );
+  }
+
+  release(
+    project: string,
+    request: { action: ReleaseAction; argument: string },
+  ): Promise<Run> {
+    return this.call(
+      "POST",
+      `/api/projects/${encodeURIComponent(project)}/releases`,
+      request,
+    );
+  }
+
+  setCredential(project: string, name: string, value: string): Promise<void> {
+    return this.call("PUT", this.credentialPath(project, name), { value });
+  }
+
+  unsetCredential(project: string, name: string): Promise<void> {
+    return this.call("DELETE", this.credentialPath(project, name));
+  }
+
+  private credentialPath(project: string, name: string): string {
+    return `/api/projects/${encodeURIComponent(project)}/credentials/${
+      encodeURIComponent(name)
+    }`;
   }
 
   /** A project's runs, newest first. */

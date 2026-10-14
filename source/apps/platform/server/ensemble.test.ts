@@ -27,6 +27,12 @@ function deployment(fields: Partial<Record<string, string>> = {}) {
   });
 }
 
+const RELEASER = {
+  name: "ensemble platform",
+  email: "platform@example.com",
+  token: "gh-token",
+};
+
 /** A host environment holding the platform's own secrets beside what ens may see. */
 const host = {
   get: (name: string) =>
@@ -40,7 +46,7 @@ const host = {
 
 Deno.test("Ensemble: deploys published artifacts at the version, with only the environment's values and the host's plumbing", async () => {
   const lines: string[] = [];
-  await new Ensemble(await fakeEns(), host).deploy(
+  await new Ensemble(await fakeEns(), RELEASER, host).deploy(
     deployment(),
     await Deno.makeTempDir(),
     { DOMAIN: "ritaj.app" },
@@ -59,7 +65,7 @@ Deno.test("Ensemble: deploys published artifacts at the version, with only the e
 
 Deno.test("Ensemble: another environment is an instance, and a plan only plans", async () => {
   const lines: string[] = [];
-  await new Ensemble(await fakeEns(), host).deploy(
+  await new Ensemble(await fakeEns(), RELEASER, host).deploy(
     deployment({ environment: "staging", termination: "plan" }),
     await Deno.makeTempDir(),
     {},
@@ -75,7 +81,7 @@ Deno.test("Ensemble: a non-zero exit fails", async () => {
   const ens = await fakeEns();
   await assertRejects(
     () =>
-      new Ensemble(ens, host).deploy(
+      new Ensemble(ens, RELEASER, host).deploy(
         deployment(),
         Deno.cwd(),
         { EXIT: "3" },
@@ -83,5 +89,31 @@ Deno.test("Ensemble: a non-zero exit fails", async () => {
       ),
     CommandFailedError,
     "code 3",
+  );
+});
+
+Deno.test("Ensemble: a release answers yes, publishes with the project's credentials, and commits and pushes as the releaser", async () => {
+  const lines: string[] = [];
+  await new Ensemble(await fakeEns(), RELEASER, host).release(
+    Platform.Release.create({
+      project: "portal",
+      action: "next",
+      argument: "patch",
+    }),
+    await Deno.makeTempDir(),
+    { JSR_TOKEN: "jsr" },
+    (line) => lines.push(line),
+  );
+
+  assertEquals(lines[0], "args: release next patch --yes");
+  assertEquals(lines.includes("JSR_TOKEN=jsr"), true);
+  assertEquals(lines.includes("GIT_AUTHOR_NAME=ensemble platform"), true);
+  assertEquals(
+    lines.includes("GIT_COMMITTER_EMAIL=platform@example.com"),
+    true,
+  );
+  assertEquals(
+    lines.includes("GIT_CONFIG_KEY_0=http.https://github.com/.extraheader"),
+    true,
   );
 });

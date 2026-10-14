@@ -2,11 +2,14 @@ import { useEffect, useState } from "react";
 import { Badge, Button, useIcon } from "@ritaj/ui";
 import { describe, type Manifest, type Run, type Sync } from "../api.ts";
 import { useApi } from "../api-provider.tsx";
+import { CredentialsPanel } from "../components/credentials-panel.tsx";
 import { Environments } from "../components/environments.tsx";
+import { ReleasePanel } from "../components/release-panel.tsx";
 import { Notice } from "../components/notice.tsx";
 import { Panel } from "../components/panel.tsx";
 import { RunBadge } from "../components/run-badge.tsx";
 import { runHash } from "../places.ts";
+import { detailsOf, titleOf } from "../run-title.ts";
 import { useLoad } from "../use-load.ts";
 
 /** How often a project is looked at again while it syncs. */
@@ -102,6 +105,13 @@ export function ProjectScreen({ id }: { id: string }) {
         )}
       </Panel>
 
+      <ReleasePanel project={id} versions={versions.value ?? []} />
+      <CredentialsPanel
+        project={id}
+        names={value.credentials}
+        onChanged={project.reload}
+      />
+
       {catalog?.problems.map((problem) => (
         <Notice
           key={problem.manifest}
@@ -138,7 +148,7 @@ export function ProjectScreen({ id }: { id: string }) {
 /** The project's latest runs, newest first, each opening its own log. */
 function RunsPanel({ runs }: { runs: readonly Run[] }) {
   return (
-    <Panel title="Runs" description="Deploys and plans, newest first">
+    <Panel title="Runs" description="Releases, deploys and plans, newest first">
       {runs.length === 0 && (
         <p className="text-body text-muted-foreground">Nothing run yet</p>
       )}
@@ -151,12 +161,9 @@ function RunsPanel({ runs }: { runs: readonly Run[] }) {
               className="flex flex-wrap items-center gap-2 rounded-md px-2 py-1 text-body hover:bg-accent"
             >
               <RunBadge state={run.state} />
-              <span className="font-medium">
-                {run.deployment.termination === "plan" ? "Plan" : "Deploy"}{" "}
-                {run.deployment.manifest} → {run.deployment.environment}
-              </span>
+              <span className="font-medium">{titleOf(run.work)}</span>
               <span className="text-muted-foreground">
-                {run.deployment.kit} · {run.deployment.version}
+                {detailsOf(run.work).join(" · ")}
               </span>
               <span className="ml-auto text-caption text-muted-foreground">
                 {new Date(run.queuedAt).toLocaleString()}

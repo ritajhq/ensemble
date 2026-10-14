@@ -6,6 +6,7 @@ import { Notice } from "../components/notice.tsx";
 import { Panel } from "../components/panel.tsx";
 import { RunBadge } from "../components/run-badge.tsx";
 import { projectHash } from "../places.ts";
+import { detailsOf, titleOf } from "../run-title.ts";
 
 /** One run: what was deployed where, how it went, and everything it printed, followed live while it runs. */
 export function RunScreen({ id }: { id: string }) {
@@ -47,24 +48,23 @@ export function RunScreen({ id }: { id: string }) {
   }, [lines.length]);
 
   if (!run) return error ? <Notice tone="error">{error}</Notice> : null;
-  const { deployment } = run;
+  const { work } = run;
 
   return (
     <>
       <Panel
-        title={`${
-          deployment.termination === "plan" ? "Plan" : "Deploy"
-        } ${deployment.manifest} to ${deployment.environment}`}
+        title={titleOf(work)}
         description={
-          <a className="underline" href={projectHash(deployment.project)}>
-            {deployment.project}
+          <a className="underline" href={projectHash(work.project)}>
+            {work.project}
           </a>
         }
       >
         <div className="flex flex-wrap items-center gap-2 text-body">
           <RunBadge state={run.state} />
-          <Badge color="gray">{deployment.kit}</Badge>
-          <Badge color="gray">{deployment.version}</Badge>
+          {detailsOf(work).map((detail) => (
+            <Badge key={detail} color="gray">{detail}</Badge>
+          ))}
           {run.commit && (
             <span className="font-mono text-caption">
               {run.commit.slice(0, 12)}

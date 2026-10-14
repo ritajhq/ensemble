@@ -20,6 +20,8 @@ const NAME = /^[A-Za-z0-9][A-Za-z0-9._+-]*$/;
  * version: what someone asks the platform to bring up (or to plan).
  */
 export class Deployment {
+  readonly kind = "deploy";
+
   private constructor(
     readonly project: string,
     readonly manifest: string,

@@ -10,4 +10,10 @@ export {
   type Termination,
   TERMINATIONS,
 } from "./deployment.ts";
-export { Run, type RunState } from "./run.ts";
+export { Run, type RunState, type Work } from "./run.ts";
+export {
+  BUMPS,
+  InvalidReleaseError,
+  Release,
+  type ReleaseAction,
+} from "./release.ts";

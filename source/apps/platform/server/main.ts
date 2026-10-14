@@ -2,7 +2,7 @@ import { dirname } from "@std/path";
 import * as Platform from "@ensemble/platform";
 import { Api } from "./api.ts";
 import { Checkouts } from "./checkouts.ts";
-import { Deploys } from "./deploys.ts";
+import { Runner } from "./runner.ts";
 import { Ensemble } from "./ensemble.ts";
 import { ConfigurationLoader } from "./config.ts";
 import * as Kv from "./kv.ts";
@@ -22,7 +22,9 @@ const projects = new Kv.Projects(kv);
 const catalogs = new Kv.Catalogs(kv);
 const syncs = new Kv.Syncs(kv);
 const environments = new Kv.Environments(kv);
-const values = new Kv.Values(kv, await Vault.of(configuration.secretKey));
+const vault = await Vault.of(configuration.secretKey);
+const values = new Kv.Values(kv, vault);
+const credentials = new Kv.Credentials(kv, vault);
 const runs = new Kv.Runs(kv);
 
 const checkouts = new Checkouts(
@@ -33,12 +35,16 @@ const synchronization = new Synchronization(
   checkouts,
   Platform.Discovery.standard(),
 );
-const deploys = new Deploys(
+const runner = new Runner(
   projects,
   environments,
   values,
+  credentials,
   checkouts,
-  new Ensemble(configuration.ens),
+  new Ensemble(configuration.ens, {
+    ...configuration.releaser,
+    token: configuration.githubToken,
+  }),
 );
 const api = new Api(
   projects,
@@ -46,9 +52,10 @@ const api = new Api(
   syncs,
   environments,
   values,
+  credentials,
   runs,
   checkouts,
-  new RunFeed(runs, deploys),
+  new RunFeed(runs, runner),
 );
 
 // What the platform does, in response to what it's asked: a project added or
@@ -57,12 +64,12 @@ const api = new Api(
 api.OnProjectAdded.Do((project) => synchronization.request(project));
 api.OnSyncRequested.Do((project) => synchronization.request(project));
 
-// A deploy asked for is carried out once its project's checkout is free;
-// each step it takes, and each line it prints, is kept.
-api.OnDeployRequested.Do((run) => deploys.request(run));
-deploys.OnStarted.Do((run) => runs.save(run));
-deploys.OnPrinted.Do((run, index, line) => runs.addLine(run.id, index, line));
-deploys.OnFinished.Do((run) => runs.save(run));
+// A deploy or release asked for is carried out once its project's checkout
+// is free; each step it takes, and each line it prints, is kept.
+api.OnRunRequested.Do((run) => runner.request(run));
+runner.OnStarted.Do((run) => runs.save(run));
+runner.OnPrinted.Do((run, index, line) => runs.addLine(run.id, index, line));
+runner.OnFinished.Do((run) => runs.save(run));
 
 synchronization.OnStarted.Do((project) =>
   syncs.record(project.id, { state: "syncing", at: now() })

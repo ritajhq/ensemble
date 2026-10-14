@@ -9,9 +9,11 @@ export interface Configuration {
   readonly web: string;
   /** The `ens` binary deploys and releases run. */
   readonly ens: string;
+  /** Who a release's commits and tags are made as. */
+  readonly releaser: { readonly name: string; readonly email: string };
   /** Seals the secrets environments hold (see `Vault`). */
   readonly secretKey: string;
-  /** Lets private repositories be cloned. */
+  /** Lets private repositories be cloned, and releases push their commits and tags. */
   readonly githubToken?: string;
 }
 
@@ -46,6 +48,11 @@ export class ConfigurationLoader {
         "/var/lib/ens-platform/platform.kv",
       web: this.env.get("PLATFORM_WEB") ?? this.defaultWeb,
       ens: this.env.get("ENS_BIN") ?? "ens",
+      releaser: {
+        name: this.env.get("PLATFORM_GIT_NAME") ?? "ensemble platform",
+        email: this.env.get("PLATFORM_GIT_EMAIL") ??
+          "platform@ensemble.invalid",
+      },
       secretKey,
       ...(githubToken ? { githubToken } : {}),
     };

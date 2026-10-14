@@ -5,7 +5,6 @@ import type * as Kv from "./kv.ts";
 /** A run as the API shows it. */
 export class RunView {
   static of(run: Platform.Run) {
-    const { deployment } = run;
     return {
       id: run.id,
       state: run.state,
@@ -14,14 +13,7 @@ export class RunView {
       finishedAt: run.finishedAt,
       commit: run.commit,
       error: run.error,
-      deployment: {
-        project: deployment.project,
-        manifest: deployment.manifest,
-        environment: deployment.environment,
-        kit: deployment.kit,
-        version: deployment.version,
-        termination: deployment.termination,
-      },
+      work: { ...run.work },
     };
   }
 }

@@ -290,7 +290,7 @@ export class Runs {
       await this.kv.atomic()
         .set(["runs", run.id], this.recordOf(run))
         .set(
-          ["project-runs", run.deployment.project, run.queuedAt, run.id],
+          ["project-runs", run.work.project, run.queuedAt, run.id],
           run.id,
         )
         .commit();
@@ -345,7 +345,6 @@ export class Runs {
   }
 
   private recordOf(run: Platform.Run): RunRecord {
-    const { deployment } = run;
     return {
       id: run.id,
       state: run.state,
@@ -354,24 +353,38 @@ export class Runs {
       finishedAt: run.finishedAt,
       commit: run.commit,
       error: run.error,
-      deployment: {
-        project: deployment.project,
-        manifest: deployment.manifest,
-        environment: deployment.environment,
-        kit: deployment.kit,
-        version: deployment.version,
-        termination: deployment.termination,
-      },
+      work: { ...run.work },
     };
   }
 
   private restore(record: RunRecord): Platform.Run {
     return Platform.Run.restore({
       ...record,
-      deployment: Platform.Deployment.create(record.deployment),
+      work: WORKS[record.work.kind](record.work),
     });
   }
 }
+
+/** How each kind of work is read back from what was stored. */
+const WORKS: Readonly<
+  Record<string, (record: Record<string, string>) => Platform.Work>
+> = {
+  deploy: (record) =>
+    Platform.Deployment.create({
+      project: record.project,
+      manifest: record.manifest,
+      environment: record.environment,
+      kit: record.kit,
+      version: record.version,
+      termination: record.termination,
+    }),
+  release: (record) =>
+    Platform.Release.create({
+      project: record.project,
+      action: record.action,
+      argument: record.argument,
+    }),
+};
 
 interface RunRecord {
   readonly id: string;
@@ -381,12 +394,68 @@ interface RunRecord {
   readonly finishedAt?: string;
   readonly commit?: string;
   readonly error?: string;
-  readonly deployment: {
-    readonly project: string;
-    readonly manifest: string;
-    readonly environment: string;
-    readonly kit: string;
-    readonly version: string;
-    readonly termination: string;
-  };
+  readonly work: Record<string, string> & { readonly kind: string };
+}
+
+/** An environment variable's name, as a release credential is handed to `ens` under it. */
+const CREDENTIAL = /^[A-Z_][A-Z0-9_]*$/;
+
+/** Thrown when a release credential would get a name no environment variable can have. */
+export class InvalidCredentialError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InvalidCredentialError";
+  }
+}
+
+/**
+ * What each project's releases publish with — registry passwords,
+ * `JSR_TOKEN`, `VSCE_PAT`, `GH_TOKEN` — sealed by the `Vault`, and handed to
+ * `ens release` as environment variables of the same names. Their values
+ * never come back out but for that.
+ */
+export class Credentials {
+  constructor(private readonly kv: Deno.Kv, private readonly vault: Vault) {}
+
+  async set(project: string, name: string, value: string): Promise<void> {
+    if (!CREDENTIAL.test(name)) {
+      throw new InvalidCredentialError(
+        `"${name}" isn't an environment variable name: use capitals, digits and underscores.`,
+      );
+    }
+    await this.kv.set(
+      ["credentials", project, name],
+      await this.vault.seal(value, [project, "credentials", name]),
+    );
+  }
+
+  async unset(project: string, name: string): Promise<void> {
+    await this.kv.delete(["credentials", project, name]);
+  }
+
+  async names(project: string): Promise<string[]> {
+    const names: string[] = [];
+    for await (
+      const entry of this.kv.list({ prefix: ["credentials", project] })
+    ) {
+      names.push(String(entry.key[2]));
+    }
+    return names;
+  }
+
+  /** Every credential, opened: only for handing to a release, never to a screen. */
+  async reveal(project: string): Promise<Record<string, string>> {
+    const opened: Record<string, string> = {};
+    for await (
+      const entry of this.kv.list<Sealed>({ prefix: ["credentials", project] })
+    ) {
+      const name = String(entry.key[2]);
+      opened[name] = await this.vault.open(entry.value, [
+        project,
+        "credentials",
+        name,
+      ]);
+    }
+    return opened;
+  }
 }

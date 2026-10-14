@@ -4,7 +4,7 @@ import { Api } from "./api.ts";
 import * as Kv from "./kv.ts";
 import { Vault } from "./vault.ts";
 import { Checkouts } from "./checkouts.ts";
-import { Deploys } from "./deploys.ts";
+import { Runner } from "./runner.ts";
 import { Ensemble } from "./ensemble.ts";
 import { RunFeed } from "./run-feed.ts";
 
@@ -23,6 +23,8 @@ async function withApi(
     const environments = new Kv.Environments(kv);
     const values = new Kv.Values(kv, await Vault.of(KEY));
     const runs = new Kv.Runs(kv);
+    const credentials = new Kv.Credentials(kv, await Vault.of(KEY));
+    const checkouts = new Checkouts(await Deno.makeTempDir());
     await run(
       new Api(
         new Kv.Projects(kv),
@@ -30,16 +32,18 @@ async function withApi(
         new Kv.Syncs(kv),
         environments,
         values,
+        credentials,
         runs,
-        new Checkouts(await Deno.makeTempDir()),
+        checkouts,
         new RunFeed(
           runs,
-          new Deploys(
+          new Runner(
             new Kv.Projects(kv),
             environments,
             values,
-            new Checkouts(await Deno.makeTempDir()),
-            new Ensemble("ens"),
+            credentials,
+            checkouts,
+            new Ensemble("ens", { name: "t", email: "t@t" }),
           ),
         ),
       ),
@@ -279,7 +283,7 @@ Deno.test("Api: another environment is added once per name, and starts with noth
 Deno.test("Api: a deploy is queued for an environment with one of the project's kits, and announced", async () => {
   await withPortal(async (api) => {
     const requested: string[] = [];
-    api.OnDeployRequested.Do((run) => requested.push(run.id));
+    api.OnRunRequested.Do((run) => requested.push(run.id));
 
     const accepted = await api.handle(
       post(`${PRODUCTION}/deploys`, { kit: "compose", version: "1.0.0" }),
@@ -287,7 +291,7 @@ Deno.test("Api: a deploy is queued for an environment with one of the project's 
     assertEquals(accepted.status, 202);
     const run = await accepted.json();
     assertEquals(run.state, "queued");
-    assertEquals(run.deployment.termination, "apply");
+    assertEquals(run.work.termination, "apply");
     assertEquals(requested, [run.id]);
 
     const listed = await (await api.handle(get("/api/projects/portal/runs")))
@@ -308,5 +312,57 @@ Deno.test("Api: a deploy with a kit the project doesn't have, or that neither pl
       )).status,
       400,
     );
+  });
+});
+
+Deno.test("Api: a release of the project is queued and announced; one that can't be is refused", async () => {
+  await withPortal(async (api) => {
+    const requested: string[] = [];
+    api.OnRunRequested.Do((run) => requested.push(run.work.kind));
+
+    const accepted = await api.handle(
+      post("/api/projects/portal/releases", {
+        action: "next",
+        argument: "minor",
+      }),
+    );
+    assertEquals(accepted.status, 202);
+    assertEquals((await accepted.json()).work, {
+      kind: "release",
+      project: "portal",
+      action: "next",
+      argument: "minor",
+    });
+    assertEquals(
+      (await api.handle(
+        post("/api/projects/portal/releases", {
+          action: "next",
+          argument: "huge",
+        }),
+      )).status,
+      400,
+    );
+    assertEquals(requested, ["release"]);
+  });
+});
+
+Deno.test("Api: a project shows the names of its release credentials, never their values", async () => {
+  await withPortal(async (api) => {
+    const set = await api.handle(
+      put("/api/projects/portal/credentials/JSR_TOKEN", {
+        value: "jsr-secret",
+      }),
+    );
+    assertEquals(set.status, 204);
+    assertEquals(
+      (await api.handle(
+        put("/api/projects/portal/credentials/jsr-token", { value: "x" }),
+      )).status,
+      400,
+    );
+
+    const text = await (await api.handle(get("/api/projects/portal"))).text();
+    assertEquals(JSON.parse(text).credentials, ["JSR_TOKEN"]);
+    assertEquals(text.includes("jsr-secret"), false);
   });
 });

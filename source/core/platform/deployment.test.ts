@@ -1,6 +1,7 @@
 import { assertEquals, assertThrows } from "@std/assert";
 import { Deployment, InvalidDeploymentError } from "./deployment.ts";
 import { Run } from "./run.ts";
+import { InvalidReleaseError, Release } from "./release.ts";
 
 const fields = {
   project: "portal",
@@ -52,4 +53,27 @@ Deno.test("Run: moves from queued to running to an outcome, keeping what it was"
   assertEquals(failed.id, queued.id);
   assertEquals(failed.queuedAt, new Date(0).toISOString());
   assertEquals(failed.startedAt, new Date(1000).toISOString());
+});
+
+Deno.test("Release: next bumps, set names a version, resume finishes a tag", () => {
+  assertEquals(
+    Release.create({ project: "portal", action: "next", argument: "minor" })
+      .argument,
+    "minor",
+  );
+  Release.create({ project: "portal", action: "set", argument: "2.0.0" });
+  Release.create({ project: "portal", action: "resume", argument: "v1.4.2" });
+  for (
+    const bad of [
+      { action: "next", argument: "huge" },
+      { action: "set", argument: "2.0" },
+      { action: "resume", argument: "--force" },
+      { action: "undo", argument: "" },
+    ]
+  ) {
+    assertThrows(
+      () => Release.create({ project: "portal", ...bad }),
+      InvalidReleaseError,
+    );
+  }
 });

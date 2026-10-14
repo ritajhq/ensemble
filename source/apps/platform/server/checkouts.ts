@@ -16,11 +16,11 @@ export class NotCheckedOutError extends Error {
   }
 }
 
-const SEMVER = /^v?(\d+)\.(\d+)\.(\d+)/;
-
 /**
  * The working copies projects are released and deployed from: one directory
- * per project, `<workspace>/<project id>`, kept between syncs. Its name is
+ * per project, `<workspace>/<project id>`, kept between syncs, with its ref's
+ * whole history and every tag — a release reads the last tag, writes the
+ * next one and its changelog, and pushes them. Its name is
  * the project's id because `ens` names every deployment after its checkout's
  * directory, so deployments of different projects never share a name.
  *
@@ -57,18 +57,26 @@ export class Checkouts {
     });
   }
 
-  /** The project's released versions, newest first: its repository's tags, read from the remote, since a checkout is shallow. */
+  /** Brings the project's checkout to its ref's tip, then runs `work` in it, in one turn: what a release needs, since it tags and pushes that tip. */
+  refresh<T>(
+    project: Platform.Project,
+    work: (checkout: Checkout) => Promise<T>,
+  ): Promise<T> {
+    return this.inTurn(
+      project,
+      async () => await work(await this.bringUp(project)),
+    );
+  }
+
+  /** The project's released versions, newest first: its checkout's tags, by when each was made — what `ens release` bumps from, not merely the highest number. None before its first sync. */
   async versions(project: Platform.Project): Promise<string[]> {
-    const output = await this.git([
-      "ls-remote",
-      "--tags",
-      "--refs",
-      project.cloneUrl,
-    ]);
-    return output.split("\n")
-      .map((line) => line.split("refs/tags/")[1]?.trim())
-      .filter((tag): tag is string => !!tag)
-      .sort(newestFirst);
+    const path = this.pathOf(project);
+    if (!await this.exists(path)) return [];
+    const output = await this.git(
+      ["tag", "--list", "--sort=-creatordate"],
+      path,
+    );
+    return output.split("\n").map((tag) => tag.trim()).filter(Boolean);
   }
 
   private pathOf(project: Platform.Project): string {
@@ -93,19 +101,34 @@ export class Checkouts {
     const path = this.pathOf(project);
 
     if (await this.exists(path)) {
+      // A checkout cloned shallow before releases needed its history gets
+      // the rest of it once.
+      const shallow = await Deno.stat(join(path, ".git", "shallow")).then(
+        () => ["--unshallow"],
+        () => [],
+      );
       await this.git(
-        ["fetch", "--quiet", "--depth", "1", "origin", project.ref],
+        ["fetch", "--quiet", "--tags", "--force", ...shallow, "origin"],
         path,
       );
-      await this.git(["reset", "--quiet", "--hard", "FETCH_HEAD"], path);
+      await this.git(
+        [
+          "checkout",
+          "--quiet",
+          "--force",
+          "-B",
+          project.ref,
+          `origin/${project.ref}`,
+        ],
+        path,
+      );
       await this.git(["clean", "--quiet", "-fd"], path);
     } else {
       await Deno.mkdir(this.workspace, { recursive: true });
       await this.git([
         "clone",
         "--quiet",
-        "--depth",
-        "1",
+        "--single-branch",
         "--branch",
         project.ref,
         project.cloneUrl,
@@ -125,29 +148,12 @@ export class Checkouts {
   }
 
   private git(args: string[], cwd?: string): Promise<string> {
-    const authorization = this.token
-      ? [
-        "-c",
-        `http.extraheader=AUTHORIZATION: basic ${
-          btoa(`x-access-token:${this.token}`)
-        }`,
-      ]
-      : [];
-    return new Process("git", [...authorization, ...args], { cwd }).run();
+    if (!this.token) return new Process("git", args, { cwd }).run();
+    const credential = btoa(`x-access-token:${this.token}`);
+    return new Process(
+      "git",
+      ["-c", `http.extraheader=AUTHORIZATION: basic ${credential}`, ...args],
+      { cwd, concealed: [credential, this.token] },
+    ).run();
   }
-}
-
-/** Semantic versions newest first, then anything else by name. */
-function newestFirst(a: string, b: string): number {
-  const [x, y] = [SEMVER.exec(a), SEMVER.exec(b)];
-  if (x && y) {
-    for (const part of [1, 2, 3]) {
-      const difference = Number(y[part]) - Number(x[part]);
-      if (difference !== 0) return difference;
-    }
-    return b.localeCompare(a);
-  }
-  if (x) return -1;
-  if (y) return 1;
-  return a.localeCompare(b);
 }

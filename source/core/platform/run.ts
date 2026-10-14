@@ -1,32 +1,36 @@
 import type { Deployment } from "./deployment.ts";
+import type { Release } from "./release.ts";
+
+/** What a run carries out: a deployment of one environment, or a release of a whole project. */
+export type Work = Deployment | Release;
 
 export type RunState = "queued" | "running" | "succeeded" | "failed";
 
 /**
- * One time a deployment was carried out: queued when asked for, running once
- * its project's checkout is free, then succeeded or failed. Each step is a
- * new `Run`; what it printed is kept beside it, line by line.
+ * One time some work was carried out on a project: queued when asked for,
+ * running once the project's checkout is free, then succeeded or failed.
+ * Each step is a new `Run`; what it printed is kept beside it, line by line.
  */
 export class Run {
   private constructor(
     readonly id: string,
-    readonly deployment: Deployment,
+    readonly work: Work,
     readonly state: RunState,
     readonly queuedAt: string,
     readonly startedAt?: string,
     readonly finishedAt?: string,
-    /** The commit its manifest was read at. */
+    /** The commit it was carried out at. */
     readonly commit?: string,
     readonly error?: string,
   ) {}
 
-  static queue(deployment: Deployment, at: Date = new Date()): Run {
-    return new Run(crypto.randomUUID(), deployment, "queued", at.toISOString());
+  static queue(work: Work, at: Date = new Date()): Run {
+    return new Run(crypto.randomUUID(), work, "queued", at.toISOString());
   }
 
   static restore(fields: {
     id: string;
-    deployment: Deployment;
+    work: Work;
     state: RunState;
     queuedAt: string;
     startedAt?: string;
@@ -36,7 +40,7 @@ export class Run {
   }): Run {
     return new Run(
       fields.id,
-      fields.deployment,
+      fields.work,
       fields.state,
       fields.queuedAt,
       fields.startedAt,

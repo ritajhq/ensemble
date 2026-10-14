@@ -48,6 +48,7 @@ const VALUE_KINDS: Readonly<Record<string, ValueKind>> = {
 const ENVIRONMENT = "/api/projects/:id/manifests/:manifest/environments";
 const VALUE = `${ENVIRONMENT}/:environment/:kind(variables|secrets)/:name`;
 const DEPLOYS = `${ENVIRONMENT}/:environment/deploys`;
+const CREDENTIAL = "/api/projects/:id/credentials/:name";
 
 /** Where an environment is, once every step to it was found. */
 interface Located {
@@ -59,16 +60,17 @@ interface Located {
  * The platform's JSON API under `/api`. Reads answer from the stores
  * directly, and so do edits to what is stored; what someone asks the
  * platform to *do* is announced as an event (`OnProjectAdded`,
- * `OnSyncRequested`, `OnDeployRequested`), which whoever was wired to it
- * acts on.
+ * `OnSyncRequested`, `OnRunRequested`), which whoever was wired to it acts
+ * on.
  *
  * A secret's value goes in, never out: a project shows which secrets each
- * environment holds, not what they are.
+ * environment holds, and which release credentials it has, not what they
+ * are.
  */
 export class Api {
   private readonly projectAdded = new Delegate<[Platform.Project]>();
   private readonly syncRequested = new Delegate<[Platform.Project]>();
-  private readonly deployRequested = new Delegate<[Platform.Run]>();
+  private readonly runRequested = new Delegate<[Platform.Run]>();
   private readonly routes: readonly Route[];
 
   constructor(
@@ -77,6 +79,7 @@ export class Api {
     private readonly syncs: Kv.Syncs,
     private readonly environments: Kv.Environments,
     private readonly values: Kv.Values,
+    private readonly credentials: Kv.Credentials,
     private readonly runs: Kv.Runs,
     private readonly checkouts: Checkouts,
     private readonly feed: RunFeed,
@@ -116,6 +119,21 @@ export class Api {
         (request, params) => this.requestDeploy(request, params),
       ),
       this.route(
+        "POST",
+        "/api/projects/:id/releases",
+        (request, { id }) => this.requestRelease(request, id!),
+      ),
+      this.route(
+        "PUT",
+        CREDENTIAL,
+        (request, params) => this.setCredential(request, params),
+      ),
+      this.route(
+        "DELETE",
+        CREDENTIAL,
+        (_, params) => this.unsetCredential(params),
+      ),
+      this.route(
         "GET",
         "/api/projects/:id/runs",
         (_, { id }) => this.projectRuns(id!),
@@ -139,9 +157,9 @@ export class Api {
     return this.syncRequested;
   }
 
-  /** A deploy was asked for and queued; it hasn't started. */
-  get OnDeployRequested(): Emitter<[Platform.Run]> {
-    return this.deployRequested;
+  /** A deploy or a release was asked for and queued; it hasn't started. */
+  get OnRunRequested(): Emitter<[Platform.Run]> {
+    return this.runRequested;
   }
 
   async handle(request: Request): Promise<Response> {
@@ -200,6 +218,7 @@ export class Api {
     return json({
       ...this.describe(project),
       sync: await this.syncs.of(id),
+      credentials: await this.credentials.names(id),
       catalog: catalog && {
         commit: catalog.commit,
         kits: catalog.kits,
@@ -344,10 +363,59 @@ export class Api {
       }, 400);
     }
 
-    const run = Platform.Run.queue(deployment);
+    return await this.queue(deployment);
+  }
+
+  private async requestRelease(
+    request: Request,
+    id: string,
+  ): Promise<Response> {
+    if (!await this.projects.get(id)) {
+      return json({ error: "No such project" }, 404);
+    }
+    let release: Platform.Release;
+    try {
+      const body = await request.json();
+      release = Platform.Release.create({
+        project: id,
+        action: String(body.action ?? ""),
+        argument: String(body.argument ?? ""),
+      });
+    } catch (error) {
+      return json({ error: messageOf(error) }, 400);
+    }
+    return await this.queue(release);
+  }
+
+  private async queue(work: Platform.Work): Promise<Response> {
+    const run = Platform.Run.queue(work);
     await this.runs.save(run);
-    this.deployRequested.Invoke(run);
+    this.runRequested.Invoke(run);
     return json(RunView.of(run), 202);
+  }
+
+  private async setCredential(
+    request: Request,
+    params: Params,
+  ): Promise<Response> {
+    if (!await this.projects.get(params.id!)) {
+      return json({ error: "No such project" }, 404);
+    }
+    const body = await request.json().catch(() => ({}));
+    if (typeof body.value !== "string") {
+      return json({ error: "A value is a string." }, 400);
+    }
+    try {
+      await this.credentials.set(params.id!, params.name!, body.value);
+    } catch (error) {
+      return json({ error: messageOf(error) }, 400);
+    }
+    return new Response(null, { status: 204 });
+  }
+
+  private async unsetCredential(params: Params): Promise<Response> {
+    await this.credentials.unset(params.id!, params.name!);
+    return new Response(null, { status: 204 });
   }
 
   private async projectRuns(id: string): Promise<Response> {

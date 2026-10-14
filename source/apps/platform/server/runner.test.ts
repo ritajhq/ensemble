@@ -1,7 +1,7 @@
 import { assertEquals } from "@std/assert";
 import * as Platform from "@ensemble/platform";
 import type { Checkout, Checkouts } from "./checkouts.ts";
-import { Deploys } from "./deploys.ts";
+import { Runner } from "./runner.ts";
 import type { Ensemble } from "./ensemble.ts";
 import * as Kv from "./kv.ts";
 import { Vault } from "./vault.ts";
@@ -11,6 +11,18 @@ const KEY = btoa(String.fromCharCode(...new Uint8Array(32).fill(7)));
 /** An `ens` that prints what it was given, then exits as told. */
 class FakeEnsemble {
   received?: Readonly<Record<string, string>>;
+  released?: Readonly<Record<string, string>>;
+
+  release(
+    _release: Platform.Release,
+    _checkout: string,
+    credentials: Readonly<Record<string, string>>,
+    onLine: (line: string) => void,
+  ): Promise<void> {
+    this.released = credentials;
+    onLine(`publishing with ${credentials.JSR_TOKEN}`);
+    return Promise.resolve();
+  }
   constructor(private readonly fails = false) {}
 
   deploy(
@@ -28,12 +40,23 @@ class FakeEnsemble {
   }
 }
 
+/** Checkouts that note whether work ran in the checkout as it was, or refreshed first. */
+const used: string[] = [];
 const checkouts = {
-  use: <T>(_: Platform.Project, work: (checkout: Checkout) => Promise<T>) =>
-    work({ path: "/checkout", commit: "abc123" }),
+  use: <T>(_: Platform.Project, work: (checkout: Checkout) => Promise<T>) => {
+    used.push("as it was");
+    return work({ path: "/checkout", commit: "abc123" });
+  },
+  refresh: <T>(
+    _: Platform.Project,
+    work: (checkout: Checkout) => Promise<T>,
+  ) => {
+    used.push("refreshed");
+    return work({ path: "/checkout", commit: "def456" });
+  },
 } as unknown as Checkouts;
 
-async function deployed(ensemble: FakeEnsemble) {
+async function carriedOut(ensemble: FakeEnsemble, work?: Platform.Work) {
   const kv = await Deno.openKv(":memory:");
   const projects = new Kv.Projects(kv);
   const environments = new Kv.Environments(kv);
@@ -50,10 +73,13 @@ async function deployed(ensemble: FakeEnsemble) {
   await values.setVariable(production, "public-host", "ritaj.app");
   await values.setSecret(production, "db-password", "hunter22");
 
-  const deploys = new Deploys(
+  const credentials = new Kv.Credentials(kv, await Vault.of(KEY));
+  await credentials.set("portal", "JSR_TOKEN", "jsr-secret");
+  const deploys = new Runner(
     projects,
     environments,
     values,
+    credentials,
     checkouts,
     ensemble as unknown as Ensemble,
   );
@@ -65,23 +91,25 @@ async function deployed(ensemble: FakeEnsemble) {
   deploys.OnFinished.Do((run) => finished.resolve(run));
 
   deploys.request(
-    Platform.Run.queue(Platform.Deployment.create({
-      project: "portal",
-      manifest: "web",
-      environment: "production",
-      kit: "compose",
-      version: "1.0.0",
-      termination: "apply",
-    })),
+    Platform.Run.queue(
+      work ?? Platform.Deployment.create({
+        project: "portal",
+        manifest: "web",
+        environment: "production",
+        kit: "compose",
+        version: "1.0.0",
+        termination: "apply",
+      }),
+    ),
   );
   const run = await finished.promise;
   kv.close();
   return { run, states, lines };
 }
 
-Deno.test("Deploys: the environment's values reach ens under the names it reads them by", async () => {
+Deno.test("Runner: the environment's values reach ens under the names it reads them by", async () => {
   const ensemble = new FakeEnsemble();
-  const { run, states } = await deployed(ensemble);
+  const { run, states } = await carriedOut(ensemble);
 
   assertEquals(ensemble.received, {
     PUBLIC_HOST: "ritaj.app",
@@ -92,13 +120,32 @@ Deno.test("Deploys: the environment's values reach ens under the names it reads 
   assertEquals(run.commit, "abc123");
 });
 
-Deno.test("Deploys: a secret's value is masked wherever the run prints it", async () => {
-  const { lines } = await deployed(new FakeEnsemble());
+Deno.test("Runner: a secret's value is masked wherever the run prints it", async () => {
+  const { lines } = await carriedOut(new FakeEnsemble());
   assertEquals(lines, ["0:connecting with ••••", "1:done"]);
 });
 
-Deno.test("Deploys: a failing ens fails the run, with its reason", async () => {
-  const { run } = await deployed(new FakeEnsemble(true));
+Deno.test("Runner: a failing ens fails the run, with its reason", async () => {
+  const { run } = await carriedOut(new FakeEnsemble(true));
   assertEquals(run.state, "failed");
   assertEquals(run.error, "ens deploy exited with code 1.");
+});
+
+Deno.test("Runner: a release runs at the ref's tip, with the project's credentials, masked in its output", async () => {
+  used.length = 0;
+  const ensemble = new FakeEnsemble();
+  const { run, lines } = await carriedOut(
+    ensemble,
+    Platform.Release.create({
+      project: "portal",
+      action: "next",
+      argument: "patch",
+    }),
+  );
+
+  assertEquals(used, ["refreshed"]);
+  assertEquals(ensemble.released, { JSR_TOKEN: "jsr-secret" });
+  assertEquals(lines, ["0:publishing with ••••"]);
+  assertEquals(run.state, "succeeded");
+  assertEquals(run.commit, "def456");
 });
