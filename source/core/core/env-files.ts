@@ -14,17 +14,6 @@ export interface EnvFile {
 }
 
 /**
- * `variables`/`secrets` with `source: environment` are read straight off
- * `Deno.env` at render time (`DeclaredValues`, `composeSecretWiring`) under an
- * uppercase, dash-to-underscore name — so an env file's key goes through the
- * same transform, or a lowercase `frontend_base_url` would sit next to the
- * `FRONTEND_BASE_URL` the render looks up and never be seen.
- */
-function environmentVariableName(name: string): string {
-  return name.toUpperCase().replace(/-/g, "_");
-}
-
-/**
  * A `$NAME`/`${NAME}` in a value @std/dotenv would expand (anything but a
  * single-quoted value) — expansion that silently yields "undefined" for an
  * unknown name, and that env files deliberately don't offer.
@@ -41,6 +30,18 @@ const EXPANDABLE_REFERENCE =
  */
 export class DeploymentEnvironment {
   constructor(private readonly repoRoot: string) {}
+
+  /**
+   * The process environment variable a `variables`/`secrets` entry named
+   * `name` is read from at render time (`DeclaredValues`,
+   * `composeSecretWiring`): uppercase, dash-to-underscore. An env file's key
+   * goes through the same transform, or a lowercase `frontend_base_url`
+   * would sit next to the `FRONTEND_BASE_URL` the render looks up and never
+   * be seen; so does anything supplying values to `ens` from outside.
+   */
+  static variableOf(name: string): string {
+    return name.toUpperCase().replace(/-/g, "_");
+  }
 
   /** `--env-file` paths as the user named them: each one must exist. */
   static required(paths: readonly string[] = []): EnvFile[] {
@@ -88,7 +89,7 @@ export class DeploymentEnvironment {
     }
 
     for (const [key, value] of Object.entries(values)) {
-      const variable = environmentVariableName(key);
+      const variable = DeploymentEnvironment.variableOf(key);
       if (Deno.env.get(variable) !== undefined) continue;
       Deno.env.set(variable, value);
     }
@@ -110,7 +111,7 @@ export class DeploymentEnvironment {
         .map(([name]) => ({ entry: `secrets.${name}`, name })),
     ].map(({ entry, name }) => ({
       entry,
-      variable: environmentVariableName(name),
+      variable: DeploymentEnvironment.variableOf(name),
     }));
 
     const missing = needed.filter(({ variable }) =>
