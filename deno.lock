@@ -3994,6 +3994,7 @@
       "source/apps/platform/server": {
         "dependencies": [
           "jsr:@duesabati/evento@1.0.0",
+          "jsr:@ensemble/core@0.50",
           "jsr:@ensemble/platform@0.50",
           "jsr:@std/assert@1.0.14",
           "jsr:@std/path@1.1.6"
