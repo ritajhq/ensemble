@@ -7,6 +7,8 @@ export interface Configuration {
   readonly database: string;
   /** The built web app's directory. */
   readonly web: string;
+  /** The `ens` binary deploys and releases run. */
+  readonly ens: string;
   /** Seals the secrets environments hold (see `Vault`). */
   readonly secretKey: string;
   /** Lets private repositories be cloned. */
@@ -43,6 +45,7 @@ export class ConfigurationLoader {
       database: this.env.get("PLATFORM_DATABASE") ??
         "/var/lib/ens-platform/platform.kv",
       web: this.env.get("PLATFORM_WEB") ?? this.defaultWeb,
+      ens: this.env.get("ENS_BIN") ?? "ens",
       secretKey,
       ...(githubToken ? { githubToken } : {}),
     };

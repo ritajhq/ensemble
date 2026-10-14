@@ -47,6 +47,7 @@ Deno.test("Discovery: reads each manifest's ships, variables and environment sec
   assertEquals(web.name, "web");
   assertEquals(web.ships, ["web"]);
   assertEquals(web.secrets, ["db-password"]);
+  assertEquals(web.deployable, false);
   assertEquals(web.variables, [
     { name: "domain", list: false, default: "example.com" },
     { name: "ingress_networks", list: true },
@@ -74,4 +75,13 @@ Deno.test("Discovery: a checkout without manifests or kits offers nothing", asyn
   );
   assertEquals(catalog.manifests, []);
   assertEquals(catalog.kits, []);
+});
+
+Deno.test("Discovery: a manifest is deployable once it declares something to bring up", async () => {
+  const root = await checkout({
+    "ci/web/delivery.yml": `${WEB}  storage:\n    data:\n      type: volume\n`,
+  });
+  const [web] = (await Discovery.standard().discover(root, "abc123"))
+    .manifests;
+  assertEquals(web.deployable, true);
 });

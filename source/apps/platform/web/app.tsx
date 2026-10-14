@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -21,35 +21,9 @@ import { useApi } from "./api-provider.tsx";
 import { useLoad } from "./use-load.ts";
 import { AddProject } from "./screens/add-project.tsx";
 import { ProjectScreen } from "./screens/project.tsx";
+import { RunScreen } from "./screens/run.tsx";
 import { Welcome } from "./screens/welcome.tsx";
-
-/** Where the URL's hash points: `#/projects/<id>`, `#/new`, or nowhere yet. */
-type Place =
-  | { readonly kind: "welcome" }
-  | { readonly kind: "new" }
-  | { readonly kind: "project"; readonly id: string };
-
-function placeOf(hash: string): Place {
-  const project = /^#\/projects\/([^/]+)$/.exec(hash);
-  if (project) return { kind: "project", id: decodeURIComponent(project[1]) };
-  if (hash === "#/new") return { kind: "new" };
-  return { kind: "welcome" };
-}
-
-/** The place the URL's hash names, following it as it changes. */
-function usePlace(): Place {
-  const [place, setPlace] = useState(() => placeOf(location.hash));
-  useEffect(() => {
-    const onHash = () => setPlace(placeOf(location.hash));
-    addEventListener("hashchange", onHash);
-    return () => removeEventListener("hashchange", onHash);
-  }, []);
-  return place;
-}
-
-function go(hash: string): void {
-  location.hash = hash;
-}
+import { go, type Place, projectHash, usePlace } from "./places.ts";
 
 /** What each place shows, with its title in the top bar. */
 const SCREENS: {
@@ -65,7 +39,7 @@ const SCREENS: {
       <AddProject
         onAdded={(id) => {
           onProjectsChanged();
-          go(`#/projects/${encodeURIComponent(id)}`);
+          go(projectHash(id));
         }}
       />
     ),
@@ -74,6 +48,7 @@ const SCREENS: {
     title: id,
     body: <ProjectScreen key={id} id={id} />,
   }),
+  run: ({ id }) => ({ title: "Run", body: <RunScreen key={id} id={id} /> }),
 };
 
 /** The platform: its projects in the sidebar, and the screen the URL points at. */
@@ -110,7 +85,7 @@ export function App() {
                       isActive={place.kind === "project" &&
                         place.id === project.id}
                       onClick={() =>
-                        go(`#/projects/${encodeURIComponent(project.id)}`)}
+                        go(projectHash(project.id))}
                     >
                       {project.id}
                     </SidebarMenuButton>

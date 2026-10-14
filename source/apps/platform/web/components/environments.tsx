@@ -18,6 +18,7 @@ import {
   type ValueKind,
 } from "../api.ts";
 import { useApi } from "../api-provider.tsx";
+import { DeployBar } from "./deploy-bar.tsx";
 import { Notice } from "./notice.tsx";
 
 /** One value a manifest declares, as an environment answers it. */
@@ -54,9 +55,13 @@ const KIND_LABELS: Readonly<Record<ValueKind, (declared: Declared) => string>> =
 
 /** A manifest's environments, one tab each, with what each supplies and a way to add another. */
 export function Environments(
-  { project, manifest, onChanged }: {
+  { project, manifest, kits, versions, onChanged }: {
     project: string;
     manifest: Manifest;
+    /** The deploy kits the project's checkout offers. */
+    kits: readonly string[];
+    /** The project's released versions, newest first. */
+    versions: readonly string[];
     onChanged(): void;
   },
 ) {
@@ -80,8 +85,20 @@ export function Environments(
           <TabPanel
             key={environment.id}
             value={environment.name}
-            className="pt-3"
+            className="grid gap-4 pt-3"
           >
+            {manifest.deployable && (
+              <DeployBar
+                at={{
+                  project,
+                  manifest: manifest.name,
+                  environment: environment.name,
+                }}
+                kits={kits}
+                versions={versions}
+                missing={environment.missing.length}
+              />
+            )}
             <EnvironmentValues
               at={{
                 project,

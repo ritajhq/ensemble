@@ -3,6 +3,10 @@ import * as Platform from "@ensemble/platform";
 import { Api } from "./api.ts";
 import * as Kv from "./kv.ts";
 import { Vault } from "./vault.ts";
+import { Checkouts } from "./checkouts.ts";
+import { Deploys } from "./deploys.ts";
+import { Ensemble } from "./ensemble.ts";
+import { RunFeed } from "./run-feed.ts";
 
 const KEY = btoa(String.fromCharCode(...new Uint8Array(32).fill(7)));
 
@@ -18,6 +22,7 @@ async function withApi(
     const catalogs = new Kv.Catalogs(kv);
     const environments = new Kv.Environments(kv);
     const values = new Kv.Values(kv, await Vault.of(KEY));
+    const runs = new Kv.Runs(kv);
     await run(
       new Api(
         new Kv.Projects(kv),
@@ -25,6 +30,18 @@ async function withApi(
         new Kv.Syncs(kv),
         environments,
         values,
+        runs,
+        new Checkouts(await Deno.makeTempDir()),
+        new RunFeed(
+          runs,
+          new Deploys(
+            new Kv.Projects(kv),
+            environments,
+            values,
+            new Checkouts(await Deno.makeTempDir()),
+            new Ensemble("ens"),
+          ),
+        ),
       ),
       { catalogs, environments, values },
     );
@@ -90,7 +107,7 @@ Deno.test("Api: a project shows each manifest it offers with that manifest's env
     await api.handle(
       post("/api/projects", { id: "portal", repository: "ritajhq/portal" }),
     );
-    const manifest = new Platform.Manifest("web", ["web"], [], ["db"]);
+    const manifest = new Platform.Manifest("web", ["web"], [], ["db"], true);
     await catalogs.save(
       "portal",
       new Platform.Catalog("abc123", [manifest], [], ["compose"]),
@@ -156,6 +173,7 @@ async function withPortal(
       ["web"],
       [{ name: "domain", list: false }],
       ["db-password"],
+      true,
     );
     await catalogs.save(
       "portal",
@@ -254,6 +272,41 @@ Deno.test("Api: another environment is added once per name, and starts with noth
       ))
         .status,
       404,
+    );
+  });
+});
+
+Deno.test("Api: a deploy is queued for an environment with one of the project's kits, and announced", async () => {
+  await withPortal(async (api) => {
+    const requested: string[] = [];
+    api.OnDeployRequested.Do((run) => requested.push(run.id));
+
+    const accepted = await api.handle(
+      post(`${PRODUCTION}/deploys`, { kit: "compose", version: "1.0.0" }),
+    );
+    assertEquals(accepted.status, 202);
+    const run = await accepted.json();
+    assertEquals(run.state, "queued");
+    assertEquals(run.deployment.termination, "apply");
+    assertEquals(requested, [run.id]);
+
+    const listed = await (await api.handle(get("/api/projects/portal/runs")))
+      .json();
+    assertEquals(listed.map((r: { id: string }) => r.id), [run.id]);
+  });
+});
+
+Deno.test("Api: a deploy with a kit the project doesn't have, or that neither plans nor applies, is refused", async () => {
+  await withPortal(async (api) => {
+    assertEquals(
+      (await api.handle(post(`${PRODUCTION}/deploys`, { kit: "aws" }))).status,
+      400,
+    );
+    assertEquals(
+      (await api.handle(
+        post(`${PRODUCTION}/deploys`, { kit: "compose", termination: "nuke" }),
+      )).status,
+      400,
     );
   });
 });

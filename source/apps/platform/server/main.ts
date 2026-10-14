@@ -2,8 +2,11 @@ import { dirname } from "@std/path";
 import * as Platform from "@ensemble/platform";
 import { Api } from "./api.ts";
 import { Checkouts } from "./checkouts.ts";
+import { Deploys } from "./deploys.ts";
+import { Ensemble } from "./ensemble.ts";
 import { ConfigurationLoader } from "./config.ts";
 import * as Kv from "./kv.ts";
+import { RunFeed } from "./run-feed.ts";
 import { Server, WebApp } from "./server.ts";
 import { Synchronization } from "./synchronization.ts";
 import { Vault } from "./vault.ts";
@@ -20,18 +23,46 @@ const catalogs = new Kv.Catalogs(kv);
 const syncs = new Kv.Syncs(kv);
 const environments = new Kv.Environments(kv);
 const values = new Kv.Values(kv, await Vault.of(configuration.secretKey));
+const runs = new Kv.Runs(kv);
 
+const checkouts = new Checkouts(
+  configuration.workspace,
+  configuration.githubToken,
+);
 const synchronization = new Synchronization(
-  new Checkouts(configuration.workspace, configuration.githubToken),
+  checkouts,
   Platform.Discovery.standard(),
 );
-const api = new Api(projects, catalogs, syncs, environments, values);
+const deploys = new Deploys(
+  projects,
+  environments,
+  values,
+  checkouts,
+  new Ensemble(configuration.ens),
+);
+const api = new Api(
+  projects,
+  catalogs,
+  syncs,
+  environments,
+  values,
+  runs,
+  checkouts,
+  new RunFeed(runs, deploys),
+);
 
 // What the platform does, in response to what it's asked: a project added or
 // a sync asked for brings its checkout up to date; a sync's outcome is kept,
 // and every manifest it found gets its first environment.
 api.OnProjectAdded.Do((project) => synchronization.request(project));
 api.OnSyncRequested.Do((project) => synchronization.request(project));
+
+// A deploy asked for is carried out once its project's checkout is free;
+// each step it takes, and each line it prints, is kept.
+api.OnDeployRequested.Do((run) => deploys.request(run));
+deploys.OnStarted.Do((run) => runs.save(run));
+deploys.OnPrinted.Do((run, index, line) => runs.addLine(run.id, index, line));
+deploys.OnFinished.Do((run) => runs.save(run));
 
 synchronization.OnStarted.Do((project) =>
   syncs.record(project.id, { state: "syncing", at: now() })

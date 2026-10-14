@@ -53,6 +53,7 @@ export class Catalogs {
         ships: [...manifest.ships],
         variables: [...manifest.variables],
         secrets: [...manifest.secrets],
+        deployable: manifest.deployable,
       })),
       problems: [...catalog.problems],
       kits: [...catalog.kits],
@@ -71,6 +72,7 @@ export class Catalogs {
           manifest.ships,
           manifest.variables,
           manifest.secrets,
+          manifest.deployable,
         )
       ),
       value.problems,
@@ -86,6 +88,7 @@ interface CatalogRecord {
     readonly ships: readonly string[];
     readonly variables: readonly Platform.DeclaredVariable[];
     readonly secrets: readonly string[];
+    readonly deployable: boolean;
   }[];
   readonly problems: readonly Platform.Problem[];
   readonly kits: readonly string[];
@@ -267,4 +270,123 @@ export class Values {
       ? await this.vault.open(value, [environment.id, name])
       : undefined;
   }
+}
+
+/** The longest a kept log line gets; anything past it is cut. */
+const MAX_LINE = 8_000;
+
+/**
+ * Every run, the order each project's were queued in, and what each printed.
+ * One run's writes land in the order they were asked for, so its final state
+ * is never overwritten by an earlier one, and follows every line it printed.
+ */
+export class Runs {
+  private readonly writes = new Map<string, Promise<unknown>>();
+
+  constructor(private readonly kv: Deno.Kv) {}
+
+  save(run: Platform.Run): Promise<void> {
+    return this.inOrder(run.id, async () => {
+      await this.kv.atomic()
+        .set(["runs", run.id], this.recordOf(run))
+        .set(
+          ["project-runs", run.deployment.project, run.queuedAt, run.id],
+          run.id,
+        )
+        .commit();
+    });
+  }
+
+  async get(id: string): Promise<Platform.Run | undefined> {
+    const { value } = await this.kv.get<RunRecord>(["runs", id]);
+    return value ? this.restore(value) : undefined;
+  }
+
+  /** A project's runs, newest first. */
+  async of(project: string, limit = 50): Promise<Platform.Run[]> {
+    const runs: Platform.Run[] = [];
+    const ids = this.kv.list<string>(
+      { prefix: ["project-runs", project] },
+      { reverse: true, limit },
+    );
+    for await (const entry of ids) {
+      const run = await this.get(entry.value);
+      if (run) runs.push(run);
+    }
+    return runs;
+  }
+
+  addLine(run: string, index: number, line: string): Promise<void> {
+    return this.inOrder(run, async () => {
+      await this.kv.set(["run-lines", run, index], line.slice(0, MAX_LINE));
+    });
+  }
+
+  /** What `run` printed, from line `from` on. */
+  async lines(run: string, from = 0): Promise<string[]> {
+    const lines: string[] = [];
+    const entries = this.kv.list<string>({
+      start: ["run-lines", run, from],
+      end: ["run-lines", run, Number.MAX_SAFE_INTEGER],
+    });
+    for await (const entry of entries) lines.push(entry.value);
+    return lines;
+  }
+
+  private inOrder(run: string, write: () => Promise<void>): Promise<void> {
+    const previous = this.writes.get(run) ?? Promise.resolve();
+    const next = previous.then(write, write);
+    this.writes.set(run, next);
+    const forget = () => {
+      if (this.writes.get(run) === next) this.writes.delete(run);
+    };
+    next.then(forget, forget);
+    return next;
+  }
+
+  private recordOf(run: Platform.Run): RunRecord {
+    const { deployment } = run;
+    return {
+      id: run.id,
+      state: run.state,
+      queuedAt: run.queuedAt,
+      startedAt: run.startedAt,
+      finishedAt: run.finishedAt,
+      commit: run.commit,
+      error: run.error,
+      deployment: {
+        project: deployment.project,
+        manifest: deployment.manifest,
+        environment: deployment.environment,
+        kit: deployment.kit,
+        version: deployment.version,
+        termination: deployment.termination,
+      },
+    };
+  }
+
+  private restore(record: RunRecord): Platform.Run {
+    return Platform.Run.restore({
+      ...record,
+      deployment: Platform.Deployment.create(record.deployment),
+    });
+  }
+}
+
+interface RunRecord {
+  readonly id: string;
+  readonly state: Platform.RunState;
+  readonly queuedAt: string;
+  readonly startedAt?: string;
+  readonly finishedAt?: string;
+  readonly commit?: string;
+  readonly error?: string;
+  readonly deployment: {
+    readonly project: string;
+    readonly manifest: string;
+    readonly environment: string;
+    readonly kit: string;
+    readonly version: string;
+    readonly termination: string;
+  };
 }

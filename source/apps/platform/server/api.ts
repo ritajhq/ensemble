@@ -1,6 +1,8 @@
 import { Delegate, type Emitter } from "@duesabati/evento";
 import * as Platform from "@ensemble/platform";
+import type { Checkouts } from "./checkouts.ts";
 import type * as Kv from "./kv.ts";
+import { type RunFeed, RunView } from "./run-feed.ts";
 
 type Params = Readonly<Record<string, string | undefined>>;
 
@@ -45,6 +47,7 @@ const VALUE_KINDS: Readonly<Record<string, ValueKind>> = {
 
 const ENVIRONMENT = "/api/projects/:id/manifests/:manifest/environments";
 const VALUE = `${ENVIRONMENT}/:environment/:kind(variables|secrets)/:name`;
+const DEPLOYS = `${ENVIRONMENT}/:environment/deploys`;
 
 /** Where an environment is, once every step to it was found. */
 interface Located {
@@ -56,7 +59,8 @@ interface Located {
  * The platform's JSON API under `/api`. Reads answer from the stores
  * directly, and so do edits to what is stored; what someone asks the
  * platform to *do* is announced as an event (`OnProjectAdded`,
- * `OnSyncRequested`), which whoever was wired to it acts on.
+ * `OnSyncRequested`, `OnDeployRequested`), which whoever was wired to it
+ * acts on.
  *
  * A secret's value goes in, never out: a project shows which secrets each
  * environment holds, not what they are.
@@ -64,6 +68,7 @@ interface Located {
 export class Api {
   private readonly projectAdded = new Delegate<[Platform.Project]>();
   private readonly syncRequested = new Delegate<[Platform.Project]>();
+  private readonly deployRequested = new Delegate<[Platform.Run]>();
   private readonly routes: readonly Route[];
 
   constructor(
@@ -72,6 +77,9 @@ export class Api {
     private readonly syncs: Kv.Syncs,
     private readonly environments: Kv.Environments,
     private readonly values: Kv.Values,
+    private readonly runs: Kv.Runs,
+    private readonly checkouts: Checkouts,
+    private readonly feed: RunFeed,
   ) {
     this.routes = [
       this.route("GET", "/api/projects", () => this.listProjects()),
@@ -97,6 +105,27 @@ export class Api {
         (request, params) => this.setValue(request, params),
       ),
       this.route("DELETE", VALUE, (_, params) => this.unsetValue(params)),
+      this.route(
+        "GET",
+        "/api/projects/:id/versions",
+        (_, { id }) => this.versions(id!),
+      ),
+      this.route(
+        "POST",
+        DEPLOYS,
+        (request, params) => this.requestDeploy(request, params),
+      ),
+      this.route(
+        "GET",
+        "/api/projects/:id/runs",
+        (_, { id }) => this.projectRuns(id!),
+      ),
+      this.route("GET", "/api/runs/:run", (_, { run }) => this.run(run!)),
+      this.route(
+        "GET",
+        "/api/runs/:run/events",
+        (_, { run }) => this.followRun(run!),
+      ),
     ];
   }
 
@@ -108,6 +137,11 @@ export class Api {
   /** Someone asked for a project to be brought up to date with its ref. */
   get OnSyncRequested(): Emitter<[Platform.Project]> {
     return this.syncRequested;
+  }
+
+  /** A deploy was asked for and queued; it hasn't started. */
+  get OnDeployRequested(): Emitter<[Platform.Run]> {
+    return this.deployRequested;
   }
 
   async handle(request: Request): Promise<Response> {
@@ -176,6 +210,7 @@ export class Api {
             ships: manifest.ships,
             variables: manifest.variables,
             secrets: manifest.secrets,
+            deployable: manifest.deployable,
             environments: await Promise.all(
               environments
                 .filter((environment) => environment.manifest === manifest.name)
@@ -269,6 +304,64 @@ export class Api {
       params.name!,
     );
     return new Response(null, { status: 204 });
+  }
+
+  private async versions(id: string): Promise<Response> {
+    const project = await this.projects.get(id);
+    if (!project) return json({ error: "No such project" }, 404);
+    try {
+      return json(await this.checkouts.versions(project));
+    } catch (error) {
+      return json({ error: messageOf(error) }, 502);
+    }
+  }
+
+  private async requestDeploy(
+    request: Request,
+    params: Params,
+  ): Promise<Response> {
+    const located = await this.locate(params);
+    if (located instanceof Response) return located;
+    const catalog = await this.catalogs.of(params.id!);
+
+    let deployment: Platform.Deployment;
+    try {
+      const body = await request.json();
+      deployment = Platform.Deployment.create({
+        project: params.id!,
+        manifest: located.manifest.name,
+        environment: located.environment.name,
+        kit: String(body.kit ?? ""),
+        version: String(body.version || "latest"),
+        termination: String(body.termination ?? "apply"),
+      });
+    } catch (error) {
+      return json({ error: messageOf(error) }, 400);
+    }
+    if (!catalog?.kits.includes(deployment.kit)) {
+      return json({
+        error: `"${params.id}" has no deploy kit "${deployment.kit}".`,
+      }, 400);
+    }
+
+    const run = Platform.Run.queue(deployment);
+    await this.runs.save(run);
+    this.deployRequested.Invoke(run);
+    return json(RunView.of(run), 202);
+  }
+
+  private async projectRuns(id: string): Promise<Response> {
+    return json((await this.runs.of(id)).map((run) => RunView.of(run)));
+  }
+
+  private async run(id: string): Promise<Response> {
+    const run = await this.runs.get(id);
+    if (!run) return json({ error: "No such run" }, 404);
+    return json({ ...RunView.of(run), lines: await this.runs.lines(id) });
+  }
+
+  private async followRun(id: string): Promise<Response> {
+    return await this.feed.follow(id) ?? json({ error: "No such run" }, 404);
   }
 
   /** The manifest `params` name, as the project's last sync found it. */

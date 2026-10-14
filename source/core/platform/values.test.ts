@@ -10,6 +10,7 @@ const manifest = new Manifest(
     { name: "replicas", list: false, default: "1" },
   ],
   ["db-password"],
+  true,
 );
 
 Deno.test("Values: a variable without a default and every secret must be supplied", () => {

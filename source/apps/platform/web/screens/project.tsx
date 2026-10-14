@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { Badge, Button, useIcon } from "@ritaj/ui";
-import { describe, type Manifest, type Sync } from "../api.ts";
+import { describe, type Manifest, type Run, type Sync } from "../api.ts";
 import { useApi } from "../api-provider.tsx";
 import { Environments } from "../components/environments.tsx";
 import { Notice } from "../components/notice.tsx";
 import { Panel } from "../components/panel.tsx";
+import { RunBadge } from "../components/run-badge.tsx";
+import { runHash } from "../places.ts";
 import { useLoad } from "../use-load.ts";
 
 /** How often a project is looked at again while it syncs. */
@@ -23,6 +25,8 @@ const SYNC_BADGES: Readonly<
 export function ProjectScreen({ id }: { id: string }) {
   const api = useApi();
   const project = useLoad(() => api.project(id), [id]);
+  const versions = useLoad(() => api.versions(id), [id]);
+  const runs = useLoad(() => api.runs(id), [id]);
   const [error, setError] = useState<string | undefined>();
   const SyncIcon = useIcon("rotate-ccw");
 
@@ -120,18 +124,58 @@ export function ProjectScreen({ id }: { id: string }) {
           key={manifest.name}
           project={id}
           manifest={manifest}
+          kits={catalog.kits}
+          versions={versions.value ?? []}
           onChanged={project.reload}
         />
       ))}
+
+      <RunsPanel runs={runs.value ?? []} />
     </>
+  );
+}
+
+/** The project's latest runs, newest first, each opening its own log. */
+function RunsPanel({ runs }: { runs: readonly Run[] }) {
+  return (
+    <Panel title="Runs" description="Deploys and plans, newest first">
+      {runs.length === 0 && (
+        <p className="text-body text-muted-foreground">Nothing run yet</p>
+      )}
+      {runs.length > 0 && (
+        <div className="grid gap-1">
+          {runs.map((run) => (
+            <a
+              key={run.id}
+              href={runHash(run.id)}
+              className="flex flex-wrap items-center gap-2 rounded-md px-2 py-1 text-body hover:bg-accent"
+            >
+              <RunBadge state={run.state} />
+              <span className="font-medium">
+                {run.deployment.termination === "plan" ? "Plan" : "Deploy"}{" "}
+                {run.deployment.manifest} → {run.deployment.environment}
+              </span>
+              <span className="text-muted-foreground">
+                {run.deployment.kit} · {run.deployment.version}
+              </span>
+              <span className="ml-auto text-caption text-muted-foreground">
+                {new Date(run.queuedAt).toLocaleString()}
+              </span>
+            </a>
+          ))}
+        </div>
+      )}
+    </Panel>
   );
 }
 
 /** One delivery manifest: what it releases, and what each of its environments supplies. */
 function ManifestPanel(
-  { project, manifest, onChanged }: {
+  { project, manifest, kits, versions, onChanged }: {
     project: string;
     manifest: Manifest;
+    kits: readonly string[];
+    versions: readonly string[];
     onChanged(): void;
   },
 ) {
@@ -152,6 +196,8 @@ function ManifestPanel(
       <Environments
         project={project}
         manifest={manifest}
+        kits={kits}
+        versions={versions}
         onChanged={onChanged}
       />
     </Panel>

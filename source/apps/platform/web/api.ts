@@ -33,6 +33,8 @@ export interface Manifest {
   readonly ships: readonly string[];
   readonly variables: readonly Variable[];
   readonly secrets: readonly string[];
+  /** Whether it declares anything to deploy: a manifest may only release. */
+  readonly deployable: boolean;
   readonly environments: readonly Environment[];
 }
 
@@ -53,6 +55,33 @@ export interface Project extends ProjectSummary {
     readonly problems: readonly { manifest: string; message: string }[];
     readonly manifests: readonly Manifest[];
   };
+}
+
+export type Termination = "plan" | "apply";
+export type RunState = "queued" | "running" | "succeeded" | "failed";
+
+/** One time a deployment was carried out. */
+export interface Run {
+  readonly id: string;
+  readonly state: RunState;
+  readonly queuedAt: string;
+  readonly startedAt?: string;
+  readonly finishedAt?: string;
+  readonly commit?: string;
+  readonly error?: string;
+  readonly deployment: {
+    readonly project: string;
+    readonly manifest: string;
+    readonly environment: string;
+    readonly kit: string;
+    readonly version: string;
+    readonly termination: Termination;
+  };
+}
+
+/** A run with everything it printed so far. */
+export interface RunWithLines extends Run {
+  readonly lines: readonly string[];
 }
 
 /** Thrown when the platform refuses a request, with its own reason. */
@@ -112,6 +141,44 @@ export class Api {
     name: string,
   ): Promise<void> {
     return this.call("DELETE", this.valuePath(at, kind, name));
+  }
+
+  /** The project's released versions, newest first. */
+  versions(project: string): Promise<string[]> {
+    return this.call(
+      "GET",
+      `/api/projects/${encodeURIComponent(project)}/versions`,
+    );
+  }
+
+  deploy(
+    at: EnvironmentPath,
+    request: { kit: string; version: string; termination: Termination },
+  ): Promise<Run> {
+    return this.call(
+      "POST",
+      `${this.manifestPath(at.project, at.manifest)}/environments/${
+        encodeURIComponent(at.environment)
+      }/deploys`,
+      request,
+    );
+  }
+
+  /** A project's runs, newest first. */
+  runs(project: string): Promise<Run[]> {
+    return this.call(
+      "GET",
+      `/api/projects/${encodeURIComponent(project)}/runs`,
+    );
+  }
+
+  run(id: string): Promise<RunWithLines> {
+    return this.call("GET", `/api/runs/${encodeURIComponent(id)}`);
+  }
+
+  /** Where a run's progress is streamed from, as server-sent events. */
+  runEvents(id: string): string {
+    return `${this.origin}/api/runs/${encodeURIComponent(id)}/events`;
   }
 
   private manifestPath(project: string, manifest: string): string {

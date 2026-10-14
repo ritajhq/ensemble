@@ -1,5 +1,14 @@
 import type * as Deploy from "@ensemble/core/deploy";
 
+/** The categories a deploy brings something up for; the others only feed them. */
+const PROVISIONED = [
+  "compute",
+  "storage",
+  "databases",
+  "messaging",
+  "networking",
+] as const;
+
 /** A `variables` entry as an environment has to answer it. */
 export interface DeclaredVariable {
   readonly name: string;
@@ -21,6 +30,8 @@ export class Manifest {
     readonly variables: readonly DeclaredVariable[],
     /** Names of its `secrets` entries read from the environment. */
     readonly secrets: readonly string[],
+    /** Whether it declares anything to deploy: a manifest may only release. */
+    readonly deployable: boolean,
   ) {}
 
   /** Whether an environment of this manifest can be given a value for `variable`. */
@@ -47,6 +58,9 @@ export class Manifest {
       Object.entries(workload.secrets ?? {})
         .filter(([, declared]) => declared.source === "environment")
         .map(([secret]) => secret),
+      PROVISIONED.some((category) =>
+        Object.keys(workload[category] ?? {}).length > 0
+      ),
     );
   }
 }
