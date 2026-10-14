@@ -102,6 +102,17 @@ export interface RunWithLines extends Run {
   readonly lines: readonly string[];
 }
 
+/** What the router routes: each host to the deployment answering for it, and what it was told it couldn't. */
+export interface RoutingTable {
+  readonly routes: readonly {
+    readonly host: string;
+    readonly owner: string;
+    readonly upstream: { alias: string; port: number; scheme: string };
+  }[];
+  readonly conflicts: readonly { host: string; owners: readonly string[] }[];
+  readonly rejections: readonly { owner: string; value: string }[];
+}
+
 /** Thrown when the platform refuses a request, with its own reason. */
 export class Refusal extends Error {
   constructor(message: string, readonly status: number) {
@@ -205,6 +216,10 @@ export class Api {
     return `/api/projects/${encodeURIComponent(project)}/credentials/${
       encodeURIComponent(name)
     }`;
+  }
+
+  routes(): Promise<RoutingTable> {
+    return this.call("GET", "/api/routes");
   }
 
   /** A project's runs, newest first. */

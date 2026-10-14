@@ -17,3 +17,11 @@ export {
   Release,
   type ReleaseAction,
 } from "./release.ts";
+export {
+  type Conflict,
+  type Ingresses,
+  type Rejection,
+  type Route,
+  RoutingTable,
+  type Upstream,
+} from "./routing-table.ts";

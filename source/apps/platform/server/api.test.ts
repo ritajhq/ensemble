@@ -6,6 +6,7 @@ import { Vault } from "./vault.ts";
 import { Checkouts } from "./checkouts.ts";
 import { Runner } from "./runner.ts";
 import { Ensemble } from "./ensemble.ts";
+import { Router } from "./router.ts";
 import { RunFeed } from "./run-feed.ts";
 
 const KEY = btoa(String.fromCharCode(...new Uint8Array(32).fill(7)));
@@ -45,6 +46,10 @@ async function withApi(
             checkouts,
             new Ensemble("ens", { name: "t", email: "t@t" }),
           ),
+        ),
+        new Router(
+          new Kv.Ingresses(kv),
+          `${await Deno.makeTempDir()}/Caddyfile`,
         ),
       ),
       { catalogs, environments, values },

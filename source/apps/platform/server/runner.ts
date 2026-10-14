@@ -1,5 +1,5 @@
 import { Delegate, type Emitter } from "@duesabati/evento";
-import { DeploymentEnvironment } from "@ensemble/core";
+import { DeploymentEnvironment, IngressFile, Instance } from "@ensemble/core";
 import type * as Platform from "@ensemble/platform";
 import type { Checkout, Checkouts } from "./checkouts.ts";
 import type { Ensemble } from "./ensemble.ts";
@@ -53,6 +53,19 @@ export class Runner {
   private readonly started = new Delegate<[Platform.Run]>();
   private readonly printed = new Delegate<[Platform.Run, number, string]>();
   private readonly finished = new Delegate<[Platform.Run]>();
+  private readonly deployed = new Delegate<
+    [Platform.Deployment, Platform.Ingresses["ingresses"]]
+  >();
+  /** What follows each termination of a deploy that succeeded: an apply changed what runs, so where it answers is read again; a plan changed nothing. */
+  private readonly after: Readonly<
+    Record<
+      Platform.Termination,
+      (deployment: Platform.Deployment, checkout: string) => Promise<void>
+    >
+  > = {
+    apply: (deployment, checkout) => this.recordIngresses(deployment, checkout),
+    plan: () => Promise.resolve(),
+  };
   private readonly handlings: {
     readonly [K in Platform.Work["kind"]]: Handling<
       Extract<Platform.Work, { kind: K }>
@@ -71,8 +84,10 @@ export class Runner {
       deploy: {
         prepare: (deployment) => this.environmentValues(deployment),
         checkout: (project, perform) => checkouts.use(project, perform),
-        perform: (deployment, checkout, values, onLine) =>
-          ensemble.deploy(deployment, checkout, values, onLine),
+        perform: async (deployment, checkout, values, onLine) => {
+          await ensemble.deploy(deployment, checkout, values, onLine);
+          await this.after[deployment.termination](deployment, checkout);
+        },
       },
       release: {
         prepare: (release) => this.releaseCredentials(release),
@@ -94,6 +109,26 @@ export class Runner {
 
   get OnFinished(): Emitter<[Platform.Run]> {
     return this.finished;
+  }
+
+  /** An applied deploy is up, answering where its ingress record says. */
+  get OnDeployed(): Emitter<
+    [Platform.Deployment, Platform.Ingresses["ingresses"]]
+  > {
+    return this.deployed;
+  }
+
+  /** Reads where `deployment` now answers, as `ens deploy` recorded it in the checkout, and says so. */
+  private async recordIngresses(
+    deployment: Platform.Deployment,
+    checkout: string,
+  ): Promise<void> {
+    const scope = deployment.instance
+      ? Instance.parse(deployment.instance).scope(deployment.manifest)
+      : deployment.manifest;
+    const record = await IngressFile.for(checkout, scope, deployment.kit)
+      .read();
+    this.deployed.Invoke(deployment, record?.ingresses ?? []);
   }
 
   /** Carry out `run`, once its project's checkout is free. */

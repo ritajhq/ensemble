@@ -7,6 +7,10 @@ export interface Configuration {
   readonly database: string;
   /** The built web app's directory. */
   readonly web: string;
+  /** The Caddyfile the router reads: in a volume the router alone shares with the platform. */
+  readonly routerConfiguration: string;
+  /** The host the platform's own UI answers on, and where the router reaches it (`http://platform:8090`, or a guard in front of it). None: the router routes deployments only. */
+  readonly own?: { readonly host: string; readonly upstream: URL };
   /** The `ens` binary deploys and releases run. */
   readonly ens: string;
   /** Who a release's commits and tags are made as. */
@@ -35,6 +39,7 @@ export class ConfigurationLoader {
 
   load(): Configuration {
     const githubToken = this.env.get("GITHUB_TOKEN");
+    const host = this.env.get("PLATFORM_HOST");
     const secretKey = this.env.get("PLATFORM_SECRET_KEY");
     if (!secretKey) {
       throw new MissingConfigurationError(
@@ -47,6 +52,8 @@ export class ConfigurationLoader {
       database: this.env.get("PLATFORM_DATABASE") ??
         "/var/lib/ens-platform/platform.kv",
       web: this.env.get("PLATFORM_WEB") ?? this.defaultWeb,
+      routerConfiguration: this.env.get("PLATFORM_ROUTER_CONFIG") ??
+        "/var/lib/ens-platform/router/Caddyfile",
       ens: this.env.get("ENS_BIN") ?? "ens",
       releaser: {
         name: this.env.get("PLATFORM_GIT_NAME") ?? "ensemble platform",
@@ -55,6 +62,16 @@ export class ConfigurationLoader {
       },
       secretKey,
       ...(githubToken ? { githubToken } : {}),
+      ...(host
+        ? {
+          own: {
+            host,
+            upstream: new URL(
+              this.env.get("PLATFORM_UPSTREAM") ?? "http://platform:8090",
+            ),
+          },
+        }
+        : {}),
     };
   }
 }

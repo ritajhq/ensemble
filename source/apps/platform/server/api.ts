@@ -2,6 +2,7 @@ import { Delegate, type Emitter } from "@duesabati/evento";
 import * as Platform from "@ensemble/platform";
 import type { Checkouts } from "./checkouts.ts";
 import type * as Kv from "./kv.ts";
+import type { Router } from "./router.ts";
 import { type RunFeed, RunView } from "./run-feed.ts";
 
 type Params = Readonly<Record<string, string | undefined>>;
@@ -83,6 +84,7 @@ export class Api {
     private readonly runs: Kv.Runs,
     private readonly checkouts: Checkouts,
     private readonly feed: RunFeed,
+    private readonly router: Router,
   ) {
     this.routes = [
       this.route("GET", "/api/projects", () => this.listProjects()),
@@ -138,6 +140,7 @@ export class Api {
         "/api/projects/:id/runs",
         (_, { id }) => this.projectRuns(id!),
       ),
+      this.route("GET", "/api/routes", () => this.routingTable()),
       this.route("GET", "/api/runs/:run", (_, { run }) => this.run(run!)),
       this.route(
         "GET",
@@ -416,6 +419,16 @@ export class Api {
   private async unsetCredential(params: Params): Promise<Response> {
     await this.credentials.unset(params.id!, params.name!);
     return new Response(null, { status: 204 });
+  }
+
+  /** What the router routes, and what it was told it couldn't. */
+  private async routingTable(): Promise<Response> {
+    const table = await this.router.table();
+    return json({
+      routes: table.routes,
+      conflicts: table.conflicts,
+      rejections: table.rejections,
+    });
   }
 
   private async projectRuns(id: string): Promise<Response> {

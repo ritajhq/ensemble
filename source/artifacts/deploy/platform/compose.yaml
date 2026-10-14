@@ -1,0 +1,35 @@
+services:
+  platform:
+    image: 'platform:latest'
+    environment:
+      PORT: '8090'
+      PLATFORM_WORKSPACE: /var/lib/ens-platform/workspace
+      PLATFORM_DATABASE: /var/lib/ens-platform/platform.kv
+      PLATFORM_ROUTER_CONFIG: /router/Caddyfile
+      PLATFORM_HOST: platform.ensemble.blue
+      PLATFORM_GIT_NAME: ensemble platform
+      PLATFORM_GIT_EMAIL: platform@ensemble.blue
+      PLATFORM_SECRET_KEY: '${PLATFORM_SECRET_KEY:?}'
+      GITHUB_TOKEN: '${GITHUB_TOKEN:?}'
+    networks:
+      - platform
+    volumes:
+      - 'platform-data:/var/lib/ens-platform'
+      - 'router-config:/router'
+      - '/var/run/docker.sock:/var/run/docker.sock'
+  router:
+    image: 'platform-router:latest'
+    environment: {}
+    networks:
+      - ingress
+      - platform
+    volumes:
+      - 'router-config:/router:ro'
+volumes:
+  platform-data: {}
+  router-config: {}
+networks:
+  platform:
+    external: true
+  ingress:
+    external: true

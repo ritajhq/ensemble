@@ -6,6 +6,7 @@ import { Runner } from "./runner.ts";
 import { Ensemble } from "./ensemble.ts";
 import { ConfigurationLoader } from "./config.ts";
 import * as Kv from "./kv.ts";
+import { Router } from "./router.ts";
 import { RunFeed } from "./run-feed.ts";
 import { Server, WebApp } from "./server.ts";
 import { Synchronization } from "./synchronization.ts";
@@ -26,6 +27,21 @@ const vault = await Vault.of(configuration.secretKey);
 const values = new Kv.Values(kv, vault);
 const credentials = new Kv.Credentials(kv, vault);
 const runs = new Kv.Runs(kv);
+const router = new Router(
+  new Kv.Ingresses(kv),
+  configuration.routerConfiguration,
+  configuration.own
+    ? [{
+      owner: "platform",
+      ingresses: [{
+        alias: configuration.own.upstream.hostname,
+        port: Number(configuration.own.upstream.port || 80),
+        scheme: "http",
+        hosts: [configuration.own.host],
+      }],
+    }]
+    : [],
+);
 
 const checkouts = new Checkouts(
   configuration.workspace,
@@ -56,6 +72,7 @@ const api = new Api(
   runs,
   checkouts,
   new RunFeed(runs, runner),
+  router,
 );
 
 // What the platform does, in response to what it's asked: a project added or
@@ -70,6 +87,13 @@ api.OnRunRequested.Do((run) => runner.request(run));
 runner.OnStarted.Do((run) => runs.save(run));
 runner.OnPrinted.Do((run, index, line) => runs.addLine(run.id, index, line));
 runner.OnFinished.Do((run) => runs.save(run));
+
+// An applied deploy answers where it recorded; the router is told, and so
+// routes to it from then on.
+runner.OnDeployed.Do((deployment, ingresses) =>
+  router.deployed(deployment, ingresses)
+);
+await router.publish();
 
 synchronization.OnStarted.Do((project) =>
   syncs.record(project.id, { state: "syncing", at: now() })

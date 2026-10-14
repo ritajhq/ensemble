@@ -1,0 +1,100 @@
+# yaml-language-server: $schema=../../docs/delivery.schema.json
+version: v1
+
+# The platform and the router in front of every deployment it makes, as one
+# stack. Bring it up once per host, with `--emulate-externals` the first time
+# so the `ingress` and `platform` networks exist:
+#
+#   export PLATFORM_SECRET_KEY=$(openssl rand -base64 32)   # keep it: secrets sealed with one key open with no other
+#   export GITHUB_TOKEN=…                                    # clones private repositories, pushes releases
+#   ens deploy platform compose --artifacts local --emulate-externals
+#
+# The router answers plain HTTP on the ingress network; point the tunnel at
+# router:80 there. TLS ends at the tunnel.
+release:
+  platform:
+    kit: docker
+  platform-router:
+    kit: docker
+
+deploy:
+  compute:
+    platform:
+      type: container-orchestrated
+      image: ${release.platform}
+      replicas: 1
+      ports:
+        http: 8090
+      # Reached by the router alone: never on the ingress network, where
+      # every deployment is.
+      networks:
+        - ${external.platform.name}
+      env:
+        PORT: "8090"
+        PLATFORM_WORKSPACE: /var/lib/ens-platform/workspace
+        PLATFORM_DATABASE: /var/lib/ens-platform/platform.kv
+        PLATFORM_ROUTER_CONFIG: /router/Caddyfile
+        PLATFORM_HOST: ${variables.platform_host.value}
+        PLATFORM_GIT_NAME: ${variables.git_name.value}
+        PLATFORM_GIT_EMAIL: ${variables.git_email.value}
+      envSecrets:
+        PLATFORM_SECRET_KEY: platform-secret-key
+        GITHUB_TOKEN: github-token
+      mounts:
+        - source: ${storage.platform-data.name}
+          path: /var/lib/ens-platform
+        - source: ${storage.router-config.name}
+          path: /router
+        # The host's Docker daemon, which every deploy and release pack runs
+        # against. A host path, which the container-orchestrated contract
+        # doesn't model: it works on compose, which takes it as a bind mount.
+        - source: /var/run/docker.sock
+          path: /var/run/docker.sock
+
+    # Joins the ingress network every deployment's gateway is on, and the
+    # platform's, where it reaches the platform. It reads its configuration
+    # from the platform alone.
+    router:
+      type: container-orchestrated
+      image: ${release.platform-router}
+      replicas: 1
+      ports:
+        http: 80
+      networks:
+        - ${external.ingress.name}
+        - ${external.platform.name}
+      mounts:
+        - source: ${storage.router-config.name}
+          path: /router
+          readOnly: true
+
+  storage:
+    # Checkouts, and the platform's own database.
+    platform-data:
+      type: volume
+    # The router's Caddyfile, written by the platform.
+    router-config:
+      type: volume
+
+  secrets:
+    platform-secret-key:
+      source: environment
+    github-token:
+      source: environment
+
+  variables:
+    platform_host:
+      default: platform.ensemble.blue
+    git_name:
+      default: ensemble platform
+    git_email:
+      default: platform@ensemble.blue
+
+  external:
+    ingress:
+      type: network
+      name: ingress
+    # The router and the platform, alone.
+    platform:
+      type: network
+      name: platform

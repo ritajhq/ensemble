@@ -459,3 +459,24 @@ export class Credentials {
     return opened;
   }
 }
+
+/** What each environment's last apply recorded about where it answers, by owner (`<project>/<manifest>/<environment>`). */
+export class Ingresses {
+  constructor(private readonly kv: Deno.Kv) {}
+
+  async save(deployment: Platform.Ingresses): Promise<void> {
+    await this.kv.set(["ingresses", deployment.owner], deployment);
+  }
+
+  async all(): Promise<Platform.Ingresses[]> {
+    const deployments: Platform.Ingresses[] = [];
+    for await (
+      const entry of this.kv.list<Platform.Ingresses>({
+        prefix: ["ingresses"],
+      })
+    ) {
+      deployments.push(entry.value);
+    }
+    return deployments;
+  }
+}

@@ -63,6 +63,11 @@ export class Deployment {
     );
   }
 
+  /** The environment it deploys, as `<project>/<manifest>/<environment>`: whose the routes to it are. */
+  get owner(): string {
+    return `${this.project}/${this.manifest}/${this.environment}`;
+  }
+
   /**
    * The instance it is deployed as: none for the manifest's first
    * environment, which is its plain deployment; any other is deployed beside
