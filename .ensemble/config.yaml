@@ -5,6 +5,10 @@ build:
     kit: deno.bundle
   preview:
     kit: deno.bundle
+  platform/server:
+    kit: deno.bundle
+  platform/web:
+    kit: react
   demo/spa:
     kit: react
   website/content:

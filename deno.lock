@@ -14,8 +14,11 @@
     "jsr:@david/which@~0.4.1": "0.4.2",
     "jsr:@duesabati/evento@1.0.0": "1.0.0",
     "jsr:@ensemble/core@0.40": "0.40.0",
+    "jsr:@ensemble/core@0.49": "0.49.0",
     "jsr:@ensemble/host@0.40": "0.40.0",
+    "jsr:@ensemble/host@0.49": "0.49.0",
     "jsr:@ensemble/kit-sdk@0.40": "0.40.0",
+    "jsr:@ensemble/kit-sdk@0.49": "0.49.0",
     "jsr:@std/assert@0.221": "0.221.0",
     "jsr:@std/assert@1.0.14": "1.0.14",
     "jsr:@std/assert@^1.0.15": "1.0.19",
@@ -84,7 +87,6 @@
     "npm:playwright@1.49.0": "1.49.0",
     "npm:react-dom@19.2.8": "19.2.8_react@19.2.8",
     "npm:react-router-dom@7": "7.18.2_react@19.2.8_react-dom@19.2.8",
-    "npm:react@19.2.0": "19.2.0",
     "npm:react@19.2.8": "19.2.8",
     "npm:rehype-slug@6": "6.0.0",
     "npm:rehype-stringify@10": "10.0.1",
@@ -189,13 +191,36 @@
         "jsr:@std/yaml"
       ]
     },
+    "@ensemble/core@0.49.0": {
+      "integrity": "5b7520affb418cf98cf0a1533937f976002b897ed23cbe52472ea4575169694e",
+      "dependencies": [
+        "jsr:@duesabati/evento",
+        "jsr:@std/cli",
+        "jsr:@std/dotenv",
+        "jsr:@std/fs@1.0.24",
+        "jsr:@std/path@1.1.6",
+        "jsr:@std/yaml"
+      ]
+    },
     "@ensemble/host@0.40.0": {
       "integrity": "14661bf2debaaaf60c67cdbcdb94426d982dcab04d00fc430fa8c30228de7a6a",
       "dependencies": [
         "jsr:@david/dax",
         "jsr:@david/which@0.4.2",
         "jsr:@duesabati/evento",
-        "jsr:@ensemble/core",
+        "jsr:@ensemble/core@0.40",
+        "jsr:@std/fmt@1.0.10",
+        "jsr:@std/fs@1.0.24",
+        "jsr:@std/path@1.1.6"
+      ]
+    },
+    "@ensemble/host@0.49.0": {
+      "integrity": "c40577900a9af245261c7e93915ec2d3ce51769d8eae872d4c3e8e530316e70e",
+      "dependencies": [
+        "jsr:@david/dax",
+        "jsr:@david/which@0.4.2",
+        "jsr:@duesabati/evento",
+        "jsr:@ensemble/core@0.49",
         "jsr:@std/fmt@1.0.10",
         "jsr:@std/fs@1.0.24",
         "jsr:@std/path@1.1.6"
@@ -204,8 +229,15 @@
     "@ensemble/kit-sdk@0.40.0": {
       "integrity": "06efbe0cba29909d58f2e1f1b18a33d8a7afd34f2f45442bcab7f1692dd8d6e8",
       "dependencies": [
-        "jsr:@ensemble/core",
-        "jsr:@ensemble/host"
+        "jsr:@ensemble/core@0.40",
+        "jsr:@ensemble/host@0.40"
+      ]
+    },
+    "@ensemble/kit-sdk@0.49.0": {
+      "integrity": "2511da8221b57e6d2cd5899c72553219993f918899ba8d0b0ab7272cdacbb5f1",
+      "dependencies": [
+        "jsr:@ensemble/core@0.49",
+        "jsr:@ensemble/host@0.49"
       ]
     },
     "@std/assert@0.221.0": {
@@ -531,7 +563,7 @@
         "@floating-ui/react-dom",
         "@floating-ui/utils",
         "@types/react",
-        "react@19.2.8",
+        "react",
         "react-dom",
         "use-sync-external-store"
       ],
@@ -545,7 +577,7 @@
         "@babel/runtime",
         "@floating-ui/utils",
         "@types/react",
-        "react@19.2.8",
+        "react",
         "react-dom",
         "reselect",
         "use-sync-external-store"
@@ -596,7 +628,7 @@
       "integrity": "sha512-JDjEFGCpImxDCA7JJKviA0M9+RtmJdj0m/NVU5IMgBK+AmZouAQQ7/+2GLH0GXXY0YMw9oXPB8hKdbPYg5QLYg==",
       "dependencies": [
         "@floating-ui/dom",
-        "react@19.2.8",
+        "react",
         "react-dom"
       ]
     },
@@ -810,7 +842,7 @@
         "@radix-ui/react-use-controllable-state",
         "@types/react",
         "@types/react-dom",
-        "react@19.2.8",
+        "react",
         "react-dom"
       ],
       "optionalPeers": [
@@ -824,7 +856,7 @@
         "@radix-ui/react-primitive",
         "@types/react",
         "@types/react-dom",
-        "react@19.2.8",
+        "react",
         "react-dom"
       ],
       "optionalPeers": [
@@ -844,7 +876,7 @@
         "@radix-ui/react-use-size",
         "@types/react",
         "@types/react-dom",
-        "react@19.2.8",
+        "react",
         "react-dom"
       ],
       "optionalPeers": [
@@ -865,7 +897,7 @@
         "@radix-ui/react-use-layout-effect",
         "@types/react",
         "@types/react-dom",
-        "react@19.2.8",
+        "react",
         "react-dom"
       ],
       "optionalPeers": [
@@ -882,7 +914,7 @@
         "@radix-ui/react-slot",
         "@types/react",
         "@types/react-dom",
-        "react@19.2.8",
+        "react",
         "react-dom"
       ],
       "optionalPeers": [
@@ -894,7 +926,7 @@
       "integrity": "sha512-+48PbAAbq3didjJxa+OaWY2ZwgAKsNiRGyeHKszblZMQ+kcpd9pAaT11cMkGEie0vsOi3QdeTE6d5Fe3Gn61kA==",
       "dependencies": [
         "@types/react",
-        "react@19.2.8"
+        "react"
       ],
       "optionalPeers": [
         "@types/react"
@@ -904,7 +936,7 @@
       "integrity": "sha512-RHCUGwKHDr0hDGg4X7ma4JG4/+12qxw8rkh5QKdDldlCvtja6nUx1Ef/8HVrJze81lEsgLQlqjzjGNHantgnQA==",
       "dependencies": [
         "@types/react",
-        "react@19.2.8"
+        "react"
       ],
       "optionalPeers": [
         "@types/react"
@@ -929,7 +961,7 @@
         "@types/react",
         "@types/react-dom",
         "aria-hidden",
-        "react@19.2.8",
+        "react",
         "react-dom",
         "react-remove-scroll"
       ],
@@ -942,7 +974,7 @@
       "integrity": "sha512-5pzg4FGQNpExhnhT2zlrP1wZFaYCd1K0nYWoFAdcYoYK868IEigqMX3B3f8yIoRlAhAeDWciLI6ZdCKHF9P4Vg==",
       "dependencies": [
         "@types/react",
-        "react@19.2.8"
+        "react"
       ],
       "optionalPeers": [
         "@types/react"
@@ -958,7 +990,7 @@
         "@radix-ui/react-use-effect-event",
         "@types/react",
         "@types/react-dom",
-        "react@19.2.8",
+        "react",
         "react-dom"
       ],
       "optionalPeers": [
@@ -978,7 +1010,7 @@
         "@radix-ui/react-use-controllable-state",
         "@types/react",
         "@types/react-dom",
-        "react@19.2.8",
+        "react",
         "react-dom"
       ],
       "optionalPeers": [
@@ -990,7 +1022,7 @@
       "integrity": "sha512-RNOJjfZMTyBM6xYmV3IVGXkPjIhcBAuv48POevAXwrGJhkWZ9p1rFoIS1JFooPuT193AZmRsCPhpoVJxx6OPoQ==",
       "dependencies": [
         "@types/react",
-        "react@19.2.8"
+        "react"
       ],
       "optionalPeers": [
         "@types/react"
@@ -1004,7 +1036,7 @@
         "@radix-ui/react-use-callback-ref",
         "@types/react",
         "@types/react-dom",
-        "react@19.2.8",
+        "react",
         "react-dom"
       ],
       "optionalPeers": [
@@ -1017,7 +1049,7 @@
       "dependencies": [
         "@radix-ui/react-use-layout-effect",
         "@types/react",
-        "react@19.2.8"
+        "react"
       ],
       "optionalPeers": [
         "@types/react"
@@ -1045,7 +1077,7 @@
         "@types/react",
         "@types/react-dom",
         "aria-hidden",
-        "react@19.2.8",
+        "react",
         "react-dom",
         "react-remove-scroll"
       ],
@@ -1073,7 +1105,7 @@
         "@types/react",
         "@types/react-dom",
         "aria-hidden",
-        "react@19.2.8",
+        "react",
         "react-dom",
         "react-remove-scroll"
       ],
@@ -1097,7 +1129,7 @@
         "@radix-ui/rect",
         "@types/react",
         "@types/react-dom",
-        "react@19.2.8",
+        "react",
         "react-dom"
       ],
       "optionalPeers": [
@@ -1112,7 +1144,7 @@
         "@radix-ui/react-use-layout-effect",
         "@types/react",
         "@types/react-dom",
-        "react@19.2.8",
+        "react",
         "react-dom"
       ],
       "optionalPeers": [
@@ -1126,7 +1158,7 @@
         "@radix-ui/react-use-layout-effect",
         "@types/react",
         "@types/react-dom",
-        "react@19.2.8",
+        "react",
         "react-dom"
       ],
       "optionalPeers": [
@@ -1140,7 +1172,7 @@
         "@radix-ui/react-slot",
         "@types/react",
         "@types/react-dom",
-        "react@19.2.8",
+        "react",
         "react-dom"
       ],
       "optionalPeers": [
@@ -1162,7 +1194,7 @@
         "@radix-ui/react-use-size",
         "@types/react",
         "@types/react-dom",
-        "react@19.2.8",
+        "react",
         "react-dom"
       ],
       "optionalPeers": [
@@ -1186,7 +1218,7 @@
         "@radix-ui/react-use-layout-effect",
         "@types/react",
         "@types/react-dom",
-        "react@19.2.8",
+        "react",
         "react-dom"
       ],
       "optionalPeers": [
@@ -1208,7 +1240,7 @@
         "@radix-ui/react-use-layout-effect",
         "@types/react",
         "@types/react-dom",
-        "react@19.2.8",
+        "react",
         "react-dom"
       ],
       "optionalPeers": [
@@ -1242,7 +1274,7 @@
         "@types/react",
         "@types/react-dom",
         "aria-hidden",
-        "react@19.2.8",
+        "react",
         "react-dom",
         "react-remove-scroll"
       ],
@@ -1267,7 +1299,7 @@
         "@radix-ui/react-use-size",
         "@types/react",
         "@types/react-dom",
-        "react@19.2.8",
+        "react",
         "react-dom"
       ],
       "optionalPeers": [
@@ -1280,7 +1312,7 @@
       "dependencies": [
         "@radix-ui/react-compose-refs",
         "@types/react",
-        "react@19.2.8"
+        "react"
       ],
       "optionalPeers": [
         "@types/react"
@@ -1297,7 +1329,7 @@
         "@radix-ui/react-use-size",
         "@types/react",
         "@types/react-dom",
-        "react@19.2.8",
+        "react",
         "react-dom"
       ],
       "optionalPeers": [
@@ -1318,7 +1350,7 @@
         "@radix-ui/react-use-controllable-state",
         "@types/react",
         "@types/react-dom",
-        "react@19.2.8",
+        "react",
         "react-dom"
       ],
       "optionalPeers": [
@@ -1344,7 +1376,7 @@
         "@radix-ui/react-visually-hidden",
         "@types/react",
         "@types/react-dom",
-        "react@19.2.8",
+        "react",
         "react-dom"
       ],
       "optionalPeers": [
@@ -1356,7 +1388,7 @@
       "integrity": "sha512-R6OUY2e2fA6Yn6s+VSx5KBV6Nx8LQEhu+cz7LCej18rQ1HLyg9PSC9jP/ZNx0o6FAIK9c0F1kHylzSxKsdlkrQ==",
       "dependencies": [
         "@types/react",
-        "react@19.2.8"
+        "react"
       ],
       "optionalPeers": [
         "@types/react"
@@ -1369,7 +1401,7 @@
         "@radix-ui/react-use-effect-event",
         "@radix-ui/react-use-layout-effect",
         "@types/react",
-        "react@19.2.8"
+        "react"
       ],
       "optionalPeers": [
         "@types/react"
@@ -1380,7 +1412,7 @@
       "dependencies": [
         "@radix-ui/react-use-layout-effect",
         "@types/react",
-        "react@19.2.8"
+        "react"
       ],
       "optionalPeers": [
         "@types/react"
@@ -1390,7 +1422,7 @@
       "integrity": "sha512-umO/aJ+82CpOnhDZUTbILCQf7kU/g0iv+oGs/Q8jw7IkhWBzaEP4sA268PhFAJTFetbwp3ICc6ktpI4TqtxcIw==",
       "dependencies": [
         "@types/react",
-        "react@19.2.8"
+        "react"
       ],
       "optionalPeers": [
         "@types/react"
@@ -1400,7 +1432,7 @@
       "integrity": "sha512-K20DkRkUwDnxEYMBPcg3Y6voLkEy5p5QQmszZgLngKKiC7dzBR/aEuK3w1qlx2JWDUNH6FluahYdgR3BP+QbYw==",
       "dependencies": [
         "@types/react",
-        "react@19.2.8"
+        "react"
       ],
       "optionalPeers": [
         "@types/react"
@@ -1410,7 +1442,7 @@
       "integrity": "sha512-XoSLhbRbqxFtgJoi2fNHA3C6pDlY34x508vUpUGoFZfvePfHXHbE1lC4FYFMnJWgiCRroSTw6fOsXQoVS9RwZg==",
       "dependencies": [
         "@types/react",
-        "react@19.2.8"
+        "react"
       ],
       "optionalPeers": [
         "@types/react"
@@ -1421,7 +1453,7 @@
       "dependencies": [
         "@radix-ui/rect",
         "@types/react",
-        "react@19.2.8"
+        "react"
       ],
       "optionalPeers": [
         "@types/react"
@@ -1432,7 +1464,7 @@
       "dependencies": [
         "@radix-ui/react-use-layout-effect",
         "@types/react",
-        "react@19.2.8"
+        "react"
       ],
       "optionalPeers": [
         "@types/react"
@@ -1444,7 +1476,7 @@
         "@radix-ui/react-primitive",
         "@types/react",
         "@types/react-dom",
-        "react@19.2.8",
+        "react",
         "react-dom"
       ],
       "optionalPeers": [
@@ -1582,7 +1614,7 @@
     "@untitledui/icons@0.0.23_react@19.2.8": {
       "integrity": "sha512-WoBtPCXaxweF0RXS9IuqgEeJkBmT7A9SszPHB+vQJOxeAl0hDTFXHlWXsooYniXQ0JmP4+7RADdhWb39GWFT8g==",
       "dependencies": [
-        "react@19.2.8"
+        "react"
       ]
     },
     "accepts@2.0.0": {
@@ -2133,12 +2165,12 @@
       "dependencies": [
         "motion-dom",
         "motion-utils",
-        "react@19.2.8",
+        "react",
         "react-dom",
         "tslib"
       ],
       "optionalPeers": [
-        "react@19.2.8",
+        "react",
         "react-dom"
       ]
     },
@@ -3185,7 +3217,7 @@
     "react-dom@19.2.8_react@19.2.8": {
       "integrity": "sha512-rVprimfGBG3DR+Tq0IQG2DT5PxKth1WIGDmj5yPmlzr4YBe7uyE+Du4oVqTDXZSHGGGXRtTJEGSSePyQCMBglQ==",
       "dependencies": [
-        "react@19.2.8",
+        "react",
         "scheduler"
       ]
     },
@@ -3193,7 +3225,7 @@
       "integrity": "sha512-9r+yi9+mgU33AKcj6IbT9oRCO78WriSj6t/cF8DWBZJ9aOGPOTEDvdUDz1FwKim7QXWwmHqtdHnRJfhAxEG46Q==",
       "dependencies": [
         "@types/react",
-        "react@19.2.8",
+        "react",
         "react-style-singleton",
         "tslib"
       ],
@@ -3205,7 +3237,7 @@
       "integrity": "sha512-Iqb9NjCCTt6Hf+vOdNIZGdTiH1QSqr27H/Ek9sv/a97gfueI/5h1s3yRi1nngzMUaOOToin5dI1dXKdXiF+u0Q==",
       "dependencies": [
         "@types/react",
-        "react@19.2.8",
+        "react",
         "react-remove-scroll-bar",
         "react-style-singleton",
         "tslib",
@@ -3219,7 +3251,7 @@
     "react-router-dom@7.18.2_react@19.2.8_react-dom@19.2.8": {
       "integrity": "sha512-AIKJ/jgGlFb3EbfCXk5Gzshiwt+l3mqbCrNjmEWMMjqQxNJ3svBa6bgzFyCC2Sw3RA0VWF1kg3uQf2OFhxb8hw==",
       "dependencies": [
-        "react@19.2.8",
+        "react",
         "react-dom",
         "react-router"
       ]
@@ -3228,7 +3260,7 @@
       "integrity": "sha512-aUVMjFm3GAPTTZL7oYr5E7ETiqfQCHRLH+B+5afnICvf0r7kkK4eR6SMuwbSTJw/7t+12khT/Kahij49fqOCIg==",
       "dependencies": [
         "cookie@1.1.1",
-        "react@19.2.8",
+        "react",
         "react-dom",
         "set-cookie-parser"
       ],
@@ -3241,15 +3273,12 @@
       "dependencies": [
         "@types/react",
         "get-nonce",
-        "react@19.2.8",
+        "react",
         "tslib"
       ],
       "optionalPeers": [
         "@types/react"
       ]
-    },
-    "react@19.2.0": {
-      "integrity": "sha512-tmbWg6W31tQLeB5cdIBOicJDJRR2KzXsV7uSK9iNfLWQ5bIZfxuPEHp7M8wiHyHnn0DD1i7w3Zmin0FtkrwoCQ=="
     },
     "react@19.2.8": {
       "integrity": "sha512-PWaYA1L/q9u2u7xYQi+Y3L3Yfnie7XyLeaJICV1MGD6LprsBxcAqGjYyr0eY3p+QdsA+x/Irkt4Qif8D63+Sbw=="
@@ -3716,7 +3745,7 @@
       "integrity": "sha512-jQL3lRnocaFtu3V00JToYz/4QkNWswxijDaCVNZRiRTO3HQDLsdu1ZtmIUvV4yPp+rvWm5j0y0TG/S61cuijTg==",
       "dependencies": [
         "@types/react",
-        "react@19.2.8",
+        "react",
         "tslib"
       ],
       "optionalPeers": [
@@ -3728,7 +3757,7 @@
       "dependencies": [
         "@types/react",
         "detect-node-es",
-        "react@19.2.8",
+        "react",
         "tslib"
       ],
       "optionalPeers": [
@@ -3738,7 +3767,7 @@
     "use-sync-external-store@1.7.0_react@19.2.8": {
       "integrity": "sha512-6L+EeigHMQhdaIPNIFUKwfWJSwWFQ8gJbJ2DLOs5sDIegTwR9fRxvnM3uciHKjIZhFz+KAv2emhWMRvDmMcY8A==",
       "dependencies": [
-        "react@19.2.8"
+        "react"
       ]
     },
     "util-deprecate@1.0.2": {
@@ -3962,6 +3991,23 @@
           "jsr:@std/path@1.1.6"
         ]
       },
+      "source/apps/platform/server": {
+        "dependencies": [
+          "jsr:@duesabati/evento@1.0.0",
+          "jsr:@ensemble/platform@0.50",
+          "jsr:@std/assert@1.0.14",
+          "jsr:@std/path@1.1.6"
+        ]
+      },
+      "source/apps/platform/web": {
+        "dependencies": [
+          "jsr:@std/assert@1.0.14",
+          "npm:@types/react-dom@19.2.3",
+          "npm:@types/react@19.2.17",
+          "npm:react-dom@19.2.8",
+          "npm:react@19.2.8"
+        ]
+      },
       "source/apps/preview": {
         "dependencies": [
           "jsr:@duesabati/evento@1.0.0",
@@ -4032,6 +4078,13 @@
           "jsr:@ensemble/host@0.50"
         ]
       },
+      "source/core/platform": {
+        "dependencies": [
+          "jsr:@ensemble/core@0.50",
+          "jsr:@std/assert@1.0.14",
+          "jsr:@std/path@1.1.6"
+        ]
+      },
       "source/core/website": {
         "dependencies": [
           "npm:@types/react-dom@19",
@@ -4063,8 +4116,8 @@
           "npm:class-variance-authority@0.7.1",
           "npm:clsx@2.1.1",
           "npm:framer-motion@14.0.0",
-          "npm:react-dom@19.2.0",
-          "npm:react@19.2.0",
+          "npm:react-dom@19.2.8",
+          "npm:react@19.2.8",
           "npm:tailwind-merge@3.7.0"
         ]
       }
