@@ -97,7 +97,9 @@ function developBlock(
  * server all listen on 8000) would collide. `replicas` has no compose-native
  * equivalent outside swarm mode, so it's silently dropped rather than
  * rendered as something misleading — Appendix A's own golden output has no
- * trace of it either. Declares no outputs (Phase 2's
+ * trace of it either. `class: critical` adds `restart: always`, as it does
+ * for `relational`: the container comes back after a crash or a reboot.
+ * Declares no outputs (Phase 2's
  * `container-orchestrated.v1` contract declares none): a compute's ports are
  * referenced directly off its own `ports` param, not through a
  * provisioner-declared output.
@@ -183,6 +185,7 @@ export function containerOrchestratedProvisioner(): KitSdk.Deploy.Provisioner {
                 : {}),
               ...(develop ? { develop } : {}),
               ...(hostPorts.length > 0 ? { ports: hostPorts } : {}),
+              ...(request.class === "critical" ? { restart: "always" } : {}),
             },
           },
         },
