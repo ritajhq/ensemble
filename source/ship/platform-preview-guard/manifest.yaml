@@ -1,0 +1,28 @@
+# Every request to any preview, for the idhn guard the router asks before
+# letting it through: one action, whatever its method or path. Who may visit
+# previews is the platform's base policies' (source/ship/platform-policies).
+id: previews
+protocol: http
+authentication:
+  scheme: session-cookie
+  session_url: http://auth:4100/api/auth/get-session
+  cookie: __Secure-platform.session_token
+  issuer: platform
+  claims:
+    - email
+    - name
+    - role
+actions:
+  - name: visit
+    match:
+      method:
+        - GET
+        - HEAD
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+        - OPTIONS
+      path:
+        - /
+        - /*path

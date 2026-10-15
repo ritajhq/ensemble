@@ -35,17 +35,28 @@ const livePreviews = new Kv.LivePreviews(kv);
 const router = new Router(
   new Kv.Ingresses(kv),
   configuration.routerConfiguration,
-  configuration.own
-    ? [{
-      owner: "platform",
-      ingresses: [{
-        alias: configuration.own.upstream.hostname,
-        port: Number(configuration.own.upstream.port || 80),
-        scheme: "http",
-        hosts: [configuration.own.host],
-      }],
-    }]
-    : [],
+  configuration.own.map(({ host, upstream }) => ({
+    owner: "platform",
+    ingresses: [{
+      alias: upstream.hostname,
+      port: Number(upstream.port || 80),
+      scheme: "http",
+      hosts: [host],
+    }],
+  })),
+  {
+    ...(configuration.previewGuard
+      ? {
+        guard: {
+          host: configuration.previewGuard.hostname,
+          port: Number(configuration.previewGuard.port || 80),
+        },
+      }
+      : {}),
+    ...(configuration.sessionCookie
+      ? { sessionCookie: configuration.sessionCookie }
+      : {}),
+  },
 );
 
 const checkouts = new Checkouts(

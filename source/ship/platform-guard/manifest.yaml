@@ -1,0 +1,38 @@
+# The platform's own requests, for the idhn guard in front of it. Matched in
+# order, the first that fits: webhooks first, since GitHub signs in as no one
+# and each project verifies its own; then the API, its reads apart from its
+# changes; then the web app at any other path. Governed by the platform's base
+# policies (source/ship/platform-policies/base).
+id: platform
+protocol: http
+authentication:
+  scheme: session-cookie
+  session_url: http://auth:4100/api/auth/get-session
+  cookie: __Secure-platform.session_token
+  issuer: platform
+  claims:
+    - email
+    - name
+    - role
+actions:
+  - name: hooks.deliver
+    match:
+      method: POST
+      path: /hooks/*path
+  - name: api.read
+    match:
+      method: GET
+      path: /api/*path
+  - name: api.change
+    match:
+      method:
+        - POST
+        - PUT
+        - DELETE
+      path: /api/*path
+  - name: app.open
+    match:
+      method: GET
+      path:
+        - /
+        - /*path

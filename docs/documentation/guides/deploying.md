@@ -89,6 +89,30 @@ Each project's GitHub webhook — `https://<platform>/hooks/github/<project>`,
 JSON, push and delete events — is verified with the project's own secret, set in
 the platform.
 
+Nothing the platform answers for is open to everyone. Its own UI and API are
+behind an idhn guard that lets only signed-in operators through (GitHub's
+webhooks aside, which verify themselves); every preview is reached only once the
+previews' guard has let the request through, which signed-in operators and
+previewers pass. Sign-in is the stack's own khatm, at `auth.<domain>`, whose
+cookie is set on the preview domain so one sign-in covers the platform and every
+preview — and is taken out of every request before it reaches a deployment.
+Roles come from khatm (`khatm users set-role <user> operator|previewer`); who
+holds which is the platform's base policies'
+(`source/ship/platform-policies/base`).
+
+The guards, judge, policy builder and khatm are built `FROM` the images idhn and
+khatm publish (`ghcr.io/ritajhq/…`). To build from another registry or a pinned
+version, give the ship a pack var — `source/envs/pack/<ship>.env`, read by every
+pack and passed to the Dockerfile as a build argument:
+
+```sh
+# source/envs/pack/platform-guard.env
+GUARD_IMAGE=registry.example.com/idhn/guard-standalone:0.3.1
+```
+
+A preview runs whatever its branch holds, on the same Docker host as the
+platform: track only branches whose authors you'd let deploy there.
+
 ## Resolving releases
 
 - `--artifacts local|published` (default `published`) — whether

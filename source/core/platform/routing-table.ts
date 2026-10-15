@@ -13,6 +13,10 @@ export interface Route {
   /** `<project>/<manifest>/<environment>`. */
   readonly owner: string;
   readonly upstream: Upstream;
+  /** Only who the platform's guard lets through reaches it: a preview, running code nobody reviewed yet. */
+  readonly guarded: boolean;
+  /** The platform's own (its UI, its sign-in), not a deployment's: what it answers for itself. */
+  readonly reserved: boolean;
 }
 
 /** A host two deployments answer for: it goes to the first, by owner, until the others stop claiming it. */
@@ -37,6 +41,8 @@ export interface Ingresses {
     readonly hosts: readonly string[];
     /** Public host → the host its gateway answers on, for a host published under another name (a preview's). */
     readonly rewrites?: Readonly<Record<string, string>>;
+    /** Reached only through the platform's guard. */
+    readonly guarded?: boolean;
   }[];
 }
 
@@ -72,10 +78,12 @@ export class RoutingTable {
     const rejections: Rejection[] = [];
 
     const ordered = [
-      ...reserved,
-      ...[...deployments].sort((a, b) => a.owner.localeCompare(b.owner)),
+      ...reserved.map((entry) => ({ ...entry, isReserved: true })),
+      ...[...deployments]
+        .sort((a, b) => a.owner.localeCompare(b.owner))
+        .map((entry) => ({ ...entry, isReserved: false })),
     ];
-    for (const { owner, ingresses } of ordered) {
+    for (const { owner, ingresses, isReserved } of ordered) {
       for (const ingress of ingresses) {
         if (!ALIAS.test(ingress.alias)) {
           rejections.push({ owner, value: ingress.alias });
@@ -109,6 +117,8 @@ export class RoutingTable {
               scheme: ingress.scheme,
               ...(rewrite === undefined ? {} : { host: rewrite }),
             },
+            guarded: ingress.guarded === true,
+            reserved: isReserved,
           };
           claims.set(name, [...claims.get(name) ?? [], route]);
         }

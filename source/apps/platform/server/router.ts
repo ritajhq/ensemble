@@ -1,7 +1,7 @@
 import { dirname } from "@std/path";
 import { Delegate, type Emitter } from "@duesabati/evento";
 import * as Platform from "@ensemble/platform";
-import { Caddyfile } from "./caddyfile.ts";
+import { Caddyfile, type Protection } from "./caddyfile.ts";
 import type * as Kv from "./kv.ts";
 
 /**
@@ -21,6 +21,8 @@ export class Router {
     private readonly configuration: string,
     /** What the platform answers for itself — its own UI, behind whatever protects it — beside every deployment. */
     private readonly own: readonly Platform.Ingresses[] = [],
+    /** How what it routes is protected: the guard previews pass, the platform's cookie kept from deployments. */
+    private readonly protection: Protection = {},
   ) {}
 
   /** The routing table was rebuilt and handed to the router. */
@@ -69,7 +71,10 @@ export class Router {
     // Written whole, then moved over the old one, so the router never reads
     // half a configuration.
     const draft = `${this.configuration}.next`;
-    await Deno.writeTextFile(draft, new Caddyfile(table).text());
+    await Deno.writeTextFile(
+      draft,
+      new Caddyfile(table, this.protection).text(),
+    );
     await Deno.rename(draft, this.configuration);
     this.published.Invoke(table);
   }

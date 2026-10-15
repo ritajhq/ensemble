@@ -1,0 +1,32 @@
+{
+  "bootstrap": {
+    "users": [
+      {
+        "email": { "env": "PLATFORM_ADMIN_EMAIL" },
+        "name": "Platform operator",
+        "role": "operator"
+      }
+    ]
+  },
+  "auth": {
+    "baseURL": { "env": "AUTH_BASE_URL" },
+    "secrets": [{ "version": 1, "value": { "env": "AUTH_SECRET" } }],
+    "database": { "dialect": "sqlite", "url": { "env": "DATABASE" } },
+    "emailAndPassword": { "enabled": true },
+    "applications": [
+      {
+        "kind": "first-party",
+        "id": "platform",
+        "origin": { "env": "PLATFORM_ORIGIN" },
+        "landing": true
+      }
+    ],
+    "session": {
+      "cookieDomain": { "env": "AUTH_COOKIE_DOMAIN" },
+      "cookiePrefix": "platform",
+      "introspectionURL": "http://auth:4100/api/auth/get-session",
+      "issuer": "platform",
+      "claims": ["email", "name", "role"]
+    }
+  }
+}

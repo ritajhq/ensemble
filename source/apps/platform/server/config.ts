@@ -11,8 +11,12 @@ export interface Configuration {
   readonly routerConfiguration: string;
   /** The public domain previews answer under: each preview host is one label beneath it. */
   readonly previewDomain: string;
-  /** The host the platform's own UI answers on, and where the router reaches it (`http://platform:8090`, or a guard in front of it). None: the router routes deployments only. */
-  readonly own?: { readonly host: string; readonly upstream: URL };
+  /** What the platform answers for itself — host → where the router reaches it: its UI's guard, its sign-in — before any deployment. */
+  readonly own: readonly { readonly host: string; readonly upstream: URL }[];
+  /** The guard previews are reached through; none, and no preview can be reached. */
+  readonly previewGuard?: URL;
+  /** The platform's own session cookie, kept from every deployment. */
+  readonly sessionCookie?: string;
   /** The `ens` binary deploys and releases run. */
   readonly ens: string;
   /** Who a release's commits and tags are made as. */
@@ -41,7 +45,8 @@ export class ConfigurationLoader {
 
   load(): Configuration {
     const githubToken = this.env.get("GITHUB_TOKEN");
-    const host = this.env.get("PLATFORM_HOST");
+    const previewGuard = this.env.get("PLATFORM_PREVIEW_GUARD");
+    const sessionCookie = this.env.get("PLATFORM_SESSION_COOKIE");
     const secretKey = this.env.get("PLATFORM_SECRET_KEY");
     if (!secretKey) {
       throw new MissingConfigurationError(
@@ -66,16 +71,29 @@ export class ConfigurationLoader {
       },
       secretKey,
       ...(githubToken ? { githubToken } : {}),
-      ...(host
-        ? {
-          own: {
-            host,
-            upstream: new URL(
-              this.env.get("PLATFORM_UPSTREAM") ?? "http://platform:8090",
-            ),
-          },
-        }
-        : {}),
+      own: this.ownRoutes(this.env.get("PLATFORM_ROUTES") ?? ""),
+      ...(previewGuard ? { previewGuard: new URL(previewGuard) } : {}),
+      ...(sessionCookie ? { sessionCookie } : {}),
     };
+  }
+
+  /** `host=url` pairs, comma-separated: `platform.ensemble.blue=http://guard:8080,auth.ensemble.blue=http://auth:4100`. */
+  private ownRoutes(
+    spec: string,
+  ): { host: string; upstream: URL }[] {
+    return spec.split(",").map((pair) => pair.trim()).filter(Boolean).map(
+      (pair) => {
+        const at = pair.indexOf("=");
+        if (at < 1) {
+          throw new MissingConfigurationError(
+            `PLATFORM_ROUTES names "${pair}": write each as host=url.`,
+          );
+        }
+        return {
+          host: pair.slice(0, at).trim(),
+          upstream: new URL(pair.slice(at + 1).trim()),
+        };
+      },
+    );
   }
 }

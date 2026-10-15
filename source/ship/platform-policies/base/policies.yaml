@@ -1,0 +1,19 @@
+# The platform's base policies, which nothing published on top can change.
+# They govern every action of both guards: the platform's own
+# (source/ship/platform-guard/manifest.yaml) and the previews'
+# (source/ship/platform-preview-guard/manifest.yaml).
+associations:
+  platform.idhn.manifest.read:
+    - platform.operators
+  platform.hooks.deliver:
+    - platform.anyone
+  platform.api.read:
+    - platform.operators
+  platform.api.change:
+    - platform.operators
+  platform.app.open:
+    - platform.operators
+  previews.idhn.manifest.read:
+    - platform.operators
+  previews.visit:
+    - previews.viewers

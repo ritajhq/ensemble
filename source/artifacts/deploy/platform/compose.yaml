@@ -1,4 +1,44 @@
 services:
+  auth:
+    image: 'platform-auth:latest'
+    environment:
+      KHATM_STORE: /data/khatm.db
+      KHATM_ARTIFACTS: /data/artifacts
+      KHATM_CONTROL_PORT: '4101'
+      DATABASE: /data/auth.db
+      AUTH_BASE_URL: 'https://auth.ensemble.blue'
+      PLATFORM_ORIGIN: 'https://platform.ensemble.blue'
+      AUTH_COOKIE_DOMAIN: ensemble.blue
+      PLATFORM_ADMIN_EMAIL: operator@ensemble.blue
+      AUTH_SECRET: '${AUTH_SECRET:?}'
+    networks:
+      - platform
+    volumes:
+      - 'auth-data:/data'
+  guard:
+    image: 'platform-guard:latest'
+    environment:
+      PROXY_PORT: '8080'
+      JUDGE_SERVER_URL: 'http://judge:8081'
+      UPSTREAM_URL: 'http://platform:8090'
+    networks:
+      - platform
+  guard-previews:
+    image: 'platform-preview-guard:latest'
+    environment:
+      PROXY_PORT: '8080'
+      JUDGE_SERVER_URL: 'http://judge:8081'
+      UPSTREAM_URL: 'http://ensemble-platform-router-1:8082'
+    networks:
+      - platform
+  judge:
+    image: 'platform-judge:latest'
+    environment:
+      JUDGE_PORT: '8081'
+      POLICY_SOURCE_URL: 'http://policies:8082'
+      POLICY_POLL_MS: '5000'
+    networks:
+      - platform
   platform:
     image: 'platform:latest'
     environment:
@@ -6,7 +46,11 @@ services:
       PLATFORM_WORKSPACE: /var/lib/ens-platform/workspace
       PLATFORM_DATABASE: /var/lib/ens-platform/platform.kv
       PLATFORM_ROUTER_CONFIG: /router/Caddyfile
-      PLATFORM_HOST: platform.ensemble.blue
+      PLATFORM_PREVIEW_DOMAIN: ensemble.blue
+      PLATFORM_ROUTES: >-
+        platform.ensemble.blue=http://ensemble-platform-guard-1:8080,auth.ensemble.blue=http://ensemble-platform-auth-1:4100
+      PLATFORM_PREVIEW_GUARD: 'http://ensemble-platform-guard-previews-1:8080'
+      PLATFORM_SESSION_COOKIE: __Secure-platform.session_token
       PLATFORM_GIT_NAME: ensemble platform
       PLATFORM_GIT_EMAIL: platform@ensemble.blue
       PLATFORM_SECRET_KEY: '${PLATFORM_SECRET_KEY:?}'
@@ -17,6 +61,16 @@ services:
       - 'platform-data:/var/lib/ens-platform'
       - 'router-config:/router'
       - '/var/run/docker.sock:/var/run/docker.sock'
+  policies:
+    image: 'platform-policies:latest'
+    environment:
+      BUILDER_PORT: '8082'
+      POLICY_SOURCE: upload
+      STATE_DIR: /var/lib/policy-builder
+    networks:
+      - platform
+    volumes:
+      - 'policy-state:/var/lib/policy-builder'
   router:
     image: 'platform-router:latest'
     environment: {}
@@ -26,7 +80,9 @@ services:
     volumes:
       - 'router-config:/router:ro'
 volumes:
+  auth-data: {}
   platform-data: {}
+  policy-state: {}
   router-config: {}
 networks:
   platform:

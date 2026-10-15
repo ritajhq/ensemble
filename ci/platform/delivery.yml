@@ -1,20 +1,40 @@
 # yaml-language-server: $schema=../../docs/delivery.schema.json
 version: v1
 
-# The platform and the router in front of every deployment it makes, as one
-# stack. Bring it up once per host, with `--emulate-externals` the first time
-# so the `ingress` and `platform` networks exist:
+# The platform, the router in front of every deployment it makes, and what
+# protects both: an idhn guard in front of the platform, another every
+# preview is asked through, the judge they ask, the policies it judges with,
+# and the khatm everyone signs in with. Bring it up once per host, with
+# `--emulate-externals` the first time so the `ingress` and `platform`
+# networks exist:
 #
 #   export PLATFORM_SECRET_KEY=$(openssl rand -base64 32)   # keep it: secrets sealed with one key open with no other
+#   export AUTH_SECRET=$(openssl rand -base64 32)
 #   export GITHUB_TOKEN=…                                    # clones private repositories, pushes releases
 #   ens deploy platform compose --artifacts local --emulate-externals
 #
-# The router answers plain HTTP on the ingress network; point the tunnel at
-# router:80 there. TLS ends at the tunnel.
+# The guards, judge, policy builder and khatm are built FROM published idhn
+# and khatm images; each Dockerfile names its default, and a host builds from
+# its own registry or version with a pack var (source/envs/pack/<ship>.env:
+# GUARD_IMAGE, JUDGE_IMAGE, BUILDER_IMAGE, KHATM_IMAGE).
+#
+# The router answers plain HTTP on the ingress network; point the tunnel at it
+# there (${variables.stack.value}-router-1:80), for the platform's host, its
+# auth host and every host under the preview domain. TLS ends at the tunnel.
 release:
   platform:
     kit: docker
   platform-router:
+    kit: docker
+  platform-guard:
+    kit: docker
+  platform-preview-guard:
+    kit: docker
+  platform-judge:
+    kit: docker
+  platform-policies:
+    kit: docker
+  platform-auth:
     kit: docker
 
 deploy:
@@ -25,7 +45,7 @@ deploy:
       replicas: 1
       ports:
         http: 8090
-      # Reached by the router alone: never on the ingress network, where
+      # Reached by its guard alone: never on the ingress network, where
       # every deployment is.
       networks:
         - ${external.platform.name}
@@ -34,7 +54,14 @@ deploy:
         PLATFORM_WORKSPACE: /var/lib/ens-platform/workspace
         PLATFORM_DATABASE: /var/lib/ens-platform/platform.kv
         PLATFORM_ROUTER_CONFIG: /router/Caddyfile
-        PLATFORM_HOST: ${variables.platform_host.value}
+        PLATFORM_PREVIEW_DOMAIN: ${variables.preview_domain.value}
+        # What the router answers for the platform itself, before any
+        # deployment: its UI through its guard, its sign-in. Containers are
+        # named, not services, so no deployment naming a service `guard` or
+        # `auth` on the ingress network can answer for them.
+        PLATFORM_ROUTES: ${variables.platform_host.value}=http://${variables.stack.value}-guard-1:8080,${variables.auth_host.value}=http://${variables.stack.value}-auth-1:4100
+        PLATFORM_PREVIEW_GUARD: http://${variables.stack.value}-guard-previews-1:8080
+        PLATFORM_SESSION_COOKIE: __Secure-platform.session_token
         PLATFORM_GIT_NAME: ${variables.git_name.value}
         PLATFORM_GIT_EMAIL: ${variables.git_email.value}
       envSecrets:
@@ -52,8 +79,8 @@ deploy:
           path: /var/run/docker.sock
 
     # Joins the ingress network every deployment's gateway is on, and the
-    # platform's, where it reaches the platform. It reads its configuration
-    # from the platform alone.
+    # platform's, where it reaches the platform's guard, the previews' guard
+    # and khatm. It reads its configuration from the platform alone.
     router:
       type: container-orchestrated
       image: ${release.platform-router}
@@ -68,6 +95,94 @@ deploy:
           path: /router
           readOnly: true
 
+    # The platform's own guard: only operators reach its UI and API; GitHub's
+    # webhooks reach it unsigned-in, each verified by its project's secret.
+    guard:
+      type: container-orchestrated
+      image: ${release.platform-guard}
+      replicas: 1
+      ports:
+        http: 8080
+      networks:
+        - ${external.platform.name}
+      env:
+        PROXY_PORT: "8080"
+        JUDGE_SERVER_URL: http://judge:8081
+        UPSTREAM_URL: http://platform:8090
+
+    # What the router asks before letting a request through to any preview
+    # (forward_auth): allowed, it is proxied to the router's own listener,
+    # which answers who the guard says is calling.
+    guard-previews:
+      type: container-orchestrated
+      image: ${release.platform-preview-guard}
+      replicas: 1
+      ports:
+        http: 8080
+      networks:
+        - ${external.platform.name}
+      env:
+        PROXY_PORT: "8080"
+        JUDGE_SERVER_URL: http://judge:8081
+        UPSTREAM_URL: http://${variables.stack.value}-router-1:8082
+
+    # Internal only: the guards ask it, judging with what the policy builder
+    # last published: the platform's base policies.
+    judge:
+      type: container-orchestrated
+      image: ${release.platform-judge}
+      replicas: 1
+      ports:
+        http: 8081
+      networks:
+        - ${external.platform.name}
+      env:
+        JUDGE_PORT: "8081"
+        POLICY_SOURCE_URL: http://policies:8082
+        POLICY_POLL_MS: "5000"
+
+    policies:
+      type: container-orchestrated
+      image: ${release.platform-policies}
+      replicas: 1
+      ports:
+        http: 8082
+      networks:
+        - ${external.platform.name}
+      env:
+        BUILDER_PORT: "8082"
+        POLICY_SOURCE: upload
+        STATE_DIR: /var/lib/policy-builder
+      mounts:
+        - source: ${storage.policy-state.name}
+          path: /var/lib/policy-builder
+
+    # Who signs in: the platform's khatm. Its cookie is set on the preview
+    # domain, so one sign-in reaches the platform and every preview.
+    auth:
+      type: container-orchestrated
+      image: ${release.platform-auth}
+      replicas: 1
+      ports:
+        http: 4100
+        control: 4101
+      networks:
+        - ${external.platform.name}
+      env:
+        KHATM_STORE: /data/khatm.db
+        KHATM_ARTIFACTS: /data/artifacts
+        KHATM_CONTROL_PORT: "4101"
+        DATABASE: /data/auth.db
+        AUTH_BASE_URL: https://${variables.auth_host.value}
+        PLATFORM_ORIGIN: https://${variables.platform_host.value}
+        AUTH_COOKIE_DOMAIN: ${variables.preview_domain.value}
+        PLATFORM_ADMIN_EMAIL: ${variables.admin_email.value}
+      envSecrets:
+        AUTH_SECRET: auth-secret
+      mounts:
+        - source: ${storage.auth-data.name}
+          path: /data
+
   storage:
     # Checkouts, and the platform's own database.
     platform-data:
@@ -75,16 +190,38 @@ deploy:
     # The router's Caddyfile, written by the platform.
     router-config:
       type: volume
+    # The last policies the builder published, so the judge gets them back
+    # after a restart.
+    policy-state:
+      type: volume
+    # khatm's store, its sign-ins' database and revision artifacts.
+    auth-data:
+      type: volume
 
   secrets:
     platform-secret-key:
       source: environment
     github-token:
       source: environment
+    auth-secret:
+      source: environment
 
   variables:
+    # The compose project this stack runs as — `<checkout directory>-platform`
+    # — which its containers are named after.
+    stack:
+      default: ensemble-platform
     platform_host:
       default: platform.ensemble.blue
+    auth_host:
+      default: auth.ensemble.blue
+    # Previews answer one label beneath it; the platform's sign-in cookie is
+    # set on it, so it must hold the platform and auth hosts too.
+    preview_domain:
+      default: ensemble.blue
+    # The first operator, created on khatm's first start.
+    admin_email:
+      default: operator@ensemble.blue
     git_name:
       default: ensemble platform
     git_email:
@@ -94,7 +231,7 @@ deploy:
     ingress:
       type: network
       name: ingress
-    # The router and the platform, alone.
+    # The router, the platform and what protects it, alone.
     platform:
       type: network
       name: platform

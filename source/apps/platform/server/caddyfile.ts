@@ -1,5 +1,19 @@
 import type * as Platform from "@ensemble/platform";
 
+/** The headers an idhn guard tells a protected service who is calling with: never taken from the caller. */
+const IDENTITY_HEADERS = ["X-Idhn-Subject", "X-Idhn-Issuer", "X-Idhn-Claims"];
+
+/** Where the router's own internal listener answers a guard that allowed a request: echoing back who the guard said is calling. */
+export const ALLOWED_PORT = 8082;
+
+/** How the router protects what it routes. */
+export interface Protection {
+  /** The guard previews are asked through (`guard-previews:8080`); none: a preview can't be reached at all. */
+  readonly guard?: { readonly host: string; readonly port: number };
+  /** The platform's own session cookie, removed before any request reaches a deployment, which could otherwise read it. */
+  readonly sessionCookie?: string;
+}
+
 /** How each scheme a gateway answers in is proxied to. A gateway minting its own certificate (`tls: internal`) is trusted as it is: the hop is the ingress network's own. */
 const TRANSPORTS: Readonly<
   Record<Platform.Upstream["scheme"], readonly string[]>
@@ -8,37 +22,37 @@ const TRANSPORTS: Readonly<
   https: ["transport http {", "\ttls_insecure_skip_verify", "}"],
 };
 
-/** The `reverse_proxy` directive for `upstream`: its transport, and the host it is asked for when that isn't the public one (a preview's). */
-function proxyTo(upstream: Platform.Upstream): string {
-  const settings = [
-    ...TRANSPORTS[upstream.scheme],
-    ...(upstream.host ? [`header_up Host ${upstream.host}`] : []),
-  ];
-  const directive =
-    `reverse_proxy ${upstream.scheme}://${upstream.alias}:${upstream.port}`;
-  if (settings.length === 0) return directive;
-  return [
-    `${directive} {`,
-    ...settings.map((line) => `\t\t\t${line}`),
-    "\t\t}",
-  ].join("\n");
-}
-
 /**
  * The router's whole configuration, from a routing table: one plain-HTTP
  * listener (TLS ends before it, at the tunnel), one matcher per upstream
  * naming every host routed there, and a 404 for any other host. Hosts and
  * aliases arrive already checked (`RoutingTable` rejects anything that could
  * read as configuration); the `Host` header passes through unchanged, which
- * is what each gateway routes on.
+ * is what each gateway routes on — but for a preview, whose gateway is asked
+ * for its internal host.
+ *
+ * A guarded route (a preview) is reached only once the guard allows it,
+ * asked with `forward_auth`: the guard proxies an allowed request to the
+ * router's own internal listener, which answers with who the guard said is
+ * calling, and those headers go on to the preview — after any the caller
+ * sent were removed. No guard configured: a guarded route answers 503
+ * rather than going unguarded. Every deployment's request has the platform's
+ * own session cookie taken out of it first.
  */
 export class Caddyfile {
-  constructor(private readonly table: Platform.RoutingTable) {}
+  constructor(
+    private readonly table: Platform.RoutingTable,
+    private readonly protection: Protection = {},
+  ) {}
 
   text(): string {
     const byUpstream = new Map<string, Platform.Route[]>();
     for (const route of this.table.routes) {
-      const key = JSON.stringify(route.upstream);
+      const key = JSON.stringify([
+        route.upstream,
+        route.guarded,
+        route.reserved,
+      ]);
       byUpstream.set(key, [...byUpstream.get(key) ?? [], route]);
     }
 
@@ -48,7 +62,7 @@ export class Caddyfile {
           routes.map((route) => route.host).join(" ")
         }`,
         `\thandle @upstream${index} {`,
-        `\t\t${proxyTo(routes[0].upstream)}`,
+        ...this.handling(routes[0]).map((line) => `\t\t${line}`),
         "\t}",
       ].join("\n")
     );
@@ -66,7 +80,71 @@ export class Caddyfile {
       '\t\trespond "No deployment answers for this host." 404',
       "\t}",
       "}",
+      ...this.allowedListener(),
       "",
     ].join("\n");
+  }
+
+  /** What one route's handler does: the platform's own goes straight to it; a deployment's loses the platform's cookie and, guarded, passes the guard first. */
+  private handling(route: Platform.Route): string[] {
+    if (route.reserved) return this.proxy(route.upstream, []);
+    const cookie = this.withoutSessionCookie();
+    if (!route.guarded) return this.proxy(route.upstream, cookie);
+    const guard = this.protection.guard;
+    if (!guard) {
+      return [
+        'respond "Previews are protected, and no guard is configured." 503',
+      ];
+    }
+    // In a `route`, directives run as written: Caddy would otherwise run
+    // `request_header` after `forward_auth`, removing the identity the
+    // guard just gave along with any the caller sent.
+    const steps = [
+      ...IDENTITY_HEADERS.map((header) => `request_header -${header}`),
+      `forward_auth http://${guard.host}:${guard.port} {`,
+      "\turi {uri}",
+      `\tcopy_headers ${IDENTITY_HEADERS.join(" ")}`,
+      "}",
+      ...this.proxy(route.upstream, cookie),
+    ];
+    return ["route {", ...steps.map((line) => `\t${line}`), "}"];
+  }
+
+  /** The `reverse_proxy` directive for `upstream`: its transport, the host it is asked for when that isn't the public one (a preview's), and `settings`. */
+  private proxy(
+    upstream: Platform.Upstream,
+    settings: readonly string[],
+  ): string[] {
+    const all = [
+      ...TRANSPORTS[upstream.scheme],
+      ...(upstream.host ? [`header_up Host ${upstream.host}`] : []),
+      ...settings,
+    ];
+    const directive =
+      `reverse_proxy ${upstream.scheme}://${upstream.alias}:${upstream.port}`;
+    if (all.length === 0) return [directive];
+    return [`${directive} {`, ...all.map((line) => `\t${line}`), "}"];
+  }
+
+  /** Removes the platform's session cookie from the `Cookie` header, keeping every other. */
+  private withoutSessionCookie(): string[] {
+    const name = this.protection.sessionCookie;
+    if (!name) return [];
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return [`header_up Cookie "(^|;\\s*)${escaped}=[^;]*" ""`];
+  }
+
+  /** The internal listener a guard proxies an allowed request to: answers 204, with who the guard said is calling. */
+  private allowedListener(): string[] {
+    if (!this.protection.guard) return [];
+    return [
+      "",
+      `:${ALLOWED_PORT} {`,
+      ...IDENTITY_HEADERS.map((header) =>
+        `\theader ${header} {http.request.header.${header}}`
+      ),
+      "\trespond 204",
+      "}",
+    ];
   }
 }

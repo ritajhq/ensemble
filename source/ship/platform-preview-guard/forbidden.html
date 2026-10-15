@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sign in</title>
+    <style>
+      body { font-family: system-ui, sans-serif; display: grid; place-items: center; min-height: 100vh; margin: 0; color: #222; }
+      main { max-width: 28rem; padding: 1.5rem; text-align: center; }
+      a { color: inherit; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Not for you yet</h1>
+      <p>
+        Sign in with an account allowed here, then come back.
+      </p>
+      <p><a id="sign-in" href="/">Sign in</a></p>
+    </main>
+    <script>
+      // Sign-in lives on the auth host beside this one: auth.<domain> for
+      // platform.<domain> and every <preview>.<domain> alike.
+      const domain = location.hostname.split(".").slice(1).join(".");
+      document.getElementById("sign-in").href =
+        `https://auth.${domain}/login?return_to=${encodeURIComponent(location.href)}`;
+    </script>
+  </body>
+</html>

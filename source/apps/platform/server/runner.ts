@@ -282,7 +282,12 @@ export class Runner {
         const publicHost = preview.publicHostOf(host);
         if (publicHost) rewrites[publicHost] = host;
       }
-      return { ...ingress, hosts: Object.keys(rewrites), rewrites };
+      return {
+        ...ingress,
+        hosts: Object.keys(rewrites),
+        rewrites,
+        guarded: true,
+      };
     });
     this.answering.Invoke(preview.owner, published);
     this.previewUp.Invoke({
