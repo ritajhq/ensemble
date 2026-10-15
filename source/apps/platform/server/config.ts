@@ -25,6 +25,13 @@ export interface Configuration {
   readonly secretKey: string;
   /** Lets private repositories be cloned, and releases push their commits and tags. */
   readonly githubToken?: string;
+  /** Where runs are carried out when each gets a container of its own, which outlives the platform; none, and each is a child of the platform's process. */
+  readonly runs?: {
+    /** The image each run's container is made from: the platform's own. */
+    readonly image: string;
+    /** What each run's container mounts, as `docker run -v` takes it. */
+    readonly mounts: readonly string[];
+  };
 }
 
 /** Thrown when a value the platform can't start without is missing. */
@@ -47,6 +54,7 @@ export class ConfigurationLoader {
     const githubToken = this.env.get("GITHUB_TOKEN");
     const previewGuard = this.env.get("PLATFORM_PREVIEW_GUARD");
     const sessionCookie = this.env.get("PLATFORM_SESSION_COOKIE");
+    const runsImage = this.env.get("PLATFORM_RUNS_IMAGE");
     const secretKey = this.env.get("PLATFORM_SECRET_KEY");
     if (!secretKey) {
       throw new MissingConfigurationError(
@@ -74,7 +82,20 @@ export class ConfigurationLoader {
       own: this.ownRoutes(this.env.get("PLATFORM_ROUTES") ?? ""),
       ...(previewGuard ? { previewGuard: new URL(previewGuard) } : {}),
       ...(sessionCookie ? { sessionCookie } : {}),
+      ...(runsImage
+        ? {
+          runs: {
+            image: runsImage,
+            mounts: this.list(this.env.get("PLATFORM_RUNS_MOUNTS") ?? ""),
+          },
+        }
+        : {}),
     };
+  }
+
+  /** Comma-separated entries: `platform-data:/var/lib/ens-platform,/var/run/docker.sock:/var/run/docker.sock`. */
+  private list(spec: string): string[] {
+    return spec.split(",").map((entry) => entry.trim()).filter(Boolean);
   }
 
   /** `host=url` pairs, comma-separated: `platform.ensemble.blue=http://guard:8080,auth.ensemble.blue=http://auth:4100`. */

@@ -41,6 +41,7 @@ deploy:
   compute:
     platform:
       type: container-orchestrated
+      class: critical
       image: ${release.platform}
       replicas: 1
       ports:
@@ -64,6 +65,20 @@ deploy:
         PLATFORM_SESSION_COOKIE: __Secure-platform.session_token
         PLATFORM_GIT_NAME: ${variables.git_name.value}
         PLATFORM_GIT_EMAIL: ${variables.git_email.value}
+        # Where docker finds its registry logins, for every deploy and
+        # release pack it runs.
+        DOCKER_CONFIG: /docker
+        # Each run — deploy, release or preview change — gets a container of
+        # its own from this image, with what the platform mounts below, so a
+        # run that redeploys the platform outlives the platform it replaces,
+        # and the platform that comes back follows it to its end. The data
+        # volume by its full name: `docker run` isn't compose, and doesn't
+        # prefix it with the stack.
+        PLATFORM_RUNS_IMAGE: ${release.platform}
+        PLATFORM_RUNS_MOUNTS: ${variables.stack.value}_platform-data:/var/lib/ens-platform,/var/run/docker.sock:/var/run/docker.sock,${variables.registry_credentials.value}:/docker
+        # Kits' dependencies, cached beside the platform's data rather than in
+        # each run's container, where they'd be fetched again every run.
+        DENO_DIR: /var/lib/ens-platform/deno
       envSecrets:
         PLATFORM_SECRET_KEY: platform-secret-key
         GITHUB_TOKEN: github-token
@@ -77,12 +92,19 @@ deploy:
         # doesn't model: it works on compose, which takes it as a bind mount.
         - source: /var/run/docker.sock
           path: /var/run/docker.sock
+        # The host directory holding the platform's own registry logins
+        # (`DOCKER_CONFIG=<it> docker login ghcr.io`): what deploys pull
+        # published images with, and release packs push them with. Writable:
+        # buildx keeps its state beside them.
+        - source: ${variables.registry_credentials.value}
+          path: /docker
 
     # Joins the ingress network every deployment's gateway is on, and the
     # platform's, where it reaches the platform's guard, the previews' guard
     # and khatm. It reads its configuration from the platform alone.
     router:
       type: container-orchestrated
+      class: critical
       image: ${release.platform-router}
       replicas: 1
       ports:
@@ -99,6 +121,7 @@ deploy:
     # webhooks reach it unsigned-in, each verified by its project's secret.
     guard:
       type: container-orchestrated
+      class: critical
       image: ${release.platform-guard}
       replicas: 1
       ports:
@@ -115,6 +138,7 @@ deploy:
     # which answers who the guard says is calling.
     guard-previews:
       type: container-orchestrated
+      class: critical
       image: ${release.platform-preview-guard}
       replicas: 1
       ports:
@@ -130,6 +154,7 @@ deploy:
     # last published: the platform's base policies.
     judge:
       type: container-orchestrated
+      class: critical
       image: ${release.platform-judge}
       replicas: 1
       ports:
@@ -143,6 +168,7 @@ deploy:
 
     policies:
       type: container-orchestrated
+      class: critical
       image: ${release.platform-policies}
       replicas: 1
       ports:
@@ -161,6 +187,7 @@ deploy:
     # domain, so one sign-in reaches the platform and every preview.
     auth:
       type: container-orchestrated
+      class: critical
       image: ${release.platform-auth}
       replicas: 1
       ports:
@@ -226,6 +253,10 @@ deploy:
       default: ensemble platform
     git_email:
       default: platform@ensemble.blue
+    # The host directory mounted as the platform's DOCKER_CONFIG. Docker
+    # creates it empty if it's missing: no registry logins until one is made.
+    registry_credentials:
+      default: /var/lib/ens-platform/docker
 
   external:
     ingress:

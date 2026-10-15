@@ -36,14 +36,37 @@ interface Handling<W extends Platform.Work> {
     project: Platform.Project,
     perform: (checkout: Checkout) => Promise<void>,
   ): Promise<void>;
-  perform(
+  /** Runs `perform` in the checkout a run of `work`, cut across by a restart, was left working in — as it is, since the run still works in it. */
+  rejoin(
     work: W,
-    checkout: string,
-    values: Readonly<Record<string, string>>,
-    onLine: (line: string) => void,
+    project: Platform.Project,
+    perform: (checkout: Checkout) => Promise<void>,
   ): Promise<void>;
+  perform(work: W, performance: Performance): Promise<void>;
   /** After the checkout's turn, whether or not `perform` ran in it. */
   settle(work: W): void;
+}
+
+/** What a piece of work is carried out with: run `run`'s `ens`, in its checkout, with its values, each line it prints handed to `onLine`. */
+interface Performance {
+  readonly run: string;
+  readonly ensemble: Ensemble;
+  readonly checkout: string;
+  readonly values: Readonly<Record<string, string>>;
+  readonly onLine: (line: string) => void;
+}
+
+/** How a run is taken up: started afresh, or rejoined where a restart left it running. */
+interface Course {
+  readonly ensemble: Ensemble;
+  checkout<W extends Platform.Work>(
+    handling: Handling<W>,
+    work: W,
+    project: Platform.Project,
+    perform: (checkout: Checkout) => Promise<void>,
+  ): Promise<void>;
+  /** The run as it is once under way in a checkout at `commit`. */
+  begin(run: Platform.Run, commit: string): Platform.Run;
 }
 
 /** A deployment's ingress records, published under whatever hosts it answers on outside. */
@@ -101,7 +124,7 @@ export class Runner {
     private readonly credentials: Kv.Credentials,
     private readonly previewSettings: Kv.PreviewSettings,
     checkouts: Checkouts,
-    ensemble: Ensemble,
+    private readonly ensemble: Ensemble,
     /** The public domain previews answer under. */
     private readonly previewDomain: string,
   ) {
@@ -115,7 +138,12 @@ export class Runner {
         prepare: (change) => this.previewValues(change),
         checkout: (change, project, perform) =>
           checkouts.branch(project, change.branch, perform),
-        perform: async (change, checkout, values, onLine) => {
+        rejoin: (change, project, perform) =>
+          checkouts.branchAsIs(project, change.branch, perform),
+        perform: async (
+          change,
+          { run, ensemble, checkout, values, onLine },
+        ) => {
           const preview = this.previewOf(change);
           await ensemble.preview(
             change,
@@ -123,6 +151,7 @@ export class Runner {
             checkout,
             values,
             onLine,
+            run,
           );
           await this.publishPreview(change, preview, checkout);
         },
@@ -132,13 +161,16 @@ export class Runner {
         prepare: () => Promise.resolve(NOTHING),
         checkout: (change, project, perform) =>
           checkouts.lastOfBranch(project, change.branch, perform),
-        perform: (change, checkout, values, onLine) =>
+        rejoin: (change, project, perform) =>
+          checkouts.lastOfBranch(project, change.branch, perform),
+        perform: (change, { run, ensemble, checkout, values, onLine }) =>
           ensemble.preview(
             change,
             this.previewOf(change).instance,
             checkout,
             values,
             onLine,
+            run,
           ),
         settle: (change) => {
           this.withdrawn.Invoke(this.previewOf(change).owner);
@@ -151,8 +183,12 @@ export class Runner {
       deploy: {
         prepare: (deployment) => this.environmentValues(deployment),
         checkout: (_, project, perform) => checkouts.use(project, perform),
-        perform: async (deployment, checkout, values, onLine) => {
-          await ensemble.deploy(deployment, checkout, values, onLine);
+        rejoin: (_, project, perform) => checkouts.use(project, perform),
+        perform: async (
+          deployment,
+          { run, ensemble, checkout, values, onLine },
+        ) => {
+          await ensemble.deploy(deployment, checkout, values, onLine, run);
           await this.afterDeploy[deployment.termination](deployment, checkout);
         },
         settle: () => {},
@@ -160,21 +196,19 @@ export class Runner {
       release: {
         prepare: (release) => this.releaseCredentials(release),
         checkout: (_, project, perform) => checkouts.refresh(project, perform),
-        perform: (release, checkout, values, onLine) =>
-          ensemble.release(release, checkout, values, onLine),
+        rejoin: (_, project, perform) => checkouts.use(project, perform),
+        perform: (release, { run, ensemble, checkout, values, onLine }) =>
+          ensemble.release(release, checkout, values, onLine, run),
         settle: () => {},
       },
       preview: {
         prepare: (change) => previewIntents[change.intent].prepare(change),
         checkout: (change, project, perform) =>
           previewIntents[change.intent].checkout(change, project, perform),
-        perform: (change, checkout, values, onLine) =>
-          previewIntents[change.intent].perform(
-            change,
-            checkout,
-            values,
-            onLine,
-          ),
+        rejoin: (change, project, perform) =>
+          previewIntents[change.intent].rejoin(change, project, perform),
+        perform: (change, performance) =>
+          previewIntents[change.intent].perform(change, performance),
         settle: (change) => previewIntents[change.intent].settle(change),
       },
     };
@@ -215,10 +249,51 @@ export class Runner {
 
   /** Carry out `run`, once the checkout it needs is free. */
   request(run: Platform.Run): void {
-    void this.carryOut(run);
+    void this.carryOut(run, this.fresh());
   }
 
-  private async carryOut(queued: Platform.Run): Promise<void> {
+  /** Take up `run`, left unfinished by a restart: one still queued is carried out as asked; one that was running was cut off, and fails. */
+  recover(run: Platform.Run): void {
+    this.recoveries[run.state](run);
+  }
+
+  private readonly recoveries: Readonly<
+    Record<Platform.RunState, (run: Platform.Run) => void>
+  > = {
+    queued: (run) => this.request(run),
+    running: (run) => void this.carryOut(run, this.rejoined()),
+    succeeded: () => {},
+    failed: () => {},
+  };
+
+  /** A run started now: its checkout readied for it, and its start announced. */
+  private fresh(): Course {
+    return {
+      ensemble: this.ensemble,
+      checkout: (handling, work, project, perform) =>
+        handling.checkout(work, project, perform),
+      begin: (run, commit) => {
+        const started = run.start(commit);
+        this.started.Invoke(started);
+        return started;
+      },
+    };
+  }
+
+  /** A run a restart cut across: followed where it still runs, in its checkout as it left it, already started. */
+  private rejoined(): Course {
+    return {
+      ensemble: this.ensemble.rejoining(),
+      checkout: (handling, work, project, perform) =>
+        handling.rejoin(work, project, perform),
+      begin: (run) => run,
+    };
+  }
+
+  private async carryOut(
+    queued: Platform.Run,
+    course: Course,
+  ): Promise<void> {
     let run = queued;
     try {
       const project = await this.projects.get(run.work.project);
@@ -230,16 +305,17 @@ export class Runner {
       >;
       const { values, secrets } = await handling.prepare(run.work);
 
-      await handling.checkout(run.work, project, async (checkout) => {
-        run = run.start(checkout.commit);
-        this.started.Invoke(run);
+      await course.checkout(handling, run.work, project, async (checkout) => {
+        run = course.begin(run, checkout.commit);
         let index = 0;
-        await handling.perform(
-          run.work,
-          checkout.path,
+        await handling.perform(run.work, {
+          run: run.id,
+          ensemble: course.ensemble,
+          checkout: checkout.path,
           values,
-          (line) => this.printed.Invoke(run, index++, mask(line, secrets)),
-        );
+          onLine: (line) =>
+            this.printed.Invoke(run, index++, mask(line, secrets)),
+        });
       });
       handling.settle(run.work);
       this.finished.Invoke(run.succeed());

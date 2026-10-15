@@ -1,12 +1,7 @@
 import type * as Platform from "@ensemble/platform";
+import { ChildProcess, type Command, type Execution } from "./execution.ts";
 
-/** Thrown when `ens` exits non-zero. */
-export class CommandFailedError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "CommandFailedError";
-  }
-}
+export { CommandFailedError } from "./execution.ts";
 
 /**
  * What `ens` and the kits it runs may see of the platform's own environment:
@@ -66,17 +61,42 @@ export interface Releaser {
   readonly token?: string;
 }
 
+/** How a run's command is carried out: started, or — for a run a restart cut across — rejoined where it still runs. */
+type Launch = (
+  id: string,
+  command: Command,
+  onLine: (line: string) => void,
+) => Promise<void>;
+
 /**
- * The `ens` CLI, run in a project's checkout. An environment's values, and a
- * project's release credentials, reach it the way they reach `ens` in any
- * pipeline: through its process environment.
+ * The `ens` CLI, run in a project's checkout as run `id`. An environment's
+ * values, and a project's release credentials, reach it the way they reach
+ * `ens` in any pipeline: through its process environment.
  */
 export class Ensemble {
+  private readonly launch: Launch;
+
   constructor(
     private readonly binary: string,
     private readonly releaser: Releaser,
     private readonly host: Deno.Env = Deno.env,
-  ) {}
+    private readonly execution: Execution = new ChildProcess(),
+    launch?: Launch,
+  ) {
+    this.launch = launch ??
+      ((id, command, onLine) => execution.run(id, command, onLine));
+  }
+
+  /** The same `ens`, whose every command rejoins the run it was started as before a restart, rather than starting again. */
+  rejoining(): Ensemble {
+    return new Ensemble(
+      this.binary,
+      this.releaser,
+      this.host,
+      this.execution,
+      (id, _, onLine) => this.execution.rejoin(id, onLine),
+    );
+  }
 
   /** Runs `ens deploy` for `deployment`, handing each line it prints to `onLine`. */
   async deploy(
@@ -84,8 +104,10 @@ export class Ensemble {
     checkout: string,
     values: Readonly<Record<string, string>>,
     onLine: (line: string) => void,
+    id: string = crypto.randomUUID(),
   ): Promise<void> {
     await this.run(
+      id,
       [
         "deploy",
         deployment.manifest,
@@ -113,8 +135,10 @@ export class Ensemble {
     checkout: string,
     credentials: Readonly<Record<string, string>>,
     onLine: (line: string) => void,
+    id: string = crypto.randomUUID(),
   ): Promise<void> {
     await this.run(
+      id,
       ["release", release.action, release.argument, "--yes"],
       checkout,
       { ...credentials, ...this.gitEnvironment() },
@@ -129,8 +153,10 @@ export class Ensemble {
     checkout: string,
     values: Readonly<Record<string, string>>,
     onLine: (line: string) => void,
+    id: string = crypto.randomUUID(),
   ): Promise<void> {
     await this.run(
+      id,
       PREVIEW_COMMANDS[change.intent](change, instance),
       checkout,
       values,
@@ -159,31 +185,18 @@ export class Ensemble {
   }
 
   private async run(
+    id: string,
     args: readonly string[],
     cwd: string,
     values: Readonly<Record<string, string>>,
     onLine: (line: string) => void,
   ): Promise<void> {
-    const child = new Deno.Command(this.binary, {
-      args: [...args],
+    await this.launch(id, {
+      program: this.binary,
+      args,
       cwd,
-      clearEnv: true,
       env: { ...this.passedThrough(), ...values, NO_COLOR: "1" },
-      stdin: "null",
-      stdout: "piped",
-      stderr: "piped",
-    }).spawn();
-
-    await Promise.all([
-      child.stdout.pipeThrough(new TextDecoderStream()).pipeThrough(lines())
-        .pipeTo(new WritableStream({ write: onLine })),
-      child.stderr.pipeThrough(new TextDecoderStream()).pipeThrough(lines())
-        .pipeTo(new WritableStream({ write: onLine })),
-    ]);
-    const { code } = await child.status;
-    if (code !== 0) {
-      throw new CommandFailedError(`ens ${args[0]} exited with code ${code}.`);
-    }
+    }, onLine);
   }
 
   private passedThrough(): Record<string, string> {
@@ -194,19 +207,4 @@ export class Ensemble {
       }),
     );
   }
-}
-
-/** Text split into lines, without their line breaks; a last line with none is kept too. */
-function lines(): TransformStream<string, string> {
-  let pending = "";
-  return new TransformStream({
-    transform(chunk, controller) {
-      const parts = (pending + chunk).split(/\r?\n/);
-      pending = parts.pop() ?? "";
-      for (const part of parts) controller.enqueue(part);
-    },
-    flush(controller) {
-      if (pending) controller.enqueue(pending);
-    },
-  });
 }

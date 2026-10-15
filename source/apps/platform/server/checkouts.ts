@@ -118,6 +118,27 @@ export class Checkouts {
   }
 
   /**
+   * Runs `work` in `branch`'s checkout as it is, once no other work on it is
+   * running: what a preview a restart cut across is rejoined in, since what
+   * still runs there is working in it.
+   */
+  branchAsIs(
+    project: Platform.Project,
+    branch: string,
+    work: (checkout: Checkout) => Promise<void>,
+  ): Promise<void> {
+    const path = this.branchPathOf(project, branch);
+    return this.inTurnOf(path, async () => {
+      if (!await this.exists(path)) {
+        throw new NotCheckedOutError(
+          `${project.id}'s branch "${branch}" isn't checked out any more.`,
+        );
+      }
+      await work({ path, commit: await this.head(path) });
+    });
+  }
+
+  /**
    * Runs `work` in `branch`'s checkout as it was last left — the branch may
    * be gone from the repository — then forgets the checkout: what a preview
    * is taken down from. Without a checkout there is nothing to take down,

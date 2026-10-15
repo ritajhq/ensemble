@@ -287,14 +287,25 @@ export class Runs {
 
   save(run: Platform.Run): Promise<void> {
     return this.inOrder(run.id, async () => {
-      await this.kv.atomic()
+      const saving = this.kv.atomic()
         .set(["runs", run.id], this.recordOf(run))
         .set(
           ["project-runs", run.work.project, run.queuedAt, run.id],
           run.id,
-        )
-        .commit();
+        );
+      await UNFINISHED[run.state](saving, ["unfinished-runs", run.id]).commit();
     });
+  }
+
+  /** The runs not yet finished: those a restart left queued or running. */
+  async unfinished(): Promise<Platform.Run[]> {
+    const runs: Platform.Run[] = [];
+    const ids = this.kv.list({ prefix: ["unfinished-runs"] });
+    for await (const entry of ids) {
+      const run = await this.get(String(entry.key[1]));
+      if (run) runs.push(run);
+    }
+    return runs;
   }
 
   async get(id: string): Promise<Platform.Run | undefined> {
@@ -364,6 +375,19 @@ export class Runs {
     });
   }
 }
+
+/** Whether a run in each state is kept among the unfinished, or taken out of them. */
+const UNFINISHED: Readonly<
+  Record<
+    Platform.RunState,
+    (operation: Deno.AtomicOperation, key: Deno.KvKey) => Deno.AtomicOperation
+  >
+> = {
+  queued: (operation, key) => operation.set(key, true),
+  running: (operation, key) => operation.set(key, true),
+  succeeded: (operation, key) => operation.delete(key),
+  failed: (operation, key) => operation.delete(key),
+};
 
 /** How each kind of work is read back from what was stored. */
 const WORKS: Readonly<

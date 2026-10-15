@@ -5,6 +5,7 @@ import { Checkouts } from "./checkouts.ts";
 import { Runner } from "./runner.ts";
 import { Endpoints } from "./endpoints.ts";
 import { Ensemble } from "./ensemble.ts";
+import { ChildProcess, Container } from "./execution.ts";
 import { Previews } from "./previews.ts";
 import { PreviewsApi } from "./previews-api.ts";
 import { ConfigurationLoader } from "./config.ts";
@@ -74,10 +75,14 @@ const runner = new Runner(
   credentials,
   previewSettings,
   checkouts,
-  new Ensemble(configuration.ens, {
-    ...configuration.releaser,
-    token: configuration.githubToken,
-  }),
+  new Ensemble(
+    configuration.ens,
+    { ...configuration.releaser, token: configuration.githubToken },
+    Deno.env,
+    configuration.runs
+      ? new Container(configuration.runs.image, configuration.runs.mounts)
+      : new ChildProcess(),
+  ),
   configuration.previewDomain,
 );
 const previews = new Previews(previewSettings, livePreviews, runs);
@@ -130,6 +135,10 @@ runner.OnPreviewDown.Do((change) =>
   livePreviews.down(change.project, change.manifest, change.branch)
 );
 await router.publish();
+
+// Runs a restart left unfinished are taken up again, once everything a run
+// announces to is listening.
+for (const run of await runs.unfinished()) runner.recover(run);
 
 synchronization.OnStarted.Do((project) =>
   syncs.record(project.id, { state: "syncing", at: now() })
