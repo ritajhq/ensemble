@@ -26,13 +26,14 @@ export class CoreLibReleaseCascade {
       new LibKit(kit, ports),
   ) {}
 
-  /** Stamps every discovered core library's manifest with `version`, ahead of the release commit that gets tagged — see `ReleaseCeremony.stampCoreLibs`. */
+  /** Stamps every discovered core library's manifest with `version`, and repins every one of `workspaceManifests` that imports one of them, ahead of the release commit that gets tagged — see `ReleaseCeremony.stampCoreLibs`. */
   async stamp(
     version: string,
     libs: readonly CoreLibRelease[],
+    workspaceManifests: readonly string[],
   ): Promise<void> {
     await this.stampOwnVersions(version, libs);
-    await this.pinInterLibDependencies(version, libs);
+    await this.pinWorkspaceDependencies(version, libs, workspaceManifests);
     for (const { libRoot, declaration } of libs) {
       for (const entry of declaration.publish) {
         await this.libKitFor(entry.kit).stamp({
@@ -52,9 +53,9 @@ export class CoreLibReleaseCascade {
    * module graph (via `@ensemble/kit-sdk`) just to start up, and that graph
    * reads every workspace member's on-disk version; if the very first
    * library's own subprocess ran before this, it would see a workspace
-   * where `pinInterLibDependencies` already repinned its dependents to the
+   * where `pinWorkspaceDependencies` already repinned its dependents to the
    * new version but its own manifest still carries the old one — the same
-   * kind of mismatch `pinInterLibDependencies` exists to prevent, just
+   * kind of mismatch `pinWorkspaceDependencies` exists to prevent, just
    * pointed at itself. Ordinarily redundant with what the `jsr` lib kit's
    * own `stamp` does to the same file, but not every lib kit necessarily
    * stamps a `deno.json` (a hypothetical `npm` kit would stamp its own
@@ -85,25 +86,28 @@ export class CoreLibReleaseCascade {
   }
 
   /**
-   * Repins every discovered core library's own `imports` that point at
-   * *another* discovered core library, to `version` — before any lib kit
-   * runs. A lib kit invocation (e.g. `jsr`'s) spawns a subprocess whose
-   * module graph resolves the target library's own dependencies as part of
-   * just starting up; once one core library's workspace version moves past
-   * what a sibling still pins (e.g. `^0.13.0` after the sibling bumped to
-   * `0.14.0`), Deno stops linking the sibling locally and falls back to
-   * whatever that version resolves to on the real registry — which for a
-   * library not yet published there (as opposed to one merely behind) fails
-   * outright. Doing every repin up front, before the stamp loop below runs
-   * any subprocess, keeps the workspace internally consistent throughout.
+   * Repins every workspace member's `imports` that point at a discovered
+   * core library with a version, to `version` — before any lib kit runs. On
+   * 0.x a caret range never spans a minor, so once a core library's
+   * workspace version moves past what a member still pins (e.g. `^0.13.0`
+   * after the library bumped to `0.14.0`), Deno stops linking it locally
+   * and falls back to whatever that version resolves to on the real
+   * registry: an older release missing what the member uses, or, for a
+   * library not yet published there, nothing at all. That holds for every
+   * member — the core libraries themselves, whose lib kit subprocesses
+   * resolve their siblings just to start up, but equally the apps packed
+   * and the kits run later in the same release. Unversioned imports
+   * (`jsr:@ensemble/core`) always link locally and are left alone. Doing
+   * every repin up front, before the stamp loop runs any subprocess, keeps
+   * the workspace internally consistent throughout.
    */
-  private async pinInterLibDependencies(
+  private async pinWorkspaceDependencies(
     version: string,
     libs: readonly CoreLibRelease[],
+    workspaceManifests: readonly string[],
   ): Promise<void> {
-    const packages = new Set(libs.map((lib) => lib.declaration.package));
-    for (const { libRoot } of libs) {
-      const denoJsonPath = join(libRoot, "deno.json");
+    const packages = libs.map((lib) => lib.declaration.package);
+    for (const denoJsonPath of workspaceManifests) {
       if (!await exists(denoJsonPath, { isFile: true })) continue;
 
       const denoJson = JSON.parse(await Deno.readTextFile(denoJsonPath)) as {
@@ -114,7 +118,7 @@ export class CoreLibReleaseCascade {
 
       let changed = false;
       for (const [specifier, target] of Object.entries(imports)) {
-        const dependency = [...packages].find((pkg) =>
+        const dependency = packages.find((pkg) =>
           target.startsWith(`jsr:${pkg}@`)
         );
         if (!dependency) continue;

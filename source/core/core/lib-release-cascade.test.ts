@@ -56,7 +56,7 @@ Deno.test("CoreLibReleaseCascade.stamp: stamps each declared entry under the giv
         }],
       },
     },
-  ]);
+  ], []);
 
   assertEquals(FakeLibKit.stampCalls, [
     {
@@ -133,7 +133,7 @@ Deno.test("CoreLibReleaseCascade.publish: a library with no publish entries publ
   assertEquals(FakeLibKit.publishCalls, []);
 });
 
-Deno.test("CoreLibReleaseCascade.stamp: repins a dependent core lib's imports on its sibling to the new version", async () => {
+Deno.test("CoreLibReleaseCascade.stamp: repins every workspace member's versioned imports of a core lib to the new version", async () => {
   FakeLibKit.stampCalls = [];
   const repoRoot = await Deno.makeTempDir({
     prefix: "ensemble-lib-release-cascade-pin-",
@@ -141,8 +141,11 @@ Deno.test("CoreLibReleaseCascade.stamp: repins a dependent core lib's imports on
   try {
     const coreLibRoot = join(repoRoot, "source", "core", "core");
     const kitSdkLibRoot = join(repoRoot, "source", "core", "kit-sdk");
-    await Deno.mkdir(coreLibRoot, { recursive: true });
-    await Deno.mkdir(kitSdkLibRoot, { recursive: true });
+    const kitRoot = join(repoRoot, ".ensemble", "kits", "pack", "docker");
+    const appRoot = join(repoRoot, "source", "apps", "cli");
+    for (const root of [coreLibRoot, kitSdkLibRoot, kitRoot, appRoot]) {
+      await Deno.mkdir(root, { recursive: true });
+    }
     await Deno.writeTextFile(
       join(coreLibRoot, "deno.json"),
       JSON.stringify({ name: "@ensemble/core", version: "0.13.0" }) + "\n",
@@ -158,18 +161,34 @@ Deno.test("CoreLibReleaseCascade.stamp: repins a dependent core lib's imports on
         },
       }) + "\n",
     );
+    await Deno.writeTextFile(
+      join(kitRoot, "deno.json"),
+      JSON.stringify({
+        imports: { "@ensemble/kit-sdk": "jsr:@ensemble/kit-sdk@^0.12.0" },
+      }) + "\n",
+    );
+    const appDenoJson = JSON.stringify({
+      imports: { "@ensemble/core": "jsr:@ensemble/core" },
+    }) + "\n";
+    await Deno.writeTextFile(join(appRoot, "deno.json"), appDenoJson);
 
     const cascade = new CoreLibReleaseCascade(UNUSED_PORTS, fakeLibKitFor);
-    await cascade.stamp("0.14.0", [
-      {
-        libRoot: coreLibRoot,
-        declaration: { package: "@ensemble/core", publish: [] },
-      },
-      {
-        libRoot: kitSdkLibRoot,
-        declaration: { package: "@ensemble/kit-sdk", publish: [] },
-      },
-    ]);
+    await cascade.stamp(
+      "0.14.0",
+      [
+        {
+          libRoot: coreLibRoot,
+          declaration: { package: "@ensemble/core", publish: [] },
+        },
+        {
+          libRoot: kitSdkLibRoot,
+          declaration: { package: "@ensemble/kit-sdk", publish: [] },
+        },
+      ],
+      [coreLibRoot, kitSdkLibRoot, kitRoot, appRoot].map((root) =>
+        join(root, "deno.json")
+      ),
+    );
 
     const kitSdkDenoJson = JSON.parse(
       await Deno.readTextFile(join(kitSdkLibRoot, "deno.json")),
@@ -179,10 +198,24 @@ Deno.test("CoreLibReleaseCascade.stamp: repins a dependent core lib's imports on
       "@std/path": "jsr:@std/path@1.1.6",
     });
 
+    const kitDenoJson = JSON.parse(
+      await Deno.readTextFile(join(kitRoot, "deno.json")),
+    );
+    assertEquals(kitDenoJson.imports, {
+      "@ensemble/kit-sdk": "jsr:@ensemble/kit-sdk@^0.14.0",
+    });
+
+    // An unversioned import always links the workspace member, so the
+    // manifest is left byte-for-byte as it was.
+    assertEquals(
+      await Deno.readTextFile(join(appRoot, "deno.json")),
+      appDenoJson,
+    );
+
     // core's own version must already be bumped before kit-sdk's stamp
     // subprocess ever runs — otherwise that subprocess would see kit-sdk's
     // freshly repinned `^0.14.0` import next to a workspace copy of core
-    // still on disk at 0.13.0, the same mismatch pinInterLibDependencies
+    // still on disk at 0.13.0, the same mismatch pinWorkspaceDependencies
     // exists to prevent, just aimed at core's own manifest instead.
     const coreDenoJson = JSON.parse(
       await Deno.readTextFile(join(coreLibRoot, "deno.json")),

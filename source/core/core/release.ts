@@ -11,6 +11,7 @@ import {
   PublishUnauthorizedError,
 } from "./publish-authorization.ts";
 import { LibDeclarationLoader } from "./lib-declaration.ts";
+import { Workspace } from "./workspace.ts";
 import {
   type CoreLibRelease,
   CoreLibReleaseCascade,
@@ -472,8 +473,9 @@ export class ReleaseCeremony {
   }
 
   /**
-   * Writes `version` into every discovered core library's manifest, ahead of
-   * the git tag — call this, then commit the result (see
+   * Writes `version` into every discovered core library's manifest, and
+   * repins every workspace member that imports one of them, ahead of the git
+   * tag — call this, then commit the result (see
    * `ReleaseService.commitIfChanged`), then create the tag, so the tag's
    * commit actually carries the version bump. Pure local file writes, no
    * network.
@@ -482,7 +484,11 @@ export class ReleaseCeremony {
     libs: readonly CoreLibRelease[],
     version: string,
   ): Promise<void> {
-    await new CoreLibReleaseCascade(this.ports).stamp(version, libs);
+    await new CoreLibReleaseCascade(this.ports).stamp(
+      version,
+      libs,
+      await new Workspace(this.repoRoot).manifests(),
+    );
   }
 
   /**
