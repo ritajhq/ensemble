@@ -74,6 +74,12 @@ deploy:
         # and the platform that comes back follows it to its end. The data
         # volume by its full name: `docker run` isn't compose, and doesn't
         # prefix it with the stack.
+        # The stack it runs as — `<project>-<manifest>` on the platform, as
+        # the checkout is named after the project — so a deploy applying it is
+        # known for an update of the platform: it waits for every run in
+        # progress to finish, then runs alone, and runs asked for meanwhile
+        # wait for the platform it brings up.
+        PLATFORM_STACK: ${variables.stack.value}
         PLATFORM_RUNS_IMAGE: ${release.platform}
         PLATFORM_RUNS_MOUNTS: ${variables.stack.value}_platform-data:/var/lib/ens-platform,/var/run/docker.sock:/var/run/docker.sock,${variables.registry_credentials.value}:/docker
         # Kits' dependencies, cached beside the platform's data rather than in

@@ -4,6 +4,7 @@ import * as Platform from "@ensemble/platform";
 import type { Checkout, Checkouts } from "./checkouts.ts";
 import type { Ensemble } from "./ensemble.ts";
 import type * as Kv from "./kv.ts";
+import { UpdateWindow } from "./update-window.ts";
 
 /** What a secret's value is printed as, wherever it shows up in a run's output. */
 const MASK = "••••";
@@ -127,6 +128,8 @@ export class Runner {
     private readonly ensemble: Ensemble,
     /** The public domain previews answer under. */
     private readonly previewDomain: string,
+    /** The compose stack the platform itself runs as (`<project>-<manifest>`): applying it is an update of the platform, carried out alone. */
+    private readonly stack?: string,
   ) {
     const previewIntents: Readonly<
       Record<
@@ -247,24 +250,53 @@ export class Runner {
     return this.previewDown;
   }
 
-  /** Carry out `run`, once the checkout it needs is free. */
+  /** Carry out `run`, once the checkout it needs is free — and, around an update of the platform itself, once the update allows. */
   request(run: Platform.Run): void {
-    void this.carryOut(run, this.fresh());
+    this.admit(run, this.fresh());
   }
 
-  /** Take up `run`, left unfinished by a restart: one still queued is carried out as asked; one that was running was cut off, and fails. */
-  recover(run: Platform.Run): void {
-    this.recoveries[run.state](run);
+  /**
+   * Take up the runs a restart left unfinished: first those it cut across,
+   * rejoined where they still run — so an update of the platform among them
+   * holds back the rest until it's over — then those still queued, carried
+   * out as asked.
+   */
+  recover(runs: readonly Platform.Run[]): void {
+    for (const state of RECOVERY_ORDER) {
+      for (const run of runs.filter((run) => run.state === state)) {
+        this.recoveries[state](run);
+      }
+    }
   }
 
   private readonly recoveries: Readonly<
     Record<Platform.RunState, (run: Platform.Run) => void>
   > = {
     queued: (run) => this.request(run),
-    running: (run) => void this.carryOut(run, this.rejoined()),
+    running: (run) => this.admit(run, this.rejoined()),
     succeeded: () => {},
     failed: () => {},
   };
+
+  private readonly window = new UpdateWindow();
+
+  /** Carries `run` out through the update window: alone, if it updates the platform; otherwise whenever no update is pending. */
+  private admit(run: Platform.Run, course: Course): void {
+    void this.window[this.entranceOf(run.work)](() =>
+      this.carryOut(run, course)
+    );
+  }
+
+  private entranceOf(work: Platform.Work): "update" | "ordinary" {
+    return this.updatesPlatform(work) ? "update" : "ordinary";
+  }
+
+  /** Whether `work` applies the stack the platform itself runs as: its plain deployment, not a preview's instance of it, nor a plan. */
+  private updatesPlatform(work: Platform.Work): boolean {
+    if (work.kind !== "deploy") return false;
+    if (work.termination !== "apply" || work.instance) return false;
+    return this.stack === `${work.project}-${work.manifest}`;
+  }
 
   /** A run started now: its checkout readied for it, and its start announced. */
   private fresh(): Course {
@@ -454,6 +486,9 @@ export class Runner {
     return { values, secrets: Object.values(values) };
   }
 }
+
+/** Which unfinished runs a restart left are taken up first. */
+const RECOVERY_ORDER: readonly Platform.RunState[] = ["running", "queued"];
 
 function mask(line: string, secrets: readonly string[]): string {
   return secrets

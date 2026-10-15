@@ -84,6 +84,7 @@ const runner = new Runner(
       : new ChildProcess(),
   ),
   configuration.previewDomain,
+  configuration.stack,
 );
 const previews = new Previews(previewSettings, livePreviews, runs);
 const endpoints = new Endpoints();
@@ -138,7 +139,7 @@ await router.publish();
 
 // Runs a restart left unfinished are taken up again, once everything a run
 // announces to is listening.
-for (const run of await runs.unfinished()) runner.recover(run);
+runner.recover(await runs.unfinished());
 
 synchronization.OnStarted.Do((project) =>
   syncs.record(project.id, { state: "syncing", at: now() })

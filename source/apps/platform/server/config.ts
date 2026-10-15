@@ -25,6 +25,8 @@ export interface Configuration {
   readonly secretKey: string;
   /** Lets private repositories be cloned, and releases push their commits and tags. */
   readonly githubToken?: string;
+  /** The compose stack the platform itself runs as: a deploy applying it is an update of the platform. */
+  readonly stack?: string;
   /** Where runs are carried out when each gets a container of its own, which outlives the platform; none, and each is a child of the platform's process. */
   readonly runs?: {
     /** The image each run's container is made from: the platform's own. */
@@ -55,6 +57,7 @@ export class ConfigurationLoader {
     const previewGuard = this.env.get("PLATFORM_PREVIEW_GUARD");
     const sessionCookie = this.env.get("PLATFORM_SESSION_COOKIE");
     const runsImage = this.env.get("PLATFORM_RUNS_IMAGE");
+    const stack = this.env.get("PLATFORM_STACK");
     const secretKey = this.env.get("PLATFORM_SECRET_KEY");
     if (!secretKey) {
       throw new MissingConfigurationError(
@@ -82,6 +85,7 @@ export class ConfigurationLoader {
       own: this.ownRoutes(this.env.get("PLATFORM_ROUTES") ?? ""),
       ...(previewGuard ? { previewGuard: new URL(previewGuard) } : {}),
       ...(sessionCookie ? { sessionCookie } : {}),
+      ...(stack ? { stack } : {}),
       ...(runsImage
         ? {
           runs: {
