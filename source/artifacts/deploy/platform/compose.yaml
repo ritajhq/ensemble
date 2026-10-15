@@ -15,6 +15,7 @@ services:
       - platform
     volumes:
       - 'auth-data:/data'
+    restart: always
   guard:
     image: 'platform-guard:latest'
     environment:
@@ -23,6 +24,7 @@ services:
       UPSTREAM_URL: 'http://platform:8090'
     networks:
       - platform
+    restart: always
   guard-previews:
     image: 'platform-preview-guard:latest'
     environment:
@@ -31,6 +33,7 @@ services:
       UPSTREAM_URL: 'http://ensemble-platform-router-1:8082'
     networks:
       - platform
+    restart: always
   judge:
     image: 'platform-judge:latest'
     environment:
@@ -39,6 +42,7 @@ services:
       POLICY_POLL_MS: '5000'
     networks:
       - platform
+    restart: always
   platform:
     image: 'platform:latest'
     environment:
@@ -53,6 +57,12 @@ services:
       PLATFORM_SESSION_COOKIE: __Secure-platform.session_token
       PLATFORM_GIT_NAME: ensemble platform
       PLATFORM_GIT_EMAIL: platform@ensemble.blue
+      DOCKER_CONFIG: /docker
+      PLATFORM_STACK: ensemble-platform
+      PLATFORM_RUNS_IMAGE: 'platform:latest'
+      PLATFORM_RUNS_MOUNTS: >-
+        ensemble-platform_platform-data:/var/lib/ens-platform,/var/run/docker.sock:/var/run/docker.sock,/home/duesabati/.config/ens-platform/docker:/docker
+      DENO_DIR: /var/lib/ens-platform/deno
       PLATFORM_SECRET_KEY: '${PLATFORM_SECRET_KEY:?}'
       GITHUB_TOKEN: '${GITHUB_TOKEN:?}'
     networks:
@@ -61,6 +71,8 @@ services:
       - 'platform-data:/var/lib/ens-platform'
       - 'router-config:/router'
       - '/var/run/docker.sock:/var/run/docker.sock'
+      - '/home/duesabati/.config/ens-platform/docker:/docker'
+    restart: always
   policies:
     image: 'platform-policies:latest'
     environment:
@@ -71,6 +83,7 @@ services:
       - platform
     volumes:
       - 'policy-state:/var/lib/policy-builder'
+    restart: always
   router:
     image: 'platform-router:latest'
     environment: {}
@@ -79,6 +92,7 @@ services:
       - platform
     volumes:
       - 'router-config:/router:ro'
+    restart: always
 volumes:
   auth-data: {}
   platform-data: {}
