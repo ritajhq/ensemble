@@ -23,6 +23,16 @@ for (const app of dependencies) {
   );
 }
 
+// The ship's pack vars (`envs/pack/<ship>.env`, local config), as build args:
+// what lets one Dockerfile be built from wherever its base image comes from
+// (`ARG GUARD_IMAGE=ghcr.io/…` then `FROM ${GUARD_IMAGE}`), the default kept
+// in the Dockerfile and a host's own source in its vars. A Dockerfile only
+// sees the args it declares; a var it doesn't is left unused.
+const buildArgs = Object.entries(ctx.vars).flatMap(([name, value]) => [
+  "--build-arg",
+  `${name}=${value}`,
+]);
+
 const modes = await KitSdk.Pack.loadModes(kitDir);
 const format = modes[ctx.mode];
 if (!format) {
@@ -67,6 +77,7 @@ const build = $`docker buildx build
   --tag ${ctx.outputName}
   --build-context packages=${ctx.packages}
   ${artifactContextArgs}
+  ${buildArgs}
   --output ${output}
   ${allowArgs}
   ${progressArgs}
