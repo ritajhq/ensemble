@@ -1,3 +1,38 @@
+## [0.51.0] - 2026-10-15
+
+### 🚀 Features
+
+- *(release)* Refuse any publish this machine isn't authorized for, checked by each kit before anything changes
+- *(ui)* Vendor idhn's ui library as source/libs/ui
+- *(deploy)* Name a gateway on an ingress network after its deployment and record where each deploy answers there
+- *(platform)* Add projects, sync their checkouts and show each delivery manifest with its first environment
+- *(platform)* Add environments to a manifest and give each its variables and sealed secrets
+- *(core)* Expose the process environment variable a manifest value is read from
+- *(platform)* Deploy or plan an environment with a kit at a released version, following its run live
+- *(platform)* Release a project with its credentials from a full checkout, keeping tokens out of failure messages
+- *(platform)* Route every applied deployment's hosts through a router the platform configures, deployed with it as one stack
+- *(platform)* Preview tracked branches at flat hosts from a non-production environment, replacing the preview service
+- *(docker)* Pass a ship's pack vars to its Dockerfile as build args
+- *(platform)* Sign in with the stack's own khatm and reach the platform and every preview only through idhn guards
+
+### 🐛 Bug Fixes
+
+- *(ui)* Bundle the vendored UI against the workspace's React through a local node_modules
+- *(compose)* Commit the published-ports provisioner the kit already imports
+- *(platform)* Resolve @ensemble/core from the workspace instead of pinning 0.50
+- *(kits)* Pin the kits to @ensemble/kit-sdk ^0.51.0
+
+### 📚 Documentation
+
+- *(release)* Document publish authorization and add it to the release flow diagram
+- *(agent)* Add the handoff for rolling out the platform on a server
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.50.0
+- Update lockfile
+- Update lockfile
+- *(release)* Bump library versions for 0.51.0
 ## [0.50.0] - 2026-10-13
 
 ### 🐛 Bug Fixes
