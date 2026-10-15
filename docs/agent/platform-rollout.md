@@ -8,6 +8,11 @@ one router. It was built and tested on a developer machine; nothing of it runs
 anywhere yet. This file is everything you need to finish the job: what must
 happen, in which order, what to check, and where to stop and ask.
 
+**Steps 1–3 are done** (2026-10-15, on the developer's machine): ensemble
+0.51.0, idhn 0.0.1 and khatm 0.0.1 are released, and the images the platform
+builds `FROM` are on ghcr.io. [What was released](#done-releases-and-kit-sync)
+records the outcome; **start at [step 4](#4-deploy-the-platform-stack)**.
+
 Read [orientation.md](orientation.md) first if `ens` is new to you, and the
 "Previews" section of
 [the deploying guide](../documentation/guides/deploying.md#previews) for how the
@@ -31,162 +36,82 @@ platform works.
 
 ## What has to be true first
 
-These commits were made on the developer's machine. Before anything else, check
-that each repository's `origin/main` contains them
-(`git fetch && git
-branch -r --contains <sha>`). If any is missing, stop: the
-developer has to push first.
+Before anything else, check that the releases below are on the remote
+(`git fetch --tags && git ls-remote origin refs/tags/<tag>`). If any is missing,
+stop: the developer has to push first.
 
-| Repository         | Commits (newest first)                                                                                                                         |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ritajhq/ensemble` | `be65ee4`, `bab2e03`, `da8b5e7`, `ac42209`, `c5863c2`, `d3e2b51`, `f2dee92`, `62bbcb9`, `8d1c5d4`, `aaacf1c`, `751794f` (and the ones between) |
-| `ritajhq/idhn`     | `8b8b055`, `65e7648`                                                                                                                           |
-| `ritajhq/khatm`    | `801068e`, `0be140a`                                                                                                                           |
+| Repository         | Tag      | Points at                                                  |
+| ------------------ | -------- | ---------------------------------------------------------- |
+| `ritajhq/ensemble` | `0.51.0` | `b2be829` (the changelog commit `08b166e` follows on main) |
+| `ritajhq/idhn`     | `0.0.1`  | `bb3893c`                                                  |
+| `ritajhq/khatm`    | `0.0.1`  | `3dbf5f0`                                                  |
+
+Then, on this server:
+
+- `ens version` prints `0.51.0`. If not, install it:
+  `curl -fsSL https://raw.githubusercontent.com/ritajhq/ensemble/main/.ensemble/install.sh | sh`.
+- `docker login ghcr.io` works with **read** access to the `ritajhq` packages.
+  The four base images are **private** (the developer chose to keep them so),
+  and the platform's ships are built `FROM` them: without a login, step 4 fails
+  pulling `ghcr.io/ritajhq/idhn/guard-standalone` and the rest. Check with
+  `docker pull ghcr.io/ritajhq/idhn/guard-standalone:0.0.1`. If it's denied,
+  **ask** the person to log in. A token with `read:packages` is enough: either
+  `gh auth refresh -s read:packages` and then
+  `gh auth token | docker login ghcr.io -u <user> --password-stdin`, or a
+  classic personal access token. Fine-grained tokens don't work with ghcr.io,
+  and their "Organization private registries" permission is unrelated (it's for
+  Dependabot).
 
 The rest of this file calls the directory holding the clones `$WORK` (for
-example `~/ritaj`), with `ensemble`, `idhn`, `khatm` and `portal` beside each
-other in it. Clone whichever is missing.
+example `~/ritaj`), with `ensemble` in it. Clone it if it's missing; step 4 is
+the only one that needs a checkout here.
 
-## The order, and why
+## The order
 
 ```text
-1. release ensemble 0.51.0      ─┐ the kits' authorize step and the ingress
-                                  │ record live in kit-sdk 0.51.0
-2. sync kits to idhn/khatm/portal ┘
-3. release idhn and khatm       ── publishes the guard, judge, builder and
-                                   khatm images the platform builds FROM
-4. deploy the platform stack on the server
+1. release ensemble 0.51.0        ─┐                                   done
+2. sync kits to idhn/khatm/portal  ├ on the developer's machine         done
+3. release idhn and khatm         ─┘                                   done
+4. deploy the platform stack on the server                             ← start here
 5. point the tunnel at its router
 6. give the first operator a password
 7. verify
 ```
 
-There is one knot: step 1 packs every ship in the repository, including the
-platform's own images, which are built `FROM` images that only exist after
-step 3. Step 1 untangles it by building those few from base images packed
-locally.
+## Done: releases and kit sync
 
-## 1. Release ensemble 0.51.0
+For reference only; don't redo any of it.
 
-**Needs** (on whichever machine runs it — this server, or the developer's):
+- **ensemble 0.51.0**: `@ensemble/core`, `@ensemble/host` and
+  `@ensemble/kit-sdk` 0.51.0 on JSR, the CLI binary as a GitHub release, and the
+  VS Code extension on the Marketplace. The platform's own images were built
+  from the idhn/khatm bases packed locally, through temporary pack vars in
+  `.ensemble/config.local.yaml`. That file has since been deleted, so the
+  platform ships build from the ghcr.io images again.
+- **Kit sync**: ensemble's `pack/docker` and `deploy/compose` kits copied into
+  idhn (`bb3893c`), khatm (`3dbf5f0`) and portal (`92e8c9d`, not pushed yet:
+  portal isn't needed for this rollout).
+- **idhn 0.0.1 and khatm 0.0.1**: four images on ghcr.io, each tagged `0.0.1`
+  and `latest`, all **private**:
+  `ghcr.io/ritajhq/idhn/{guard-standalone,judge-server,policy-builder}` and
+  `ghcr.io/ritajhq/khatm/khatm`.
 
-- `.ensemble/release/secrets.env` with `JSR_TOKEN` (a **full-access** JSR token:
-  a publish-only one is refused by the authorize step) and `VSCE_PAT`;
-- `gh auth status` logged in with write access to `ritajhq/ensemble` (the CLI
-  binary is published as a GitHub release);
-- `docker`, `git`, `deno`, and `git-cliff` (the changelog hook).
+Two problems came up during the 0.51.0 release. Both are fixed, but they explain
+commits you'll see in the history:
 
-If any is missing here, stop and ask whether the developer would rather run this
-step on their own machine; then continue from step 2 once 0.51.0 is out.
-
-1. Pack the base images from the sibling repositories, with ensemble's own CLI
-   from source:
-
-   ```sh
-   ENS="deno run -A $WORK/ensemble/source/apps/cli/main.ts"
-   (cd $WORK/idhn  && for s in guard/standalone judge/server policy/builder; do $ENS pack $s docker; done)
-   (cd $WORK/khatm && $ENS pack khatm docker)
-   ```
-
-2. Point the platform's ships at those local images. These go in the gitignored
-   `.ensemble/config.local.yaml`, so they never reach a commit:
-
-   ```sh
-   cd $WORK/ensemble
-   $ENS config set-pack-var platform-guard GUARD_IMAGE=guard/standalone:latest
-   $ENS config set-pack-var platform-preview-guard GUARD_IMAGE=guard/standalone:latest
-   $ENS config set-pack-var platform-judge JUDGE_IMAGE=judge/server:latest
-   $ENS config set-pack-var platform-policies BUILDER_IMAGE=policy/builder:latest
-   $ENS config set-pack-var platform-auth KHATM_IMAGE=khatm:latest
-   ```
-
-3. Dry-run, and read what it says. It must list the publishes (CLI, VS Code
-   extension, the core libraries to JSR) and **must not** say "Would be
-   refused":
-
-   ```sh
-   $ENS release next minor --dry-run
-   ```
-
-   Confirm the version it would create is `0.51.0`. **Ask** before going on.
-
-4. Release: `$ENS release next minor --yes`. If it stops partway, read
-   `.ensemble/release/state/<tag>.json` and finish with
-   `$ENS release resume <tag> --yes` — never start a second release.
-
-5. Re-pin ensemble's own kits to the release, so copies outside the workspace
-   resolve the new kit-sdk API. In `$WORK/ensemble`, set
-   `"@ensemble/kit-sdk": "jsr:@ensemble/kit-sdk@^0.51.0"` in the `deno.json` of
-   every kit under `.ensemble/kits/` that pins an older `^0.4x`/`^0.50` version
-   (at least `deploy/compose`, `deploy/aws`, `pack/docker`, `pack/deno.compile`,
-   `pack/vscode`, `lib/jsr`). Run the kits' tests
-   (`deno test -A .ensemble/kits/deploy/compose .ensemble/kits/pack/docker`),
-   then commit with one summary line, for example
-   `fix(kits): pin the kits to @ensemble/kit-sdk ^0.51.0`, and ask before
-   pushing.
-
-## 2. Sync the docker and compose kits
-
-Kits are vendored: each repository holds its own copy, and ensemble's is the
-reference. idhn and khatm can't release until theirs have the authorize step,
-and portal should match too. For each of `idhn`, `khatm` and `portal`:
-
-```sh
-for kit in pack/docker deploy/compose; do
-  rm -rf $WORK/<repo>/.ensemble/kits/$kit
-  cp -r $WORK/ensemble/.ensemble/kits/$kit $WORK/<repo>/.ensemble/kits/$kit
-done
-```
-
-Then:
-
-- check the copies are identical:
-  `diff -r $WORK/ensemble/.ensemble/kits/pack/docker $WORK/<repo>/.ensemble/kits/pack/docker`
-  prints nothing (ignore any `.stage` directory);
-- **`.ensemble/kits/` is gitignored in these repositories**: a file new to the
-  copy (`authorize.ts`, `push-authorization.ts`, its test) is invisible to
-  `git status` until force-added. Run
-  `git add -f .ensemble/kits/pack/docker .ensemble/kits/deploy/compose` and
-  check with `git status` that the new files are staged — a missing file breaks
-  the kit for everyone who clones it (this happened once already);
-- commit with one summary line, for example
-  `fix(kits): sync the docker and compose kits from ensemble 0.51.0`, and ask
-  before pushing.
-
-Leave `ensemble-node` alone: it has its own Node kits.
-
-Deno refuses dependencies published less than 24 hours ago by default. `ens`
-runs kits with `--minimum-dependency-age 0`, so packs and releases work right
-away; a plain `deno check` or `deno test` in these repositories may not until
-the next day — that's expected, not a failure.
-
-## 3. Release idhn and khatm
-
-**Needs:** `docker login ghcr.io` with a token that may write packages to the
-`ritajhq` organization (ask the person for it; never store it in a file
-yourself).
-
-For each of `$WORK/idhn` and `$WORK/khatm`, with the installed `ens` (now 0.51.0
-— `ens version`; install it with
-`curl -fsSL https://raw.githubusercontent.com/ritajhq/ensemble/main/.ensemble/install.sh | sh`
-if needed):
-
-1. `ens release next patch --dry-run`: it must plan to publish
-   `ghcr.io/ritajhq/idhn/{guard-standalone,judge-server,policy-builder}` (or
-   `ghcr.io/ritajhq/khatm/khatm`), and must not be refused. Neither has released
-   before, so the version will be `0.0.1`.
-2. **Ask**, then `ens release next patch --yes`.
-
-New GitHub packages are **private**. Either make the four packages public
-(GitHub → the package → settings), or make sure every host that builds the
-platform is logged in to ghcr.io with read access. Ask the person which.
-
-Once these are out, clear the local pack vars from step 1 on the machine that
-released ensemble, so it builds from the published images again:
-
-```sh
-cd $WORK/ensemble && $EDITOR .ensemble/config.local.yaml   # remove vars.pack.platform-*
-```
+- The version bump moved the core libraries to 0.51.0 but left other workspace
+  members pinning `^0.50.0`. On 0.x, `^0.50.0` excludes 0.51.0, so Deno silently
+  resolved the old JSR release instead of the workspace copy. The platform
+  server failed to bundle (`No matching export ... IngressFile`), and the kits
+  failed their authorize step (`authorizePublish is not a function`). Fixed for
+  this release by `8f67d2a` (apps and unpublished libs import `@ensemble/core`
+  unversioned) and `b2be829` (kits pinned to `^0.51.0`). From the next release
+  on, `0f2bfd7` makes the release stamp repin every workspace member's versioned
+  core-lib imports itself.
+- The ensemble release ran with the CLI from source
+  (`deno run -A source/apps/cli/main.ts`), because the installed `ens` was still
+  0.50.0 and lacked the authorize step. On this server, use the installed
+  0.51.0.
 
 ## 4. Deploy the platform stack
 
@@ -229,7 +154,10 @@ below.
      --env-file ~/.config/ens-platform/platform.env
    ```
 
-   Later redeploys are the same command without `--emulate-externals`.
+   Later redeploys are the same command without `--emulate-externals`. If a
+   build fails pulling `ghcr.io/ritajhq/...` (`denied` or `unauthorized`), the
+   ghcr.io login from [What has to be true first](#what-has-to-be-true-first) is
+   missing.
 
 3. Check every container is up and started cleanly:
 
@@ -304,11 +232,10 @@ check: add `ritajhq/ensemble` as a project and watch it sync.
 
 ## Report back
 
-Tell the person, in a few lines: which steps ran, every version released
-(ensemble, idhn, khatm), the commits made and whether they were pushed, where
-the env file is (`~/.config/ens-platform/platform.env`, and that it needs
-backing up), what the tunnel now routes, and anything you skipped or that
-failed, with its output.
+Tell the person, in a few lines: which steps ran, the ensemble commit the server
+deployed from, any commits made and whether they were pushed, where the env file
+is (`~/.config/ens-platform/platform.env`, and that it needs backing up), what
+the tunnel now routes, and anything you skipped or that failed, with its output.
 
 ## Known gaps (not yours to fix now)
 
