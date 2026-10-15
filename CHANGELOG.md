@@ -1,3 +1,25 @@
+## [0.52.0] - 2026-10-15
+
+### 🚀 Features
+
+- *(compose)* Restart a critical container after a crash or a reboot
+- *(platform)* Carry out every run in a container that outlives a platform restart, and rejoin it when the platform comes back
+- *(platform)* Ship gh and git-cliff in the platform image so releases can run from it
+- *(platform)* Update the platform alone, once every run in progress is over, holding runs asked for meanwhile for the platform it brings up
+
+### 🐛 Bug Fixes
+
+- *(release)* Repin every workspace member's versioned core-lib imports when stamping a release
+
+### 📚 Documentation
+
+- *(agent)* Mark the platform rollout's releases done and start the handoff at the server deploy
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.51.0
+- *(platform)* Render the stack's compose file with its restart policies, registry logins and run settings
+- *(release)* Bump library versions for 0.52.0
 ## [0.51.0] - 2026-10-15
 
 ### 🚀 Features
