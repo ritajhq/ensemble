@@ -4009,14 +4009,6 @@
           "npm:react@19.2.8"
         ]
       },
-      "source/apps/preview": {
-        "dependencies": [
-          "jsr:@duesabati/evento@1.0.0",
-          "jsr:@std/assert@1.0.14",
-          "jsr:@std/path@1.1.6",
-          "jsr:@std/yaml@1.1.2"
-        ]
-      },
       "source/apps/website/content": {
         "dependencies": [
           "jsr:@ensemble/website@*",
