@@ -28,13 +28,21 @@ export class Router {
     return this.published;
   }
 
-  /** `deployment` is up, answering where its ingress record says. */
-  deployed(
-    deployment: Platform.Deployment,
+  /** `owner` is up, answering where its ingresses say: whatever it answered for before, it now answers for this. */
+  answering(
+    owner: string,
     ingresses: Platform.Ingresses["ingresses"],
   ): Promise<void> {
     return this.inTurn(async () => {
-      await this.ingresses.save({ owner: deployment.owner, ingresses });
+      await this.ingresses.save({ owner, ingresses });
+      await this.write();
+    });
+  }
+
+  /** `owner` was taken down: nothing is routed to it any more. */
+  withdraw(owner: string): Promise<void> {
+    return this.inTurn(async () => {
+      await this.ingresses.remove(owner);
       await this.write();
     });
   }

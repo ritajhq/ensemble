@@ -3,8 +3,6 @@ build:
     kit: deno.bundle
   git-sync:
     kit: deno.bundle
-  preview:
-    kit: deno.bundle
   platform/server:
     kit: deno.bundle
   platform/web:

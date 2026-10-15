@@ -3,6 +3,8 @@ export interface Upstream {
   readonly alias: string;
   readonly port: number;
   readonly scheme: "http" | "https";
+  /** The host the gateway is asked for instead of the public one: a preview's internal host. */
+  readonly host?: string;
 }
 
 /** One host, the deployment answering for it, and where that deployment is reached. */
@@ -33,6 +35,8 @@ export interface Ingresses {
     readonly port: number;
     readonly scheme: "http" | "https";
     readonly hosts: readonly string[];
+    /** Public host → the host its gateway answers on, for a host published under another name (a preview's). */
+    readonly rewrites?: Readonly<Record<string, string>>;
   }[];
 }
 
@@ -91,6 +95,11 @@ export class RoutingTable {
             rejections.push({ owner, value: host });
             continue;
           }
+          const rewrite = ingress.rewrites?.[host];
+          if (rewrite !== undefined && !HOST.test(rewrite)) {
+            rejections.push({ owner, value: rewrite });
+            continue;
+          }
           const route = {
             host: name,
             owner,
@@ -98,6 +107,7 @@ export class RoutingTable {
               alias: ingress.alias,
               port: ingress.port,
               scheme: ingress.scheme,
+              ...(rewrite === undefined ? {} : { host: rewrite }),
             },
           };
           claims.set(name, [...claims.get(name) ?? [], route]);

@@ -83,7 +83,41 @@ export interface ReleaseWork {
   readonly argument: string;
 }
 
-export type Work = DeployWork | ReleaseWork;
+/** One branch's preview of one manifest, brought up or taken down, as a run carries it out. */
+export interface PreviewWork {
+  readonly kind: "preview";
+  readonly project: string;
+  readonly manifest: string;
+  readonly branch: string;
+  readonly intent: "deploy" | "destroy";
+  readonly kit: string;
+}
+
+export type Work = DeployWork | ReleaseWork | PreviewWork;
+
+/** How one manifest is previewed. */
+export interface PreviewSettings {
+  readonly manifest: string;
+  readonly branches: readonly string[];
+  readonly base: string;
+  readonly kit: string;
+  readonly overrides: Readonly<Record<string, string>>;
+}
+
+/** A branch's preview that is up, at its public hosts. */
+export interface LivePreview {
+  readonly manifest: string;
+  readonly branch: string;
+  readonly kit: string;
+  readonly hosts: readonly string[];
+}
+
+/** A project's previews: its webhook, how each manifest is previewed, and what is up. */
+export interface ProjectPreviews {
+  readonly webhook: { readonly path: string; readonly secret: boolean };
+  readonly settings: readonly PreviewSettings[];
+  readonly live: readonly LivePreview[];
+}
 
 /** One time some work was carried out on a project. */
 export interface Run {
@@ -216,6 +250,56 @@ export class Api {
     return `/api/projects/${encodeURIComponent(project)}/credentials/${
       encodeURIComponent(name)
     }`;
+  }
+
+  previews(project: string): Promise<ProjectPreviews> {
+    return this.call(
+      "GET",
+      `/api/projects/${encodeURIComponent(project)}/previews`,
+    );
+  }
+
+  setPreviewSettings(
+    project: string,
+    settings: PreviewSettings,
+  ): Promise<void> {
+    const { manifest, ...rest } = settings;
+    return this.call(
+      "PUT",
+      `${this.manifestPath(project, manifest)}/previews`,
+      rest,
+    );
+  }
+
+  stopPreviews(project: string, manifest: string): Promise<void> {
+    return this.call(
+      "DELETE",
+      `${this.manifestPath(project, manifest)}/previews`,
+    );
+  }
+
+  preview(project: string, branch: string): Promise<Run[]> {
+    return this.call(
+      "POST",
+      `/api/projects/${encodeURIComponent(project)}/previews`,
+      { branch },
+    );
+  }
+
+  takeDownPreview(project: string, branch: string): Promise<Run[]> {
+    return this.call(
+      "POST",
+      `/api/projects/${encodeURIComponent(project)}/previews/destroy`,
+      { branch },
+    );
+  }
+
+  setWebhookSecret(project: string, value: string): Promise<void> {
+    return this.call(
+      "PUT",
+      `/api/projects/${encodeURIComponent(project)}/webhook-secret`,
+      { value },
+    );
   }
 
   routes(): Promise<RoutingTable> {

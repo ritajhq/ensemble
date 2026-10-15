@@ -4,6 +4,17 @@ export { Catalog, type Problem } from "./catalog.ts";
 export { Discovery } from "./discovery.ts";
 export { Environment, InvalidEnvironmentError } from "./environment.ts";
 export { Values } from "./values.ts";
+export { BranchSlug } from "./branch-slug.ts";
+export { InvalidTemplateError, Preview } from "./preview.ts";
+export {
+  InvalidPreviewChangeError,
+  PreviewChange,
+  type PreviewIntent,
+} from "./preview-change.ts";
+export {
+  InvalidPreviewSettingsError,
+  PreviewSettings,
+} from "./preview-settings.ts";
 export {
   Deployment,
   InvalidDeploymentError,

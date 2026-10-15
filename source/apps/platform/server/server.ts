@@ -1,4 +1,4 @@
-import type { Api } from "./api.ts";
+import type { Endpoints } from "./endpoints.ts";
 
 /** The built web app's files, each with its type. */
 const ASSETS: Readonly<Record<string, string>> = {
@@ -56,19 +56,29 @@ export class WebApp {
   }
 }
 
+/** Where the platform's own endpoints live: its JSON API, and the webhooks it is sent. */
+const ENDPOINT_PREFIXES = ["/api/", "/hooks/"];
+
 /**
- * The platform's HTTP surface: `/api/*` is the JSON API, `/assets/<file>`
- * the web app's files, and any other `GET` the web app's page.
+ * The platform's HTTP surface: `/api/*` is the JSON API and `/hooks/*` the
+ * webhooks (both `Endpoints`), `/assets/<file>` the web app's files, and any
+ * other `GET` the web app's page.
  *
  * It has no access control of its own: it must be reached only through the
- * idhn guard in front of it.
+ * idhn guard in front of it — but for `/hooks/*`, which verify their own
+ * senders.
  */
 export class Server {
-  constructor(private readonly api: Api, private readonly web: WebApp) {}
+  constructor(
+    private readonly endpoints: Endpoints,
+    private readonly web: WebApp,
+  ) {}
 
   async handle(request: Request): Promise<Response> {
     const { pathname } = new URL(request.url);
-    if (pathname.startsWith("/api/")) return await this.api.handle(request);
+    if (ENDPOINT_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
+      return await this.endpoints.answer(request);
+    }
     if (request.method !== "GET") {
       return new Response("Method not allowed", { status: 405 });
     }

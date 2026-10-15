@@ -1,8 +1,9 @@
 import type { Deployment } from "./deployment.ts";
+import type { PreviewChange } from "./preview-change.ts";
 import type { Release } from "./release.ts";
 
-/** What a run carries out: a deployment of one environment, or a release of a whole project. */
-export type Work = Deployment | Release;
+/** What a run carries out: a deployment of one environment, a release of a whole project, or a change to one branch's preview. */
+export type Work = Deployment | Release | PreviewChange;
 
 export type RunState = "queued" | "running" | "succeeded" | "failed";
 

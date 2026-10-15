@@ -46,128 +46,48 @@ never removed.
 
 ## Previews
 
-A preview is an instance (`--instance <slug>`) reachable at
-`<slug>.preview.<domain>`. Two parts make that work with no per-preview
-registration anywhere.
+A preview is an instance of a manifest built from one branch, reachable at its
+own hosts, and taken down when the branch is deleted. The platform
+(`source/apps/platform`, deployed as
+[`ci/platform`](../../../ci/platform/delivery.yml)) runs them: on each push to a
+branch a manifest tracks, it checks the branch out on its own and runs
+`ens deploy <manifest> <kit> --artifacts local --instance
+preview-<slug>` there;
+on the branch's deletion, `ens destroy` with the same instance.
 
-**One router per host**,
-[`ci/preview-router`](../../../ci/preview-router/delivery.yml): a Caddy with a
-wildcard certificate (obtained through Cloudflare's DNS API, so the host needn't
-be reachable from the internet) that proxies `<slug>.preview.<domain>` to
-whichever gateway on the `preview` network took `<slug>` as its alias. Bring it
-up once:
+Its values start from one of the manifest's environments — never production: a
+preview runs whatever its branch holds, and can read every value it is given —
+with the variables a browser sees set for each preview from templates:
+
+```text
+domain = {internal}
+dashboard_origin = https://{host:dashboard}
+```
+
+`{internal}` is the preview's own domain (`<slug>.<project>.preview.internal`),
+which only its gateway sees: route hosts under it, the same way the manifest's
+environments route hosts under their real domain. Each such host is published as
+one label under the preview domain — `dashboard.<internal>` as
+`dashboard--<slug>--<project>.ensemble.blue`, `{internal}` itself as
+`<slug>--<project>.ensemble.blue` — so one wildcard certificate covers every
+preview. `{host}` and `{host:<subdomain>}` are those public hosts; `{slug}` and
+`{branch}` name the branch.
+
+The platform's router fronts every deployment it makes, previews included: it
+routes each host a deployment recorded (`<kit>.ingress.json`, see
+[Instances and tearing down](#instances-and-tearing-down)) to that deployment's
+gateway on the `ingress` network, asking a preview's gateway for its internal
+host. Bring the platform up once per host:
 
 ```sh
-export CLOUDFLARE_API_TOKEN=…   # this zone only: Zone → Zone → Read, Zone → DNS → Edit
-ens deploy preview-router compose --artifacts local --emulate-externals
-```
-
-**A previewable manifest** puts its gateway on that network under the instance's
-alias and answers on the instance's hostname. Neither is derived by ens: the
-pipeline exports them, as it does every per-environment value.
-
-```yaml
-deploy:
-  networking:
-    gateway:
-      type: gateway
-      networks: ${variables.ingress_networks.value}
-      alias: ${variables.gateway_alias.value}
-      routes:
-        - host: ${variables.public_host.value}
-          path: /*
-          target:
-            service: web
-            port: ${compute.web.http}
-  variables:
-    ingress_networks:
-      type: list
-      default: edge
-    gateway_alias:
-      default: gateway
-    public_host:
-      default: app.ritaj.app
-```
-
-A preview then deploys with `ingress_networks=preview`, `gateway_alias=<slug>`
-and `public_host=<slug>.preview.ritaj.app` in the environment, and the plain
-deployment keeps its defaults.
-
-### Reaching the router over WARP
-
-The router is the one compute that opts in to `publish`: it answers on the
-host's own `443`, which is how a deploy otherwise never exposes anything. The
-host needs a stable address, such as a static DHCP lease, and then:
-
-1. A DNS-only (not proxied) wildcard record `*.preview.<domain>` → the host's
-   address.
-2. A route for that address through the tunnel, for clients off the LAN (Zero
-   Trust → Networks → Routes). Nothing is exposed publicly: the address is
-   private, and the certificate is obtained through the DNS API.
-3. WARP enrolled on each device that opens a preview.
-
-Only one stack on the host can publish `443`, so this is the router's, not a
-preview's.
-
-### Deploying on push
-
-`source/apps/preview` is a small service that turns GitHub pushes into
-instances: a push to a tracked branch runs
-`ens deploy <delivery> <kit>
---instance <slug> --artifacts local` in a checkout
-of that branch, and deleting the branch runs `ens destroy`. Pushes that arrive
-while a preview is deploying are folded into one follow-up deploy of the newest
-commit.
-
-It runs as a process on the host, not in a container: it needs the Docker
-daemon, `git` and `ens`, and a containerised copy would have the checkout's
-paths (init files a manifest mounts) mean something different to the daemon than
-to it. Build it with `ens build preview`; the result is
-`source/artifacts/preview/main.js`.
-
-```yaml
-# preview.yml
-domain: preview.ritaj.app
-network: preview
-workspace: /var/lib/ens-previews
-repositories:
-  portal:
-    repo: ritajhq/portal
-    delivery: portal
-    branches:
-      - main
-      - feat/*
-    envFiles:
-      - ci/portal/preview.env
-```
-
-A preview is `<slug>.<domain>`, where the slug is the branch name made into a
-DNS label (`feat/login` becomes `feat-login-<digest>`). The deploy gets
-`INGRESS_NETWORKS`, `GATEWAY_ALIAS` and `PUBLIC_HOST` — the three variables the
-manifest example above reads. A repository whose manifest names them otherwise
-lists `variables:` mapping its variable name to a template over `{slug}`,
-`{host}`, `{network}` and `{branch}`. Everything else the manifest needs
-(secrets, credentials) comes from the service's own environment and the
-repository's `envFiles`.
-
-```sh
-# WEBHOOK_SECRET_<ID> is per repository id, upper-cased; GITHUB_TOKEN is
-# only needed to clone a private repository.
-export PREVIEW_CONFIG=/etc/ens-preview/preview.yml
-export WEBHOOK_SECRET_PORTAL=…
+export PLATFORM_SECRET_KEY=$(openssl rand -base64 32)   # keep it
 export GITHUB_TOKEN=…
-export ENS_BIN=/usr/local/bin/ens
-PORT=8080 deno run -A source/artifacts/preview/main.js
+ens deploy platform compose --artifacts local --emulate-externals
 ```
 
-On the repository, add a webhook to
-`https://<where this is reachable>/webhook/<id>` (JSON, the same secret) for the
-**push** and **delete** events. Each request is verified against that
-repository's own secret, and a payload naming any other repository is refused.
-`GET /` lists each preview's last outcome.
-
-The service runs whatever a tracked branch contains on this host, with access to
-its Docker daemon: track only branches whose authors you'd let deploy there.
+Each project's GitHub webhook — `https://<platform>/hooks/github/<project>`,
+JSON, push and delete events — is verified with the project's own secret, set in
+the platform.
 
 ## Resolving releases
 

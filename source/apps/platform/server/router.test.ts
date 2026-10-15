@@ -33,7 +33,7 @@ Deno.test("Router: a deployment's hosts are routed to its alias, every other hos
       'respond "No deployment answers for this host." 404',
     );
 
-    await router.deployed(deployment("production"), [{
+    await router.answering(deployment("production").owner, [{
       alias: "portal-portal",
       scheme: "http",
       port: 80,
@@ -57,8 +57,14 @@ Deno.test("Router: an environment deployed again replaces what it answered for b
       port: 80,
       hosts,
     }];
-    await router.deployed(deployment("staging"), ingress(["old.ritaj.app"]));
-    await router.deployed(deployment("staging"), ingress(["new.ritaj.app"]));
+    await router.answering(
+      deployment("staging").owner,
+      ingress(["old.ritaj.app"]),
+    );
+    await router.answering(
+      deployment("staging").owner,
+      ingress(["new.ritaj.app"]),
+    );
 
     assertEquals(
       (await router.table()).routes.map((route) => route.host),
@@ -69,7 +75,7 @@ Deno.test("Router: an environment deployed again replaces what it answered for b
 
 Deno.test("Router: a gateway answering over its own TLS is proxied to as it is", async () => {
   await withRouter(async (router, configuration) => {
-    await router.deployed(deployment("production"), [{
+    await router.answering(deployment("production").owner, [{
       alias: "portal-portal",
       scheme: "https",
       port: 443,
@@ -79,5 +85,27 @@ Deno.test("Router: a gateway answering over its own TLS is proxied to as it is",
       await Deno.readTextFile(configuration),
       "reverse_proxy https://portal-portal:443 {",
     );
+  });
+});
+
+Deno.test("Router: a preview's public host is proxied asking for the internal host its gateway answers on", async () => {
+  await withRouter(async (router, configuration) => {
+    await router.answering("portal/web/preview-feat-x", [{
+      alias: "portal-web--preview-feat-x",
+      scheme: "http",
+      port: 80,
+      hosts: ["feat-x--portal.ensemble.blue"],
+      rewrites: {
+        "feat-x--portal.ensemble.blue": "feat-x.portal.preview.internal",
+      },
+    }]);
+    const caddyfile = await Deno.readTextFile(configuration);
+    assertStringIncludes(
+      caddyfile,
+      "header_up Host feat-x.portal.preview.internal",
+    );
+
+    await router.withdraw("portal/web/preview-feat-x");
+    assertEquals((await router.table()).routes, []);
   });
 });

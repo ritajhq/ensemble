@@ -1,4 +1,4 @@
-import type { DeployWork, ReleaseWork, Work } from "./api.ts";
+import type { DeployWork, PreviewWork, ReleaseWork, Work } from "./api.ts";
 
 /** How each kind of work reads, as a run's title and the details beside it. */
 const KINDS: {
@@ -17,6 +17,13 @@ const KINDS: {
   release: {
     title: (work: ReleaseWork) => `Release ${work.project}`,
     details: (work: ReleaseWork) => [`${work.action} ${work.argument}`],
+  },
+  preview: {
+    title: (work: PreviewWork) =>
+      `${
+        work.intent === "deploy" ? "Preview" : "Take down preview of"
+      } ${work.manifest} ← ${work.branch}`,
+    details: (work: PreviewWork) => [work.kit],
   },
 };
 

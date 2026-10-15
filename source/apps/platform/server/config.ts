@@ -9,6 +9,8 @@ export interface Configuration {
   readonly web: string;
   /** The Caddyfile the router reads: in a volume the router alone shares with the platform. */
   readonly routerConfiguration: string;
+  /** The public domain previews answer under: each preview host is one label beneath it. */
+  readonly previewDomain: string;
   /** The host the platform's own UI answers on, and where the router reaches it (`http://platform:8090`, or a guard in front of it). None: the router routes deployments only. */
   readonly own?: { readonly host: string; readonly upstream: URL };
   /** The `ens` binary deploys and releases run. */
@@ -52,6 +54,8 @@ export class ConfigurationLoader {
       database: this.env.get("PLATFORM_DATABASE") ??
         "/var/lib/ens-platform/platform.kv",
       web: this.env.get("PLATFORM_WEB") ?? this.defaultWeb,
+      previewDomain: this.env.get("PLATFORM_PREVIEW_DOMAIN") ??
+        "ensemble.blue",
       routerConfiguration: this.env.get("PLATFORM_ROUTER_CONFIG") ??
         "/var/lib/ens-platform/router/Caddyfile",
       ens: this.env.get("ENS_BIN") ?? "ens",

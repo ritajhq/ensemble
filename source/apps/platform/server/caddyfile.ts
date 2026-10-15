@@ -1,19 +1,28 @@
 import type * as Platform from "@ensemble/platform";
 
 /** How each scheme a gateway answers in is proxied to. A gateway minting its own certificate (`tls: internal`) is trusted as it is: the hop is the ingress network's own. */
-const PROXIES: Readonly<
-  Record<Platform.Upstream["scheme"], (upstream: Platform.Upstream) => string>
+const TRANSPORTS: Readonly<
+  Record<Platform.Upstream["scheme"], readonly string[]>
 > = {
-  http: ({ alias, port }) => `reverse_proxy http://${alias}:${port}`,
-  https: ({ alias, port }) =>
-    [
-      `reverse_proxy https://${alias}:${port} {`,
-      "\t\t\ttransport http {",
-      "\t\t\t\ttls_insecure_skip_verify",
-      "\t\t\t}",
-      "\t\t}",
-    ].join("\n"),
+  http: [],
+  https: ["transport http {", "\ttls_insecure_skip_verify", "}"],
 };
+
+/** The `reverse_proxy` directive for `upstream`: its transport, and the host it is asked for when that isn't the public one (a preview's). */
+function proxyTo(upstream: Platform.Upstream): string {
+  const settings = [
+    ...TRANSPORTS[upstream.scheme],
+    ...(upstream.host ? [`header_up Host ${upstream.host}`] : []),
+  ];
+  const directive =
+    `reverse_proxy ${upstream.scheme}://${upstream.alias}:${upstream.port}`;
+  if (settings.length === 0) return directive;
+  return [
+    `${directive} {`,
+    ...settings.map((line) => `\t\t\t${line}`),
+    "\t\t}",
+  ].join("\n");
+}
 
 /**
  * The router's whole configuration, from a routing table: one plain-HTTP
@@ -39,7 +48,7 @@ export class Caddyfile {
           routes.map((route) => route.host).join(" ")
         }`,
         `\thandle @upstream${index} {`,
-        `\t\t${PROXIES[routes[0].upstream.scheme](routes[0].upstream)}`,
+        `\t\t${proxyTo(routes[0].upstream)}`,
         "\t}",
       ].join("\n")
     );

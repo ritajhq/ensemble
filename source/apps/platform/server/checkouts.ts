@@ -1,5 +1,5 @@
-import { join } from "@std/path";
-import type * as Platform from "@ensemble/platform";
+import { dirname, join } from "@std/path";
+import * as Platform from "@ensemble/platform";
 import { Process } from "./process.ts";
 
 /** A project's working copy, at the commit it was last brought to. */
@@ -79,6 +79,73 @@ export class Checkouts {
     return output.split("\n").map((tag) => tag.trim()).filter(Boolean);
   }
 
+  /**
+   * Brings `branch`'s own checkout to its tip, cloning it first, then runs
+   * `work` in it, in one turn: what a preview is deployed from. Kept apart
+   * from the project's checkout — `<workspace>/.previews/<project>/<slug>/
+   * <project id>` — and still named after the project, as `ens` names its
+   * deployments after the checkout's directory.
+   */
+  branch<T>(
+    project: Platform.Project,
+    branch: string,
+    work: (checkout: Checkout) => Promise<T>,
+  ): Promise<T> {
+    const path = this.branchPathOf(project, branch);
+    return this.inTurnOf(path, async () => {
+      if (await this.exists(path)) {
+        await this.git(
+          ["fetch", "--quiet", "--depth", "1", "origin", branch],
+          path,
+        );
+        await this.git(["checkout", "--quiet", "--force", "FETCH_HEAD"], path);
+        await this.git(["clean", "--quiet", "-fd"], path);
+      } else {
+        await Deno.mkdir(dirname(path), { recursive: true });
+        await this.git([
+          "clone",
+          "--quiet",
+          "--depth",
+          "1",
+          "--branch",
+          branch,
+          project.cloneUrl,
+          path,
+        ]);
+      }
+      return await work({ path, commit: await this.head(path) });
+    });
+  }
+
+  /**
+   * Runs `work` in `branch`'s checkout as it was last left — the branch may
+   * be gone from the repository — then forgets the checkout: what a preview
+   * is taken down from. Without a checkout there is nothing to take down,
+   * and `work` doesn't run.
+   */
+  lastOfBranch(
+    project: Platform.Project,
+    branch: string,
+    work: (checkout: Checkout) => Promise<void>,
+  ): Promise<void> {
+    const path = this.branchPathOf(project, branch);
+    return this.inTurnOf(path, async () => {
+      if (!await this.exists(path)) return;
+      await work({ path, commit: await this.head(path) });
+      await Deno.remove(dirname(path), { recursive: true });
+    });
+  }
+
+  private branchPathOf(project: Platform.Project, branch: string): string {
+    return join(
+      this.workspace,
+      ".previews",
+      project.id,
+      Platform.BranchSlug.of(branch).value,
+      project.id,
+    );
+  }
+
   private pathOf(project: Platform.Project): string {
     return join(this.workspace, project.id);
   }
@@ -87,11 +154,16 @@ export class Checkouts {
     project: Platform.Project,
     work: () => Promise<T>,
   ): Promise<T> {
-    const previous = this.turns.get(project.id) ?? Promise.resolve();
+    return this.inTurnOf(project.id, work);
+  }
+
+  /** Runs `work` once no other work under `key` (a checkout) is running. */
+  private inTurnOf<T>(key: string, work: () => Promise<T>): Promise<T> {
+    const previous = this.turns.get(key) ?? Promise.resolve();
     const turn = previous.then(work, work);
-    this.turns.set(project.id, turn);
+    this.turns.set(key, turn);
     const forget = () => {
-      if (this.turns.get(project.id) === turn) this.turns.delete(project.id);
+      if (this.turns.get(key) === turn) this.turns.delete(key);
     };
     turn.then(forget, forget);
     return turn;

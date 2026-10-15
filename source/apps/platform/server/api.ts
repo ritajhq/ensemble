@@ -1,18 +1,10 @@
 import { Delegate, type Emitter } from "@duesabati/evento";
 import * as Platform from "@ensemble/platform";
 import type { Checkouts } from "./checkouts.ts";
+import type { Endpoints, Params } from "./endpoints.ts";
 import type * as Kv from "./kv.ts";
 import type { Router } from "./router.ts";
 import { type RunFeed, RunView } from "./run-feed.ts";
-
-type Params = Readonly<Record<string, string | undefined>>;
-
-/** One route: what it answers and how. */
-interface Route {
-  readonly method: string;
-  readonly pattern: URLPattern;
-  readonly answer: (request: Request, params: Params) => Promise<Response>;
-}
 
 /** How each kind of value an environment supplies is checked against its manifest, set and cleared. */
 interface ValueKind {
@@ -72,7 +64,6 @@ export class Api {
   private readonly projectAdded = new Delegate<[Platform.Project]>();
   private readonly syncRequested = new Delegate<[Platform.Project]>();
   private readonly runRequested = new Delegate<[Platform.Run]>();
-  private readonly routes: readonly Route[];
 
   constructor(
     private readonly projects: Kv.Projects,
@@ -85,69 +76,69 @@ export class Api {
     private readonly checkouts: Checkouts,
     private readonly feed: RunFeed,
     private readonly router: Router,
+    endpoints: Endpoints,
   ) {
-    this.routes = [
-      this.route("GET", "/api/projects", () => this.listProjects()),
-      this.route(
-        "POST",
-        "/api/projects",
-        (request) => this.addProject(request),
-      ),
-      this.route("GET", "/api/projects/:id", (_, { id }) => this.project(id!)),
-      this.route(
-        "POST",
-        "/api/projects/:id/sync",
-        (_, { id }) => this.requestSync(id!),
-      ),
-      this.route(
-        "POST",
-        ENVIRONMENT,
-        (request, params) => this.addEnvironment(request, params),
-      ),
-      this.route(
-        "PUT",
-        VALUE,
-        (request, params) => this.setValue(request, params),
-      ),
-      this.route("DELETE", VALUE, (_, params) => this.unsetValue(params)),
-      this.route(
-        "GET",
-        "/api/projects/:id/versions",
-        (_, { id }) => this.versions(id!),
-      ),
-      this.route(
-        "POST",
-        DEPLOYS,
-        (request, params) => this.requestDeploy(request, params),
-      ),
-      this.route(
-        "POST",
-        "/api/projects/:id/releases",
-        (request, { id }) => this.requestRelease(request, id!),
-      ),
-      this.route(
-        "PUT",
-        CREDENTIAL,
-        (request, params) => this.setCredential(request, params),
-      ),
-      this.route(
-        "DELETE",
-        CREDENTIAL,
-        (_, params) => this.unsetCredential(params),
-      ),
-      this.route(
-        "GET",
-        "/api/projects/:id/runs",
-        (_, { id }) => this.projectRuns(id!),
-      ),
-      this.route("GET", "/api/routes", () => this.routingTable()),
-      this.route("GET", "/api/runs/:run", (_, { run }) => this.run(run!)),
-      this.route(
-        "GET",
-        "/api/runs/:run/events",
-        (_, { run }) => this.followRun(run!),
-      ),
-    ];
+    const add = endpoints.add.bind(endpoints);
+    add("GET", "/api/projects", () => this.listProjects());
+    add(
+      "POST",
+      "/api/projects",
+      (request) => this.addProject(request),
+    );
+    add("GET", "/api/projects/:id", (_, { id }) => this.project(id!));
+    add(
+      "POST",
+      "/api/projects/:id/sync",
+      (_, { id }) => this.requestSync(id!),
+    );
+    add(
+      "POST",
+      ENVIRONMENT,
+      (request, params) => this.addEnvironment(request, params),
+    );
+    add(
+      "PUT",
+      VALUE,
+      (request, params) => this.setValue(request, params),
+    );
+    add("DELETE", VALUE, (_, params) => this.unsetValue(params));
+    add(
+      "GET",
+      "/api/projects/:id/versions",
+      (_, { id }) => this.versions(id!),
+    );
+    add(
+      "POST",
+      DEPLOYS,
+      (request, params) => this.requestDeploy(request, params),
+    );
+    add(
+      "POST",
+      "/api/projects/:id/releases",
+      (request, { id }) => this.requestRelease(request, id!),
+    );
+    add(
+      "PUT",
+      CREDENTIAL,
+      (request, params) => this.setCredential(request, params),
+    );
+    add(
+      "DELETE",
+      CREDENTIAL,
+      (_, params) => this.unsetCredential(params),
+    );
+    add(
+      "GET",
+      "/api/projects/:id/runs",
+      (_, { id }) => this.projectRuns(id!),
+    );
+    add("GET", "/api/routes", () => this.routingTable());
+    add("GET", "/api/runs/:run", (_, { run }) => this.run(run!));
+    add(
+      "GET",
+      "/api/runs/:run/events",
+      (_, { run }) => this.followRun(run!),
+    );
   }
 
   /** A project was added; it has no checkout yet. */
@@ -163,23 +154,6 @@ export class Api {
   /** A deploy or a release was asked for and queued; it hasn't started. */
   get OnRunRequested(): Emitter<[Platform.Run]> {
     return this.runRequested;
-  }
-
-  async handle(request: Request): Promise<Response> {
-    for (const route of this.routes) {
-      if (route.method !== request.method) continue;
-      const match = route.pattern.exec(request.url);
-      if (match) return await route.answer(request, match.pathname.groups);
-    }
-    return json({ error: "Not found" }, 404);
-  }
-
-  private route(
-    method: string,
-    pathname: string,
-    answer: Route["answer"],
-  ): Route {
-    return { method, pattern: new URLPattern({ pathname }), answer };
   }
 
   private async listProjects(): Promise<Response> {

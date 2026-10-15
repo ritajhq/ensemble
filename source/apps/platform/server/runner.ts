@@ -1,6 +1,6 @@
 import { Delegate, type Emitter } from "@duesabati/evento";
 import { DeploymentEnvironment, IngressFile, Instance } from "@ensemble/core";
-import type * as Platform from "@ensemble/platform";
+import * as Platform from "@ensemble/platform";
 import type { Checkout, Checkouts } from "./checkouts.ts";
 import type { Ensemble } from "./ensemble.ts";
 import type * as Kv from "./kv.ts";
@@ -11,7 +11,7 @@ const MASK = "••••";
 /** A secret shorter than this is never looked for in output: it would mask ordinary words. */
 const MASKABLE_LENGTH = 4;
 
-/** Thrown when a run names a project or environment that no longer exists. */
+/** Thrown when a run names a project, environment or preview setup that no longer exists. */
 export class GoneError extends Error {
   constructor(message: string) {
     super(message);
@@ -25,11 +25,14 @@ interface Prepared {
   readonly secrets: readonly string[];
 }
 
-/** How one kind of work is carried out: what it runs with, which checkout it runs in, and what it runs. */
+const NOTHING: Prepared = { values: {}, secrets: [] };
+
+/** How one kind of work is carried out: what it runs with, which checkout it runs in, what it runs, and what follows however it went. */
 interface Handling<W extends Platform.Work> {
   prepare(work: W): Promise<Prepared>;
-  /** Runs `perform` in the project's checkout: as it is, or brought to its ref's tip first. */
+  /** Runs `perform` in the checkout `work` needs: the project's as it is, brought to its ref's tip, or a branch's own. */
   checkout(
+    work: W,
     project: Platform.Project,
     perform: (checkout: Checkout) => Promise<void>,
   ): Promise<void>;
@@ -39,33 +42,52 @@ interface Handling<W extends Platform.Work> {
     values: Readonly<Record<string, string>>,
     onLine: (line: string) => void,
   ): Promise<void>;
+  /** After the checkout's turn, whether or not `perform` ran in it. */
+  settle(work: W): void;
 }
 
+/** A deployment's ingress records, published under whatever hosts it answers on outside. */
+type Answering = Platform.Ingresses["ingresses"];
+
 /**
- * Carries out queued runs, deploys and releases alike: once the project's
- * checkout is free, runs `ens` in it with what the work needs in its process
- * environment — an environment's values for a deploy, the project's
- * credentials for a release. Every step is announced — started, each line it
- * printed (any secret's value masked), and how it finished — for whoever
- * keeps or shows them.
+ * Carries out queued runs — deploys, releases and preview changes alike:
+ * once the checkout the work needs is free, runs `ens` in it with what the
+ * work needs in its process environment — an environment's values for a
+ * deploy, the project's credentials for a release, a base environment's
+ * values with the preview's own overrides for a preview. Every step is
+ * announced — started, each line it printed (any secret's value masked), how
+ * it finished, and where a deployment now answers or no longer does — for
+ * whoever keeps, shows or routes them.
  */
 export class Runner {
   private readonly started = new Delegate<[Platform.Run]>();
   private readonly printed = new Delegate<[Platform.Run, number, string]>();
   private readonly finished = new Delegate<[Platform.Run]>();
-  private readonly deployed = new Delegate<
-    [Platform.Deployment, Platform.Ingresses["ingresses"]]
-  >();
+  private readonly answering = new Delegate<[string, Answering]>();
+  private readonly withdrawn = new Delegate<[string]>();
+  private readonly previewUp = new Delegate<[Kv.LivePreview]>();
+  private readonly previewDown = new Delegate<[Platform.PreviewChange]>();
+
   /** What follows each termination of a deploy that succeeded: an apply changed what runs, so where it answers is read again; a plan changed nothing. */
-  private readonly after: Readonly<
+  private readonly afterDeploy: Readonly<
     Record<
       Platform.Termination,
       (deployment: Platform.Deployment, checkout: string) => Promise<void>
     >
   > = {
-    apply: (deployment, checkout) => this.recordIngresses(deployment, checkout),
+    apply: async (deployment, checkout) =>
+      this.answering.Invoke(
+        deployment.owner,
+        await this.ingressesOf(
+          checkout,
+          deployment.manifest,
+          deployment.instance,
+          deployment.kit,
+        ),
+      ),
     plan: () => Promise.resolve(),
   };
+
   private readonly handlings: {
     readonly [K in Platform.Work["kind"]]: Handling<
       Extract<Platform.Work, { kind: K }>
@@ -77,23 +99,83 @@ export class Runner {
     private readonly environments: Kv.Environments,
     private readonly values: Kv.Values,
     private readonly credentials: Kv.Credentials,
+    private readonly previewSettings: Kv.PreviewSettings,
     checkouts: Checkouts,
     ensemble: Ensemble,
+    /** The public domain previews answer under. */
+    private readonly previewDomain: string,
   ) {
+    const previewIntents: Readonly<
+      Record<
+        Platform.PreviewIntent,
+        Handling<Platform.PreviewChange>
+      >
+    > = {
+      deploy: {
+        prepare: (change) => this.previewValues(change),
+        checkout: (change, project, perform) =>
+          checkouts.branch(project, change.branch, perform),
+        perform: async (change, checkout, values, onLine) => {
+          const preview = this.previewOf(change);
+          await ensemble.preview(
+            change,
+            preview.instance,
+            checkout,
+            values,
+            onLine,
+          );
+          await this.publishPreview(change, preview, checkout);
+        },
+        settle: () => {},
+      },
+      destroy: {
+        prepare: () => Promise.resolve(NOTHING),
+        checkout: (change, project, perform) =>
+          checkouts.lastOfBranch(project, change.branch, perform),
+        perform: (change, checkout, values, onLine) =>
+          ensemble.preview(
+            change,
+            this.previewOf(change).instance,
+            checkout,
+            values,
+            onLine,
+          ),
+        settle: (change) => {
+          this.withdrawn.Invoke(this.previewOf(change).owner);
+          this.previewDown.Invoke(change);
+        },
+      },
+    };
+
     this.handlings = {
       deploy: {
         prepare: (deployment) => this.environmentValues(deployment),
-        checkout: (project, perform) => checkouts.use(project, perform),
+        checkout: (_, project, perform) => checkouts.use(project, perform),
         perform: async (deployment, checkout, values, onLine) => {
           await ensemble.deploy(deployment, checkout, values, onLine);
-          await this.after[deployment.termination](deployment, checkout);
+          await this.afterDeploy[deployment.termination](deployment, checkout);
         },
+        settle: () => {},
       },
       release: {
         prepare: (release) => this.releaseCredentials(release),
-        checkout: (project, perform) => checkouts.refresh(project, perform),
+        checkout: (_, project, perform) => checkouts.refresh(project, perform),
         perform: (release, checkout, values, onLine) =>
           ensemble.release(release, checkout, values, onLine),
+        settle: () => {},
+      },
+      preview: {
+        prepare: (change) => previewIntents[change.intent].prepare(change),
+        checkout: (change, project, perform) =>
+          previewIntents[change.intent].checkout(change, project, perform),
+        perform: (change, checkout, values, onLine) =>
+          previewIntents[change.intent].perform(
+            change,
+            checkout,
+            values,
+            onLine,
+          ),
+        settle: (change) => previewIntents[change.intent].settle(change),
       },
     };
   }
@@ -111,27 +193,27 @@ export class Runner {
     return this.finished;
   }
 
-  /** An applied deploy is up, answering where its ingress record says. */
-  get OnDeployed(): Emitter<
-    [Platform.Deployment, Platform.Ingresses["ingresses"]]
-  > {
-    return this.deployed;
+  /** A deployment (`<project>/<manifest>/<environment or instance>`) is up, answering where these ingresses say. */
+  get OnAnswering(): Emitter<[string, Answering]> {
+    return this.answering;
   }
 
-  /** Reads where `deployment` now answers, as `ens deploy` recorded it in the checkout, and says so. */
-  private async recordIngresses(
-    deployment: Platform.Deployment,
-    checkout: string,
-  ): Promise<void> {
-    const scope = deployment.instance
-      ? Instance.parse(deployment.instance).scope(deployment.manifest)
-      : deployment.manifest;
-    const record = await IngressFile.for(checkout, scope, deployment.kit)
-      .read();
-    this.deployed.Invoke(deployment, record?.ingresses ?? []);
+  /** A deployment was taken down: nothing answers for it any more. */
+  get OnWithdrawn(): Emitter<[string]> {
+    return this.withdrawn;
   }
 
-  /** Carry out `run`, once its project's checkout is free. */
+  /** A branch's preview is up, at these public hosts. */
+  get OnPreviewUp(): Emitter<[Kv.LivePreview]> {
+    return this.previewUp;
+  }
+
+  /** A branch's preview was taken down. */
+  get OnPreviewDown(): Emitter<[Platform.PreviewChange]> {
+    return this.previewDown;
+  }
+
+  /** Carry out `run`, once the checkout it needs is free. */
   request(run: Platform.Run): void {
     void this.carryOut(run);
   }
@@ -148,7 +230,7 @@ export class Runner {
       >;
       const { values, secrets } = await handling.prepare(run.work);
 
-      await handling.checkout(project, async (checkout) => {
+      await handling.checkout(run.work, project, async (checkout) => {
         run = run.start(checkout.commit);
         this.started.Invoke(run);
         let index = 0;
@@ -159,6 +241,7 @@ export class Runner {
           (line) => this.printed.Invoke(run, index++, mask(line, secrets)),
         );
       });
+      handling.settle(run.work);
       this.finished.Invoke(run.succeed());
     } catch (error) {
       this.finished.Invoke(
@@ -167,31 +250,116 @@ export class Runner {
     }
   }
 
+  /** Where a deployment recorded it answers, as `ens deploy` left it in `checkout`. */
+  private async ingressesOf(
+    checkout: string,
+    manifest: string,
+    instance: string | undefined,
+    kit: string,
+  ): Promise<Answering> {
+    const scope = instance
+      ? Instance.parse(instance).scope(manifest)
+      : manifest;
+    return (await IngressFile.for(checkout, scope, kit).read())?.ingresses ??
+      [];
+  }
+
+  /** Publishes a preview that came up: each host it answers under its internal domain, at its public host; anything else it answers for isn't published. */
+  private async publishPreview(
+    change: Platform.PreviewChange,
+    preview: Platform.Preview,
+    checkout: string,
+  ): Promise<void> {
+    const recorded = await this.ingressesOf(
+      checkout,
+      change.manifest,
+      preview.instance,
+      change.kit,
+    );
+    const published = recorded.map((ingress) => {
+      const rewrites: Record<string, string> = {};
+      for (const host of ingress.hosts) {
+        const publicHost = preview.publicHostOf(host);
+        if (publicHost) rewrites[publicHost] = host;
+      }
+      return { ...ingress, hosts: Object.keys(rewrites), rewrites };
+    });
+    this.answering.Invoke(preview.owner, published);
+    this.previewUp.Invoke({
+      project: change.project,
+      manifest: change.manifest,
+      branch: change.branch,
+      kit: change.kit,
+      hosts: published.flatMap((ingress) => ingress.hosts),
+    });
+  }
+
+  private previewOf(change: Platform.PreviewChange): Platform.Preview {
+    return Platform.Preview.of({
+      project: change.project,
+      manifest: change.manifest,
+      branch: change.branch,
+      domain: this.previewDomain,
+    });
+  }
+
   /** The deployed environment's values as `ens` reads them. */
   private async environmentValues(
     deployment: Platform.Deployment,
   ): Promise<Prepared> {
-    const environment = await this.environments.get(
+    return await this.valuesOf(
       deployment.project,
       deployment.manifest,
       deployment.environment,
     );
-    if (!environment) {
+  }
+
+  /** The preview's base environment's values, with the manifest's overrides filled for this preview on top. */
+  private async previewValues(
+    change: Platform.PreviewChange,
+  ): Promise<Prepared> {
+    const settings = await this.previewSettings.get(
+      change.project,
+      change.manifest,
+    );
+    if (!settings) {
       throw new GoneError(
-        `${deployment.project}/${deployment.manifest}/${deployment.environment} no longer exists.`,
+        `${change.project}/${change.manifest} is no longer previewed.`,
       );
+    }
+    const base = await this.valuesOf(
+      change.project,
+      change.manifest,
+      settings.base,
+    );
+    const preview = this.previewOf(change);
+    const values = { ...base.values };
+    for (const [name, template] of Object.entries(settings.overrides)) {
+      values[DeploymentEnvironment.variableOf(name)] = preview.render(template);
+    }
+    return { values, secrets: base.secrets };
+  }
+
+  private async valuesOf(
+    project: string,
+    manifest: string,
+    name: string,
+  ): Promise<Prepared> {
+    const environment = await this.environments.get(project, manifest, name);
+    if (!environment) {
+      throw new GoneError(`${project}/${manifest}/${name} no longer exists.`);
     }
 
     const supplied = await this.values.of(environment);
     const values: Record<string, string> = {};
-    for (const [name, value] of supplied.variables) {
-      values[DeploymentEnvironment.variableOf(name)] = value;
+    for (const [variable, value] of supplied.variables) {
+      values[DeploymentEnvironment.variableOf(variable)] = value;
     }
     const secrets: string[] = [];
-    for (const name of supplied.secrets) {
-      const value = await this.values.reveal(environment, name);
+    for (const secret of supplied.secrets) {
+      const value = await this.values.reveal(environment, secret);
       if (value === undefined) continue;
-      values[DeploymentEnvironment.variableOf(name)] = value;
+      values[DeploymentEnvironment.variableOf(secret)] = value;
       secrets.push(value);
     }
     return { values, secrets };

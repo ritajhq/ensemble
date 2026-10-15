@@ -1,3 +1,5 @@
+import { Preview } from "./preview.ts";
+
 /** Thrown when an environment would get a name it can't have. */
 export class InvalidEnvironmentError extends Error {
   constructor(message: string) {
@@ -64,9 +66,16 @@ export class Environment {
   }
 
   private static validName(name: string): string {
-    if (NAME.test(name)) return name;
-    throw new InvalidEnvironmentError(
-      `Invalid environment name "${name}": use lowercase letters, digits and hyphens (1-20 characters, not starting or ending with a hyphen).`,
-    );
+    if (!NAME.test(name)) {
+      throw new InvalidEnvironmentError(
+        `Invalid environment name "${name}": use lowercase letters, digits and hyphens (1-20 characters, not starting or ending with a hyphen).`,
+      );
+    }
+    if (name.startsWith(Preview.INSTANCE_PREFIX)) {
+      throw new InvalidEnvironmentError(
+        `"${name}" is taken: environments are never named "${Preview.INSTANCE_PREFIX}…", which is how previews are deployed.`,
+      );
+    }
+    return name;
   }
 }

@@ -33,6 +33,31 @@ const TERMINATION_FLAGS: Readonly<
   apply: [],
 };
 
+/** What `ens` is run with for each preview intent: a preview is built from its branch (`--artifacts local`), and taken down by its instance alone. */
+const PREVIEW_COMMANDS: Readonly<
+  Record<
+    Platform.PreviewIntent,
+    (change: Platform.PreviewChange, instance: string) => readonly string[]
+  >
+> = {
+  deploy: (change, instance) => [
+    "deploy",
+    change.manifest,
+    change.kit,
+    "--artifacts",
+    "local",
+    "--instance",
+    instance,
+  ],
+  destroy: (change, instance) => [
+    "destroy",
+    change.manifest,
+    change.kit,
+    "--instance",
+    instance,
+  ],
+};
+
 /** Who a release's commits and tags are made as, and what pushes them. */
 export interface Releaser {
   readonly name: string;
@@ -93,6 +118,22 @@ export class Ensemble {
       ["release", release.action, release.argument, "--yes"],
       checkout,
       { ...credentials, ...this.gitEnvironment() },
+      onLine,
+    );
+  }
+
+  /** Brings `change`'s preview up from its branch's checkout, or takes it down. */
+  async preview(
+    change: Platform.PreviewChange,
+    instance: string,
+    checkout: string,
+    values: Readonly<Record<string, string>>,
+    onLine: (line: string) => void,
+  ): Promise<void> {
+    await this.run(
+      PREVIEW_COMMANDS[change.intent](change, instance),
+      checkout,
+      values,
       onLine,
     );
   }

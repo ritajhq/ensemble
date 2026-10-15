@@ -384,6 +384,14 @@ const WORKS: Readonly<
       action: record.action,
       argument: record.argument,
     }),
+  preview: (record) =>
+    Platform.PreviewChange.create({
+      project: record.project,
+      manifest: record.manifest,
+      branch: record.branch,
+      intent: record.intent,
+      kit: record.kit,
+    }),
 };
 
 interface RunRecord {
@@ -468,6 +476,10 @@ export class Ingresses {
     await this.kv.set(["ingresses", deployment.owner], deployment);
   }
 
+  async remove(owner: string): Promise<void> {
+    await this.kv.delete(["ingresses", owner]);
+  }
+
   async all(): Promise<Platform.Ingresses[]> {
     const deployments: Platform.Ingresses[] = [];
     for await (
@@ -478,5 +490,125 @@ export class Ingresses {
       deployments.push(entry.value);
     }
     return deployments;
+  }
+}
+
+/** How each manifest is previewed, by project and manifest; none is a manifest without previews. */
+export class PreviewSettings {
+  constructor(private readonly kv: Deno.Kv) {}
+
+  async set(settings: Platform.PreviewSettings): Promise<void> {
+    await this.kv.set(
+      ["preview-settings", settings.project, settings.manifest],
+      {
+        project: settings.project,
+        manifest: settings.manifest,
+        branches: [...settings.branches],
+        base: settings.base,
+        kit: settings.kit,
+        overrides: { ...settings.overrides },
+      },
+    );
+  }
+
+  async remove(project: string, manifest: string): Promise<void> {
+    await this.kv.delete(["preview-settings", project, manifest]);
+  }
+
+  async get(
+    project: string,
+    manifest: string,
+  ): Promise<Platform.PreviewSettings | undefined> {
+    const { value } = await this.kv.get<PreviewSettingsRecord>([
+      "preview-settings",
+      project,
+      manifest,
+    ]);
+    return value ? Platform.PreviewSettings.create(value) : undefined;
+  }
+
+  async of(project: string): Promise<Platform.PreviewSettings[]> {
+    const all: Platform.PreviewSettings[] = [];
+    for await (
+      const entry of this.kv.list<PreviewSettingsRecord>({
+        prefix: ["preview-settings", project],
+      })
+    ) {
+      all.push(Platform.PreviewSettings.create(entry.value));
+    }
+    return all;
+  }
+}
+
+interface PreviewSettingsRecord {
+  readonly project: string;
+  readonly manifest: string;
+  readonly branches: readonly string[];
+  readonly base: string;
+  readonly kit: string;
+  readonly overrides: Readonly<Record<string, string>>;
+}
+
+/** A preview that is up: which branch of which manifest, the kit it runs on, and the public hosts it answers on. */
+export interface LivePreview {
+  readonly project: string;
+  readonly manifest: string;
+  readonly branch: string;
+  readonly kit: string;
+  readonly hosts: readonly string[];
+}
+
+/** Every preview that is up, by project, manifest and branch. */
+export class LivePreviews {
+  constructor(private readonly kv: Deno.Kv) {}
+
+  async up(preview: LivePreview): Promise<void> {
+    await this.kv.set(
+      ["live-previews", preview.project, preview.manifest, preview.branch],
+      preview,
+    );
+  }
+
+  async down(project: string, manifest: string, branch: string): Promise<void> {
+    await this.kv.delete(["live-previews", project, manifest, branch]);
+  }
+
+  async of(project: string): Promise<LivePreview[]> {
+    const live: LivePreview[] = [];
+    for await (
+      const entry of this.kv.list<LivePreview>({
+        prefix: ["live-previews", project],
+      })
+    ) {
+      live.push(entry.value);
+    }
+    return live;
+  }
+}
+
+/** Each project's GitHub webhook secret, sealed: what its pushes and branch deletions are verified with. */
+export class WebhookSecrets {
+  constructor(private readonly kv: Deno.Kv, private readonly vault: Vault) {}
+
+  async set(project: string, value: string): Promise<void> {
+    await this.kv.set(
+      ["webhook-secrets", project],
+      await this.vault.seal(value, [project, "webhook"]),
+    );
+  }
+
+  async unset(project: string): Promise<void> {
+    await this.kv.delete(["webhook-secrets", project]);
+  }
+
+  async has(project: string): Promise<boolean> {
+    return (await this.kv.get(["webhook-secrets", project])).value !== null;
+  }
+
+  async reveal(project: string): Promise<string | undefined> {
+    const { value } = await this.kv.get<Sealed>(["webhook-secrets", project]);
+    return value
+      ? await this.vault.open(value, [project, "webhook"])
+      : undefined;
   }
 }

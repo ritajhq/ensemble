@@ -3,7 +3,10 @@ import * as Platform from "@ensemble/platform";
 import { Api } from "./api.ts";
 import { Checkouts } from "./checkouts.ts";
 import { Runner } from "./runner.ts";
+import { Endpoints } from "./endpoints.ts";
 import { Ensemble } from "./ensemble.ts";
+import { Previews } from "./previews.ts";
+import { PreviewsApi } from "./previews-api.ts";
 import { ConfigurationLoader } from "./config.ts";
 import * as Kv from "./kv.ts";
 import { Router } from "./router.ts";
@@ -27,6 +30,8 @@ const vault = await Vault.of(configuration.secretKey);
 const values = new Kv.Values(kv, vault);
 const credentials = new Kv.Credentials(kv, vault);
 const runs = new Kv.Runs(kv);
+const previewSettings = new Kv.PreviewSettings(kv);
+const livePreviews = new Kv.LivePreviews(kv);
 const router = new Router(
   new Kv.Ingresses(kv),
   configuration.routerConfiguration,
@@ -56,12 +61,16 @@ const runner = new Runner(
   environments,
   values,
   credentials,
+  previewSettings,
   checkouts,
   new Ensemble(configuration.ens, {
     ...configuration.releaser,
     token: configuration.githubToken,
   }),
+  configuration.previewDomain,
 );
+const previews = new Previews(previewSettings, livePreviews, runs);
+const endpoints = new Endpoints();
 const api = new Api(
   projects,
   catalogs,
@@ -73,6 +82,17 @@ const api = new Api(
   checkouts,
   new RunFeed(runs, runner),
   router,
+  endpoints,
+);
+new PreviewsApi(
+  projects,
+  catalogs,
+  environments,
+  previewSettings,
+  livePreviews,
+  new Kv.WebhookSecrets(kv, vault),
+  previews,
+  endpoints,
 );
 
 // What the platform does, in response to what it's asked: a project added or
@@ -81,17 +101,22 @@ const api = new Api(
 api.OnProjectAdded.Do((project) => synchronization.request(project));
 api.OnSyncRequested.Do((project) => synchronization.request(project));
 
-// A deploy or release asked for is carried out once its project's checkout
-// is free; each step it takes, and each line it prints, is kept.
+// A deploy, release or preview change asked for is carried out once the
+// checkout it needs is free; each step it takes, and each line it prints, is
+// kept. A branch pushed or deleted asks for preview changes.
 api.OnRunRequested.Do((run) => runner.request(run));
+previews.OnRunRequested.Do((run) => runner.request(run));
 runner.OnStarted.Do((run) => runs.save(run));
 runner.OnPrinted.Do((run, index, line) => runs.addLine(run.id, index, line));
 runner.OnFinished.Do((run) => runs.save(run));
 
-// An applied deploy answers where it recorded; the router is told, and so
-// routes to it from then on.
-runner.OnDeployed.Do((deployment, ingresses) =>
-  router.deployed(deployment, ingresses)
+// A deployment or preview that came up answers where it recorded; the router
+// is told, and routes to it from then on — until it is taken down.
+runner.OnAnswering.Do((owner, ingresses) => router.answering(owner, ingresses));
+runner.OnWithdrawn.Do((owner) => router.withdraw(owner));
+runner.OnPreviewUp.Do((preview) => livePreviews.up(preview));
+runner.OnPreviewDown.Do((change) =>
+  livePreviews.down(change.project, change.manifest, change.branch)
 );
 await router.publish();
 
@@ -116,7 +141,7 @@ synchronization.OnFailed.Do((project, error) => {
   });
 });
 
-const server = new Server(api, await WebApp.load(configuration.web));
+const server = new Server(endpoints, await WebApp.load(configuration.web));
 
 Deno.serve(
   {

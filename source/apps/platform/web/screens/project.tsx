@@ -1,10 +1,18 @@
 import { useEffect, useState } from "react";
 import { Badge, Button, useIcon } from "@ritaj/ui";
-import { describe, type Manifest, type Run, type Sync } from "../api.ts";
+import {
+  describe,
+  type Manifest,
+  type PreviewSettings,
+  type Run,
+  type Sync,
+} from "../api.ts";
 import { useApi } from "../api-provider.tsx";
 import { CredentialsPanel } from "../components/credentials-panel.tsx";
 import { Environments } from "../components/environments.tsx";
 import { ReleasePanel } from "../components/release-panel.tsx";
+import { PreviewSettingsForm } from "../components/preview-settings.tsx";
+import { PreviewsPanel } from "../components/previews-panel.tsx";
 import { Notice } from "../components/notice.tsx";
 import { Panel } from "../components/panel.tsx";
 import { RunBadge } from "../components/run-badge.tsx";
@@ -30,6 +38,7 @@ export function ProjectScreen({ id }: { id: string }) {
   const project = useLoad(() => api.project(id), [id]);
   const versions = useLoad(() => api.versions(id), [id]);
   const runs = useLoad(() => api.runs(id), [id]);
+  const previews = useLoad(() => api.previews(id), [id]);
   const [error, setError] = useState<string | undefined>();
   const SyncIcon = useIcon("rotate-ccw");
 
@@ -111,6 +120,16 @@ export function ProjectScreen({ id }: { id: string }) {
         names={value.credentials}
         onChanged={project.reload}
       />
+      {previews.value && (
+        <PreviewsPanel
+          project={id}
+          previews={previews.value}
+          onChanged={() => {
+            previews.reload();
+            runs.reload();
+          }}
+        />
+      )}
 
       {catalog?.problems.map((problem) => (
         <Notice
@@ -136,7 +155,13 @@ export function ProjectScreen({ id }: { id: string }) {
           manifest={manifest}
           kits={catalog.kits}
           versions={versions.value ?? []}
-          onChanged={project.reload}
+          previewSettings={previews.value?.settings.find((settings) =>
+            settings.manifest === manifest.name
+          )}
+          onChanged={() => {
+            project.reload();
+            previews.reload();
+          }}
         />
       ))}
 
@@ -148,7 +173,10 @@ export function ProjectScreen({ id }: { id: string }) {
 /** The project's latest runs, newest first, each opening its own log. */
 function RunsPanel({ runs }: { runs: readonly Run[] }) {
   return (
-    <Panel title="Runs" description="Releases, deploys and plans, newest first">
+    <Panel
+      title="Runs"
+      description="Releases, deploys, plans and previews, newest first"
+    >
       {runs.length === 0 && (
         <p className="text-body text-muted-foreground">Nothing run yet</p>
       )}
@@ -178,11 +206,12 @@ function RunsPanel({ runs }: { runs: readonly Run[] }) {
 
 /** One delivery manifest: what it releases, and what each of its environments supplies. */
 function ManifestPanel(
-  { project, manifest, kits, versions, onChanged }: {
+  { project, manifest, kits, versions, previewSettings, onChanged }: {
     project: string;
     manifest: Manifest;
     kits: readonly string[];
     versions: readonly string[];
+    previewSettings?: PreviewSettings;
     onChanged(): void;
   },
 ) {
@@ -207,6 +236,16 @@ function ManifestPanel(
         versions={versions}
         onChanged={onChanged}
       />
+      {manifest.deployable && (
+        <PreviewSettingsForm
+          key={JSON.stringify(previewSettings ?? null)}
+          project={project}
+          manifest={manifest}
+          kits={kits}
+          settings={previewSettings}
+          onChanged={onChanged}
+        />
+      )}
     </Panel>
   );
 }

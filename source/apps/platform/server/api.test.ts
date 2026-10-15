@@ -1,6 +1,7 @@
 import { assertEquals } from "@std/assert";
 import * as Platform from "@ensemble/platform";
 import { Api } from "./api.ts";
+import { Endpoints } from "./endpoints.ts";
 import * as Kv from "./kv.ts";
 import { Vault } from "./vault.ts";
 import { Checkouts } from "./checkouts.ts";
@@ -9,10 +10,13 @@ import { Ensemble } from "./ensemble.ts";
 import { Router } from "./router.ts";
 import { RunFeed } from "./run-feed.ts";
 
+/** The API as its tests use it: every endpoint answered, and its events heard. */
+type Testable = Api & { handle(request: Request): Promise<Response> };
+
 const KEY = btoa(String.fromCharCode(...new Uint8Array(32).fill(7)));
 
 async function withApi(
-  run: (api: Api, stores: {
+  run: (api: Testable, stores: {
     catalogs: Kv.Catalogs;
     environments: Kv.Environments;
     values: Kv.Values;
@@ -26,32 +30,39 @@ async function withApi(
     const runs = new Kv.Runs(kv);
     const credentials = new Kv.Credentials(kv, await Vault.of(KEY));
     const checkouts = new Checkouts(await Deno.makeTempDir());
-    await run(
-      new Api(
-        new Kv.Projects(kv),
-        catalogs,
-        new Kv.Syncs(kv),
-        environments,
-        values,
-        credentials,
+    const endpoints = new Endpoints();
+    const api = new Api(
+      new Kv.Projects(kv),
+      catalogs,
+      new Kv.Syncs(kv),
+      environments,
+      values,
+      credentials,
+      runs,
+      checkouts,
+      new RunFeed(
         runs,
-        checkouts,
-        new RunFeed(
-          runs,
-          new Runner(
-            new Kv.Projects(kv),
-            environments,
-            values,
-            credentials,
-            checkouts,
-            new Ensemble("ens", { name: "t", email: "t@t" }),
-          ),
-        ),
-        new Router(
-          new Kv.Ingresses(kv),
-          `${await Deno.makeTempDir()}/Caddyfile`,
+        new Runner(
+          new Kv.Projects(kv),
+          environments,
+          values,
+          credentials,
+          new Kv.PreviewSettings(kv),
+          checkouts,
+          new Ensemble("ens", { name: "t", email: "t@t" }),
+          "example.com",
         ),
       ),
+      new Router(
+        new Kv.Ingresses(kv),
+        `${await Deno.makeTempDir()}/Caddyfile`,
+      ),
+      endpoints,
+    );
+    await run(
+      Object.assign(api, {
+        handle: (request: Request) => endpoints.answer(request),
+      }),
       { catalogs, environments, values },
     );
   } finally {
@@ -168,7 +179,7 @@ function put(path: string, body: unknown): Request {
 /** A project "portal" whose catalog offers one manifest "web", seeded with its first environment. */
 async function withPortal(
   run: (
-    api: Api,
+    api: Testable,
     values: Kv.Values,
     environments: Kv.Environments,
   ) => Promise<void>,
