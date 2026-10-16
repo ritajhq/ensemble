@@ -1,5 +1,7 @@
 import { assertEquals } from "@std/assert";
-import { GithubWebhook } from "./github-webhook.ts";
+import { App } from "./app.ts";
+import type { Apps } from "./apps.ts";
+import { Webhook } from "./webhook.ts";
 
 const SECRET = "s3cret";
 
@@ -22,7 +24,7 @@ async function signed(
   const hex = [...mac].map((byte) => byte.toString(16).padStart(2, "0")).join(
     "",
   );
-  return new Request("http://x/webhook/portal", {
+  return new Request("http://x/hooks/github", {
     method: "POST",
     body,
     headers: {
@@ -32,10 +34,24 @@ async function signed(
   });
 }
 
-const webhook = new GithubWebhook(SECRET, "ritajhq/portal");
+/** The app's store, holding an app whose webhook secret is `SECRET`. */
+const apps = {
+  get: () =>
+    Promise.resolve(App.of({
+      id: 1,
+      slug: "ensemble-platform",
+      owner: "ritajhq",
+      htmlUrl: "https://github.com/apps/ensemble-platform",
+      botId: 2,
+      privateKey: "",
+      webhookSecret: SECRET,
+    })),
+} as unknown as Apps;
+
+const webhook = new Webhook(apps);
 const repository = { full_name: "ritajhq/portal" };
 
-Deno.test("GithubWebhook reads a push to a branch", async () => {
+Deno.test("Webhook reads a push to a branch", async () => {
   const { event, response } = await webhook.interpret(
     await signed("push", { ref: "refs/heads/feat/x", repository }),
   );
@@ -47,7 +63,7 @@ Deno.test("GithubWebhook reads a push to a branch", async () => {
   });
 });
 
-Deno.test("GithubWebhook reads a branch deletion, as a push or as a delete event", async () => {
+Deno.test("Webhook reads a branch deletion, as a push or as a delete event", async () => {
   const push = await webhook.interpret(
     await signed("push", {
       ref: "refs/heads/feat/x",
@@ -62,7 +78,7 @@ Deno.test("GithubWebhook reads a branch deletion, as a push or as a delete event
   assertEquals(deleted.event, push.event);
 });
 
-Deno.test("GithubWebhook refuses a bad signature and a payload for another repository", async () => {
+Deno.test("Webhook refuses a bad signature, and names the repository a delivery came from", async () => {
   const forged = await webhook.interpret(
     await signed("push", { ref: "refs/heads/x", repository }, "other"),
   );
@@ -75,14 +91,22 @@ Deno.test("GithubWebhook refuses a bad signature and a payload for another repos
       repository: { full_name: "someone/else" },
     }),
   );
-  assertEquals(elsewhere.response.status, 403);
+  assertEquals(elsewhere.event?.repository, "someone/else");
 });
 
-Deno.test("GithubWebhook ignores tags and other events", async () => {
+Deno.test("Webhook ignores tags and other events, and answers nothing without an app", async () => {
   const tag = await webhook.interpret(
     await signed("push", { ref: "refs/tags/v1", repository }),
   );
   const other = await webhook.interpret(await signed("issues", {}));
   assertEquals(tag.event, undefined);
   assertEquals(other.event, undefined);
+
+  const none = new Webhook(
+    { get: () => Promise.resolve(undefined) } as unknown as Apps,
+  );
+  const unset = await none.interpret(
+    await signed("push", { ref: "refs/heads/x", repository }),
+  );
+  assertEquals(unset.response.status, 404);
 });

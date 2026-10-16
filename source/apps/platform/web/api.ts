@@ -112,9 +112,8 @@ export interface LivePreview {
   readonly hosts: readonly string[];
 }
 
-/** A project's previews: its webhook, how each manifest is previewed, and what is up. */
+/** A project's previews: how each manifest is previewed, and what is up. */
 export interface ProjectPreviews {
-  readonly webhook: { readonly path: string; readonly secret: boolean };
   readonly settings: readonly PreviewSettings[];
   readonly live: readonly LivePreview[];
 }
@@ -145,6 +144,33 @@ export interface RoutingTable {
   }[];
   readonly conflicts: readonly { host: string; owners: readonly string[] }[];
   readonly rejections: readonly { owner: string; value: string }[];
+}
+
+/** The platform's GitHub App, once it was set up. */
+export interface GithubApp {
+  readonly slug: string;
+  /** The account it belongs to. */
+  readonly owner: string;
+  /** Its page on GitHub, where its settings are. */
+  readonly htmlUrl: string;
+  /** Where it is installed on more repositories. */
+  readonly installUrl: string;
+}
+
+/** Who a GitHub App is created under. */
+export type GithubOwner = "user" | "organization";
+
+/** A setup begun: the form to post to GitHub, which creates the app there. */
+export interface GithubSetup {
+  readonly action: string;
+  readonly manifest: string;
+}
+
+/** A repository the GitHub App can reach. */
+export interface Repository {
+  readonly fullName: string;
+  readonly defaultBranch: string;
+  readonly private: boolean;
 }
 
 /** Thrown when the platform refuses a request, with its own reason. */
@@ -294,12 +320,20 @@ export class Api {
     );
   }
 
-  setWebhookSecret(project: string, value: string): Promise<void> {
-    return this.call(
-      "PUT",
-      `/api/projects/${encodeURIComponent(project)}/webhook-secret`,
-      { value },
-    );
+  /** The platform's GitHub App, or none before it was set up. */
+  github(): Promise<{ app: GithubApp | null }> {
+    return this.call("GET", "/api/github");
+  }
+
+  beginGithubSetup(
+    fields: { owner: GithubOwner; organization: string; name: string },
+  ): Promise<GithubSetup> {
+    return this.call("POST", "/api/github/setup", fields);
+  }
+
+  /** Every repository the GitHub App is installed on. */
+  repositories(): Promise<Repository[]> {
+    return this.call("GET", "/api/github/repositories");
   }
 
   routes(): Promise<RoutingTable> {

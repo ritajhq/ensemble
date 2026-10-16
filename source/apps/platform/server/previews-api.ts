@@ -1,29 +1,16 @@
 import * as Platform from "@ensemble/platform";
 import type { Endpoints, Params } from "./endpoints.ts";
-import { GithubWebhook } from "./github-webhook.ts";
 import type * as Kv from "./kv.ts";
 import type { Previews } from "./previews.ts";
 import { RunView } from "./run-feed.ts";
 
 const SETTINGS = "/api/projects/:id/manifests/:manifest/previews";
-const WEBHOOK_SECRET = "/api/projects/:id/webhook-secret";
-
-/** What a webhook's branch event asks of `Previews`. */
-const BRANCH_EVENTS: Readonly<
-  Record<
-    "pushed" | "deleted",
-    (previews: Previews, project: string, branch: string) => Promise<unknown>
-  >
-> = {
-  pushed: (previews, project, branch) => previews.pushed(project, branch),
-  deleted: (previews, project, branch) => previews.deleted(project, branch),
-};
 
 /**
  * The previews part of the platform's API: how each manifest is previewed,
- * the previews that are up, previewing a branch (or taking it down) by hand,
- * and GitHub's webhook — `POST /hooks/github/<project>`, verified with the
- * project's own secret — doing the same on every push and branch deletion.
+ * the previews that are up, and previewing a branch (or taking it down) by
+ * hand. The GitHub App's webhook does the same on every push and branch
+ * deletion (see `GithubApi`).
  */
 export class PreviewsApi {
   constructor(
@@ -32,7 +19,6 @@ export class PreviewsApi {
     private readonly environments: Kv.Environments,
     private readonly settings: Kv.PreviewSettings,
     private readonly live: Kv.LivePreviews,
-    private readonly secrets: Kv.WebhookSecrets,
     private readonly previews: Previews,
     endpoints: Endpoints,
   ) {
@@ -50,26 +36,11 @@ export class PreviewsApi {
       "/api/projects/:id/previews/destroy",
       (request, { id }) => this.takeDown(request, id!),
     );
-    add(
-      "PUT",
-      WEBHOOK_SECRET,
-      (request, { id }) => this.setSecret(request, id!),
-    );
-    add("DELETE", WEBHOOK_SECRET, (_, { id }) => this.unsetSecret(id!));
-    add(
-      "POST",
-      "/hooks/github/:id",
-      (request, { id }) => this.hook(request, id!),
-    );
   }
 
   private async show(id: string): Promise<Response> {
     if (!await this.projects.get(id)) return notFound("project");
     return json({
-      webhook: {
-        path: `/hooks/github/${encodeURIComponent(id)}`,
-        secret: await this.secrets.has(id),
-      },
       settings: (await this.settings.of(id)).map((settings) => ({
         manifest: settings.manifest,
         branches: settings.branches,
@@ -166,39 +137,6 @@ export class PreviewsApi {
     if (!branch) return json({ error: "Name a branch." }, 400);
     const runs = await this.previews.deleted(id, branch);
     return json(runs.map((run) => RunView.of(run)), 202);
-  }
-
-  private async setSecret(request: Request, id: string): Promise<Response> {
-    if (!await this.projects.get(id)) return notFound("project");
-    const body = await request.json().catch(() => ({}));
-    if (typeof body.value !== "string" || body.value.length < 16) {
-      return json(
-        { error: "A webhook secret is at least 16 characters." },
-        400,
-      );
-    }
-    await this.secrets.set(id, body.value);
-    return new Response(null, { status: 204 });
-  }
-
-  private async unsetSecret(id: string): Promise<Response> {
-    await this.secrets.unset(id);
-    return new Response(null, { status: 204 });
-  }
-
-  /** GitHub's push and delete events for one project, each verified with that project's own secret. */
-  private async hook(request: Request, id: string): Promise<Response> {
-    const project = await this.projects.get(id);
-    const secret = project && await this.secrets.reveal(id);
-    if (!project || !secret) {
-      return new Response("Unknown project", { status: 404 });
-    }
-    const { response, event } = await new GithubWebhook(
-      secret,
-      project.repository,
-    ).interpret(request);
-    if (event) await BRANCH_EVENTS[event.kind](this.previews, id, event.branch);
-    return response;
   }
 
   private async branchOf(request: Request): Promise<string | undefined> {

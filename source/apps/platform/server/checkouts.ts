@@ -1,5 +1,6 @@
 import { dirname, join } from "@std/path";
 import * as Platform from "@ensemble/platform";
+import type * as Github from "./github/index.ts";
 import { Process } from "./process.ts";
 
 /** A project's working copy, at the commit it was last brought to. */
@@ -32,8 +33,8 @@ export class Checkouts {
 
   constructor(
     private readonly workspace: string,
-    /** Lets a private repository be cloned; sent as an HTTP header, never written into the clone's remote URL. */
-    private readonly token?: string,
+    /** What clones and fetches are authorized with: the app's token for each repository, sent as an HTTP header, never written into the clone's remote URL. */
+    private readonly tokens: Github.Tokens,
   ) {}
 
   /** Brings the project's checkout to its ref's current tip, cloning it first if it isn't there yet. */
@@ -94,7 +95,8 @@ export class Checkouts {
     const path = this.branchPathOf(project, branch);
     return this.inTurnOf(path, async () => {
       if (await this.exists(path)) {
-        await this.git(
+        await this.remote(
+          project,
           ["fetch", "--quiet", "--depth", "1", "origin", branch],
           path,
         );
@@ -102,7 +104,7 @@ export class Checkouts {
         await this.git(["clean", "--quiet", "-fd"], path);
       } else {
         await Deno.mkdir(dirname(path), { recursive: true });
-        await this.git([
+        await this.remote(project, [
           "clone",
           "--quiet",
           "--depth",
@@ -200,7 +202,8 @@ export class Checkouts {
         () => ["--unshallow"],
         () => [],
       );
-      await this.git(
+      await this.remote(
+        project,
         ["fetch", "--quiet", "--tags", "--force", ...shallow, "origin"],
         path,
       );
@@ -218,7 +221,7 @@ export class Checkouts {
       await this.git(["clean", "--quiet", "-fd"], path);
     } else {
       await Deno.mkdir(this.workspace, { recursive: true });
-      await this.git([
+      await this.remote(project, [
         "clone",
         "--quiet",
         "--single-branch",
@@ -240,13 +243,23 @@ export class Checkouts {
     return await Deno.stat(join(path, ".git")).then(() => true, () => false);
   }
 
+  /** git, on the checkout alone. */
   private git(args: string[], cwd?: string): Promise<string> {
-    if (!this.token) return new Process("git", args, { cwd }).run();
-    const credential = btoa(`x-access-token:${this.token}`);
-    return new Process(
+    return new Process("git", args, { cwd }).run();
+  }
+
+  /** git, reaching the project's repository on GitHub with a token for it. */
+  private async remote(
+    project: Platform.Project,
+    args: string[],
+    cwd?: string,
+  ): Promise<string> {
+    const token = await this.tokens.for(project.repository);
+    const credential = btoa(`x-access-token:${token}`);
+    return await new Process(
       "git",
       ["-c", `http.extraheader=AUTHORIZATION: basic ${credential}`, ...args],
-      { cwd, concealed: [credential, this.token] },
+      { cwd, concealed: [credential, token] },
     ).run();
   }
 }

@@ -1,7 +1,13 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import * as Platform from "@ensemble/platform";
 import { Checkouts } from "./checkouts.ts";
+import type * as Github from "./github/index.ts";
 import { Process } from "./process.ts";
+
+/** Tokens that hand out the same token for every repository. */
+const tokens = {
+  for: () => Promise.resolve("secret-token"),
+} as unknown as Github.Tokens;
 
 const project = Platform.Project.create({
   id: "portal",
@@ -24,7 +30,7 @@ async function workspace(): Promise<string> {
 }
 
 Deno.test("Checkouts: work on one project's checkout takes turns, even after one fails", async () => {
-  const checkouts = new Checkouts(await workspace());
+  const checkouts = new Checkouts(await workspace(), tokens);
   const order: string[] = [];
   const slow = Promise.withResolvers<void>();
 
@@ -52,7 +58,7 @@ Deno.test("Checkouts: work on one project's checkout takes turns, even after one
 });
 
 Deno.test("Checkouts: a failing git never repeats the token it was given", async () => {
-  const checkouts = new Checkouts(await Deno.makeTempDir(), "secret-token");
+  const checkouts = new Checkouts(await Deno.makeTempDir(), tokens);
   const unreachable = Platform.Project.create({
     id: "nowhere",
     repository: "ritajhq/does-not-exist-anywhere",
@@ -86,12 +92,12 @@ Deno.test("Checkouts: versions are the checkout's tags, the most recently made f
   await tag("1.0.10-alpha", "2026-08-20T00:00:00Z");
   await tag("0.50.0", "2026-10-13T00:00:00Z");
 
-  assertEquals(await new Checkouts(root).versions(project), [
+  assertEquals(await new Checkouts(root, tokens).versions(project), [
     "0.50.0",
     "1.0.10-alpha",
   ]);
   assertEquals(
-    await new Checkouts(await Deno.makeTempDir()).versions(project),
+    await new Checkouts(await Deno.makeTempDir(), tokens).versions(project),
     [],
   );
 });

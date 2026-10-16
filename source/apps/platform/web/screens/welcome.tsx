@@ -1,9 +1,10 @@
 import { useApi } from "../api-provider.tsx";
+import { GithubPanel } from "../components/github-panel.tsx";
 import { Notice } from "../components/notice.tsx";
 import { Panel } from "../components/panel.tsx";
 import { useLoad } from "../use-load.ts";
 
-/** Shown before any project is picked: what the platform is for, and what its router routes. */
+/** Shown before any project is picked: the GitHub App the platform acts as, what the platform is for, and what its router routes. */
 export function Welcome() {
   const api = useApi();
   const table = useLoad(() => api.routes(), []);
@@ -11,6 +12,7 @@ export function Welcome() {
 
   return (
     <>
+      <GithubPanel />
       <Panel
         title="Release and deploy ensemble projects"
         description="Pick a project in the sidebar, or add one: a GitHub repository with delivery manifests under ci/."

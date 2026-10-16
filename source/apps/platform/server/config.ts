@@ -19,12 +19,10 @@ export interface Configuration {
   readonly sessionCookie?: string;
   /** The `ens` binary deploys and releases run. */
   readonly ens: string;
-  /** Who a release's commits and tags are made as. */
-  readonly releaser: { readonly name: string; readonly email: string };
   /** Seals the secrets environments hold (see `Vault`). */
   readonly secretKey: string;
-  /** Lets private repositories be cloned, and releases push their commits and tags. */
-  readonly githubToken?: string;
+  /** Where the platform answers outside — `https://platform.example.com` — for its GitHub App's webhook and the way back from setting it up. */
+  readonly url: string;
   /** The compose stack the platform itself runs as: a deploy applying it is an update of the platform. */
   readonly stack?: string;
   /** Where runs are carried out when each gets a container of its own, which outlives the platform; none, and each is a child of the platform's process. */
@@ -53,7 +51,6 @@ export class ConfigurationLoader {
   ) {}
 
   load(): Configuration {
-    const githubToken = this.env.get("GITHUB_TOKEN");
     const previewGuard = this.env.get("PLATFORM_PREVIEW_GUARD");
     const sessionCookie = this.env.get("PLATFORM_SESSION_COOKIE");
     const runsImage = this.env.get("PLATFORM_RUNS_IMAGE");
@@ -75,13 +72,11 @@ export class ConfigurationLoader {
       routerConfiguration: this.env.get("PLATFORM_ROUTER_CONFIG") ??
         "/var/lib/ens-platform/router/Caddyfile",
       ens: this.env.get("ENS_BIN") ?? "ens",
-      releaser: {
-        name: this.env.get("PLATFORM_GIT_NAME") ?? "ensemble platform",
-        email: this.env.get("PLATFORM_GIT_EMAIL") ??
-          "platform@ensemble.invalid",
-      },
       secretKey,
-      ...(githubToken ? { githubToken } : {}),
+      url: (this.env.get("PLATFORM_URL") ?? "http://localhost:8090").replace(
+        /\/+$/,
+        "",
+      ),
       own: this.ownRoutes(this.env.get("PLATFORM_ROUTES") ?? ""),
       ...(previewGuard ? { previewGuard: new URL(previewGuard) } : {}),
       ...(sessionCookie ? { sessionCookie } : {}),

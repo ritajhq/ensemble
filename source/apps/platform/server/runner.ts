@@ -3,6 +3,7 @@ import { DeploymentEnvironment, IngressFile, Instance } from "@ensemble/core";
 import * as Platform from "@ensemble/platform";
 import type { Checkout, Checkouts } from "./checkouts.ts";
 import type { Ensemble } from "./ensemble.ts";
+import type * as Github from "./github/index.ts";
 import type * as Kv from "./kv.ts";
 import { UpdateWindow } from "./update-window.ts";
 
@@ -126,6 +127,8 @@ export class Runner {
     private readonly previewSettings: Kv.PreviewSettings,
     checkouts: Checkouts,
     private readonly ensemble: Ensemble,
+    /** Who each project's releases commit, tag and push as. */
+    private readonly releasers: Github.Releasers,
     /** The public domain previews answer under. */
     private readonly previewDomain: string,
     /** The compose stack the platform itself runs as (`<project>-<manifest>`): applying it is an update of the platform, carried out alone. */
@@ -478,12 +481,20 @@ export class Runner {
     return { values, secrets };
   }
 
-  /** The project's release credentials, under their own names. */
+  /** The project's release credentials, under their own names, and its releaser's identity and token. */
   private async releaseCredentials(
     release: Platform.Release,
   ): Promise<Prepared> {
-    const values = await this.credentials.reveal(release.project);
-    return { values, secrets: Object.values(values) };
+    const project = await this.projects.get(release.project);
+    if (!project) {
+      throw new GoneError(`Project "${release.project}" no longer exists.`);
+    }
+    const credentials = await this.credentials.reveal(release.project);
+    const releaser = await this.releasers.of(project.repository);
+    return {
+      values: { ...credentials, ...releaser.environment() },
+      secrets: [...Object.values(credentials), releaser.token],
+    };
   }
 }
 

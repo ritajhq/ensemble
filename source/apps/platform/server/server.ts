@@ -16,7 +16,8 @@ const CSP = [
   "connect-src 'self'",
   "frame-ancestors 'none'",
   "base-uri 'none'",
-  "form-action 'self'",
+  // Setting up the GitHub App posts its manifest to GitHub, which creates it.
+  "form-action 'self' https://github.com",
 ].join("; ");
 
 /** The built web app (`ens build platform/web`), read once at startup. */

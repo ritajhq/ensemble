@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { Badge, Button, InputField, InputGroup, useIcon } from "@ritaj/ui";
+import { Button, InputField, InputGroup, useIcon } from "@ritaj/ui";
 import { describe, type ProjectPreviews } from "../api.ts";
 import { useApi } from "../api-provider.tsx";
 import { go, runHash } from "../places.ts";
 import { Notice } from "./notice.tsx";
 import { Panel } from "./panel.tsx";
 
-/** A project's previews: the webhook that keeps them in step with its branches, previewing one by hand, and those that are up. */
+/** A project's previews: previewing a branch by hand, and those that are up. The GitHub App's webhook keeps them in step with every push. */
 export function PreviewsPanel(
   { project, previews, onChanged }: {
     project: string;
@@ -16,7 +16,6 @@ export function PreviewsPanel(
 ) {
   const api = useApi();
   const [branch, setBranch] = useState("");
-  const [secret, setSecret] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const PreviewIcon = useIcon("play");
@@ -39,50 +38,6 @@ export function PreviewsPanel(
       title="Previews"
       description="Each branch a manifest tracks is deployed beside its environments, at its own hosts, on every push; taken down when the branch is deleted."
     >
-      <div className="grid gap-1 text-body">
-        <span>
-          GitHub webhook:{" "}
-          <span className="font-mono text-caption">
-            {location.origin}
-            {previews.webhook.path}
-          </span>{" "}
-          (JSON; push and delete events)
-        </span>
-        <form
-          className="flex flex-wrap items-center gap-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            act(async () => {
-              await api.setWebhookSecret(project, secret);
-              setSecret("");
-            });
-          }}
-        >
-          <Badge color={previews.webhook.secret ? "green" : "gray"}>
-            {previews.webhook.secret ? "secret set" : "no secret yet"}
-          </Badge>
-          <InputGroup className="min-w-0 flex-1">
-            <InputField
-              index={0}
-              label="Webhook secret"
-              labelHidden
-              type="password"
-              autoComplete="off"
-              placeholder="the same secret as on GitHub (16+ characters)"
-              value={secret}
-              onChange={setSecret}
-            />
-          </InputGroup>
-          <Button
-            type="submit"
-            variant="secondary"
-            disabled={busy || secret.length < 16}
-          >
-            Set
-          </Button>
-        </form>
-      </div>
-
       <form
         className="flex flex-wrap items-center gap-2"
         onSubmit={(event) => {

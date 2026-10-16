@@ -3,10 +3,19 @@ import * as Platform from "@ensemble/platform";
 import type { Checkout, Checkouts } from "./checkouts.ts";
 import { Runner } from "./runner.ts";
 import type { Ensemble } from "./ensemble.ts";
+import * as Github from "./github/index.ts";
 import * as Kv from "./kv.ts";
 import { Vault } from "./vault.ts";
 
 const KEY = btoa(String.fromCharCode(...new Uint8Array(32).fill(7)));
+
+/** Releasers that release everything as one bot, with one token. */
+const releasers = {
+  of: () =>
+    Promise.resolve(
+      new Github.Releaser("bot[bot]", "bot@example.com", "gh-secret"),
+    ),
+} as unknown as Github.Releasers;
 
 /** An `ens` that prints what it was given, then exits as told. */
 class FakeEnsemble {
@@ -83,6 +92,7 @@ async function carriedOut(ensemble: FakeEnsemble, work?: Platform.Work) {
     new Kv.PreviewSettings(kv),
     checkouts,
     ensemble as unknown as Ensemble,
+    releasers,
     "example.com",
   );
   const states: string[] = [];
@@ -146,7 +156,9 @@ Deno.test("Runner: a release runs at the ref's tip, with the project's credentia
   );
 
   assertEquals(used, ["refreshed"]);
-  assertEquals(ensemble.released, { JSR_TOKEN: "jsr-secret" });
+  assertEquals(ensemble.released?.JSR_TOKEN, "jsr-secret");
+  assertEquals(ensemble.released?.GIT_AUTHOR_NAME, "bot[bot]");
+  assertEquals(ensemble.released?.GH_TOKEN, "gh-secret");
   assertEquals(lines, ["0:publishing with ••••"]);
   assertEquals(run.state, "succeeded");
   assertEquals(run.commit, "def456");
@@ -247,6 +259,7 @@ Deno.test("Runner: a preview runs with its base environment's values and its own
         return Promise.resolve();
       },
     } as unknown as Ensemble,
+    releasers,
     "ensemble.blue",
   );
   const answering: [string, unknown][] = [];

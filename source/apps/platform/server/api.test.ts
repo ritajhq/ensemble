@@ -5,6 +5,7 @@ import { Endpoints } from "./endpoints.ts";
 import * as Kv from "./kv.ts";
 import { Vault } from "./vault.ts";
 import { Checkouts } from "./checkouts.ts";
+import type * as Github from "./github/index.ts";
 import { Runner } from "./runner.ts";
 import { Ensemble } from "./ensemble.ts";
 import { Router } from "./router.ts";
@@ -29,7 +30,10 @@ async function withApi(
     const values = new Kv.Values(kv, await Vault.of(KEY));
     const runs = new Kv.Runs(kv);
     const credentials = new Kv.Credentials(kv, await Vault.of(KEY));
-    const checkouts = new Checkouts(await Deno.makeTempDir());
+    const checkouts = new Checkouts(
+      await Deno.makeTempDir(),
+      {} as Github.Tokens,
+    );
     const endpoints = new Endpoints();
     const api = new Api(
       new Kv.Projects(kv),
@@ -49,7 +53,8 @@ async function withApi(
           credentials,
           new Kv.PreviewSettings(kv),
           checkouts,
-          new Ensemble("ens", { name: "t", email: "t@t" }),
+          new Ensemble("ens"),
+          {} as Github.Releasers,
           "example.com",
         ),
       ),

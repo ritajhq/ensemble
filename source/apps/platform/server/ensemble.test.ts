@@ -2,6 +2,7 @@ import { assertEquals, assertRejects } from "@std/assert";
 import { join } from "@std/path";
 import * as Platform from "@ensemble/platform";
 import { CommandFailedError, Ensemble } from "./ensemble.ts";
+import * as Github from "./github/index.ts";
 
 /** An `ens` that prints its arguments and every variable it was given, then exits with `$EXIT`. */
 async function fakeEns(): Promise<string> {
@@ -27,12 +28,6 @@ function deployment(fields: Partial<Record<string, string>> = {}) {
   });
 }
 
-const RELEASER = {
-  name: "ensemble platform",
-  email: "platform@example.com",
-  token: "gh-token",
-};
-
 /** A host environment holding the platform's own secrets beside what ens may see. */
 const host = {
   get: (name: string) =>
@@ -46,7 +41,7 @@ const host = {
 
 Deno.test("Ensemble: deploys published artifacts at the version, with only the environment's values and the host's plumbing", async () => {
   const lines: string[] = [];
-  await new Ensemble(await fakeEns(), RELEASER, host).deploy(
+  await new Ensemble(await fakeEns(), host).deploy(
     deployment(),
     await Deno.makeTempDir(),
     { DOMAIN: "ritaj.app" },
@@ -65,7 +60,7 @@ Deno.test("Ensemble: deploys published artifacts at the version, with only the e
 
 Deno.test("Ensemble: another environment is an instance, and a plan only plans", async () => {
   const lines: string[] = [];
-  await new Ensemble(await fakeEns(), RELEASER, host).deploy(
+  await new Ensemble(await fakeEns(), host).deploy(
     deployment({ environment: "staging", termination: "plan" }),
     await Deno.makeTempDir(),
     {},
@@ -81,7 +76,7 @@ Deno.test("Ensemble: a non-zero exit fails", async () => {
   const ens = await fakeEns();
   await assertRejects(
     () =>
-      new Ensemble(ens, RELEASER, host).deploy(
+      new Ensemble(ens, host).deploy(
         deployment(),
         Deno.cwd(),
         { EXIT: "3" },
@@ -94,14 +89,21 @@ Deno.test("Ensemble: a non-zero exit fails", async () => {
 
 Deno.test("Ensemble: a release answers yes, publishes with the project's credentials, and commits and pushes as the releaser", async () => {
   const lines: string[] = [];
-  await new Ensemble(await fakeEns(), RELEASER, host).release(
+  await new Ensemble(await fakeEns(), host).release(
     Platform.Release.create({
       project: "portal",
       action: "next",
       argument: "patch",
     }),
     await Deno.makeTempDir(),
-    { JSR_TOKEN: "jsr" },
+    {
+      JSR_TOKEN: "jsr",
+      ...new Github.Releaser(
+        "ensemble platform",
+        "platform@example.com",
+        "gh-token",
+      ).environment(),
+    },
     (line) => lines.push(line),
   );
 

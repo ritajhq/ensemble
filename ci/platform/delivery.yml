@@ -10,8 +10,11 @@ version: v1
 #
 #   export PLATFORM_SECRET_KEY=$(openssl rand -base64 32)   # keep it: secrets sealed with one key open with no other
 #   export AUTH_SECRET=$(openssl rand -base64 32)
-#   export GITHUB_TOKEN=…                                    # clones private repositories, pushes releases
 #   ens deploy platform compose --artifacts local --emulate-externals
+#
+# The platform reaches GitHub as a GitHub App of its own, made on its home page
+# the first time it's opened, and installed on the repositories it releases
+# and deploys: no token to give it.
 #
 # The guards, judge, policy builder and khatm are built FROM published idhn
 # and khatm images; each Dockerfile names its default, and a host builds from
@@ -80,6 +83,9 @@ deploy:
         PLATFORM_DATABASE: /var/lib/ens-platform/platform.kv
         PLATFORM_ROUTER_CONFIG: /router/Caddyfile
         PLATFORM_PREVIEW_DOMAIN: ${variables.preview_domain.value}
+        # Where the platform answers outside: its GitHub App's webhook and the
+        # way back from creating it are under it.
+        PLATFORM_URL: https://${variables.platform_host.value}
         # What the router answers for the platform itself, before any
         # deployment: its UI through its guard, its sign-in. Containers are
         # named, not services, so no deployment naming a service `guard` or
@@ -87,8 +93,6 @@ deploy:
         PLATFORM_ROUTES: ${variables.platform_host.value}=http://${variables.stack.value}-guard-1:8080,${variables.auth_host.value}=http://${variables.stack.value}-auth-1:4100
         PLATFORM_PREVIEW_GUARD: http://${variables.stack.value}-guard-previews-1:8080
         PLATFORM_SESSION_COOKIE: __Secure-platform.session_token
-        PLATFORM_GIT_NAME: ${variables.git_name.value}
-        PLATFORM_GIT_EMAIL: ${variables.git_email.value}
         # Where docker finds its registry logins, for every deploy and
         # release pack it runs.
         DOCKER_CONFIG: /docker
@@ -111,7 +115,6 @@ deploy:
         DENO_DIR: /var/lib/ens-platform/deno
       envSecrets:
         PLATFORM_SECRET_KEY: platform-secret-key
-        GITHUB_TOKEN: github-token
       mounts:
         - source: ${storage.platform-data.name}
           path: /var/lib/ens-platform
@@ -258,8 +261,6 @@ deploy:
   secrets:
     platform-secret-key:
       source: environment
-    github-token:
-      source: environment
     auth-secret:
       source: environment
 
@@ -279,10 +280,6 @@ deploy:
     # The first operator, created on khatm's first start.
     admin_email:
       default: operator@ensemble.blue
-    git_name:
-      default: ensemble platform
-    git_email:
-      default: platform@ensemble.blue
     # The host directory mounted as the platform's DOCKER_CONFIG. Docker
     # creates it empty if it's missing: no registry logins until one is made.
     registry_credentials:

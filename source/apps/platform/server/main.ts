@@ -5,6 +5,8 @@ import { Checkouts } from "./checkouts.ts";
 import { Runner } from "./runner.ts";
 import { Endpoints } from "./endpoints.ts";
 import { Ensemble } from "./ensemble.ts";
+import * as Github from "./github/index.ts";
+import { GithubApi } from "./github-api.ts";
 import { ChildProcess, Container } from "./execution.ts";
 import { Previews } from "./previews.ts";
 import { PreviewsApi } from "./previews-api.ts";
@@ -60,10 +62,10 @@ const router = new Router(
   },
 );
 
-const checkouts = new Checkouts(
-  configuration.workspace,
-  configuration.githubToken,
-);
+const githubApps = new Github.Apps(kv, vault);
+const github = new Github.Rest();
+const tokens = new Github.Tokens(githubApps, github);
+const checkouts = new Checkouts(configuration.workspace, tokens);
 const synchronization = new Synchronization(
   checkouts,
   Platform.Discovery.standard(),
@@ -77,12 +79,12 @@ const runner = new Runner(
   checkouts,
   new Ensemble(
     configuration.ens,
-    { ...configuration.releaser, token: configuration.githubToken },
     Deno.env,
     configuration.runs
       ? new Container(configuration.runs.image, configuration.runs.mounts)
       : new ChildProcess(),
   ),
+  new Github.Releasers(githubApps, tokens),
   configuration.previewDomain,
   configuration.stack,
 );
@@ -107,8 +109,15 @@ new PreviewsApi(
   environments,
   previewSettings,
   livePreviews,
-  new Kv.WebhookSecrets(kv, vault),
   previews,
+  endpoints,
+);
+const githubApi = new GithubApi(
+  githubApps,
+  new Github.Setup(githubApps, github, configuration.url),
+  tokens,
+  new Github.Webhook(githubApps),
+  projects,
   endpoints,
 );
 
@@ -118,11 +127,24 @@ new PreviewsApi(
 api.OnProjectAdded.Do((project) => synchronization.request(project));
 api.OnSyncRequested.Do((project) => synchronization.request(project));
 
+// A push to a project's own branch brings its checkout up to date, wherever
+// it was pushed from: a release made elsewhere is deployable here at once.
+githubApi.OnBranchPushed.Do((project, branch) => {
+  if (branch !== project.ref) return;
+  synchronization.request(project);
+});
+
 // A deploy, release or preview change asked for is carried out once the
 // checkout it needs is free; each step it takes, and each line it prints, is
 // kept. A branch pushed or deleted asks for preview changes.
 api.OnRunRequested.Do((run) => runner.request(run));
 previews.OnRunRequested.Do((run) => runner.request(run));
+githubApi.OnBranchPushed.Do((project, branch) =>
+  previews.pushed(project.id, branch)
+);
+githubApi.OnBranchDeleted.Do((project, branch) =>
+  previews.deleted(project.id, branch)
+);
 runner.OnStarted.Do((run) => runs.save(run));
 runner.OnPrinted.Do((run, index, line) => runs.addLine(run.id, index, line));
 runner.OnFinished.Do((run) => runs.save(run));

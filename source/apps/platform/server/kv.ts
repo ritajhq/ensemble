@@ -609,30 +609,3 @@ export class LivePreviews {
     return live;
   }
 }
-
-/** Each project's GitHub webhook secret, sealed: what its pushes and branch deletions are verified with. */
-export class WebhookSecrets {
-  constructor(private readonly kv: Deno.Kv, private readonly vault: Vault) {}
-
-  async set(project: string, value: string): Promise<void> {
-    await this.kv.set(
-      ["webhook-secrets", project],
-      await this.vault.seal(value, [project, "webhook"]),
-    );
-  }
-
-  async unset(project: string): Promise<void> {
-    await this.kv.delete(["webhook-secrets", project]);
-  }
-
-  async has(project: string): Promise<boolean> {
-    return (await this.kv.get(["webhook-secrets", project])).value !== null;
-  }
-
-  async reveal(project: string): Promise<string | undefined> {
-    const { value } = await this.kv.get<Sealed>(["webhook-secrets", project]);
-    return value
-      ? await this.vault.open(value, [project, "webhook"])
-      : undefined;
-  }
-}
