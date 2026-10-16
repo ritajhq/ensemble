@@ -66,7 +66,7 @@ export function App() {
 
   return (
     <TooltipProvider>
-      <SidebarProvider peek="hover">
+      <SidebarProvider>
         <Sidebar variant="inset">
           <SidebarHeader>
             <SidebarWorkspaceHeader
