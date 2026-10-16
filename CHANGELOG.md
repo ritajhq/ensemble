@@ -1,3 +1,18 @@
+## [0.53.0] - 2026-10-16
+
+### 🚀 Features
+
+- *(platform)* Reach GitHub as the platform's own GitHub App, set up from its home page, in place of a token and per-project webhooks
+- *(deploy)* Let config.yaml name a workload's deploy kit, and name the kit when no provisioner matches
+
+### 📚 Documentation
+
+- *(deploying)* Describe the platform's GitHub App in place of its token and per-project webhooks
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.52.1
+- *(release)* Bump library versions for 0.53.0
 ## [0.52.1] - 2026-10-16
 
 ### 🚀 Features
