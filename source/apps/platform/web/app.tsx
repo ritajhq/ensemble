@@ -15,9 +15,9 @@ import {
   SidebarWorkspaceHeader,
   TooltipProvider,
   useIcon,
-  WorkspaceTile,
 } from "@ritaj/ui";
 import { useApi } from "./api-provider.tsx";
+import { Logo } from "./components/logo.tsx";
 import { useLoad } from "./use-load.ts";
 import { AddProject } from "./screens/add-project.tsx";
 import { ProjectScreen } from "./screens/project.tsx";
@@ -71,7 +71,7 @@ export function App() {
           <SidebarHeader>
             <SidebarWorkspaceHeader
               name="ensemble"
-              tile={<WorkspaceTile>E</WorkspaceTile>}
+              tile={<Logo className="size-5 shrink-0" />}
             />
           </SidebarHeader>
           <SidebarContent>
