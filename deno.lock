@@ -6,6 +6,9 @@
     "jsr:@david/which@0.4.2": "0.4.2",
     "jsr:@david/which@~0.4.1": "0.4.2",
     "jsr:@duesabati/evento@1.0.0": "1.0.0",
+    "jsr:@ensemble/core@0.51": "0.51.0",
+    "jsr:@ensemble/host@0.51": "0.51.0",
+    "jsr:@ensemble/kit-sdk@0.51": "0.51.0",
     "jsr:@std/assert@0.221": "0.221.0",
     "jsr:@std/assert@1.0.14": "1.0.14",
     "jsr:@std/bytes@0.221": "0.221.0",
@@ -101,6 +104,36 @@
     },
     "@duesabati/evento@1.0.0": {
       "integrity": "7459da8806cf41e417aa8e249f9d3f1fbcd273fafcf7760020f0868776cad2e3"
+    },
+    "@ensemble/core@0.51.0": {
+      "integrity": "b8a476afe5c2e35ba80aeef1c1543abaaaf85afc941c7177c09fc7e452f8e306",
+      "dependencies": [
+        "jsr:@duesabati/evento",
+        "jsr:@std/cli",
+        "jsr:@std/dotenv",
+        "jsr:@std/fs@1.0.24",
+        "jsr:@std/path@1.1.6",
+        "jsr:@std/yaml"
+      ]
+    },
+    "@ensemble/host@0.51.0": {
+      "integrity": "04d5685fa8819de5c7d0b42dc49f4441a95b1518daadf7d38da40eb1b52a4965",
+      "dependencies": [
+        "jsr:@david/dax",
+        "jsr:@david/which@0.4.2",
+        "jsr:@duesabati/evento",
+        "jsr:@ensemble/core",
+        "jsr:@std/fmt@1.0.10",
+        "jsr:@std/fs@1.0.24",
+        "jsr:@std/path@1.1.6"
+      ]
+    },
+    "@ensemble/kit-sdk@0.51.0": {
+      "integrity": "7e65fd1ca7fe23e3ef37a9aaa55c67b09d06cf211fd78414870fe2dc1da6fb13",
+      "dependencies": [
+        "jsr:@ensemble/core",
+        "jsr:@ensemble/host"
+      ]
     },
     "@std/assert@0.221.0": {
       "integrity": "a5f1aa6e7909dbea271754fd4ab3f4e687aeff4873b4cef9a320af813adb489a"
@@ -3709,7 +3742,7 @@
       ".ensemble/kits/build/deno.bundle": {
         "dependencies": [
           "jsr:@david/dax@0.42.0",
-          "jsr:@ensemble/kit-sdk@0.52",
+          "jsr:@ensemble/kit-sdk@0.51",
           "jsr:@std/fs@1.0.24",
           "jsr:@std/path@1.1.6"
         ]
@@ -3718,14 +3751,14 @@
         "dependencies": [
           "jsr:@david/dax@0.42.0",
           "jsr:@duesabati/evento@1.0.0",
-          "jsr:@ensemble/kit-sdk@0.52",
+          "jsr:@ensemble/kit-sdk@0.51",
           "jsr:@std/fs@1.0.24",
           "jsr:@std/path@1.1.6"
         ]
       },
       ".ensemble/kits/deploy/aws": {
         "dependencies": [
-          "jsr:@ensemble/kit-sdk@0.52",
+          "jsr:@ensemble/kit-sdk@0.51",
           "jsr:@std/assert@^1.0.19",
           "jsr:@std/path@1.1.6",
           "jsr:@std/testing@1.0.16",
@@ -3734,7 +3767,7 @@
       },
       ".ensemble/kits/deploy/compose": {
         "dependencies": [
-          "jsr:@ensemble/kit-sdk@0.52",
+          "jsr:@ensemble/kit-sdk@0.51",
           "jsr:@std/assert@^1.0.19",
           "jsr:@std/path@1.1.6",
           "jsr:@std/testing@1.0.16",
@@ -3744,7 +3777,7 @@
       ".ensemble/kits/lib/jsr": {
         "dependencies": [
           "jsr:@david/dax@0.42.0",
-          "jsr:@ensemble/kit-sdk@0.52",
+          "jsr:@ensemble/kit-sdk@0.51",
           "jsr:@std/assert@1.0.14",
           "jsr:@std/path@1.1.6"
         ]
@@ -3752,7 +3785,7 @@
       ".ensemble/kits/pack/deno.compile": {
         "dependencies": [
           "jsr:@david/dax@0.42.0",
-          "jsr:@ensemble/kit-sdk@0.52",
+          "jsr:@ensemble/kit-sdk@0.51",
           "jsr:@std/fs@1.0.24",
           "jsr:@std/path@1.1.6",
           "jsr:@std/yaml@1.1.2"
@@ -3761,7 +3794,7 @@
       ".ensemble/kits/pack/docker": {
         "dependencies": [
           "jsr:@david/dax@0.42.0",
-          "jsr:@ensemble/kit-sdk@0.52",
+          "jsr:@ensemble/kit-sdk@0.51",
           "jsr:@std/assert@1.0.14",
           "jsr:@std/fs@1.0.24",
           "jsr:@std/path@1.1.6"
@@ -3770,7 +3803,7 @@
       ".ensemble/kits/pack/vscode": {
         "dependencies": [
           "jsr:@david/dax@0.42.0",
-          "jsr:@ensemble/kit-sdk@0.52",
+          "jsr:@ensemble/kit-sdk@0.51",
           "jsr:@std/fs@1.0.24",
           "jsr:@std/path@1.1.6",
           "jsr:@std/yaml@1.1.2"
@@ -3881,7 +3914,7 @@
           "jsr:@david/dax@0.42.0",
           "jsr:@david/which@0.4.2",
           "jsr:@duesabati/evento@1.0.0",
-          "jsr:@ensemble/core@0.52",
+          "jsr:@ensemble/core@~0.52.1",
           "jsr:@std/assert@1.0.14",
           "jsr:@std/fmt@1.0.10",
           "jsr:@std/fs@1.0.24",
@@ -3890,8 +3923,8 @@
       },
       "source/core/kit-sdk": {
         "dependencies": [
-          "jsr:@ensemble/core@0.52",
-          "jsr:@ensemble/host@0.52"
+          "jsr:@ensemble/core@~0.52.1",
+          "jsr:@ensemble/host@~0.52.1"
         ]
       },
       "source/core/platform": {
