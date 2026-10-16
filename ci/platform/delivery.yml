@@ -21,21 +21,45 @@ version: v1
 # The router answers plain HTTP on the ingress network; point the tunnel at it
 # there (${variables.stack.value}-router-1:80), for the platform's host, its
 # auth host and every host under the preview domain. TLS ends at the tunnel.
+# Each image is published with every release, so a host deploys a version
+# without building it: pushing needs docker logged in to ghcr.io with a
+# token that may write packages, and deploying one that may read them.
 release:
   platform:
     kit: docker
+    publish:
+      target: push
+      name: ghcr.io/ritajhq/ensemble/platform
   platform-router:
     kit: docker
+    publish:
+      target: push
+      name: ghcr.io/ritajhq/ensemble/platform-router
   platform-guard:
     kit: docker
+    publish:
+      target: push
+      name: ghcr.io/ritajhq/ensemble/platform-guard
   platform-preview-guard:
     kit: docker
+    publish:
+      target: push
+      name: ghcr.io/ritajhq/ensemble/platform-preview-guard
   platform-judge:
     kit: docker
+    publish:
+      target: push
+      name: ghcr.io/ritajhq/ensemble/platform-judge
   platform-policies:
     kit: docker
+    publish:
+      target: push
+      name: ghcr.io/ritajhq/ensemble/platform-policies
   platform-auth:
     kit: docker
+    publish:
+      target: push
+      name: ghcr.io/ritajhq/ensemble/platform-auth
 
 deploy:
   compute:
