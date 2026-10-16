@@ -81,13 +81,19 @@ host. Bring the platform up once per host:
 
 ```sh
 export PLATFORM_SECRET_KEY=$(openssl rand -base64 32)   # keep it
-export GITHUB_TOKEN=…
+export AUTH_SECRET=$(openssl rand -base64 32)
 ens deploy platform compose --artifacts local --emulate-externals
 ```
 
-Each project's GitHub webhook — `https://<platform>/hooks/github/<project>`,
-JSON, push and delete events — is verified with the project's own secret, set in
-the platform.
+The platform reaches GitHub as a GitHub App of its own. The first time it's
+opened, its home page creates one — under your account or an organization, with
+GitHub asking you to confirm — and then sends you to install it on the
+repositories to release and deploy. The app clones, fetches and pushes releases
+with short-lived tokens it is issued, commits and tags as its own bot, and has
+one webhook, `https://<platform>/hooks/github`, for every repository it's
+installed on: a push to a project's branch syncs it, and a push to or deletion
+of any branch keeps its previews in step. Projects are added from the
+repositories the app is installed on.
 
 Nothing the platform answers for is open to everyone. Its own UI and API are
 behind an idhn guard that lets only signed-in operators through (GitHub's
