@@ -16,7 +16,7 @@ source/
   kits/build/<kit>/   # build kit implementations
   kits/pack/<kit>/    # pack kit implementations
   kits/deploy/<kit>/  # deploy kit implementations
-  config.yaml         # shared, git-tracked: app -> kit associations
+  config.yaml         # shared, git-tracked: app -> build kit, workload -> deploy kit
   config.local.yaml   # gitignored, per-developer: personal var defaults
 ci/<name>/
   delivery.yml         # the workload's delivery manifest (release + deploy)
@@ -58,7 +58,9 @@ Two files hold configuration, split by what should be shared with the team
 versus what's a personal convenience:
 
 - **`config.yaml`** — shared, git-tracked. Which build kit each app uses
-  (`ens config set-build-kit`).
+  (`ens config set-build-kit`), and which deploy kit a workload deploys with
+  when the command names none (`deploy.<name>.kit`, for a workload only one kit
+  can deploy).
 - **`config.local.yaml`** — gitignored, per-developer. Default build/pack vars
   you don't want to type on every invocation (`ens config
   set-build-var`,

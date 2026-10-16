@@ -60,12 +60,12 @@ const explainCommand = new Command()
 export const deployCommand = new Command()
   .name("deploy")
   .description(
-    "Deploy a workload using the given deploy kit: render, then eject, plan, or apply (the default). " +
+    "Deploy a workload using the given deploy kit (or, if none is given, the one `deploy.<name>.kit` in .ensemble/config.yaml names): render, then eject, plan, or apply (the default). " +
       "--destroy tears it down instead (the same as `ens destroy`).",
   )
   .type("artifacts", new EnumType(["local", "published"]))
   .type("mode", new EnumType(["development", "deployment"]))
-  .arguments("<name:string> <kit:string>")
+  .arguments("<name:string> [kit:string]")
   .option(
     "--artifacts <artifacts:artifacts>",
     "Which release locator to resolve.",

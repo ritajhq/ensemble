@@ -46,6 +46,7 @@ async function withKit(
       repoRoot: root,
       workload,
       registry: undefined as never,
+      kit: "demo-kit",
       kitDir,
       kitConfigPath: join(root, "demo-kit.config.yml"),
     }, kitDir);

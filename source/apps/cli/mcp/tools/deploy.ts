@@ -15,12 +15,14 @@ export class DeployTools {
       {
         title: "Deploy a workload",
         description:
-          "Deploys a workload using the given deploy kit: render, then eject, plan, or apply. " +
+          "Deploys a workload using the given deploy kit (or its configured one): render, then eject, plan, or apply. " +
           "Tearing a workload down is out of scope. For a long-lived --watch session, use ensemble_develop_start " +
           "(local development) or ensemble_deploy_watch_start instead.",
         inputSchema: {
           name: z.string().describe("Workload name to deploy."),
-          kit: z.string().describe("Deploy kit to use."),
+          kit: z.string().optional().describe(
+            "Deploy kit to use. Omit to use the one `deploy.<name>.kit` in .ensemble/config.yaml names.",
+          ),
           artifacts: z.enum(["local", "published"]).default("published")
             .describe(
               "Which release locator to resolve.",
@@ -152,7 +154,9 @@ export class DeployTools {
           "poll ensemble_watch_logs to see output, and ensemble_watch_stop to tear it down.",
         inputSchema: {
           name: z.string().describe("Workload name to deploy."),
-          kit: z.string().describe("Deploy kit to use."),
+          kit: z.string().optional().describe(
+            "Deploy kit to use. Omit to use the one `deploy.<name>.kit` in .ensemble/config.yaml names.",
+          ),
           artifacts: z.enum(["local", "published"]).default("local").describe(
             "Which release locator to resolve.",
           ),
@@ -194,7 +198,7 @@ export class DeployTools {
           const args = [
             "deploy",
             name,
-            kit,
+            ...(kit ? [kit] : []),
             "--artifacts",
             artifacts,
             "--mode",

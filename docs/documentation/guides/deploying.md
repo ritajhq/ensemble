@@ -6,6 +6,16 @@
 [Local development](local-development.md) and `ens develop` instead — this page
 covers the full model behind it.
 
+A workload only one kit can deploy (a serverless stack only `aws` has
+provisioners for, say) can name it once in `.ensemble/config.yaml`, so
+`ens deploy <name>` and `ens develop <name>` need no kit argument:
+
+```yaml
+deploy:
+  <name>:
+    kit: aws
+```
+
 ## Terminations
 
 Exactly one of these runs per invocation (the default is `apply`):

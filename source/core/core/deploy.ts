@@ -19,6 +19,8 @@ export type DeployTermination = "eject" | "plan" | "apply";
 
 export interface RunDeployOptions {
   artifacts: Deploy.ArtifactsSource;
+  /** The deploy kit when neither the command nor `.ensemble/config.yaml` names one (`ens develop`'s compose). None: one of them has to. */
+  fallbackKit?: string;
   /** Which released version `${release.<name>}` resolves to for published artifacts — meaningless for local artifacts, where the local tag is always used regardless. */
   version: string;
   termination: DeployTermination;
@@ -134,16 +136,20 @@ class CompanionBuildWatchers {
  */
 export async function runDeploy(
   name: string,
-  kit: string,
+  requestedKit: string | undefined,
   options: RunDeployOptions,
   ports: Ports,
   gateway: Deploy.PackKitGateway,
   kitLoader: Deploy.KitLoader,
 ): Promise<void> {
-  const context = await loadDeployContext(name, kit, ports.repo, kitLoader, {
-    envFiles: options.envFiles,
-  });
-  const { repoRoot, workload, target, registry } = context;
+  const context = await loadDeployContext(
+    name,
+    requestedKit,
+    ports.repo,
+    kitLoader,
+    { envFiles: options.envFiles, fallbackKit: options.fallbackKit },
+  );
+  const { repoRoot, workload, target, registry, kit } = context;
 
   const locatorResolver = new Deploy.ReleaseLocatorResolver(gateway);
   const releaseLocator = new Deploy.PreresolvedReleaseLocator(
@@ -241,6 +247,8 @@ export async function runDeploy(
       watch: options.watch,
       emulateExternals: options.emulateExternals,
       signal: buildWatchers?.signal,
+    }).catch((error) => {
+      throw withKitHint(error, kit, name);
     });
 
     for (const report of result.gaps) {
@@ -257,6 +265,22 @@ export async function runDeploy(
   if (buildWatchers?.failure !== undefined) {
     throw buildWatchers.failure;
   }
+}
+
+/**
+ * A resource the kit has no provisioner for, told with the kit that was
+ * tried and how to pick another one — the kit may not be one the command
+ * named (`ens develop` falls back to compose, or config.yaml chose it).
+ */
+function withKitHint(error: unknown, kit: string, name: string): unknown {
+  if (!(error instanceof Deploy.Resolve.NoMatchingProvisionerError)) {
+    return error;
+  }
+  return new Deploy.Resolve.NoMatchingProvisionerError(
+    `${
+      error.message.replace(/\.$/, "")
+    } in the "${kit}" deploy kit. Deploy it with a kit that has one: name it (\`ens deploy ${name} <kit>\`, \`ens develop ${name} -k <kit>\`), or set "deploy.${name}.kit" in .ensemble/config.yaml.`,
+  );
 }
 
 function presentResult(

@@ -51,8 +51,15 @@ export interface PublishConfig {
   libs?: LibConfig[];
 }
 
+/** A deployment's project-level settings, under `deploy.<name>` — `<name>` being its manifest's `ci/<name>/`. */
+export interface DeployConfig {
+  /** The deploy kit `ens deploy <name>` (and `ens develop <name>`) uses when the command names none. */
+  kit?: string;
+}
+
 export interface EnsembleConfig {
   build?: Record<string, BuildAppConfig>;
+  deploy?: Record<string, DeployConfig>;
   hooks?: HooksConfig;
   publish?: PublishConfig;
 }

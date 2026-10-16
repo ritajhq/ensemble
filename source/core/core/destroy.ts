@@ -2,6 +2,7 @@ import { join } from "@std/path";
 import { exists } from "@std/fs";
 import * as Deploy from "./deploy/index.ts";
 import { deploymentNameFor } from "./deploy-context.ts";
+import { DeployKitChoice } from "./deploy-kit-choice.ts";
 import type { Instance } from "./instance.ts";
 import type { Ports } from "./ports.ts";
 
@@ -28,7 +29,7 @@ export class DestroyError extends Error {}
  */
 export async function runDestroy(
   name: string,
-  kit: string,
+  requestedKit: string | undefined,
   options: RunDestroyOptions,
   ports: Ports,
   kitLoader: Deploy.KitLoader,
@@ -38,6 +39,7 @@ export async function runDestroy(
   if (!await new Deploy.Manifest.Locator().find(workloadDir)) {
     throw new Error(`Delivery manifest not found in ${workloadDir}`);
   }
+  const kit = await new DeployKitChoice(repoRoot).for(name, requestedKit);
 
   const kitDir = join(repoRoot, ".ensemble", "kits", "deploy", kit);
   if (!await exists(join(kitDir, "main.ts"), { isFile: true })) {

@@ -5,11 +5,21 @@ Deploy a workload using the given deploy kit: render, then eject, plan, or apply
 behind these flags.
 
 ```sh
-ens deploy <name> <kit>
+ens deploy <name> [kit]
 ```
 
 - `<name>` — the workload's name, matching `ci/<name>/delivery.yml`.
-- `<kit>` — the deploy kit to use (e.g. `compose`, `aws`).
+- `[kit]` — the deploy kit to use (e.g. `compose`, `aws`). Optional when
+  `.ensemble/config.yaml` names one for the workload:
+
+  ```yaml
+  deploy:
+    shop:
+      kit: aws
+  ```
+
+  A kit given here wins over the configured one; with neither, the command fails
+  saying how to name one.
 
 ## Flags
 

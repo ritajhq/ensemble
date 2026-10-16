@@ -3,6 +3,7 @@ import { exists } from "@std/fs";
 import * as Deploy from "./deploy/index.ts";
 import type { RepoLocator } from "./ports.ts";
 import { DeploymentEnvironment, type EnvFile } from "./env-files.ts";
+import { DeployKitChoice } from "./deploy-kit-choice.ts";
 
 /**
  * `relational.v1`'s optional `init` param (Section 6 of its own contract
@@ -49,6 +50,8 @@ export interface WorkloadContext {
   readonly repoRoot: string;
   readonly workload: Deploy.Workload;
   readonly registry: Deploy.Contracts.Registry;
+  /** The deploy kit's name — the command's, else the project's configured one for this deployment (see `DeployKitChoice`). */
+  readonly kit: string;
   /** The vendored deploy kit's directory, `.ensemble/kits/deploy/<kit>/`. */
   readonly kitDir: string;
   /** The workload's own config for that kit, `ci/<name>/<kit>.config.yml`, which may not exist. */
@@ -75,6 +78,8 @@ export function deploymentNameFor(repoRoot: string, name: string): string {
 export interface WorkloadLoadOptions {
   /** Env files supplying values beneath the process environment — see `DeploymentEnvironment`. Empty for a real pipeline. */
   readonly envFiles: readonly EnvFile[];
+  /** The kit to use when neither the command nor `.ensemble/config.yaml` names one (`ens develop`'s compose). None: one of them has to. */
+  readonly fallbackKit?: string;
 }
 
 /**
@@ -85,11 +90,16 @@ export interface WorkloadLoadOptions {
  */
 export async function loadWorkload(
   name: string,
-  kit: string,
+  requestedKit: string | undefined,
   repo: RepoLocator,
   options: WorkloadLoadOptions,
 ): Promise<WorkloadContext> {
   const repoRoot = await repo.findRepoRoot();
+  const kit = await new DeployKitChoice(repoRoot).for(
+    name,
+    requestedKit,
+    options.fallbackKit,
+  );
   const environment = new DeploymentEnvironment(repoRoot);
   await environment.load(options.envFiles);
 
@@ -121,6 +131,7 @@ export async function loadWorkload(
     repoRoot,
     workload,
     registry: new Deploy.Contracts.Catalog(Deploy.Contracts.SEEDED),
+    kit,
     kitDir,
     kitConfigPath: join(repoRoot, "ci", name, `${kit}.config.yml`),
   };
@@ -129,7 +140,7 @@ export async function loadWorkload(
 /** Resolves a deployment's manifest and kit by name — the one place `ens deploy` and `ens deploy explain` share this lookup (`ci/<name>/delivery.yml`, `.ensemble/kits/deploy/<kit>/`), so the two commands can't drift on how a deployment is found. */
 export async function loadDeployContext(
   name: string,
-  kit: string,
+  kit: string | undefined,
   repo: RepoLocator,
   kitLoader: Deploy.KitLoader,
   options: WorkloadLoadOptions,

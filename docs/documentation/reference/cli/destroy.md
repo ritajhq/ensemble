@@ -4,11 +4,13 @@ Take a deployed workload down using the given deploy kit, and drop the state
 `ens deploy` kept for it (rendered artifact, render cache, task snapshot).
 
 ```sh
-ens destroy <name> <kit>
+ens destroy <name> [kit]
 ```
 
 - `<name>` — the workload's name, matching `ci/<name>/delivery.yml`.
-- `<kit>` — the deploy kit to use (e.g. `compose`).
+- `[kit]` — the deploy kit to use (e.g. `compose`). Optional when
+  `deploy.<name>.kit` in `.ensemble/config.yaml` names one, as for
+  [`ens deploy`](deploy.md).
 
 ## Flags
 

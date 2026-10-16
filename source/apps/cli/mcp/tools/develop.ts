@@ -18,7 +18,9 @@ export class DevelopTools {
           "poll ensemble_watch_logs to see the live rebuild/sync as you edit code, and ensemble_watch_stop to tear it down.",
         inputSchema: {
           name: z.string().describe("Workload name to develop."),
-          kit: z.string().default("compose").describe("Deploy kit to use."),
+          kit: z.string().optional().describe(
+            "Deploy kit to use. Omit for the one `deploy.<name>.kit` in .ensemble/config.yaml names, else compose.",
+          ),
           verbose: z.boolean().default(false).describe(
             "Include the kit's own build-tool output from the initial pack step.",
           ),
@@ -29,15 +31,16 @@ export class DevelopTools {
           const args = [
             "develop",
             name,
-            "--kit",
-            kit,
+            ...(kit ? ["--kit", kit] : []),
             ...(verbose ? ["--verbose"] : []),
           ];
           const session = WatchSessionRegistry.Instance.Start(
             `develop ${name}`,
             SelfInvocation.Command(args),
           );
-          return `Started session "${session.id}": develop ${name} (kit ${kit}). ` +
+          return `Started session "${session.id}": develop ${name}${
+            kit ? ` (kit ${kit})` : ""
+          }. ` +
             `Poll ensemble_watch_logs({ id: "${session.id}" }) to see output; ` +
             `ensemble_watch_stop({ id: "${session.id}" }) to stop.`;
         }),

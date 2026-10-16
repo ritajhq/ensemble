@@ -66,6 +66,7 @@ export {
   runDestroy,
   type RunDestroyOptions,
 } from "./destroy.ts";
+export { DeployKitChoice, NoDeployKitError } from "./deploy-kit-choice.ts";
 export { Instance } from "./instance.ts";
 export {
   IngressFile,
