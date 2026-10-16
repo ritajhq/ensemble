@@ -1,3 +1,18 @@
+## [0.52.1] - 2026-10-16
+
+### 🚀 Features
+
+- *(platform)* Show ensemble's logo in the sidebar and as the favicon
+- *(platform)* Keep the sidebar from peeking on hover, leaving it to be resized from its rail
+
+### 🐛 Bug Fixes
+
+- *(platform)* Publish the platform's images to ghcr.io with every release so the platform can deploy itself
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.52.0
+- *(release)* Bump library versions for 0.52.1
 ## [0.52.0] - 2026-10-15
 
 ### 🚀 Features
