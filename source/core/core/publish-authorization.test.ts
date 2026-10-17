@@ -2,7 +2,10 @@ import { join } from "@std/path";
 import { ensureDir } from "@std/fs";
 import { assertEquals, assertRejects } from "@std/assert";
 import { ReleaseCeremony, type ShipRelease } from "./release.ts";
-import { PublishUnauthorizedError } from "./publish-authorization.ts";
+import {
+  type PublishCheck,
+  PublishUnauthorizedError,
+} from "./publish-authorization.ts";
 import type { CoreLibRelease } from "./lib-release-cascade.ts";
 import type { Ports, ProbeResult } from "./ports.ts";
 
@@ -75,6 +78,8 @@ Deno.test("ReleaseCeremony.authorizePublishes: asks every publishing ship's kit 
       repoRoot,
       probingPorts(repoRoot, {}, probed),
     );
+    const checks: PublishCheck[] = [];
+    ceremony.OnPublishChecked.Do((check) => checks.push(check));
 
     await ceremony.authorizePublishes(
       [ship("api", "guarded"), ship("pack-only", "unguarded", false)],
@@ -82,10 +87,18 @@ Deno.test("ReleaseCeremony.authorizePublishes: asks every publishing ship's kit 
       "1.2.3",
     );
 
-    assertEquals(probed, [
-      ".ensemble/kits/pack/guarded/authorize.ts",
+    // Every check runs at once, so they land in no particular order.
+    assertEquals(probed.toSorted(), [
       ".ensemble/kits/lib/jsr/main.ts authorize",
+      ".ensemble/kits/pack/guarded/authorize.ts",
     ]);
+    assertEquals(
+      checks.toSorted((a, b) => a.publish.localeCompare(b.publish)),
+      [
+        { publish: "@ensemble/core → jsr", granted: true },
+        { publish: "api → push", granted: true },
+      ],
+    );
   });
 });
 

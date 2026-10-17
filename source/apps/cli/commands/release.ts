@@ -1,4 +1,5 @@
 import { join } from "@std/path";
+import { green, red } from "@std/fmt/colors";
 import { Command, EnumType } from "@cliffy/command";
 import { Confirm } from "@cliffy/prompt";
 import * as Core from "@ensemble/core";
@@ -184,6 +185,12 @@ async function collectRemaining(
   };
 }
 
+/** One line per publish check, as it comes back — the reason for a refusal is left to the refusal itself, which lists every one together. */
+function describePublishCheck(check: Core.PublishCheck): string {
+  if (check.granted) return `${green("✓")} ${check.publish}`;
+  return `${red("✗")} ${check.publish} — refused`;
+}
+
 /** The refusal for publishing `ships` and `coreLibs` from this machine, or `undefined` when every destination authorizes it — see `ReleaseCeremony.authorizePublishes`. */
 async function findPublishRefusal(
   repoRoot: string,
@@ -192,12 +199,15 @@ async function findPublishRefusal(
   coreLibs: readonly Core.CoreLibRelease[],
   tag: string,
 ): Promise<Core.PublishUnauthorizedError | undefined> {
+  const ceremony = new Core.Release.ReleaseCeremony(repoRoot, ports);
+  ceremony.OnPublishChecked.Do((check) =>
+    console.log(`  ${describePublishCheck(check)}`)
+  );
+  if (ships.some((ship) => ship.publish) || coreLibs.length > 0) {
+    console.log("Checking this machine may publish:");
+  }
   try {
-    await new Core.Release.ReleaseCeremony(repoRoot, ports).authorizePublishes(
-      ships,
-      coreLibs,
-      tag,
-    );
+    await ceremony.authorizePublishes(ships, coreLibs, tag);
     return undefined;
   } catch (error) {
     if (error instanceof Core.PublishUnauthorizedError) return error;

@@ -5,6 +5,7 @@ import { LibDeclarationLoader } from "./lib-declaration.ts";
 import { CoreLibReleaseCascade } from "./lib-release-cascade.ts";
 import type { LibKit } from "./lib-kit.ts";
 import type { Ports } from "./ports.ts";
+import type { Authorization, PublishCheck } from "./publish-authorization.ts";
 
 /** `libKitFor` is always overridden by a fake in these tests, so the default's dependency on real ports never actually runs. */
 const UNUSED_PORTS: Ports = {
@@ -34,6 +35,18 @@ class FakeLibKit {
   publish(input: Lib.Context): Promise<void> {
     FakeLibKit.publishCalls.push({ kit: this.kit, input });
     return Promise.resolve();
+  }
+
+  // "npm" refuses straight away, every other kit grants after a short wait —
+  // so a cascade checking one entry after another would report them in
+  // declaration order, while one checking them all at once can't.
+  authorize(): Promise<Authorization> {
+    if (this.kit === "npm") {
+      return Promise.resolve({ granted: false, reason: "token is read-only" });
+    }
+    return new Promise((resolve) =>
+      setTimeout(() => resolve({ granted: true }), 20)
+    );
   }
 }
 
@@ -116,6 +129,40 @@ Deno.test("CoreLibReleaseCascade.publish: publishes each declared entry under th
         target: "private-registry",
       },
     },
+  ]);
+});
+
+Deno.test("CoreLibReleaseCascade.authorize: checks every entry at once, reporting each as it lands and returning the refusals", async () => {
+  const cascade = new CoreLibReleaseCascade(UNUSED_PORTS, fakeLibKitFor);
+  const checks: PublishCheck[] = [];
+
+  const denials = await cascade.authorize(
+    "1.2.3",
+    [
+      {
+        libRoot: "/repo/source/core/kit-sdk",
+        declaration: {
+          package: "@ensemble/kit-sdk",
+          publish: [{ kit: "jsr", target: undefined }, {
+            kit: "npm",
+            target: "private-registry",
+          }],
+        },
+      },
+    ],
+    (check) => checks.push(check),
+  );
+
+  assertEquals(checks, [
+    {
+      publish: "@ensemble/kit-sdk → npm",
+      granted: false,
+      reason: "token is read-only",
+    },
+    { publish: "@ensemble/kit-sdk → jsr", granted: true },
+  ]);
+  assertEquals(denials, [
+    { publish: "@ensemble/kit-sdk → npm", reason: "token is read-only" },
   ]);
 });
 

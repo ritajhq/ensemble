@@ -3,7 +3,11 @@ import { exists } from "@std/fs";
 import type { LibDeclaration } from "./lib-declaration.ts";
 import { LibKit } from "./lib-kit.ts";
 import type { Ports } from "./ports.ts";
-import type { Denial } from "./publish-authorization.ts";
+import {
+  type Denial,
+  denialFrom,
+  type PublishCheck,
+} from "./publish-authorization.ts";
 
 /** One core library discovered for a release run, alongside its declaration. */
 export interface CoreLibRelease {
@@ -144,28 +148,31 @@ export class CoreLibReleaseCascade {
     return repinned;
   }
 
-  /** Asks every discovered core library's declared lib kits whether this machine may publish it, returning one `Denial` per refused entry — empty when everything is authorized. Read-only: runs before `stamp`. */
+  /** Asks every discovered core library's declared lib kits whether this machine may publish it — all at once, each check being a read-only probe of its own destination — handing each outcome to `onChecked` as it arrives, and returning one `Denial` per refused entry: empty when everything is authorized. Runs before `stamp`. */
   async authorize(
     version: string,
     libs: readonly CoreLibRelease[],
+    onChecked?: (check: PublishCheck) => void,
   ): Promise<Denial[]> {
-    const denials: Denial[] = [];
-    for (const { libRoot, declaration } of libs) {
-      for (const entry of declaration.publish) {
+    const checks = libs.flatMap(({ libRoot, declaration }) =>
+      declaration.publish.map(async (entry): Promise<PublishCheck> => {
         const authorization = await this.libKitFor(entry.kit).authorize({
           libRoot,
           package: declaration.package,
           version,
           target: entry.target,
         });
-        if (authorization.granted) continue;
-        denials.push({
+        const check = {
           publish: `${declaration.package} → ${entry.kit}`,
-          reason: authorization.reason ?? "refused",
-        });
-      }
-    }
-    return denials;
+          ...authorization,
+        };
+        onChecked?.(check);
+        return check;
+      })
+    );
+    return (await Promise.all(checks)).flatMap((check) =>
+      denialFrom(check) ?? []
+    );
   }
 
   async publish(

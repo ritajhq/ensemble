@@ -53,6 +53,7 @@ export {
 export {
   type Authorization,
   type Denial,
+  type PublishCheck,
   PublishUnauthorizedError,
 } from "./publish-authorization.ts";
 export {

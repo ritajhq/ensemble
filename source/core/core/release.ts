@@ -8,6 +8,8 @@ import type { BuildReporter } from "./build-reporter.ts";
 import { runPublish, runPublishAuthorization } from "./publish.ts";
 import {
   type Denial,
+  denialFrom,
+  type PublishCheck,
   PublishUnauthorizedError,
 } from "./publish-authorization.ts";
 import { LibDeclarationLoader } from "./lib-declaration.ts";
@@ -369,6 +371,7 @@ function publishOptionsEqual(
  */
 export class ReleaseCeremony {
   private readonly workloadWithoutManifest = new Delegate<[string]>();
+  private readonly publishChecked = new Delegate<[PublishCheck]>();
 
   constructor(
     private readonly repoRoot: string,
@@ -378,6 +381,11 @@ export class ReleaseCeremony {
   /** Fires with a `ci/<name>` directory's name when `collectShipReleases` skips it for having no recognised delivery manifest — any `release:` it meant to declare is silently left out of the release. */
   get OnWorkloadWithoutManifest(): Emitter<[string]> {
     return this.workloadWithoutManifest;
+  }
+
+  /** Fires once per configured publish `authorizePublishes` checks, as soon as that check comes back — in whatever order they finish, since they all run at once. */
+  get OnPublishChecked(): Emitter<[PublishCheck]> {
+    return this.publishChecked;
   }
 
   /**
@@ -444,34 +452,56 @@ export class ReleaseCeremony {
    * Write access to the destinations is what decides who may release, so
    * any developer can run the ceremony, but one without that access is
    * refused here, up front, rather than after the tag is already pushed.
-   * Checks every publish rather than stopping at the first refusal, then
-   * throws `PublishUnauthorizedError` naming each one and why.
+   * Checks every publish at once rather than one after another (each check
+   * spawns its kit and probes its own destination, so they're independent),
+   * reporting each through `OnPublishChecked` as it lands, and never stops
+   * at the first refusal: it throws `PublishUnauthorizedError` naming each
+   * one and why.
    */
   async authorizePublishes(
     ships: readonly ShipRelease[],
     libs: readonly CoreLibRelease[],
     version: string,
   ): Promise<void> {
-    const denials: Denial[] = [];
-    for (const ship of ships) {
-      if (!ship.publish) continue;
-      const authorization = await runPublishAuthorization(ship.name, ship.kit, {
-        target: ship.publish.target,
-        packageName: ship.publish.name,
-        options: ship.publish.options,
-        outputName: ship.outputName,
+    const onChecked = (check: PublishCheck) =>
+      this.publishChecked.Invoke(check);
+    const [shipChecks, libDenials] = await Promise.all([
+      Promise.all(
+        ships.map((ship) => this.authorizeShip(ship, version, onChecked)),
+      ),
+      new CoreLibReleaseCascade(this.ports).authorize(
         version,
-      }, this.ports);
-      if (authorization.granted) continue;
-      denials.push({
-        publish: `${ship.name} → ${ship.publish.target}`,
-        reason: authorization.reason ?? "refused",
-      });
-    }
-    denials.push(
-      ...await new CoreLibReleaseCascade(this.ports).authorize(version, libs),
-    );
+        libs,
+        onChecked,
+      ),
+    ]);
+    const denials: Denial[] = [
+      ...shipChecks.flatMap((check) => (check && denialFrom(check)) ?? []),
+      ...libDenials,
+    ];
     if (denials.length > 0) throw new PublishUnauthorizedError(denials);
+  }
+
+  /** Asks `ship`'s pack kit whether this machine may publish it, handing the outcome to `onChecked` — `undefined` for a pack-only ship, which has nothing to check. */
+  private async authorizeShip(
+    ship: ShipRelease,
+    version: string,
+    onChecked: (check: PublishCheck) => void,
+  ): Promise<PublishCheck | undefined> {
+    if (!ship.publish) return undefined;
+    const authorization = await runPublishAuthorization(ship.name, ship.kit, {
+      target: ship.publish.target,
+      packageName: ship.publish.name,
+      options: ship.publish.options,
+      outputName: ship.outputName,
+      version,
+    }, this.ports);
+    const check = {
+      publish: `${ship.name} → ${ship.publish.target}`,
+      ...authorization,
+    };
+    onChecked(check);
+    return check;
   }
 
   /**

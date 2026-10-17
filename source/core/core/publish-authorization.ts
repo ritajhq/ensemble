@@ -15,6 +15,17 @@ export function authorizationFrom(result: ProbeResult): Authorization {
   };
 }
 
+/** One configured publish's authorization outcome, whichever way it went — `publish` names what and where (e.g. `cli → github`). */
+export interface PublishCheck extends Authorization {
+  readonly publish: string;
+}
+
+/** The `Denial` a refused `check` amounts to, or `undefined` when it was granted. */
+export function denialFrom(check: PublishCheck): Denial | undefined {
+  if (check.granted) return undefined;
+  return { publish: check.publish, reason: check.reason ?? "refused" };
+}
+
 /** One configured publish this machine isn't allowed to perform — `publish` names what and where (e.g. `cli → github`). */
 export interface Denial {
   readonly publish: string;
