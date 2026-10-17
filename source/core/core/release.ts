@@ -478,13 +478,14 @@ export class ReleaseCeremony {
    * tag — call this, then commit the result (see
    * `ReleaseService.commitIfChanged`), then create the tag, so the tag's
    * commit actually carries the version bump. Pure local file writes, no
-   * network.
+   * network. Returns every workspace manifest it repinned — outside the
+   * libraries' own directories, so the commit must name them too.
    */
   async stampCoreLibs(
     libs: readonly CoreLibRelease[],
     version: string,
-  ): Promise<void> {
-    await new CoreLibReleaseCascade(this.ports).stamp(
+  ): Promise<string[]> {
+    return await new CoreLibReleaseCascade(this.ports).stamp(
       version,
       libs,
       await new Workspace(this.repoRoot).manifests(),

@@ -108,7 +108,8 @@ async function collectReleases(
  * Stamps every core library's manifest with `tag` and commits the result —
  * unconditionally, like tag creation itself — so the tag ends up pointing at
  * a commit that actually carries the version bump. Must run before
- * `release.createReleaseTag`, never after. Includes the repo-root
+ * `release.createReleaseTag`, never after. Includes every workspace member
+ * the stamp repinned onto the new version (the kits among them), and the repo-root
  * `deno.lock` alongside each library's own directory: stamping spawns a
  * `deno run` subprocess per lib kit (see `LibKit.run`), and every such
  * invocation resolves the workspace's module graph against the
@@ -123,12 +124,14 @@ async function stampAndCommitCoreLibs(
 ): Promise<void> {
   const { coreLibs } = await collectReleases(repoRoot, ports, {});
   if (coreLibs.length === 0) return;
-  await new Core.Release.ReleaseCeremony(repoRoot, ports).stampCoreLibs(
-    coreLibs,
-    tag,
-  );
+  const repinned = await new Core.Release.ReleaseCeremony(repoRoot, ports)
+    .stampCoreLibs(coreLibs, tag);
   await release.commitIfChanged(
-    [...coreLibs.map((lib) => lib.libRoot), join(repoRoot, "deno.lock")],
+    [
+      ...coreLibs.map((lib) => lib.libRoot),
+      ...repinned,
+      join(repoRoot, "deno.lock"),
+    ],
     `chore(release): bump library versions for ${tag}`,
   );
 }

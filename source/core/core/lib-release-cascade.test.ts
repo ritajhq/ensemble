@@ -173,7 +173,7 @@ Deno.test("CoreLibReleaseCascade.stamp: repins every workspace member's versione
     await Deno.writeTextFile(join(appRoot, "deno.json"), appDenoJson);
 
     const cascade = new CoreLibReleaseCascade(UNUSED_PORTS, fakeLibKitFor);
-    await cascade.stamp(
+    const repinned = await cascade.stamp(
       "0.14.0",
       [
         {
@@ -189,6 +189,13 @@ Deno.test("CoreLibReleaseCascade.stamp: repins every workspace member's versione
         join(root, "deno.json")
       ),
     );
+
+    // Only the members whose pins actually moved, so the release commit
+    // carries them and nothing else.
+    assertEquals(repinned, [
+      join(kitSdkLibRoot, "deno.json"),
+      join(kitRoot, "deno.json"),
+    ]);
 
     const kitSdkDenoJson = JSON.parse(
       await Deno.readTextFile(join(kitSdkLibRoot, "deno.json")),

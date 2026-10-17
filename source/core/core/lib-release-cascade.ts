@@ -26,14 +26,18 @@ export class CoreLibReleaseCascade {
       new LibKit(kit, ports),
   ) {}
 
-  /** Stamps every discovered core library's manifest with `version`, and repins every one of `workspaceManifests` that imports one of them, ahead of the release commit that gets tagged — see `ReleaseCeremony.stampCoreLibs`. */
+  /** Stamps every discovered core library's manifest with `version`, and repins every one of `workspaceManifests` that imports one of them, ahead of the release commit that gets tagged — see `ReleaseCeremony.stampCoreLibs`. Returns every workspace manifest it repinned, so the release commit can carry them alongside the libraries themselves. */
   async stamp(
     version: string,
     libs: readonly CoreLibRelease[],
     workspaceManifests: readonly string[],
-  ): Promise<void> {
+  ): Promise<string[]> {
     await this.stampOwnVersions(version, libs);
-    await this.pinWorkspaceDependencies(version, libs, workspaceManifests);
+    const repinned = await this.pinWorkspaceDependencies(
+      version,
+      libs,
+      workspaceManifests,
+    );
     for (const { libRoot, declaration } of libs) {
       for (const entry of declaration.publish) {
         await this.libKitFor(entry.kit).stamp({
@@ -44,6 +48,7 @@ export class CoreLibReleaseCascade {
         });
       }
     }
+    return repinned;
   }
 
   /**
@@ -105,8 +110,9 @@ export class CoreLibReleaseCascade {
     version: string,
     libs: readonly CoreLibRelease[],
     workspaceManifests: readonly string[],
-  ): Promise<void> {
+  ): Promise<string[]> {
     const packages = libs.map((lib) => lib.declaration.package);
+    const repinned: string[] = [];
     for (const denoJsonPath of workspaceManifests) {
       if (!await exists(denoJsonPath, { isFile: true })) continue;
 
@@ -133,7 +139,9 @@ export class CoreLibReleaseCascade {
         denoJsonPath,
         `${JSON.stringify(denoJson, null, 2)}\n`,
       );
+      repinned.push(denoJsonPath);
     }
+    return repinned;
   }
 
   /** Asks every discovered core library's declared lib kits whether this machine may publish it, returning one `Denial` per refused entry — empty when everything is authorized. Read-only: runs before `stamp`. */
