@@ -387,8 +387,8 @@ async function printReleaseHookPreview(
  * (`ReleaseStateStore`), so a mid-ceremony failure leaves an accurate record
  * of what's left; the next `ens release resume <tag>` reads that record and
  * only redoes what didn't finish — including never re-running the hook once
- * `hookRan` is recorded. The state file is removed once everything (ships,
- * core libs, and the hook) has completed for `tag`.
+ * `hookRan` is recorded. The state file stays behind once everything has
+ * completed for `tag`, as the record that there's nothing left to resume.
  *
  * Never asks for confirmation itself — the caller must have already done
  * that with `confirmReleaseWork` before calling this, so that declining
@@ -494,8 +494,9 @@ async function runReleaseCeremony(
   if (!state.hookRan) {
     await runReleaseHook(repoRoot, ports, release, tag, remote);
     await persist({ hookRan: true });
+    return 0;
   }
-  await store.clear(tag);
+  if (!hasWork) console.log(`${tag} is already fully released.`);
   return 0;
 }
 

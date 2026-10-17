@@ -252,7 +252,7 @@ export class ReleaseService {
     return tags.some((t) => t.tag === tag);
   }
 
-  /** Deletes only the last (highest-semver) tag locally — never touches any commit. Deleting from a remote is a separate, explicit step (see deleteRemoteTag). */
+  /** Deletes only the last (highest-semver) tag locally, along with its ceremony record (see `ReleaseStateStore`) so re-creating that tag starts a fresh release — never touches any commit. Deleting from a remote is a separate, explicit step (see deleteRemoteTag). */
   async undo(flags: UndoFlags): Promise<UndoResult> {
     const last = await this.findLastTag();
     if (!last) {
@@ -262,6 +262,7 @@ export class ReleaseService {
       return { tag: last.tag };
     }
     await this.git(["tag", "-d", last.tag]);
+    await new ReleaseStateStore(this.repoRoot).clear(last.tag);
     return { tag: last.tag };
   }
 }
@@ -296,10 +297,11 @@ function emptyReleaseState(tag: string): ReleaseState {
 
 /**
  * Stores one release's ceremony progress as a JSON file under
- * `.ensemble/release/state/<tag>.json`. A file left behind always means that
- * tag's ceremony didn't finish; `clear` removes it once packing,
- * publishing, and the release hook have all completed for that tag — so an
- * absent file always means "nothing left to resume here."
+ * `.ensemble/release/state/<tag>.json`. The file outlives a finished
+ * ceremony on purpose: a finished record lists every ship and library as
+ * done and the hook as run, so resuming that tag finds nothing left — where
+ * an absent file reads as a release that hasn't started, and would redo it
+ * all, hook included. `clear` only runs once the tag itself is undone.
  */
 export class ReleaseStateStore {
   constructor(private readonly repoRoot: string) {}
