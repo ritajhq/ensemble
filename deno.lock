@@ -3783,7 +3783,7 @@
       ".ensemble/kits/build/deno.bundle": {
         "dependencies": [
           "jsr:@david/dax@0.42.0",
-          "jsr:@ensemble/kit-sdk@0.53",
+          "jsr:@ensemble/kit-sdk@0.54",
           "jsr:@std/fs@1.0.24",
           "jsr:@std/path@1.1.6"
         ]
@@ -3792,14 +3792,14 @@
         "dependencies": [
           "jsr:@david/dax@0.42.0",
           "jsr:@duesabati/evento@1.0.0",
-          "jsr:@ensemble/kit-sdk@0.53",
+          "jsr:@ensemble/kit-sdk@0.54",
           "jsr:@std/fs@1.0.24",
           "jsr:@std/path@1.1.6"
         ]
       },
       ".ensemble/kits/deploy/aws": {
         "dependencies": [
-          "jsr:@ensemble/kit-sdk@0.53",
+          "jsr:@ensemble/kit-sdk@0.54",
           "jsr:@std/assert@^1.0.19",
           "jsr:@std/path@1.1.6",
           "jsr:@std/testing@1.0.16",
@@ -3808,7 +3808,7 @@
       },
       ".ensemble/kits/deploy/compose": {
         "dependencies": [
-          "jsr:@ensemble/kit-sdk@0.53",
+          "jsr:@ensemble/kit-sdk@0.54",
           "jsr:@std/assert@^1.0.19",
           "jsr:@std/path@1.1.6",
           "jsr:@std/testing@1.0.16",
@@ -3818,7 +3818,7 @@
       ".ensemble/kits/lib/jsr": {
         "dependencies": [
           "jsr:@david/dax@0.42.0",
-          "jsr:@ensemble/kit-sdk@0.53",
+          "jsr:@ensemble/kit-sdk@0.54",
           "jsr:@std/assert@1.0.14",
           "jsr:@std/path@1.1.6"
         ]
@@ -3826,7 +3826,7 @@
       ".ensemble/kits/pack/deno.compile": {
         "dependencies": [
           "jsr:@david/dax@0.42.0",
-          "jsr:@ensemble/kit-sdk@0.53",
+          "jsr:@ensemble/kit-sdk@0.54",
           "jsr:@std/fs@1.0.24",
           "jsr:@std/path@1.1.6",
           "jsr:@std/yaml@1.1.2"
@@ -3835,7 +3835,7 @@
       ".ensemble/kits/pack/docker": {
         "dependencies": [
           "jsr:@david/dax@0.42.0",
-          "jsr:@ensemble/kit-sdk@0.53",
+          "jsr:@ensemble/kit-sdk@0.54",
           "jsr:@std/assert@1.0.14",
           "jsr:@std/fs@1.0.24",
           "jsr:@std/path@1.1.6"
@@ -3844,7 +3844,7 @@
       ".ensemble/kits/pack/vscode": {
         "dependencies": [
           "jsr:@david/dax@0.42.0",
-          "jsr:@ensemble/kit-sdk@0.53",
+          "jsr:@ensemble/kit-sdk@0.54",
           "jsr:@std/fs@1.0.24",
           "jsr:@std/path@1.1.6",
           "jsr:@std/yaml@1.1.2"
@@ -3955,7 +3955,7 @@
           "jsr:@david/dax@0.42.0",
           "jsr:@david/which@0.4.2",
           "jsr:@duesabati/evento@1.0.0",
-          "jsr:@ensemble/core@0.53",
+          "jsr:@ensemble/core@0.54",
           "jsr:@std/assert@1.0.14",
           "jsr:@std/fmt@1.0.10",
           "jsr:@std/fs@1.0.24",
@@ -3964,8 +3964,8 @@
       },
       "source/core/kit-sdk": {
         "dependencies": [
-          "jsr:@ensemble/core@0.53",
-          "jsr:@ensemble/host@0.53"
+          "jsr:@ensemble/core@0.54",
+          "jsr:@ensemble/host@0.54"
         ]
       },
       "source/core/platform": {
