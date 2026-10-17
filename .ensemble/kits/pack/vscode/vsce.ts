@@ -15,9 +15,9 @@ export class Vsce {
     return result.code;
   }
 
-  /** Publishes the unpacked extension folder `extension`; authenticates with VSCE_PAT from the environment. */
+  /** Publishes the unpacked extension folder `extension`; authenticates with VSCE_PAT from the environment. A version already on the Marketplace counts as published, so `ens release resume` can rerun it. */
   async publish(extension: string): Promise<number> {
-    const result = await this.run(extension, ["publish"]);
+    const result = await this.run(extension, ["publish", "--skip-duplicate"]);
     return result.code;
   }
 
