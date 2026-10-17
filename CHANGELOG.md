@@ -1,3 +1,24 @@
+## [0.54.0] - 2026-10-17
+
+### 🚀 Features
+
+- *(release)* Check every publish destination at once, listing each check's result as it comes back
+
+### 🐛 Bug Fixes
+
+- *(kits)* Treat a VS Code extension version already on the Marketplace as published, so release resume can rerun it
+- *(release)* Commit every workspace manifest the library stamp repins, the kits among them
+- *(release)* Keep a finished release's record so resuming it finds nothing left instead of redoing it all
+- *(init)* Anchor the deploy cache's ignore rule so it stops matching the vendored deploy kits
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.53.0
+- *(changelog)* Update for 0.53.0
+- *(changelog)* Drop the duplicate 0.53.0 section
+- *(kits)* Pin the kits to @ensemble/kit-sdk ^0.53.0
+- Update lockfile
+- *(release)* Bump library versions for 0.54.0
 ## [0.53.0] - 2026-10-16
 
 ### 🚀 Features
