@@ -5,4 +5,4 @@ secrets.key
 config.local.yaml
 release/secrets.env
 release/state/
-deploy/
+/deploy/

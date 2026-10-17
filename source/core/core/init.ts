@@ -28,11 +28,13 @@ const SKELETON_DIRS = [
 ];
 
 // Per-developer and per-machine state only — a kit's own build tools are
-// ignored by that kit's own `.gitignore`, not listed here.
+// ignored by that kit's own `.gitignore`, not listed here. `/deploy/` is
+// anchored: unanchored, it would also match `kits/deploy/`, and git then
+// refuses to `add` the vendored deploy kits' files by name.
 const ENSEMBLE_GITIGNORE_TEMPLATE = `config.local.yaml
 release/secrets.env
 release/state/
-deploy/
+/deploy/
 `;
 
 // `!deploy/` *and* `!deploy/**`: un-ignoring the directory alone only lets git
