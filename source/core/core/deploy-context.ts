@@ -1,4 +1,4 @@
-import { basename, join } from "@std/path";
+import { basename, join, normalize, relative } from "@std/path";
 import { exists } from "@std/fs";
 import * as Deploy from "./deploy/index.ts";
 import type { RepoLocator } from "./ports.ts";
@@ -43,6 +43,80 @@ export function resolveRelationalInitPaths(
     };
   }
   return changed ? { ...workload, databases: resolved } : workload;
+}
+
+/** Thrown when a container's `files` entry names no readable file in the project. */
+export class ContainerFileError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ContainerFileError";
+  }
+}
+
+/**
+ * `container-orchestrated.v1`'s optional `files` param (see its contract
+ * comment): each `{ source, path }` entry's project-relative `source` read
+ * into `{ path, content }`, here for the same reason `init` paths are
+ * resolved here — a provisioner has no filesystem of its own. A source
+ * outside the project is refused: the manifest names the project's own files.
+ */
+export async function readContainerFiles(
+  workload: Deploy.Workload,
+  repoRoot: string,
+): Promise<Deploy.Workload> {
+  const compute = workload.compute;
+  if (!compute) return workload;
+
+  const resolved: Record<string, Deploy.ResourceDeclaration> = {};
+  let changed = false;
+  for (const [name, declaration] of Object.entries(compute)) {
+    const files = declaration.params.files;
+    if (
+      declaration.type !== "container-orchestrated" || !Array.isArray(files)
+    ) {
+      resolved[name] = declaration;
+      continue;
+    }
+    changed = true;
+    resolved[name] = {
+      ...declaration,
+      params: {
+        ...declaration.params,
+        files: await Promise.all(
+          files.map((entry) => readContainerFile(name, entry, repoRoot)),
+        ),
+      },
+    };
+  }
+  return changed ? { ...workload, compute: resolved } : workload;
+}
+
+async function readContainerFile(
+  compute: string,
+  entry: unknown,
+  repoRoot: string,
+): Promise<{ path: string; content: string }> {
+  const { source, path } = (entry ?? {}) as Record<string, unknown>;
+  if (typeof source !== "string" || typeof path !== "string") {
+    throw new ContainerFileError(
+      `compute.${compute}.files: each entry is { source, path }, both strings.`,
+    );
+  }
+  const within = relative(repoRoot, normalize(join(repoRoot, source)));
+  if (within.startsWith("..")) {
+    throw new ContainerFileError(
+      `compute.${compute}.files: "${source}" is outside the project.`,
+    );
+  }
+  try {
+    return { path, content: await Deno.readTextFile(join(repoRoot, within)) };
+  } catch (error) {
+    throw new ContainerFileError(
+      `compute.${compute}.files: can't read "${source}": ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
 }
 
 /** A workload as its manifest declares it, with where its deploy kit is — everything about a deployment short of loading the kit. */
@@ -112,10 +186,13 @@ export async function loadWorkload(
       })`,
     );
   }
-  const workload = resolveRelationalInitPaths(
-    await new Deploy.Manifest.Loader(
-      new Deploy.Manifest.Parser(),
-    ).loadFile(manifestPath),
+  const workload = await readContainerFiles(
+    resolveRelationalInitPaths(
+      await new Deploy.Manifest.Loader(
+        new Deploy.Manifest.Parser(),
+      ).loadFile(manifestPath),
+      repoRoot,
+    ),
     repoRoot,
   );
   environment.assertComplete(workload);

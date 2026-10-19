@@ -59,6 +59,16 @@ import { ResourceContract } from "../contract.ts";
  * than letting `env` values reference a secret, since `env`'s values are
  * passed through untouched (Section 7 bin=param) while a secret name needs
  * provisioner-side resolution first.
+ *
+ * `files` is a list of `{ source, path }` entries: a project-relative file
+ * (`source`) the container finds at `path`, read-only — a config file an
+ * upstream image reads, rather than an image of its own built only to carry
+ * it. `loadDeployContext` reads each file before any provisioner sees it, so
+ * a provisioner receives `{ path, content }` instead (G6: the render pass has
+ * no filesystem of its own) and delivers the content however its target
+ * delivers files — never by a host path, which, like a host bind mount, no
+ * other target could follow. Text files only. Shallow at the contract level,
+ * same as `mounts`.
  */
 export const containerOrchestratedV1: ResourceContract = new ResourceContract(
   "compute",
@@ -74,6 +84,7 @@ export const containerOrchestratedV1: ResourceContract = new ResourceContract(
     { name: "networks", required: false, type: "array" },
     { name: "mounts", required: false, type: "array" },
     { name: "envSecrets", required: false, type: "object" },
+    { name: "files", required: false, type: "array" },
   ],
   [],
   [],

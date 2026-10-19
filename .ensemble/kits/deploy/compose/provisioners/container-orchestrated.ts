@@ -131,6 +131,44 @@ function withDevelopmentEnv(
   return { ...environment, ...additions };
 }
 
+/**
+ * A `files` param (`{ path, content }` entries, each file already read by
+ * core — see `container-orchestrated.v1`'s contract comment) as compose
+ * `configs:`: one inline config per file, mounted at its path. Each config is
+ * named after its content's hash, because compose reads an inline config only
+ * when it creates a container: a changed file is a new config, which compose
+ * recreates the container for, where the same name would keep serving the
+ * old content.
+ */
+async function fileConfigs(
+  service: string,
+  files: unknown,
+): Promise<{
+  mounts: { source: string; target: string }[];
+  configs: Record<string, { content: string }>;
+}> {
+  const mounts: { source: string; target: string }[] = [];
+  const configs: Record<string, { content: string }> = {};
+  if (!Array.isArray(files)) return { mounts, configs };
+  for (
+    const { path, content } of files as { path: string; content: string }[]
+  ) {
+    const digest = new Uint8Array(
+      await crypto.subtle.digest(
+        "SHA-256",
+        new TextEncoder().encode(`${path}\n${content}`),
+      ),
+    );
+    const hash = [...digest.slice(0, 6)].map((byte) =>
+      byte.toString(16).padStart(2, "0")
+    ).join("");
+    const name = `${service}-file-${hash}`;
+    configs[name] = { content };
+    mounts.push({ source: name, target: path });
+  }
+  return { mounts, configs };
+}
+
 /** The ports a compute listens on (its `ports` param, name → number), in declaration order. */
 function containerPorts(ports: unknown): number[] {
   if (typeof ports !== "object" || ports === null) return [];
@@ -146,9 +184,9 @@ export function containerOrchestratedProvisioner(): KitSdk.Deploy.Provisioner {
       resource.declaration.type === "container-orchestrated",
     // deno-lint-ignore require-await
     describe: async () => "container-orchestrated (compose service)",
-    // deno-lint-ignore require-await
     provision: async (request) => {
       const develop = developBlock(request.params.development);
+      const files = await fileConfigs(request.name, request.params.files);
       const published = publishedPorts(
         request.params.publish,
         request.params.ports,
@@ -185,8 +223,10 @@ export function containerOrchestratedProvisioner(): KitSdk.Deploy.Provisioner {
                 : {}),
               ...(develop ? { develop } : {}),
               ...(hostPorts.length > 0 ? { ports: hostPorts } : {}),
+              ...(files.mounts.length > 0 ? { configs: files.mounts } : {}),
               ...(request.class === "critical" ? { restart: "always" } : {}),
             },
+            ...(files.mounts.length > 0 ? { configs: files.configs } : {}),
           },
         },
         outputs: {},
