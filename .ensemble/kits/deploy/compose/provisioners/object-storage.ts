@@ -40,7 +40,8 @@ function requiredCredential(
  * already uses for its data volume — anything less than critical is ephemeral,
  * losing the bucket's layout/keys/objects on every restart (acceptable for a
  * "spin it up for now" instance, not for one meant to keep data; the seed
- * command simply re-seeds the fresh container).
+ * command simply re-seeds the fresh container) — and `restart: always`, so it
+ * comes back after a crash or a reboot.
  */
 export function objectStorageProvisioner(): KitSdk.Deploy.Provisioner {
   return {
@@ -85,7 +86,10 @@ export function objectStorageProvisioner(): KitSdk.Deploy.Provisioner {
                 { source: tomlConfigName, target: "/etc/garage.toml" },
               ],
               ...(critical
-                ? { volumes: [`${volumeName}:/var/lib/garage`] }
+                ? {
+                  volumes: [`${volumeName}:/var/lib/garage`],
+                  restart: "always",
+                }
                 : {}),
             },
             configs: {

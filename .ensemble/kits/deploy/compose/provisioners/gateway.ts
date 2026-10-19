@@ -233,6 +233,9 @@ export function gatewayProvisioner(): KitSdk.Deploy.Provisioner {
                 { source: configName, target: "/etc/caddy/Caddyfile" },
               ],
               volumes: [`${volumeName}:/data`],
+              // `class: critical`: back after a crash or a reboot, as every
+              // other kind of resource here.
+              ...(request.class === "critical" ? { restart: "always" } : {}),
             },
             configs: {
               [configName]: { content: config },
