@@ -84,6 +84,12 @@ export class ChildProcess implements Execution {
   }
 }
 
+/** The volume the platform keeps its data in, and where the platform mounts it: its checkouts are under it. */
+export interface Data {
+  readonly volume: string;
+  readonly path: string;
+}
+
 /**
  * A container of its own, on the host's Docker daemon, from the platform's
  * own image and with the platform's data mounted where the platform has it:
@@ -93,15 +99,25 @@ export class ChildProcess implements Execution {
  * the container, so what it printed reads back in the order it printed it.
  * Once its exit is read, the container is removed, and the values it ran with
  * with it.
+ *
+ * The platform's data volume is mounted twice: where the platform has it, and
+ * where it is on the host, and the run works in the checkout there. What `ens`
+ * renders from a checkout names files by their path — a database's init
+ * script, a config file to mount — and the host's Docker daemon resolves each
+ * on the host, where only the host's path is.
  */
 export class Container implements Execution {
   constructor(
     /** The image runs are carried out in: the platform's own, with `ens`, git and the docker CLI. */
     private readonly image: string,
-    /** What each run's container mounts, as `docker run -v` takes it: the platform's data, the Docker socket, its registry logins. */
+    /** What else each run's container mounts, as `docker run -v` takes it: the Docker socket, its registry logins. */
     private readonly mounts: readonly string[],
+    private readonly data: Data,
     private readonly docker = "docker",
   ) {}
+
+  /** Where the data volume is on the host, as Docker reports it: asked once. */
+  private hostPath?: Promise<string>;
 
   async run(
     id: string,
@@ -119,6 +135,10 @@ export class Container implements Execution {
 
   /** Starts run `id`'s container. Each value reaches it by name alone (`-e NAME`), read from the docker CLI's own environment: never on a command line. */
   private async started(id: string, command: Command): Promise<void> {
+    const host = await this.dataOnHost();
+    const cwd = command.cwd.startsWith(this.data.path)
+      ? host + command.cwd.slice(this.data.path.length)
+      : command.cwd;
     await this.invoke(
       [
         "run",
@@ -127,9 +147,13 @@ export class Container implements Execution {
         nameOf(id),
         "--label",
         `ensemble.platform.run=${id}`,
+        "--volume",
+        `${this.data.volume}:${this.data.path}`,
+        "--volume",
+        `${this.data.volume}:${host}`,
         ...this.mounts.flatMap((mount) => ["--volume", mount]),
         "--workdir",
-        command.cwd,
+        cwd,
         ...Object.keys(command.env).flatMap((name) => ["--env", name]),
         "--entrypoint",
         "/bin/sh",
@@ -172,6 +196,17 @@ export class Container implements Execution {
     if (code !== 0) {
       throw new CommandFailedError(`The run exited with code ${code}.`);
     }
+  }
+
+  private dataOnHost(): Promise<string> {
+    this.hostPath ??= this.invoke([
+      "volume",
+      "inspect",
+      "--format",
+      "{{.Mountpoint}}",
+      this.data.volume,
+    ]).then((path) => path.trim());
+    return this.hostPath;
   }
 
   private async exists(id: string): Promise<boolean> {

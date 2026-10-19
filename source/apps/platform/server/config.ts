@@ -29,8 +29,10 @@ export interface Configuration {
   readonly runs?: {
     /** The image each run's container is made from: the platform's own. */
     readonly image: string;
-    /** What each run's container mounts, as `docker run -v` takes it. */
+    /** What else each run's container mounts, as `docker run -v` takes it. */
     readonly mounts: readonly string[];
+    /** The volume the platform's data is in, and where the platform mounts it. */
+    readonly data: { readonly volume: string; readonly path: string };
   };
 }
 
@@ -86,13 +88,25 @@ export class ConfigurationLoader {
           runs: {
             image: runsImage,
             mounts: this.list(this.env.get("PLATFORM_RUNS_MOUNTS") ?? ""),
+            data: this.data(this.env.get("PLATFORM_RUNS_DATA") ?? ""),
           },
         }
         : {}),
     };
   }
 
-  /** Comma-separated entries: `platform-data:/var/lib/ens-platform,/var/run/docker.sock:/var/run/docker.sock`. */
+  /** `<volume>:<path>`: the volume the platform's data is in, and where the platform mounts it. */
+  private data(spec: string): { volume: string; path: string } {
+    const at = spec.indexOf(":");
+    if (at < 1 || !spec.slice(at + 1).startsWith("/")) {
+      throw new MissingConfigurationError(
+        `PLATFORM_RUNS_DATA is "${spec}": write it as <volume>:<path>, the volume the platform's data is in and where it's mounted.`,
+      );
+    }
+    return { volume: spec.slice(0, at), path: spec.slice(at + 1) };
+  }
+
+  /** Comma-separated entries: `/var/run/docker.sock:/var/run/docker.sock,/srv/registry-logins:/docker`. */
   private list(spec: string): string[] {
     return spec.split(",").map((entry) => entry.trim()).filter(Boolean);
   }

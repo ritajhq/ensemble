@@ -96,20 +96,24 @@ deploy:
         # Where docker finds its registry logins, for every deploy and
         # release pack it runs.
         DOCKER_CONFIG: /docker
-        # Each run — deploy, release or preview change — gets a container of
-        # its own from this image, with what the platform mounts below, so a
-        # run that redeploys the platform outlives the platform it replaces,
-        # and the platform that comes back follows it to its end. The data
-        # volume by its full name: `docker run` isn't compose, and doesn't
-        # prefix it with the stack.
         # The stack it runs as — `<project>-<manifest>` on the platform, as
         # the checkout is named after the project — so a deploy applying it is
         # known for an update of the platform: it waits for every run in
         # progress to finish, then runs alone, and runs asked for meanwhile
         # wait for the platform it brings up.
         PLATFORM_STACK: ${variables.stack.value}
+        # Each run — deploy, release or preview change — gets a container of
+        # its own from this image, with what the platform mounts below, so a
+        # run that redeploys the platform outlives the platform it replaces,
+        # and the platform that comes back follows it to its end.
         PLATFORM_RUNS_IMAGE: ${release.platform}
-        PLATFORM_RUNS_MOUNTS: ${variables.stack.value}_platform-data:/var/lib/ens-platform,/var/run/docker.sock:/var/run/docker.sock,${variables.registry_credentials.value}:/docker
+        PLATFORM_RUNS_MOUNTS: /var/run/docker.sock:/var/run/docker.sock,${variables.registry_credentials.value}:/docker
+        # The data volume — by its full name: `docker run` isn't compose, and
+        # doesn't prefix it with the stack — mounted where the platform has it
+        # and where it is on the host. A run works in its checkout at the
+        # host's path, so a file a deployment mounts from it (a database's
+        # init script) is found by the host's Docker daemon.
+        PLATFORM_RUNS_DATA: ${variables.stack.value}_platform-data:/var/lib/ens-platform
         # Kits' dependencies, cached beside the platform's data rather than in
         # each run's container, where they'd be fetched again every run.
         DENO_DIR: /var/lib/ens-platform/deno

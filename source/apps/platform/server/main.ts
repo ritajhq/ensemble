@@ -81,7 +81,11 @@ const runner = new Runner(
     configuration.ens,
     Deno.env,
     configuration.runs
-      ? new Container(configuration.runs.image, configuration.runs.mounts)
+      ? new Container(
+        configuration.runs.image,
+        configuration.runs.mounts,
+        configuration.runs.data,
+      )
       : new ChildProcess(),
   ),
   new Github.Releasers(githubApps, tokens),
