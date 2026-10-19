@@ -51,20 +51,19 @@ services:
       PLATFORM_DATABASE: /var/lib/ens-platform/platform.kv
       PLATFORM_ROUTER_CONFIG: /router/Caddyfile
       PLATFORM_PREVIEW_DOMAIN: ensemble.blue
+      PLATFORM_URL: 'https://platform.ensemble.blue'
       PLATFORM_ROUTES: >-
         platform.ensemble.blue=http://ensemble-platform-guard-1:8080,auth.ensemble.blue=http://ensemble-platform-auth-1:4100
       PLATFORM_PREVIEW_GUARD: 'http://ensemble-platform-guard-previews-1:8080'
       PLATFORM_SESSION_COOKIE: __Secure-platform.session_token
-      PLATFORM_GIT_NAME: ensemble platform
-      PLATFORM_GIT_EMAIL: platform@ensemble.blue
       DOCKER_CONFIG: /docker
       PLATFORM_STACK: ensemble-platform
       PLATFORM_RUNS_IMAGE: 'platform:latest'
       PLATFORM_RUNS_MOUNTS: >-
-        ensemble-platform_platform-data:/var/lib/ens-platform,/var/run/docker.sock:/var/run/docker.sock,/home/duesabati/.config/ens-platform/docker:/docker
+        /var/run/docker.sock:/var/run/docker.sock,/home/duesabati/.config/ens-platform/docker:/docker
+      PLATFORM_RUNS_DATA: 'ensemble-platform_platform-data:/var/lib/ens-platform'
       DENO_DIR: /var/lib/ens-platform/deno
       PLATFORM_SECRET_KEY: '${PLATFORM_SECRET_KEY:?}'
-      GITHUB_TOKEN: '${GITHUB_TOKEN:?}'
     networks:
       - platform
     volumes:
