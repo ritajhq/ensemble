@@ -4,7 +4,7 @@
     "@std/fs": "jsr:@std/fs@1.0.24",
     "@std/path": "jsr:@std/path@1.1.6",
     "@david/dax": "jsr:@david/dax@0.42.0",
-    "@ensemble/kit-sdk": "jsr:@ensemble/kit-sdk@^0.55.1",
+    "@ensemble/kit-sdk": "jsr:@ensemble/kit-sdk@^0.56.0",
     "fflate": "npm:fflate@0.8.3",
     "wrangler": "npm:wrangler@4.147.0"
   }
