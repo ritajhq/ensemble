@@ -8,5 +8,8 @@
     "@david/dax": "jsr:@david/dax@0.42.0",
     "@ensemble/kit-sdk": "jsr:@ensemble/kit-sdk@^0.55.1",
     "fflate": "npm:fflate@0.8.3"
-  }
+  },
+  "exclude": [
+    "runtime/"
+  ]
 }
