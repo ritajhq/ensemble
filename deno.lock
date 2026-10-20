@@ -70,6 +70,7 @@
     "npm:@untitledui/icons@0.0.23": "0.0.23_react@19.2.8",
     "npm:class-variance-authority@0.7.1": "0.7.1",
     "npm:clsx@2.1.1": "2.1.1",
+    "npm:fflate@0.8.3": "0.8.3",
     "npm:framer-motion@14.0.0": "14.0.0_react@19.2.8_react-dom@19.2.8",
     "npm:hast-util-to-string@3": "3.0.1",
     "npm:mdast-util-to-string@4": "4.0.0",
@@ -2042,6 +2043,9 @@
         "picomatch@4.0.5"
       ]
     },
+    "fflate@0.8.3": {
+      "integrity": "sha512-tbZNuJrLwGUp3zshBtdy4W+ORxZuIh8a5ilyIEQDC5rY1f3U20JMry0Ll3WBzU58EZKsEuJFXhb5gwv8CsPvgA=="
+    },
     "figures@6.1.0": {
       "integrity": "sha512-d+l3qxjSesT4V7v2fh+QnmFnUWv9lSpjarhShNTgBOfA0ttejbQUAlHLitbjkoRiDulW0OPoQPYIGhIC8ohejg==",
       "dependencies": [
@@ -3820,7 +3824,8 @@
           "jsr:@std/assert@^1.0.19",
           "jsr:@std/path@1.1.6",
           "jsr:@std/testing@1.0.16",
-          "jsr:@std/yaml@1.1.2"
+          "jsr:@std/yaml@1.1.2",
+          "npm:fflate@0.8.3"
         ]
       },
       ".ensemble/kits/deploy/compose": {
