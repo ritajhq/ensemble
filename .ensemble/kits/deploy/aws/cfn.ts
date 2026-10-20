@@ -18,6 +18,26 @@ export function getAtt(
   return { "Fn::GetAtt": [logicalId, attribute] };
 }
 
+export function join(
+  parts: readonly unknown[],
+): { "Fn::Join": [string, readonly unknown[]] } {
+  return { "Fn::Join": ["", parts] };
+}
+
+export function select(
+  index: number,
+  list: unknown,
+): { "Fn::Select": [number, unknown] } {
+  return { "Fn::Select": [index, list] };
+}
+
+export function split(
+  delimiter: string,
+  value: unknown,
+): { "Fn::Split": [string, unknown] } {
+  return { "Fn::Split": [delimiter, value] };
+}
+
 export function sub(
   template: string,
   variables: Readonly<Record<string, unknown>>,
