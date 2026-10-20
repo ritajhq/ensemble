@@ -6,7 +6,7 @@ import * as KitSdk from "@ensemble/kit-sdk";
 import type { SyncRule } from "./development-sync.ts";
 
 /** The bundle's entry (`function.v1`): the module whose default export answers requests — the Worker itself. */
-export const ENTRY = "main.js";
+export const ENTRY = KitSdk.Entry.BUNDLE;
 const GATEWAY_RUNTIME = new URL("./runtime/gateway.js", import.meta.url);
 
 /**
@@ -127,7 +127,7 @@ export class Workspace {
     const entry = join(folder, ENTRY);
     if (await exists(entry, { isFile: true })) return entry;
     throw new Error(
-      `compute.${resource}: the bundle has no ${ENTRY} — a function.v1 bundle's main.js default-exports { fetch(request, env) }.`,
+      `compute.${resource}: the bundle has no ${ENTRY} — a function.v1 bundle's ${ENTRY} default-exports { fetch(request, env) }.`,
     );
   }
 

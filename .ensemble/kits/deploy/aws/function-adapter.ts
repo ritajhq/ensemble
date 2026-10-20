@@ -1,7 +1,8 @@
 import { unzipSync, type Zippable, zipSync } from "fflate";
+import * as KitSdk from "@ensemble/kit-sdk";
 
 /** The bundle's entry (`function.v1`): the module whose default export answers requests. */
-export const ENTRY = "main.js";
+export const ENTRY = KitSdk.Entry.BUNDLE;
 const ADAPTER = "ensemble-lambda.mjs";
 /** The function's `Handler`: the adapter's export, never the bundle's. */
 export const HANDLER = "ensemble-lambda.handler";
@@ -27,7 +28,7 @@ export class FunctionAdapter {
   adaptFiles(files: Zippable): Zippable {
     if (!(ENTRY in files)) {
       throw new Error(
-        `The function's bundle has no ${ENTRY} at its root: a function.v1 bundle's main.js default-exports { fetch(request, env) }.`,
+        `The function's bundle has no ${ENTRY} at its root: a function.v1 bundle's ${ENTRY} default-exports { fetch(request, env) }.`,
       );
     }
     return {
