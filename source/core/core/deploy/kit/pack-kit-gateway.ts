@@ -20,11 +20,13 @@ export interface ReleaseAvailability {
  * on how it's carried out.
  */
 export interface PackKitGateway {
+  /** `deployKit`, when a deployment asks, is the kit deploying: a release packed as one bundle per integration answers with that kit's. */
   describe(
     releaseName: string,
     release: Release,
     artifacts: ArtifactsSource,
     version: string,
+    deployKit?: string,
   ): Promise<string>;
 
   verify(
@@ -32,5 +34,6 @@ export interface PackKitGateway {
     release: Release,
     artifacts: ArtifactsSource,
     version: string,
+    deployKit?: string,
   ): Promise<ReleaseAvailability>;
 }

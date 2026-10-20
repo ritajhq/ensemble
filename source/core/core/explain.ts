@@ -37,15 +37,19 @@ export async function runExplain(
     );
   }
 
-  const { workload, target, registry } = await loadDeployContext(
+  const context = await loadDeployContext(
     name,
     kit,
     repo,
     kitLoader,
     { envFiles: options.envFiles },
   );
+  const { workload, target, registry } = context;
 
-  const locatorResolver = new Deploy.ReleaseLocatorResolver(gateway);
+  const locatorResolver = new Deploy.ReleaseLocatorResolver(
+    gateway,
+    context.kit,
+  );
   const releaseLocator = new Deploy.PreresolvedReleaseLocator(
     await locatorResolver.resolveAll(
       workload,

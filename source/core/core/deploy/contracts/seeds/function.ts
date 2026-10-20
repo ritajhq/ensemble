@@ -9,13 +9,15 @@ import { ResourceContract } from "../contract.ts";
  * `code` is where the deployable bundle lives — always a `${release.<name>}`
  * reference, resolved by that release's pack kit to a local path or a
  * published location (an S3 URL for the `function` pack kit); a kit realizes
- * either. The bundle is a directory of ES modules, one entry per platform the
- * code runs on, named after the deploy kit that runs it (`aws.js`,
- * `cloudflare.js`): each default-exports `{ fetch(request, env) }`, the
- * Fetch API's own handler shape — a `Request` in, a `Response` out — with
- * `env` the function's environment. A kit owns whatever adapts its platform's
- * invocation to that shape, so no platform's handler convention reaches the
- * manifest; a kit with no entry of its own in the bundle rejects it.
+ * either. The bundle is a directory of ES modules whose `main.js`
+ * default-exports `{ fetch(request, env) }`, the Fetch API's own handler
+ * shape — a `Request` in, a `Response` out — with `env` the function's
+ * environment; a kit owns whatever adapts its platform's invocation to that
+ * shape, and documents what its `env` holds, so no platform's handler
+ * convention reaches the manifest. An app wired for several platforms packs
+ * one bundle per integration (`source/integrations/<kit>/<app>`, see
+ * `../../integration.ts`), and the kit deploying gets its own; one with no
+ * integrations is its own bundle, whichever kit deploys it.
  * `runtime` names the language runtime when the target needs one named (a
  * kit-defined default otherwise). `env` is the function's environment, the
  * same shape as `container-orchestrated.v1`'s.

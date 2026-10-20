@@ -6,6 +6,7 @@ import { EnsembleConfigStore } from "./config.ts";
 import type * as Build from "./build-context.ts";
 import type { BuildReporter } from "./build-reporter.ts";
 import { PlainBuildReporter } from "./plain-build-reporter.ts";
+import { sourceDirOf } from "./deploy/integration.ts";
 
 export interface RunBuildOptions {
   mode: Build.Mode;
@@ -17,7 +18,7 @@ export interface RunBuildOptions {
   reporter?: BuildReporter;
 }
 
-/** Resolves an app's configured kit and spawns it with the standard kit CLI contract. */
+/** Resolves an app's — or an integration's (`integrations/<kit>/<app>`, see `./deploy/integration.ts`) — configured kit and spawns it with the standard kit CLI contract. */
 export async function runBuild(
   name: string,
   options: RunBuildOptions,
@@ -26,7 +27,7 @@ export async function runBuild(
   const repoRoot = await ports.repo.findRepoRoot();
   const workspace = join(repoRoot, "source");
 
-  const sourceDir = join(workspace, "apps", name);
+  const sourceDir = sourceDirOf(workspace, name);
   if (!await exists(sourceDir, { isDirectory: true })) {
     throw new Error(
       `App "${name}" does not exist (expected a directory at ${sourceDir})`,

@@ -270,7 +270,10 @@ async function argumentsFromRender(
   );
   const rendered = needsArtifact ? workload : scopeTo(workload, references);
 
-  const locatorResolver = new Deploy.ReleaseLocatorResolver(deps.gateway);
+  const locatorResolver = new Deploy.ReleaseLocatorResolver(
+    deps.gateway,
+    context.kit,
+  );
   const releaseLocator = new Deploy.PreresolvedReleaseLocator(
     await locatorResolver.resolveAll(
       rendered,

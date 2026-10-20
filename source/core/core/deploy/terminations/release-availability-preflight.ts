@@ -31,7 +31,10 @@ export class ReleaseAvailabilityError extends Error {
  * that's true.
  */
 export class ReleaseAvailabilityPreflight {
-  constructor(private readonly gateway: PackKitGateway) {}
+  constructor(
+    private readonly gateway: PackKitGateway,
+    private readonly deployKit?: string,
+  ) {}
 
   async check(
     workload: Workload,
@@ -45,6 +48,7 @@ export class ReleaseAvailabilityPreflight {
         release,
         artifacts,
         version,
+        this.deployKit,
       );
       if (!availability.available) {
         failures.push({ release: name, detail: availability.detail });

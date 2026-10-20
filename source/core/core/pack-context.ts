@@ -247,6 +247,8 @@ export interface DescribeContext {
   artifacts: ArtifactsSource;
   /** The publish options for this target, same shape as `PublishContext.options`. */
   options: Record<string, string>;
+  /** The deploy kit asking, when a deployment does: a release packed as one bundle per integration (`source/integrations/<kit>/<app>`) answers with that kit's. */
+  deployKit?: string;
 }
 
 /** Parses the standard pack kit describe/verify CLI contract. Call this from a pack kit's `describe.ts` or `verify.ts` entry point. */
@@ -261,6 +263,7 @@ export function getDescribeContext(
       "version",
       "artifacts",
       "options",
+      "deploy-kit",
     ],
     default: { options: "{}" },
   });
@@ -279,5 +282,6 @@ export function getDescribeContext(
     version: requireFlag(flags, "version"),
     artifacts,
     options: parseVars(flags.options),
+    ...(flags["deploy-kit"] ? { deployKit: flags["deploy-kit"] } : {}),
   };
 }

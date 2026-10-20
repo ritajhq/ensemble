@@ -13,3 +13,4 @@ export * from "./development.ts";
 export * from "./key-schema.ts";
 export * from "./artifacts-source.ts";
 export * from "./kit/index.ts";
+export * from "./integration.ts";

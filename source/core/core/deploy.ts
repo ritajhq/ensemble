@@ -151,7 +151,7 @@ export async function runDeploy(
   );
   const { repoRoot, workload, target, registry, kit } = context;
 
-  const locatorResolver = new Deploy.ReleaseLocatorResolver(gateway);
+  const locatorResolver = new Deploy.ReleaseLocatorResolver(gateway, kit);
   const releaseLocator = new Deploy.PreresolvedReleaseLocator(
     await locatorResolver.resolveAll(
       workload,
@@ -199,8 +199,16 @@ export async function runDeploy(
     new IngressRecorder(IngressFile.for(repoRoot, scope, kit), deploymentName),
   );
 
+  // What a sync rule names is an app; what the kit deploying runs for it is
+  // that app's integration for the kit, when the project has one.
   const watchedApps = options.watch
-    ? Deploy.discoverWatchedApps(workload)
+    ? new Set(
+      await Promise.all(
+        [...Deploy.discoverWatchedApps(workload)].map((app) =>
+          Deploy.buildUnitFor(repoRoot, app, kit)
+        ),
+      ),
+    )
     : new Set<string>();
 
   // A watch session's console is for what the developer opens; the target's
@@ -213,7 +221,7 @@ export async function runDeploy(
     new Deploy.Terminations.Ejector(sink),
     new Deploy.Terminations.Planner(cache),
     new Deploy.Terminations.Applier(sink, cache, undefined, deployed),
-    new Deploy.Terminations.ReleaseAvailabilityPreflight(gateway),
+    new Deploy.Terminations.ReleaseAvailabilityPreflight(gateway, kit),
     new Deploy.Terminations.LocalArtifactsPacker(
       new RunPackReleasePacker(
         ports,
