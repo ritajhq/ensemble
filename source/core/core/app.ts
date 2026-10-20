@@ -22,8 +22,9 @@ export interface RunAppCreateOptions {
  * by running its chosen kit's scaffold.ts (the same CLI contract build/pack kits use, see
  * @ensemble/kit-sdk's Scaffold.getContext), then registers
  * build.<name>.kit (and .target, if given) in .ensemble/config.yaml via
- * EnsembleConfigStore.setAppBuildKit — so the app is immediately buildable
- * with `ens build <name>`.
+ * EnsembleConfigStore.setAppBuildKit — or, for an integration,
+ * build.<name>.integrations.<deploy kit>.kit via setAppIntegration — so it's
+ * immediately buildable with `ens build <name>`.
  */
 export async function runAppCreate(
   options: RunAppCreateOptions,
@@ -66,6 +67,16 @@ export async function runAppCreate(
       `There's no app "${name}" to wire: an integration wires an existing app (source/apps/${name}).`,
     );
   }
+  const config = new EnsembleConfigStore(repoRoot);
+  if (options.integration !== undefined) {
+    // Checked before scaffolding anything: an app built as itself is a program, not a library to wire.
+    const built = (await config.loadOrEmpty()).build?.[name];
+    if (built?.kit) {
+      throw new Error(
+        `App "${name}" is built as itself (build.${name}.kit: ${built.kit}): an app with integrations is a library, built only through them.`,
+      );
+    }
+  }
   const unit = options.integration === undefined
     ? name
     : integrationOf(name, options.integration);
@@ -102,6 +113,7 @@ export async function runAppCreate(
     throw new Error(`Scaffolding "${unit}" with kit "${options.kit}" failed.`);
   }
 
-  const config = new EnsembleConfigStore(repoRoot);
-  await config.setAppBuildKit(unit, options.kit, options.target);
+  if (options.integration === undefined) {
+    await config.setAppBuildKit(name, options.kit, options.target);
+  } else await config.setAppIntegration(name, options.integration, options.kit);
 }

@@ -4,6 +4,7 @@
   "exports": {
     ".": "./index.ts",
     "./build-context": "./build-context.ts",
+    "./entry": "./entry.ts",
     "./pack-context": "./pack-context.ts",
     "./scaffold-context": "./scaffold-context.ts",
     "./lib-context": "./lib-context.ts",

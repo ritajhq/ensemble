@@ -66,18 +66,39 @@ dependencies that takes, and exports what the kit runs — for a `function`, a
 `main.js` default-exporting `{ fetch(request, env) }`, with `env` as the kit
 documents it.
 
-An integration is built like an app, under the name `integrations/<kit>/<app>`
-(`build.integrations/<kit>/<app>` in `config.yaml`, output at
-`source/artifacts/integrations/<kit>/<app>`). Wherever the manifest names the
-app — a release's ship, a `development.sync` rule — the kit deploying runs that
-app's integration for it, so one delivery manifest deploys to every platform an
-app is wired for, and a release carries one bundle per integration. Integrations
-are optional: an app with none is its own bundle, whichever kit deploys it — the
-quickest way to start on one platform, before wiring a second.
-`ens app create <build kit> <app> --integration <deploy kit>` scaffolds one for
-an existing app and registers its build entry. An integration's folder with no
-build entry is an error rather than a reason to run the app instead, and the
-`integrations/` prefix is reserved: no app is named under it.
+An app is built one of two ways, never both. A program on its own is
+`build.<app>.kit`, run as it is by whichever kit deploys it. A library is
+`build.<app>.integrations`, one entry per deploy kit it's wired for, each naming
+the build kit for that platform's runtime:
+
+```yaml
+build:
+  server:
+    integrations:
+      aws:
+        kit: deno.bundle
+      cloudflare:
+        kit: deno.bundle
+```
+
+Each integration is built like an app, under the name `integrations/<kit>/<app>`
+— its source at `source/integrations/<kit>/<app>`, its output at
+`source/artifacts/integrations/<kit>/<app>` — and `ens build
+<app>` builds every
+one of them. Wherever the manifest names the app — a release's ship, a
+`development.sync` rule — the kit deploying runs that app's integration for it,
+so one delivery manifest deploys to every platform an app is wired for, and a
+release carries one bundle per integration. Deploying with a kit the library has
+no integration for is an error: there is no main to run.
+
+A build kit builds the entry of the folder it's given, `main.ts`, into
+`main.js`; both names are Ensemble's (`KitSdk.Entry`), so no kit spells them out
+for itself, and deploy kits run `main.js`.
+`ens app create <build kit>
+<app> --integration <deploy kit>` scaffolds an
+integration for an existing app and registers it under
+`build.<app>.integrations`. The `integrations/` prefix is reserved: no app is
+named under it.
 
 Nothing here is an Ensemble API: the kit and the integration meet on a module
 shape and a documented `env`, and the ports are the project's own.

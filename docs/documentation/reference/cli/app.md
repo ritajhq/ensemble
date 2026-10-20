@@ -24,7 +24,7 @@ ens app create react web --target ssr
 
 - `--integration <deploy kit>` — scaffold an existing app's integration for a
   deploy kit instead of the app: `source/integrations/<deploy kit>/<name>`,
-  built as `integrations/<deploy kit>/<name>` (see
+  declared as `build.<name>.integrations.<deploy kit>` in `config.yaml` (see
   [Integrations](../../concepts/workspace-layout.md#integrations)).
 
 ```sh
