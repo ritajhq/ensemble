@@ -140,7 +140,9 @@ function validateConfig(raw: unknown): CompileConfig {
   }
 
   if (typeof raw.source !== "string" || raw.source.length === 0) {
-    fail(`"source" is required and must name an app under source/apps/.`);
+    fail(
+      `"source" is required and must name an app under source/apps/ (or an integration, integrations/<kit>/<app>).`,
+    );
   }
   if (raw.output !== undefined && typeof raw.output !== "string") {
     fail(`"output" must be a string.`);
@@ -234,7 +236,10 @@ if (!await exists(configPath, { isFile: true })) {
 const config = validateConfig(parseYaml(await Deno.readTextFile(configPath)));
 
 const workspace = dirname(ctx.artifacts);
-const entrypoint = join(workspace, "apps", config.source, "main.ts");
+const entrypoint = join(
+  KitSdk.Deploy.sourceDirOf(workspace, config.source),
+  "main.ts",
+);
 if (!await exists(entrypoint, { isFile: true })) {
   throw new Error(
     `compile.yml: source "${config.source}" not found (expected ${entrypoint}).`,
