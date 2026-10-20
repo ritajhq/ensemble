@@ -52,6 +52,12 @@ export function objectStorageProvisioner(): KitSdk.Deploy.Provisioner {
     // deno-lint-ignore require-await
     describe: async () => "object storage (Garage container)",
     provision: async (request) => {
+      for (const param of ["contents", "development", "cors"]) {
+        if (request.params[param] === undefined) continue;
+        throw new Error(
+          `storage.${request.name}: "${param}" isn't supported by the compose kit — its Garage buckets can't be filled from a release yet.`,
+        );
+      }
       const bucket = request.params.bucket as string;
       const accessKey = composeSecretWiring(
         requiredCredential(

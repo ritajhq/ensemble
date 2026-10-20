@@ -21,6 +21,27 @@ import { ResourceContract } from "../contract.ts";
  * error at render time if they're missing, rather than the contract
  * rejecting an aws-only manifest that never needed them.
  *
+ * `contents`, when given, is a `${release.<name>}` reference whose files the
+ * bucket holds once it's up — a static site's build, say — synced (stale
+ * objects removed) after every apply. A kit without a way to fill a bucket
+ * rejects it rather than leaving the bucket silently empty.
+ *
+ * `cors` lists the browser origins allowed to reach the bucket directly — a
+ * page uploading through a presigned URL, say — one S3 CORS rule per entry:
+ * `origins`, `methods`, and optionally `headers` (request headers allowed),
+ * `exposeHeaders` and `maxAge` (seconds). It's the S3 API's own model
+ * (`PutBucketCors`), so any S3-compatible store can honor it; a kit that
+ * can't rejects it rather than leaving browsers blocked.
+ *
+ * `development` is the same developer-owned block compute resources take
+ * (`../../development.ts`), checked here only as an object. On a bucket it
+ * means "while `ens develop` runs, keep `contents` current with these apps'
+ * build output": each `sync` rule's `app` is re-uploaded under its `path`
+ * (a key prefix) whenever its build changes. A bucket has no process to
+ * restart or environment to extend, so a kit honoring the block rejects
+ * `sync+restart` and `env`; a kit that can't fill a bucket from `contents`
+ * rejects `development` for the same reason it rejects `contents`.
+ *
  * Outputs mirror `relational.v1`'s own "expose individually" precedent:
  * `url` is the one portal's manifest already references
  * (`${storage.s3.url}`); `bucket` passes the param through so a future
@@ -35,6 +56,9 @@ export const objectStorageV1: ResourceContract = new ResourceContract(
     { name: "bucket", required: true, type: "string" },
     { name: "accessKeySecret", required: false, type: "string" },
     { name: "secretKeySecret", required: false, type: "string" },
+    { name: "contents", required: false, type: "string" },
+    { name: "cors", required: false, type: "array" },
+    { name: "development", required: false, type: "object" },
   ],
   [],
   [],
