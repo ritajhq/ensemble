@@ -3820,8 +3820,10 @@
       },
       ".ensemble/kits/deploy/aws": {
         "dependencies": [
+          "jsr:@david/dax@0.42.0",
           "jsr:@ensemble/kit-sdk@~0.55.1",
           "jsr:@std/assert@^1.0.19",
+          "jsr:@std/fs@1.0.24",
           "jsr:@std/path@1.1.6",
           "jsr:@std/testing@1.0.16",
           "jsr:@std/yaml@1.1.2",
