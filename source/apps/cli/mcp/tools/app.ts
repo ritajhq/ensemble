@@ -13,7 +13,7 @@ export class AppTools {
       {
         title: "Scaffold a new app",
         description:
-          "Scaffolds a new app under source/apps/ with a build kit's hello-world template.",
+          "Scaffolds a new app under source/apps/ — or an existing app's integration for a deploy kit under source/integrations/ — with a build kit's hello-world template.",
         inputSchema: {
           kit: z.string().describe(
             'Build kit to scaffold with, e.g. "deno.bundle".',
@@ -24,12 +24,21 @@ export class AppTools {
           target: z.string().optional().describe(
             'Static build variant to scaffold for (e.g. the react kit\'s "ssr").',
           ),
+          integration: z.string().optional().describe(
+            "Scaffold the app's integration for this deploy kit, at source/integrations/<integration>/<name>, instead of the app.",
+          ),
         },
       },
-      ({ kit, name, target }) =>
+      ({ kit, name, target, integration }) =>
         ToolResult.from(async () => {
-          await runAppCreate({ kit, name, target }, Host.createPorts());
-          return `Scaffolded source/apps/${name} with kit "${kit}".`;
+          await runAppCreate(
+            { kit, name, target, integration },
+            Host.createPorts(),
+          );
+          const where = integration
+            ? `source/integrations/${integration}/${name}`
+            : `source/apps/${name}`;
+          return `Scaffolded ${where} with kit "${kit}".`;
         }),
     );
   }

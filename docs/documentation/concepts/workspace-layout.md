@@ -72,6 +72,10 @@ app's integration for it, so one delivery manifest deploys to every platform an
 app is wired for, and a release carries one bundle per integration. Integrations
 are optional: an app with none is its own bundle, whichever kit deploys it — the
 quickest way to start on one platform, before wiring a second.
+`ens app create <build kit> <app> --integration <deploy kit>` scaffolds one for
+an existing app and registers its build entry. An integration's folder with no
+build entry is an error rather than a reason to run the app instead, and the
+`integrations/` prefix is reserved: no app is named under it.
 
 Nothing here is an Ensemble API: the kit and the integration meet on a module
 shape and a documented `env`, and the ports are the project's own.

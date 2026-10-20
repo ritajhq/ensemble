@@ -6,11 +6,13 @@ export interface Vendoring {
   readonly ref: string;
 }
 
-/** An app under `source/apps/`, as declared by `build.<name>` in `.ensemble/config.yaml`. */
+/** An app under `source/apps/` — or an app's integration under `source/integrations/<kit>/<app>` — as declared by `build.<name>` in `.ensemble/config.yaml`. */
 export interface App {
   readonly name: string;
   readonly kit: string;
   readonly target?: string;
+  /** Set for an integration: the deploy kit it's wired for and the app it wires. */
+  readonly integration?: Deploy.Integration;
 }
 
 export const KIT_ROLES = ["build", "pack", "deploy", "lib"] as const;

@@ -48,7 +48,15 @@ export class Survey {
 
   private apps(build: Record<string, { kit: string; target?: string }>): App[] {
     return Object.entries(build)
-      .map(([name, app]) => ({ name, kit: app.kit, target: app.target }))
+      .map(([name, app]) => {
+        const integration = Deploy.parseIntegration(name);
+        return {
+          name,
+          kit: app.kit,
+          target: app.target,
+          ...(integration ? { integration } : {}),
+        };
+      })
       .sort(byName);
   }
 

@@ -2,19 +2,24 @@ import { join } from "@std/path";
 import { exists } from "@std/fs";
 import type { Ports } from "./ports.ts";
 import { EnsembleConfigStore } from "./config.ts";
+import { integrationOf, isReserved } from "./deploy/integration.ts";
 
 const APP_NAME_PATTERN = /^[a-zA-Z0-9](?:[a-zA-Z0-9._\-/]*[a-zA-Z0-9])?$/;
+const KIT_NAME_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
 
 export interface RunAppCreateOptions {
   kit: string;
   name: string;
   /** Static build variant to scaffold for (e.g. the `react` kit's "ssr"), forwarded to the kit's scaffold.ts and persisted as build.<name>.target. */
   target?: string;
+  /** Scaffold the app's integration for this deploy kit (`source/integrations/<kit>/<name>`) instead of the app — for an app that already exists. */
+  integration?: string;
 }
 
 /**
- * Scaffolds a new app at source/apps/<name> by running its chosen kit's
- * scaffold.ts (the same CLI contract build/pack kits use, see
+ * Scaffolds a new app at source/apps/<name> — or, given `integration`, that
+ * app's integration for a deploy kit at source/integrations/<kit>/<name> —
+ * by running its chosen kit's scaffold.ts (the same CLI contract build/pack kits use, see
  * @ensemble/kit-sdk's Scaffold.getContext), then registers
  * build.<name>.kit (and .target, if given) in .ensemble/config.yaml via
  * EnsembleConfigStore.setAppBuildKit — so the app is immediately buildable
@@ -31,6 +36,17 @@ export async function runAppCreate(
         `not starting or ending with a separator.`,
     );
   }
+  if (isReserved(name)) {
+    throw new Error(
+      `"${name}" is under integrations/, which names integrations — scaffold one with --integration <kit> instead.`,
+    );
+  }
+  if (
+    options.integration !== undefined &&
+    !KIT_NAME_PATTERN.test(options.integration)
+  ) {
+    throw new Error(`Invalid deploy kit name "${options.integration}".`);
+  }
 
   const repoRoot = await ports.repo.findRepoRoot();
   const kitDir = join(repoRoot, ".ensemble", "kits", "build", options.kit);
@@ -41,7 +57,21 @@ export async function runAppCreate(
     );
   }
 
-  const sourceDir = join(repoRoot, "source", "apps", name);
+  const appDir = join(repoRoot, "source", "apps", name);
+  if (
+    options.integration !== undefined &&
+    !await exists(appDir, { isDirectory: true })
+  ) {
+    throw new Error(
+      `There's no app "${name}" to wire: an integration wires an existing app (source/apps/${name}).`,
+    );
+  }
+  const unit = options.integration === undefined
+    ? name
+    : integrationOf(name, options.integration);
+  const sourceDir = options.integration === undefined
+    ? appDir
+    : join(repoRoot, "source", unit);
   if (await exists(sourceDir)) {
     throw new Error(`"${sourceDir}" already exists.`);
   }
@@ -63,15 +93,15 @@ export async function runAppCreate(
       "--dest",
       sourceDir,
       "--name",
-      name,
+      unit,
       ...targetArgs,
     ],
     { cwd: kitDir },
   );
   if (code !== 0) {
-    throw new Error(`Scaffolding "${name}" with kit "${options.kit}" failed.`);
+    throw new Error(`Scaffolding "${unit}" with kit "${options.kit}" failed.`);
   }
 
   const config = new EnsembleConfigStore(repoRoot);
-  await config.setAppBuildKit(name, options.kit, options.target);
+  await config.setAppBuildKit(unit, options.kit, options.target);
 }

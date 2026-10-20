@@ -56,6 +56,8 @@ async function project(): Promise<string> {
     target: ssr
   api:
     kit: deno.bundle
+  integrations/aws/api:
+    kit: deno.bundle
 publish:
   core:
     - name: core
@@ -108,11 +110,16 @@ Deno.test("Survey: tells the builder each section once, in order, with sorted en
   const result = await new Survey(await project()).describeTo(new Recorder());
 
   assertEquals(result.steps, ["apps", "kits", "libraries", "workloads"]);
-  assertEquals(result.apps, [{
-    name: "api",
-    kit: "deno.bundle",
-    target: undefined,
-  }, { name: "web", kit: "react", target: "ssr" }]);
+  assertEquals(result.apps, [
+    { name: "api", kit: "deno.bundle", target: undefined },
+    {
+      name: "integrations/aws/api",
+      kit: "deno.bundle",
+      target: undefined,
+      integration: { kit: "aws", app: "api" },
+    },
+    { name: "web", kit: "react", target: "ssr" },
+  ]);
 });
 
 Deno.test("Survey: marks vendored kits and libraries with their repo and ref", async () => {
