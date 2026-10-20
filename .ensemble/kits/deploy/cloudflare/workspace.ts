@@ -2,10 +2,11 @@ import { basename, dirname, join } from "@std/path";
 import { ensureDir, exists } from "@std/fs";
 import { $ } from "@david/dax";
 import { unzipSync } from "fflate";
+import * as KitSdk from "@ensemble/kit-sdk";
 import type { SyncRule } from "./development-sync.ts";
 
-/** The bundle's own entry for this kit (`function.v1`: one ES module per platform, named after its deploy kit). */
-export const ENTRY = "cloudflare.js";
+/** The bundle's entry (`function.v1`): the module whose default export answers requests — the Worker itself. */
+export const ENTRY = "main.js";
 const GATEWAY_RUNTIME = new URL("./runtime/gateway.js", import.meta.url);
 
 /**
@@ -35,7 +36,7 @@ export class Workspace {
     );
   }
 
-  /** A function's `cloudflare.js` from its bundle — a packed zip, or one published at `s3://…` — unpacked into its own folder. */
+  /** A function's `main.js` from its bundle — a packed zip, or one published at `s3://…` — unpacked into its own folder. */
   async unpack(resource: string, code: string): Promise<string> {
     const folder = join(this.dir, "workers", resource);
     const zip = code.startsWith("s3://")
@@ -51,7 +52,7 @@ export class Workspace {
     return await this.entryIn(folder, resource);
   }
 
-  /** A function's `cloudflare.js` as its app's build writes it — what `ens develop` runs, reloaded on every rebuild. */
+  /** A function's `main.js` as its build writes it — the app's cloudflare integration's, when it has one — what `ens develop` runs, reloaded on every rebuild. */
   async synced(resource: string, rules: readonly SyncRule[]): Promise<string> {
     const root = rules.find((rule) => rootOf(rule.path) === "");
     if (!root) {
@@ -59,7 +60,19 @@ export class Workspace {
         `compute.${resource}: under ens develop, a Worker runs its app's build output as it is — sync it to "/".`,
       );
     }
-    return await this.entryIn(join(this.artifacts, root.app), resource);
+    return await this.entryIn(await this.outputOf(root.app), resource);
+  }
+
+  /** Where the build `ens develop` keeps current for `app` writes: its cloudflare integration's, or the app's own. */
+  async outputOf(app: string): Promise<string> {
+    return join(
+      this.artifacts,
+      await KitSdk.Deploy.buildUnitFor(
+        dirname(dirname(this.artifacts)),
+        app,
+        "cloudflare",
+      ),
+    );
   }
 
   /** A site's files: a local release as it is, or one published at `s3://…` downloaded. */
@@ -103,7 +116,7 @@ export class Workspace {
     const entry = join(folder, ENTRY);
     if (await exists(entry, { isFile: true })) return entry;
     throw new Error(
-      `compute.${resource}: the bundle has no ${ENTRY} — function.v1 bundles carry one ES module per platform they run on, named after its deploy kit.`,
+      `compute.${resource}: the bundle has no ${ENTRY} — a function.v1 bundle's main.js default-exports { fetch(request, env) }.`,
     );
   }
 

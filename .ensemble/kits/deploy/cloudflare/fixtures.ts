@@ -45,7 +45,7 @@ export function plan(
 }
 
 export const paths = {
-  workerMain: (worker: string) => `/work/workers/${worker}/cloudflare.js`,
+  workerMain: (worker: string) => `/work/workers/${worker}/main.js`,
   gatewayMain: "/work/gateway/gateway.js",
   assets: (bucket: string) => `/work/sites/${bucket}`,
 };

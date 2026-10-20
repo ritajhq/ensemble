@@ -1,4 +1,3 @@
-import { join } from "@std/path";
 import { ensureDir } from "@std/fs";
 import { Deployment } from "./deployment.ts";
 import type { SyncRule } from "./development-sync.ts";
@@ -123,7 +122,7 @@ async function keepCurrent(): Promise<void> {
 
   for (const { resource, rules } of watched) {
     for (const rule of rules) {
-      const source = join(workspace.artifacts, rule.app);
+      const source = await workspace.outputOf(rule.app);
       await ensureDir(source);
       onChange(source, () => {
         pending.add(resource);

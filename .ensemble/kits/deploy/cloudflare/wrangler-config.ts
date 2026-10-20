@@ -14,7 +14,7 @@ export const CREDENTIAL_VARS = {
 } as const;
 const CATCH_ALL = new Set(["/*", "/"]);
 
-/** Where each Worker's code is on disk: a function's `cloudflare.js`, the gateway runtime, a site's files. */
+/** Where each Worker's code is on disk: a function's `main.js`, the gateway runtime, a site's files. */
 export interface Paths {
   workerMain(worker: string): string;
   readonly gatewayMain: string;

@@ -21,7 +21,7 @@ export type Target =
   | { readonly kind: "remote"; readonly accountId: string }
   | { readonly kind: "local"; readonly port: number };
 
-/** A `function`, as a Worker running its bundle's `cloudflare.js`. */
+/** A `function`, as a Worker running its bundle's `main.js`. */
 export interface Worker {
   /** The bundle: a packed zip, or a published `s3://` location. */
   readonly code: string;

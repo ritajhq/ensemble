@@ -11,7 +11,7 @@ Deno.test("WranglerConfigs: a function's Worker binds its tables and buckets und
   );
   assertEquals(config, {
     name: "workspace-flowed-api",
-    main: "/work/workers/api/cloudflare.js",
+    main: "/work/workers/api/main.js",
     compatibility_date: "2026-09-01",
     no_bundle: true,
     workers_dev: false,

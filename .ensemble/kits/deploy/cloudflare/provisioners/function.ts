@@ -42,10 +42,9 @@ function names(raw: unknown, field: string, name: string): string[] {
 }
 
 /**
- * Fulfills `function` on cloudflare as a Worker running its bundle's own
- * `cloudflare.js` entry — the Workers module shape `function.v1` asks every
- * bundle's entries for, so nothing adapts it. Its `env` becomes the Worker's
- * vars; each table it's granted is bound as a D1 database, each bucket as an
+ * Fulfills `function` on cloudflare as a Worker running its bundle's
+ * `main.js` — the Workers module shape `function.v1` asks every bundle for,
+ * so nothing adapts it. Its `env` becomes the Worker's vars; each table it's granted is bound as a D1 database, each bucket as an
  * R2 bucket, under the very name `env` reaches it by. A Worker granted
  * buckets also gets the R2 key pair its S3 API takes, as
  * `R2_ACCESS_KEY_ID`/`R2_SECRET_ACCESS_KEY` — Workers have no role to sign

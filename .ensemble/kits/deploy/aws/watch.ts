@@ -1,6 +1,7 @@
 import { dirname, join, relative, SEPARATOR } from "@std/path";
 import { ensureDir } from "@std/fs";
 import { $ } from "@david/dax";
+import * as KitSdk from "@ensemble/kit-sdk";
 import {
   DEVELOPMENT_METADATA,
   type DevelopmentSync,
@@ -266,8 +267,19 @@ async function distributionIdsFor(logicalId: string): Promise<string[]> {
 }
 
 const artifactsDir = artifactsDirFor(templatePath);
+const repoRoot = dirname(dirname(artifactsDir));
+/** A rule names an app; what runs on aws is that app's aws integration when it has one (what `ens develop` keeps built for it). */
+async function integrated(rules: readonly SyncRule[]): Promise<SyncRule[]> {
+  return await Promise.all(
+    rules.map(async (rule) => ({
+      ...rule,
+      app: await KitSdk.Deploy.buildUnitFor(repoRoot, rule.app, "aws"),
+    })),
+  );
+}
 const targets: Target[] = await Promise.all(
-  declared.map(async ({ logicalId, type, rules }) => {
+  declared.map(async ({ logicalId, type, rules: declaredRules }) => {
+    const rules = await integrated(declaredRules);
     const physicalId = await stack.physicalIdOf(logicalId);
     if (type === "AWS::S3::Bucket") {
       return new BucketTarget(

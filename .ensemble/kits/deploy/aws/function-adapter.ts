@@ -1,7 +1,7 @@
 import { unzipSync, type Zippable, zipSync } from "fflate";
 
-/** The bundle's own entry for this kit (`function.v1`: one ES module per platform, named after its deploy kit). */
-export const ENTRY = "aws.js";
+/** The bundle's entry (`function.v1`): the module whose default export answers requests. */
+export const ENTRY = "main.js";
 const ADAPTER = "ensemble-lambda.mjs";
 /** The function's `Handler`: the adapter's export, never the bundle's. */
 export const HANDLER = "ensemble-lambda.handler";
@@ -17,7 +17,7 @@ const ADAPTER_SOURCE = Deno.readFileSync(
 
 /**
  * Makes a function bundle runnable by Lambda: adds the handler that adapts
- * API Gateway's events to the bundle's `aws.js` (`./runtime/`), and marks its
+ * API Gateway's events to the bundle's `main.js` (`./runtime/`), and marks its
  * modules as ES modules if the bundle doesn't already, Node telling them
  * apart by the nearest package.json. Done to every bundle the kit deploys,
  * packed or synced, so no bundle has to know about Lambda.
@@ -27,7 +27,7 @@ export class FunctionAdapter {
   adaptFiles(files: Zippable): Zippable {
     if (!(ENTRY in files)) {
       throw new Error(
-        `The function's bundle has no ${ENTRY} at its root: function.v1 bundles carry one ES module per platform they run on, named after its deploy kit.`,
+        `The function's bundle has no ${ENTRY} at its root: a function.v1 bundle's main.js default-exports { fetch(request, env) }.`,
       );
     }
     return {

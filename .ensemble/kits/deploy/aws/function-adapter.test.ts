@@ -14,16 +14,16 @@ const ENTRY = `export default {
 };
 `;
 
-Deno.test("FunctionAdapter: adds the Lambda handler beside the bundle's aws.js, marked as ES modules", () => {
+Deno.test("FunctionAdapter: adds the Lambda handler beside the bundle's main.js, marked as ES modules", () => {
   const files = unzipSync(
     new FunctionAdapter().adapt(
-      zipSync({ "aws.js": strToU8(ENTRY), "cloudflare.js": strToU8("") }),
+      zipSync({ "main.js": strToU8(ENTRY), "main.js.map": strToU8("") }),
     ),
   );
   assertEquals(Object.keys(files).sort(), [
-    "aws.js",
-    "cloudflare.js",
     "ensemble-lambda.mjs",
+    "main.js",
+    "main.js.map",
     "package.json",
   ]);
   assertEquals(JSON.parse(strFromU8(files["package.json"]!)), {
@@ -35,7 +35,7 @@ Deno.test("FunctionAdapter: keeps the bundle's own package.json", () => {
   const files = unzipSync(
     new FunctionAdapter().adapt(
       zipSync({
-        "aws.js": strToU8(ENTRY),
+        "main.js": strToU8(ENTRY),
         "package.json": strToU8(`{"type":"module","x":1}`),
       }),
     ),
@@ -46,11 +46,11 @@ Deno.test("FunctionAdapter: keeps the bundle's own package.json", () => {
   });
 });
 
-Deno.test("FunctionAdapter: refuses a bundle with no aws.js of its own", () => {
+Deno.test("FunctionAdapter: refuses a bundle with no main.js", () => {
   assertThrows(
-    () => new FunctionAdapter().adapt(zipSync({ "main.js": strToU8(ENTRY) })),
+    () => new FunctionAdapter().adapt(zipSync({ "aws.js": strToU8(ENTRY) })),
     Error,
-    "has no aws.js",
+    "has no main.js",
   );
 });
 
@@ -58,7 +58,7 @@ Deno.test("FunctionAdapter: the handler answers API Gateway with what the bundle
   const dir = await Deno.makeTempDir({ prefix: "aws-function-adapter-" });
   try {
     const files = unzipSync(
-      new FunctionAdapter().adapt(zipSync({ "aws.js": strToU8(ENTRY) })),
+      new FunctionAdapter().adapt(zipSync({ "main.js": strToU8(ENTRY) })),
     );
     for (const [path, bytes] of Object.entries(files)) {
       await Deno.writeFile(join(dir, path), bytes);

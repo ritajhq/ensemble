@@ -1,11 +1,11 @@
 // The Lambda handler the aws kit adds to every function's bundle: it adapts
 // an API Gateway HTTP API (payload format 2.0) proxy event to the Fetch API
-// the bundle's own `aws.js` entry answers — `Request` in, `Response` out,
+// the bundle's own `main.js` answers — `Request` in, `Response` out,
 // with the function's environment as `env` — and back. The bundle stays
 // platform-neutral; this is the one piece that knows Lambda.
 import { Buffer } from "node:buffer";
 import process from "node:process";
-import entry from "./aws.js";
+import entry from "./main.js";
 
 /** Body types sent as text; everything else is base64-encoded, as API Gateway requires for binary. */
 const TEXT_CONTENT =
