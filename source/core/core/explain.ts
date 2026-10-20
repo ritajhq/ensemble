@@ -1,7 +1,7 @@
 import * as Deploy from "./deploy/index.ts";
 import { loadDeployContext } from "./deploy-context.ts";
 import type { RepoLocator } from "./ports.ts";
-import type { EnvFile } from "./env-files.ts";
+import type { EnvFiles } from "./env-files.ts";
 
 export interface RunExplainOptions {
   artifacts: Deploy.ArtifactsSource;
@@ -10,7 +10,7 @@ export interface RunExplainOptions {
   /** Only meaningful if the explained resource's dependency chain reaches a `${release.<name>}` reference for published artifacts — same convention as `ens deploy --version`. */
   version: string;
   /** Same as `RunDeployOptions.envFiles`. */
-  envFiles: readonly EnvFile[];
+  envFiles: EnvFiles;
 }
 
 /**

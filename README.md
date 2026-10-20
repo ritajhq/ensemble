@@ -196,9 +196,12 @@ done
 per-environment values it needs as `variables` and `secrets`; `ens deploy` reads
 them from its own process env (it selects no environment itself — that's the
 pipeline's job, and locally it's you). For local runs, commit the known-good dev
-values to `ci/<name>/dev.env`, and keep dev values that mustn't be committed in
-the untracked `.ensemble/deploy/<name>/secrets.env`. `ens develop` loads both,
-so `ens develop <name>` just works with nothing exported:
+values to `ci/<name>/dev.env` — and those only one deploy kit's local target
+needs to `ci/<name>/<kit>.env` (`aws.env` pointing at a local AWS, say) — and
+keep dev values that mustn't be committed in the untracked
+`.ensemble/deploy/<name>/secrets.env`. `ens develop` loads them all (the kit's
+own file for the kit it deploys with), so `ens develop <name>` just works with
+nothing exported:
 
 ```ini
 # ci/portal/dev.env — keys are the manifest's variable/secret names

@@ -75,7 +75,11 @@ export {
   type RecordedIngress,
 } from "./ingress-record.ts";
 export { runExplain, type RunExplainOptions } from "./explain.ts";
-export { DeploymentEnvironment, type EnvFile } from "./env-files.ts";
+export {
+  DeploymentEnvironment,
+  type EnvFile,
+  type EnvFiles,
+} from "./env-files.ts";
 export {
   runDeliveryTask,
   type RunDeliveryTaskOptions,
