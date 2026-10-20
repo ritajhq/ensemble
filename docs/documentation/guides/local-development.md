@@ -28,7 +28,10 @@ deploy kit (defaults to `compose`).
 To change an app while the stack runs, just edit its source — the manifest's
 `development.sync` rules (see the example above) tell the kit which app paths to
 sync into which container paths, and whether a sync also needs a restart
-(`sync+restart` vs plain `sync`) for the process to pick the change up.
+(`sync+restart` vs plain `sync`) for the process to pick the change up. With the
+`aws` kit, the same rules on a `function` replace its deployed code with the
+app's build output on every change, and on an `object-storage` bucket re-upload
+its `contents` under the rule's `path`.
 
 ## What develop mode adds
 

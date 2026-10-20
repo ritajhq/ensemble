@@ -352,7 +352,7 @@
       }
     },
     "developmentBlock": {
-      "description": "Developer-owned intent for `ens deploy --watch`, honored only by provisioners that support it. Sync rules are grouped by action: `sync` just copies files over, `sync+restart` additionally restarts the container so the process picks them up.",
+      "description": "Developer-owned intent for `ens deploy --watch`, honored only by provisioners that support it. Sync rules are grouped by action: `sync` just copies files over, `sync+restart` additionally restarts the container so the process picks them up. On a function, `path` is where the app's build output lands inside its package, and both groups replace the function's code.",
       "type": "object",
       "additionalProperties": false,
       "properties": {
