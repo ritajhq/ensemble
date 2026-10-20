@@ -22,6 +22,7 @@ export async function resolvePackDependencies(
   kit: string,
   candidateApps: readonly string[],
   ports: Ports,
+  deployKit?: string,
 ): Promise<string[]> {
   const repoRoot = await ports.repo.findRepoRoot();
   const kitDir = join(repoRoot, ".ensemble", "kits", "pack", kit);
@@ -44,6 +45,7 @@ export async function resolvePackDependencies(
       kitEntry,
       "--apps",
       JSON.stringify(candidateApps),
+      ...(deployKit ? ["--deploy-kit", deployKit] : []),
       shipDir,
     ],
     { cwd: kitDir },

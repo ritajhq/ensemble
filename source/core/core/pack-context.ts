@@ -27,6 +27,8 @@ export interface Context {
   watch: boolean;
   /** True when --verbose was passed. `ens` hides a kit's own build-tool output by default (e.g. `docker buildx build`'s progress log) behind a spinner; this asks the kit to let it through unfiltered instead — kits with nothing noisy to show can ignore this. */
   verbose: boolean;
+  /** The deploy kit packing for a deployment, when one is: a ship packed once per integration (`source/integrations/<kit>/<app>`) packs only that kit's. Absent for `ens pack` and a release, which pack them all. */
+  deployKit?: string;
 }
 
 /** The subset of a ship's candidate `apps` a kit's config actually depends on (e.g. Dockerfile `COPY --from=<app>` references it found) — `dependencies.ts`'s stdout payload shape, asked before packing so `ens` knows which apps to build first. */
@@ -77,6 +79,7 @@ export function getContext(args: string[] = Deno.args): Context {
       "mode",
       "vars",
       "apps",
+      "deploy-kit",
     ],
     boolean: ["watch", "verbose"],
     default: { vars: "{}", apps: "[]", watch: false, verbose: false },
@@ -106,6 +109,7 @@ export function getContext(args: string[] = Deno.args): Context {
     apps: parseApps(flags.apps),
     watch: flags.watch,
     verbose: flags.verbose,
+    ...(flags["deploy-kit"] ? { deployKit: flags["deploy-kit"] } : {}),
   };
 }
 
@@ -115,6 +119,8 @@ export interface DependenciesContext {
   ship: string;
   /** Candidate app names to check for a reference (typically every app declared under `build:` in .ensemble/config.yaml). */
   apps: string[];
+  /** Same as `Context.deployKit`: packing for a deployment by this kit, which needs only its own integration built. */
+  deployKit?: string;
 }
 
 /** Parses the standard pack kit dependencies CLI contract. Call this from a pack kit's `dependencies.ts` entry point. */
@@ -122,7 +128,7 @@ export function getDependenciesContext(
   args: string[] = Deno.args,
 ): DependenciesContext {
   const flags = parseArgs(args, {
-    string: ["apps"],
+    string: ["apps", "deploy-kit"],
     default: { apps: "[]" },
   });
 
@@ -133,7 +139,11 @@ export function getDependenciesContext(
     );
   }
 
-  return { ship, apps: parseApps(flags.apps) };
+  return {
+    ship,
+    apps: parseApps(flags.apps),
+    ...(flags["deploy-kit"] ? { deployKit: flags["deploy-kit"] } : {}),
+  };
 }
 
 async function loadKitManifestMap(

@@ -229,6 +229,7 @@ export async function runDeploy(
         options.verbose,
         options.reporter,
         options.buildReporter,
+        kit,
       ),
     ),
     new Deploy.Terminations.WatchRunner(
