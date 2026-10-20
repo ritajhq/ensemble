@@ -10,6 +10,7 @@ source/
   apps/<name>/       # app source, one folder per deployable unit
   core/               # shared code that speaks your project's domain
   libs/               # generic, cross-project-reusable code
+  integrations/<kit>/<app>/  # an app wired for one deploy kit's platform (optional)
   artifacts/<name>/   # build output (gitignored), one folder per app
   ship/<name>/        # packaging inputs (Dockerfile, etc.) per pack target
 .ensemble/
@@ -51,6 +52,29 @@ if both get packed). `<name>` throughout the CLI (`ens build <app>`,
   logic lives in `.ensemble/kits`, behind a common contract. An app folder only
   ever states _which_ kit it uses, never _how_ that kit builds, packages, or
   deploys it. See [Kits](kits.md).
+
+## Integrations
+
+An app can stay free of every platform: its code takes the resources it needs as
+ports — a table, a bucket — and leaves where they come from to an
+**integration**, `source/integrations/<kit>/<app>`. An integration is the app's
+wiring for the platform one deploy kit deploys to: it builds the ports from that
+platform's resources (DynamoDB on `aws`, D1 on `cloudflare`), owns the
+dependencies that takes, and exports what the kit runs — for a `function`, a
+`main.js` default-exporting `{ fetch(request, env) }`, with `env` as the kit
+documents it.
+
+An integration is built like an app, under the name `integrations/<kit>/<app>`
+(`build.integrations/<kit>/<app>` in `config.yaml`, output at
+`source/artifacts/integrations/<kit>/<app>`). Wherever the manifest names the
+app — a release's ship, a `development.sync` rule — the kit deploying runs that
+app's integration for it, so one delivery manifest deploys to every platform an
+app is wired for, and a release carries one bundle per integration. Integrations
+are optional: an app with none is its own bundle, whichever kit deploys it — the
+quickest way to start on one platform, before wiring a second.
+
+Nothing here is an Ensemble API: the kit and the integration meet on a module
+shape and a documented `env`, and the ports are the project's own.
 
 ## `.ensemble/config.yaml` vs `.ensemble/config.local.yaml`
 
