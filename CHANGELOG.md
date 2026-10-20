@@ -3,6 +3,23 @@
 ### ⚙️ Miscellaneous Tasks
 
 - *(release)* Bump library versions for 0.55.1
+## [0.55.0] - 2026-10-20
+
+### 🚀 Features
+
+- *(compose)* Restart a critical gateway or object storage after a crash or a reboot, as every other critical resource
+- *(deploy)* Deliver a container's files from the project, read by core and mounted by compose as content-named configs
+
+### 🐛 Bug Fixes
+
+- *(platform)* Run each run in its checkout at the host's path, so files a deployment mounts from it reach the host's Docker daemon
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.54.0
+- *(platform)* Render the stack's compose file with its runs' data volume
+- Update lockfile
+- *(release)* Bump library versions for 0.55.0
 ## [0.54.0] - 2026-10-17
 
 ### 🚀 Features
