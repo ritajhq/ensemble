@@ -1,12 +1,12 @@
 import { ResourceContract } from "../contract.ts";
 
 /**
- * `gateway.v1` — an HTTP ingress that host/path-routes to `compute` targets
- * inside the workload. Implemented only on compose today, per the same
- * "second target proves the shape" discipline as every other contract here —
- * there is no aws provisioner for this Type, a deliberate gap (declaring one
- * on aws throws `NoMatchingProvisionerError`, same as `storage.volume` did
- * before it had a second target — not a bug).
+ * `gateway.v1` — an HTTP ingress that host/path-routes to targets inside the
+ * workload: a compute (`target: { service }`), or a bucket's objects
+ * (`target: { storage }`, an `object-storage` resource). Compose implements
+ * host and path routing to computes; the aws kit (a CloudFront distribution)
+ * and the cloudflare kit (a gateway Worker) route by path only, to functions
+ * and buckets, and both want a catch-all (`/*`) route.
  *
  * `networks` names the ingress networks something in front of the gateway
  * reaches it through — same `${external.<name>.name}` convention
@@ -24,7 +24,8 @@ import { ResourceContract } from "../contract.ts";
  *
  * `routes` is shallow at the contract level (`type: "array"`), same
  * treatment as `container-orchestrated.v1`'s `mounts`/`development`: the
- * per-entry shape — `{ host, path, target: { service, port } }`, `path`
+ * per-entry shape — `{ host, path, target: { service, port } }` or
+ * `{ path, target: { storage } }`, `path`
  * either a plain prefix string or `{ match, strip }`, `target.port` normally
  * a `${compute.<name>.<port>}` reference — is a provisioner-owned
  * convention, not validated here. `target` is split into `service` (a plain
