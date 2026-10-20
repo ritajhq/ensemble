@@ -1,4 +1,4 @@
-import { join } from "@std/path";
+import { dirname, join } from "@std/path";
 import { parse as parseYaml, stringify as stringifyYaml } from "@std/yaml";
 import { $ } from "@david/dax";
 import { FunctionAdapter } from "./function-adapter.ts";
@@ -40,12 +40,24 @@ export class Stack {
    */
   async deploy(templatePath: string): Promise<number> {
     const template = await readTemplate(templatePath);
-    const deployable = needsPackaging(template)
-      ? await this.packaged(await this.adapted(template))
-      : templatePath;
-    if (deployable === undefined) return 1;
+    if (!needsPackaging(template)) {
+      return await this.deployTemplate(templatePath);
+    }
+    const dir = await Deno.makeTempDir({ prefix: "ens-aws-adapt-" });
+    try {
+      const deployable = await this.packaged(
+        await this.adapted(template, dir),
+      );
+      if (deployable === undefined) return 1;
+      return await this.deployTemplate(deployable);
+    } finally {
+      await Deno.remove(dir, { recursive: true });
+    }
+  }
+
+  private async deployTemplate(path: string): Promise<number> {
     const result =
-      await $`aws cloudformation deploy --template-file ${deployable} --stack-name ${this.name} --capabilities CAPABILITY_NAMED_IAM --no-fail-on-empty-changeset`
+      await $`aws cloudformation deploy --template-file ${path} --stack-name ${this.name} --capabilities CAPABILITY_NAMED_IAM --no-fail-on-empty-changeset`
         .noThrow();
     return result.code;
   }
@@ -62,9 +74,8 @@ export class Stack {
       .text();
   }
 
-  /** A copy of `template` whose every function's code is its bundle adapted to Lambda, as a local file. */
-  private async adapted(template: Template): Promise<string> {
-    const dir = await Deno.makeTempDir({ prefix: "ens-aws-adapt-" });
+  /** A copy of `template` in `dir` whose every function's code is its bundle adapted to Lambda, as a local file there. */
+  private async adapted(template: Template, dir: string): Promise<string> {
     const adapter = new FunctionAdapter();
     const resources: Record<string, unknown> = { ...template.Resources };
     for (
@@ -98,7 +109,7 @@ export class Stack {
     return await Deno.readFile(local);
   }
 
-  /** The template with every (adapted) local bundle uploaded and replaced by its S3 location — or, having said why on stderr, `undefined` when that can't be done. */
+  /** The template beside `path` with every (adapted) local bundle uploaded and replaced by its S3 location — or, having said why on stderr, `undefined` when that can't be done. */
   private async packaged(path: string): Promise<string | undefined> {
     const bucket = Deno.env.get(ARTIFACTS_BUCKET);
     if (!bucket) {
@@ -107,8 +118,7 @@ export class Stack {
       );
       return undefined;
     }
-    const dir = await Deno.makeTempDir({ prefix: "ens-aws-package-" });
-    const output = join(dir, "template.yaml");
+    const output = join(dirname(path), "packaged.yaml");
     // Its upload progress goes to stderr, where only failures belong.
     const result =
       await $`aws cloudformation package --template-file ${path} --s3-bucket ${bucket} --s3-prefix ${this.name} --output-template-file ${output}`
@@ -116,7 +126,6 @@ export class Stack {
         .stderr("piped")
         .noThrow();
     if (result.code === 0) return output;
-    await Deno.remove(dir, { recursive: true });
     console.error(result.stderr.trimEnd());
     return undefined;
   }
