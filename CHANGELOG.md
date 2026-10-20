@@ -1,3 +1,8 @@
+## [0.55.1] - 2026-10-20
+
+### ⚙️ Miscellaneous Tasks
+
+- *(release)* Bump library versions for 0.55.1
 ## [0.54.0] - 2026-10-17
 
 ### 🚀 Features
