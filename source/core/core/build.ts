@@ -6,7 +6,11 @@ import { EnsembleConfigStore } from "./config.ts";
 import type * as Build from "./build-context.ts";
 import type { BuildReporter } from "./build-reporter.ts";
 import { PlainBuildReporter } from "./plain-build-reporter.ts";
-import { sourceDirOf } from "./deploy/integration.ts";
+import {
+  isIntegration,
+  isReserved,
+  sourceDirOf,
+} from "./deploy/integration.ts";
 
 export interface RunBuildOptions {
   mode: Build.Mode;
@@ -27,6 +31,11 @@ export async function runBuild(
   const repoRoot = await ports.repo.findRepoRoot();
   const workspace = join(repoRoot, "source");
 
+  if (isReserved(name) && !isIntegration(name)) {
+    throw new Error(
+      `"${name}" is under integrations/, which names integrations (integrations/<kit>/<app>), never apps.`,
+    );
+  }
   const sourceDir = sourceDirOf(workspace, name);
   if (!await exists(sourceDir, { isDirectory: true })) {
     throw new Error(
