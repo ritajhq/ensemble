@@ -55,6 +55,8 @@ if both get packed). `<name>` throughout the CLI (`ens build <app>`,
 
 ## Integrations
 
+![What a deploy runs for an app: explicit steps in green, conventions in amber](../../assets/ens-integrations.svg)
+
 An app can stay free of every platform: its code takes the resources it needs as
 ports — a table, a bucket — and leaves where they come from to an
 **integration**, `source/integrations/<kit>/<app>`. An integration is the app's
