@@ -32,7 +32,7 @@ if (!planPath || !name) {
 
 const plan = JSON.parse(await Deno.readTextFile(planPath)) as Plan;
 const configs = new WranglerConfigs(plan, name);
-const workspace = new Workspace(planPath);
+const workspace = await Workspace.at(planPath);
 const deployment = new Deployment(plan, configs, workspace, new Wrangler());
 
 if (plan.target.kind === "local") await runLocally(plan.target.port);

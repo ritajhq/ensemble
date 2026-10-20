@@ -27,7 +27,7 @@ if (plan.target.kind === "local") {
 const deployment = new Deployment(
   plan,
   new WranglerConfigs(plan, name),
-  new Workspace(planPath),
+  await Workspace.at(planPath),
   new Wrangler(),
 );
 for (const line of await deployment.apply("releases")) console.error(line);

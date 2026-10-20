@@ -24,15 +24,26 @@ export class Workspace {
   readonly artifacts: string;
   readonly state: string;
 
-  constructor(planPath: string) {
+  private constructor(
+    private readonly repoRoot: string,
+    planPath: string,
+  ) {
     this.dir = join(dirname(planPath), "cloudflare");
-    this.artifacts = dirname(dirname(dirname(planPath)));
+    this.artifacts = join(repoRoot, "source", "artifacts");
     this.state = join(
-      dirname(dirname(this.artifacts)),
+      repoRoot,
       ".ensemble",
       "deploy",
       basename(dirname(planPath)),
       "wrangler",
+    );
+  }
+
+  /** The workspace of the plan at `planPath`, in the repo the plan was rendered in. */
+  static async at(planPath: string): Promise<Workspace> {
+    return new Workspace(
+      await KitSdk.findRepoRoot(dirname(planPath)),
+      planPath,
     );
   }
 
@@ -68,7 +79,7 @@ export class Workspace {
     return join(
       this.artifacts,
       await KitSdk.Deploy.buildUnitFor(
-        dirname(dirname(this.artifacts)),
+        this.repoRoot,
         app,
         "cloudflare",
       ),

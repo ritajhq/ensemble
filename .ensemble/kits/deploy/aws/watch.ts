@@ -37,15 +37,6 @@ const SETTLE_MS = 300;
 const UPDATE_POLL_MS = 250;
 const UPDATE_POLLS = 240;
 
-/**
- * `source/artifacts/<app>`, where a build writes its output: the template is
- * always at `<repo>/source/artifacts/deploy/<name>/template.yaml` (`ens
- * deploy`'s own convention, which the compose kit's watch relies on too).
- */
-function artifactsDirFor(templatePath: string): string {
-  return dirname(dirname(dirname(templatePath)));
-}
-
 /** Brings one deployed resource up to date with its apps' build output. */
 interface Target {
   readonly logicalId: string;
@@ -266,8 +257,10 @@ async function distributionIdsFor(logicalId: string): Promise<string[]> {
   );
 }
 
-const artifactsDir = artifactsDirFor(templatePath);
-const repoRoot = dirname(dirname(artifactsDir));
+// The repo the template was rendered in, found from the template itself;
+// `source/artifacts/<app>` is where a build writes its output.
+const repoRoot = await KitSdk.findRepoRoot(dirname(templatePath));
+const artifactsDir = join(repoRoot, "source", "artifacts");
 /** A rule names an app; what runs on aws is that app's aws integration when it has one (what `ens develop` keeps built for it). */
 async function integrated(rules: readonly SyncRule[]): Promise<SyncRule[]> {
   return await Promise.all(
