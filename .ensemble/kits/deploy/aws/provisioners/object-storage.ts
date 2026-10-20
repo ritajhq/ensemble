@@ -6,6 +6,13 @@ import {
   type DevelopmentSync,
 } from "../development-sync.ts";
 
+/** The bucket's S3 API address: on the environment's own endpoint when it names one, else AWS's regional one. */
+function addressOf(bucket: string): unknown {
+  const endpoint = Deno.env.get("AWS_ENDPOINT_URL");
+  if (endpoint) return `${endpoint.replace(/\/+$/, "")}/${bucket}`;
+  return sub(`https://${bucket}.s3.\${AWS::Region}.amazonaws.com`, {});
+}
+
 /**
  * Fulfills `object-storage` on aws as a plain `AWS::S3::Bucket` — nothing
  * else. `accessKeySecret`/`secretKeySecret` are silently dropped: IAM always
@@ -19,7 +26,13 @@ import {
  * `url` is `dynamic` (declared in `../realization.ts`): the endpoint domain
  * embeds the stack's own deploy region, never known at render time (G3) —
  * `Fn::Sub`'s bare `${AWS::Region}` resolves it at deploy time without
- * needing a declared Sub variable for it.
+ * needing a declared Sub variable for it. `publicUrl`, the bucket as a
+ * browser reaches it, is the same address on AWS itself. When the
+ * environment points the stack at a local stand-in instead
+ * (`AWS_ENDPOINT_URL`, as MiniStack's own setup does), both are the bucket
+ * on that endpoint, path-style — stand-ins serve no per-bucket hostnames —
+ * reached alike by the stand-in's functions, which run beside it, and by
+ * the developer's browser.
  */
 export function objectStorageProvisioner(): KitSdk.Deploy.Provisioner {
   return {
@@ -60,7 +73,8 @@ export function objectStorageProvisioner(): KitSdk.Deploy.Provisioner {
         },
         outputs: {
           bucket,
-          url: sub(`https://${bucket}.s3.\${AWS::Region}.amazonaws.com`, {}),
+          url: addressOf(bucket),
+          publicUrl: addressOf(bucket),
         },
         ...(contents
           ? {

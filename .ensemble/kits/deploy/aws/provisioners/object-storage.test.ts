@@ -117,3 +117,17 @@ Deno.test("aws object storage: cors needs origins and S3's own methods", async (
     "not PATCH",
   );
 });
+
+Deno.test("aws object storage: a local stand-in's endpoint addresses the bucket path-style, for compute and browser alike", async () => {
+  Deno.env.set("AWS_ENDPOINT_URL", "http://localhost:4566/");
+  try {
+    const outcome = await objectStorageProvisioner().provision!(request({}));
+    assertEquals(outcome.outputs, {
+      bucket: "my-site",
+      url: "http://localhost:4566/my-site",
+      publicUrl: "http://localhost:4566/my-site",
+    });
+  } finally {
+    Deno.env.delete("AWS_ENDPOINT_URL");
+  }
+});

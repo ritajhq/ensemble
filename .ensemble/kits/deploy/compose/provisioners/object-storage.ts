@@ -104,8 +104,13 @@ export function objectStorageProvisioner(): KitSdk.Deploy.Provisioner {
             ...(critical ? { volumes: { [volumeName]: {} } } : {}),
           },
         },
+        // A browser has no address of its own for the bucket here: its S3
+        // API is published on the host only under `ens develop`, on an
+        // ephemeral port (`hostAccess`). `publicUrl` is the stack network's
+        // address, then — presigned URLs for a page need a gateway route.
         outputs: {
           url: `http://${request.name}:${S3_API_PORT}`,
+          publicUrl: `http://${request.name}:${S3_API_PORT}`,
           bucket,
         },
         initCommands: [{

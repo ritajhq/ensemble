@@ -44,9 +44,13 @@ import { ResourceContract } from "../contract.ts";
  *
  * Outputs mirror `relational.v1`'s own "expose individually" precedent:
  * `url` is the one portal's manifest already references
- * (`${storage.s3.url}`); `bucket` passes the param through so a future
- * reference can address it without a contract change, same reasoning
- * `relational.v1`'s `database` output already documents.
+ * (`${storage.s3.url}`) — the bucket's S3 API as the stack's own compute
+ * reaches it; `bucket` passes the param through so a future reference can
+ * address it without a contract change, same reasoning `relational.v1`'s
+ * `database` output already documents. `publicUrl` is the bucket's S3 API as
+ * a browser reaches it — what a presigned URL handed to a page has to point
+ * at, and not always `url`: a local stand-in serves the stack's network and
+ * the developer's machine at different addresses.
  */
 export const objectStorageV1: ResourceContract = new ResourceContract(
   "storage",
@@ -62,5 +66,5 @@ export const objectStorageV1: ResourceContract = new ResourceContract(
   ],
   [],
   [],
-  ["url", "bucket"],
+  ["url", "publicUrl", "bucket"],
 );
