@@ -10,5 +10,6 @@ export type { Task } from "./task.ts";
 export * from "./release.ts";
 export * from "./reference.ts";
 export * from "./development.ts";
+export * from "./key-schema.ts";
 export * from "./artifacts-source.ts";
 export * from "./kit/index.ts";
