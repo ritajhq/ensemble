@@ -43,7 +43,11 @@ export class AppNode extends Node {
       : this.app.kit;
     item.iconPath = new vscode.ThemeIcon("package");
     item.contextValue = "app";
-    item.command = reveal(this.root, `source/apps/${this.app.name}`);
+    // An integration's source lives under source/integrations/, not apps/.
+    const source = this.app.integration
+      ? `source/${this.app.name}`
+      : `source/apps/${this.app.name}`;
+    item.command = reveal(this.root, source);
     return item;
   }
 }

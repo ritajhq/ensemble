@@ -6,6 +6,13 @@ import { EnsembleConfigStore } from "./config.ts";
 import type * as Build from "./build-context.ts";
 import type { BuildReporter } from "./build-reporter.ts";
 import { PlainBuildReporter } from "./plain-build-reporter.ts";
+import {
+  integrationKitsOf,
+  integrationOf,
+  isIntegration,
+  isReserved,
+  sourceDirOf,
+} from "./deploy/integration.ts";
 
 export interface RunBuildOptions {
   mode: Build.Mode;
@@ -17,8 +24,47 @@ export interface RunBuildOptions {
   reporter?: BuildReporter;
 }
 
-/** Resolves an app's configured kit and spawns it with the standard kit CLI contract. */
+/**
+ * Builds what `name` names: an app — as itself, or, when it's a library
+ * declared with `integrations`, every one of them — or one integration
+ * (`integrations/<kit>/<app>`, see `./deploy/integration.ts`), which is what a
+ * development session keeps built for the kit deploying. Each unit runs its
+ * configured kit with the standard kit CLI contract; a watch runs them side
+ * by side, a one-shot build one after the other. The code is the first unit's
+ * that fails, or 0.
+ */
 export async function runBuild(
+  name: string,
+  options: RunBuildOptions,
+  ports: Ports,
+): Promise<number> {
+  const repoRoot = await ports.repo.findRepoRoot();
+  if (isReserved(name) && !isIntegration(name)) {
+    throw new Error(
+      `"${name}" is under integrations/, which names integrations (integrations/<kit>/<app>), never apps.`,
+    );
+  }
+  const units = isIntegration(name)
+    ? [name]
+    : (await integrationKitsOf(repoRoot, name)).map((kit) =>
+      integrationOf(name, kit)
+    );
+  if (units.length === 0) return await runUnit(name, options, ports);
+  if (options.watch) {
+    const codes = await Promise.all(
+      units.map((unit) => runUnit(unit, options, ports)),
+    );
+    return codes.find((code) => code !== 0) ?? 0;
+  }
+  for (const unit of units) {
+    const code = await runUnit(unit, options, ports);
+    if (code !== 0) return code;
+  }
+  return 0;
+}
+
+/** Spawns the kit that builds one unit — an app, or one integration. */
+async function runUnit(
   name: string,
   options: RunBuildOptions,
   ports: Ports,
@@ -26,7 +72,7 @@ export async function runBuild(
   const repoRoot = await ports.repo.findRepoRoot();
   const workspace = join(repoRoot, "source");
 
-  const sourceDir = join(workspace, "apps", name);
+  const sourceDir = sourceDirOf(workspace, name);
   if (!await exists(sourceDir, { isDirectory: true })) {
     throw new Error(
       `App "${name}" does not exist (expected a directory at ${sourceDir})`,
@@ -35,7 +81,7 @@ export async function runBuild(
 
   const configStore = new EnsembleConfigStore(repoRoot);
   const config = await configStore.load();
-  const appConfig = configStore.getAppBuildConfig(config, name);
+  const appConfig = configStore.getUnitBuildConfig(config, name);
 
   const kitDir = join(repoRoot, ".ensemble", "kits", "build", appConfig.kit);
   const kitEntry = join(kitDir, "main.ts");

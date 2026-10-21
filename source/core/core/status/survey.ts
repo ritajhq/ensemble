@@ -1,6 +1,10 @@
 import { join, relative } from "@std/path";
 import { exists } from "@std/fs";
-import { EnsembleConfigStore, type LibConfig } from "../config.ts";
+import {
+  type BuildAppConfig,
+  EnsembleConfigStore,
+  type LibConfig,
+} from "../config.ts";
 import * as Deploy from "../deploy/index.ts";
 import * as Vendor from "../vendor/index.ts";
 import type { Builder } from "./builder.ts";
@@ -46,9 +50,20 @@ export class Survey {
     return builder.build();
   }
 
-  private apps(build: Record<string, { kit: string; target?: string }>): App[] {
+  /** Every app that builds as itself, and — for each library built through integrations — one row per integration. */
+  private apps(build: Record<string, BuildAppConfig>): App[] {
     return Object.entries(build)
-      .map(([name, app]) => ({ name, kit: app.kit, target: app.target }))
+      .flatMap(([name, app]): App[] => {
+        if (app.kit) return [{ name, kit: app.kit, target: app.target }];
+        return Object.entries(app.integrations ?? {}).map((
+          [deployKit, integration],
+        ) => ({
+          name: Deploy.integrationOf(name, deployKit),
+          kit: integration.kit,
+          target: integration.target,
+          integration: { kit: deployKit, app: name },
+        }));
+      })
       .sort(byName);
   }
 

@@ -17,4 +17,6 @@ export { relationalV1 } from "./seeds/relational.ts";
 export { storageVolumeV1 } from "./seeds/storage-volume.ts";
 export { gatewayV1 } from "./seeds/gateway.ts";
 export { objectStorageV1 } from "./seeds/object-storage.ts";
+export { keyValueV1 } from "./seeds/key-value.ts";
+export { functionV1 } from "./seeds/function.ts";
 export { SEEDED } from "./seeds/index.ts";

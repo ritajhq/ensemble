@@ -27,6 +27,8 @@ export interface RunPackOptions {
    * to none, i.e. every resolved dependency gets built here.
    */
   skipBuildingApps?: ReadonlySet<string>;
+  /** Packing for a deployment by this deploy kit: a ship packed once per integration builds and packs only that kit's (see `PackContext.deployKit`). Absent for `ens pack` and a release, which pack them all. */
+  deployKit?: string;
   /** Let the kit's own build tool print its normal output (e.g. `docker buildx build`'s progress log) instead of hiding it behind the pack spinner. `false` by default. */
   verbose?: boolean;
   /** How to report this pack's lifecycle to the terminal — ignored for `watch: true` or `verbose: true` (both have nothing sensible for a spinner to resolve against: a `--watch` kit never exits, and verbose output competes with it for the same line). Defaults to `PlainPackReporter`; the CLI passes `Host.AnimatedPackReporter` instead for an interactive terminal. */
@@ -95,6 +97,9 @@ export async function runPack(
     : [];
   const watchArgs = options.watch ? ["--watch"] : [];
   const verboseArgs = options.verbose ? ["--verbose"] : [];
+  const deployKitArgs = options.deployKit
+    ? ["--deploy-kit", options.deployKit]
+    : [];
 
   const envFile = join(workspace, "envs", "pack", `${shipName}.env`);
   const fileVars = await loadEnv({ envPath: envFile, export: false });
@@ -111,6 +116,7 @@ export async function runPack(
     kit,
     apps,
     ports,
+    options.deployKit,
   );
   for (const app of dependencies) {
     if (options.skipBuildingApps?.has(app)) continue;
@@ -153,6 +159,7 @@ export async function runPack(
       ...outputNameArgs,
       ...watchArgs,
       ...verboseArgs,
+      ...deployKitArgs,
       shipDir,
     ],
     { cwd: kitDir, env: packVars },

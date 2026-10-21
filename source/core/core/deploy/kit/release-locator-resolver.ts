@@ -12,7 +12,11 @@ import type { ArtifactLocator } from "./release-locator.ts";
  * render pass to consult.
  */
 export class ReleaseLocatorResolver {
-  constructor(private readonly gateway: PackKitGateway) {}
+  /** `deployKit` is the kit deploying, which picks its own integration's bundle out of a release that carries several. */
+  constructor(
+    private readonly gateway: PackKitGateway,
+    private readonly deployKit?: string,
+  ) {}
 
   async resolveAll(
     workload: Workload,
@@ -26,6 +30,7 @@ export class ReleaseLocatorResolver {
         release,
         artifacts,
         version,
+        this.deployKit,
       );
       resolved.set(name, { ref });
     }

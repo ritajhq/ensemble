@@ -10,6 +10,7 @@ source/
   apps/<name>/       # app source, one folder per deployable unit
   core/               # shared code that speaks your project's domain
   libs/               # generic, cross-project-reusable code
+  integrations/<kit>/<app>/  # an app wired for one deploy kit's platform (optional)
   artifacts/<name>/   # build output (gitignored), one folder per app
   ship/<name>/        # packaging inputs (Dockerfile, etc.) per pack target
 .ensemble/
@@ -51,6 +52,56 @@ if both get packed). `<name>` throughout the CLI (`ens build <app>`,
   logic lives in `.ensemble/kits`, behind a common contract. An app folder only
   ever states _which_ kit it uses, never _how_ that kit builds, packages, or
   deploys it. See [Kits](kits.md).
+
+## Integrations
+
+![What a deploy runs for an app: explicit steps in green, conventions in amber](../../assets/ens-integrations.svg)
+
+An app can stay free of every platform: its code takes the resources it needs as
+ports — a table, a bucket — and leaves where they come from to an
+**integration**, `source/integrations/<kit>/<app>`. An integration is the app's
+wiring for the platform one deploy kit deploys to: it builds the ports from that
+platform's resources (DynamoDB on `aws`, D1 on `cloudflare`), owns the
+dependencies that takes, and exports what the kit runs — for a `function`, a
+`main.js` default-exporting `{ fetch(request, env) }`, with `env` as the kit
+documents it.
+
+An app is built one of two ways, never both. A program on its own is
+`build.<app>.kit`, run as it is by whichever kit deploys it. A library is
+`build.<app>.integrations`, one entry per deploy kit it's wired for, each naming
+the build kit for that platform's runtime:
+
+```yaml
+build:
+  server:
+    integrations:
+      aws:
+        kit: deno.bundle
+      cloudflare:
+        kit: deno.bundle
+```
+
+Each integration is built like an app, under the name `integrations/<kit>/<app>`
+— its source at `source/integrations/<kit>/<app>`, its output at
+`source/artifacts/integrations/<kit>/<app>` — and `ens build
+<app>` builds every
+one of them. Wherever the manifest names the app — a release's ship, a
+`development.sync` rule — the kit deploying runs that app's integration for it,
+so one delivery manifest deploys to every platform an app is wired for, and a
+release carries one bundle per integration. Deploying with a kit the library has
+no integration for is an error: there is no main to run.
+
+A build kit builds the entry of the folder it's given, `main.ts`, into
+`main.js`; both names are Ensemble's (`KitSdk.Entry`), so no kit spells them out
+for itself, and deploy kits run `main.js`.
+`ens app create <build kit>
+<app> --integration <deploy kit>` scaffolds an
+integration for an existing app and registers it under
+`build.<app>.integrations`. The `integrations/` prefix is reserved: no app is
+named under it.
+
+Nothing here is an Ensemble API: the kit and the integration meet on a module
+shape and a documented `env`, and the ports are the project's own.
 
 ## `.ensemble/config.yaml` vs `.ensemble/config.local.yaml`
 

@@ -19,13 +19,14 @@ export class SubprocessPackKitGateway implements Deploy.PackKitGateway {
     release: Deploy.Release,
     artifacts: Deploy.ArtifactsSource,
     version: string,
+    deployKit?: string,
   ): Promise<string> {
     const kitDir = await this.resolveEntrypoint(release.kit, "describe");
     const denoExe = await resolveDenoExecutable();
 
     const ref = await $`${denoExe} run -A -q --minimum-dependency-age 0 ${
       join(kitDir, "describe.ts")
-    } ${this.contextArgs(releaseName, release, artifacts, version)}`
+    } ${this.contextArgs(releaseName, release, artifacts, version, deployKit)}`
       .cwd(kitDir)
       .text();
 
@@ -37,13 +38,14 @@ export class SubprocessPackKitGateway implements Deploy.PackKitGateway {
     release: Deploy.Release,
     artifacts: Deploy.ArtifactsSource,
     version: string,
+    deployKit?: string,
   ): Promise<Deploy.ReleaseAvailability> {
     const kitDir = await this.resolveEntrypoint(release.kit, "verify");
     const denoExe = await resolveDenoExecutable();
 
     const result = await $`${denoExe} run -A -q --minimum-dependency-age 0 ${
       join(kitDir, "verify.ts")
-    } ${this.contextArgs(releaseName, release, artifacts, version)}`
+    } ${this.contextArgs(releaseName, release, artifacts, version, deployKit)}`
       .cwd(kitDir)
       .stdout("piped")
       .stderr("piped")
@@ -73,6 +75,7 @@ export class SubprocessPackKitGateway implements Deploy.PackKitGateway {
     release: Deploy.Release,
     artifacts: Deploy.ArtifactsSource,
     version: string,
+    deployKit: string | undefined,
   ): string[] {
     const outputName = release.outputName ?? releaseName;
     const packageName = release.publish?.name ?? outputName;
@@ -91,6 +94,7 @@ export class SubprocessPackKitGateway implements Deploy.PackKitGateway {
       artifacts,
       "--options",
       JSON.stringify(options),
+      ...(deployKit ? ["--deploy-kit", deployKit] : []),
     ];
   }
 }

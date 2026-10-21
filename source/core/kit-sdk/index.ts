@@ -1,4 +1,5 @@
 export * as Build from "@ensemble/core/build-context";
+export * as Entry from "@ensemble/core/entry";
 export * as Pack from "@ensemble/core/pack-context";
 export * as Scaffold from "@ensemble/core/scaffold-context";
 export * as Deploy from "@ensemble/core/deploy";

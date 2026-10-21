@@ -26,6 +26,8 @@ export class RunPackReleasePacker implements Deploy.Terminations.ReleasePacker {
     private readonly verbose = false,
     private readonly reporter?: PackReporter,
     private readonly buildReporter?: BuildReporter,
+    /** The kit deploying what's packed, so a ship packed once per integration packs only its own. */
+    private readonly deployKit?: string,
   ) {}
 
   async pack(
@@ -39,6 +41,7 @@ export class RunPackReleasePacker implements Deploy.Terminations.ReleasePacker {
       verbose: this.verbose,
       reporter: this.reporter,
       buildReporter: this.buildReporter,
+      ...(this.deployKit ? { deployKit: this.deployKit } : {}),
     }, this.ports);
     if (code !== 0) {
       throw new Deploy.Terminations.ReleasePackError(

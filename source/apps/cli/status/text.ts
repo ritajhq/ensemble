@@ -9,11 +9,24 @@ export class Text extends Core.Status.Builder<string> {
 
   apps(apps: readonly Core.Status.App[]): void {
     this.section("Apps (build.<name> in .ensemble/config.yaml)");
-    if (apps.length === 0) this.lines.push("  (none configured)");
-    for (const app of apps) {
+    const own = apps.filter((app) => !app.integration);
+    if (own.length === 0) this.lines.push("  (none configured)");
+    for (const app of own) {
       this.lines.push(
         `  ${app.name} — kit ${app.kit}${
           app.target ? ` (target ${app.target})` : ""
+        }`,
+      );
+    }
+    const integrations = apps.filter((app) => app.integration);
+    if (integrations.length === 0) return;
+    this.section(
+      "Integrations (build.integrations/<kit>/<app> in .ensemble/config.yaml)",
+    );
+    for (const { integration, kit, target } of integrations) {
+      this.lines.push(
+        `  ${integration!.app} on ${integration!.kit} — kit ${kit}${
+          target ? ` (target ${target})` : ""
         }`,
       );
     }

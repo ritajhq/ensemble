@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1519" height="1492" viewBox="-76 0 1519 1492" font-family="'DejaVu Sans Mono', 'Menlo', 'Consolas', 'Liberation Mono', 'Courier New', monospace" font-size="14px">
+  <defs>
+    <marker id="arrow-5c5c7c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#5c5c7c"/>
+    </marker>
+    <marker id="arrow-5c5c7c-back" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#5c5c7c"/>
+    </marker>
+  </defs>
+  <rect x="-76" y="0" width="1519" height="1492" fill="#111111"/>
+  <g font-size="17px">
+  <text x="353.98" y="130.95" fill="#d9d9d9" text-anchor="start">What a deploy runs for an app</text>
+  </g>
+  <path d="M767.98 40 H1101.98 a8 8 0 0 1 8 8 V202 a8 8 0 0 1 -8 8 H767.98 a8 8 0 0 1 -8 -8 V48 a8 8 0 0 1 8 -8 Z" fill="none" stroke="none"/>
+
+  <path d="M781.98 54 H1087.98 a8 8 0 0 1 8 8 V112 a8 8 0 0 1 -8 8 H781.98 a8 8 0 0 1 -8 -8 V62 a8 8 0 0 1 8 -8 Z" fill="#142814" stroke="#486544"/>
+  <text x="934.98" y="82.4" fill="#d9d9d9" text-anchor="middle">explicit — written in the manifest,</text>
+  <text x="934.98" y="101.4" fill="#d9d9d9" text-anchor="middle">config.yaml or the code</text>
+  <path d="M781.98 130 H1029.98 a8 8 0 0 1 8 8 V188 a8 8 0 0 1 -8 8 H781.98 a8 8 0 0 1 -8 -8 V138 a8 8 0 0 1 8 -8 Z" fill="#2b1d0e" stroke="#d2904e"/>
+  <text x="905.98" y="158.4" fill="#d9d9d9" text-anchor="middle">convention — read off a name</text>
+  <text x="905.98" y="177.4" fill="#d9d9d9" text-anchor="middle">or a path, or only agreed on</text>
+  <path d="M340.48 246.5 H663.48 a8 8 0 0 1 8 8 V304.5 a8 8 0 0 1 -8 8 H340.48 a8 8 0 0 1 -8 -8 V254.5 a8 8 0 0 1 8 -8 Z" fill="#142814" stroke="#486544"/>
+  <text x="501.98" y="274.9" fill="#d9d9d9" text-anchor="middle">A release ships app server</text>
+  <text x="501.98" y="293.9" fill="#d9d9d9" text-anchor="middle">ci/&lt;name&gt;/delivery.yml, its ship file</text>
+  <path d="M335.98 422.5 H667.98 a8 8 0 0 1 8 8 V480.5 a8 8 0 0 1 -8 8 H335.98 a8 8 0 0 1 -8 -8 V430.5 a8 8 0 0 1 8 -8 Z" fill="#142814" stroke="#486544"/>
+  <text x="501.98" y="450.9" fill="#d9d9d9" text-anchor="middle">The kit deploying it</text>
+  <text x="501.98" y="469.9" fill="#d9d9d9" text-anchor="middle">config.yaml's deploy.&lt;name&gt;.kit, or -k</text>
+  <path d="M414 632.48 a87.98 87.98 0 1 0 175.96 0 a87.98 87.98 0 1 0 -175.96 0 Z" fill="#142814" stroke="#486544"/>
+  <text x="501.98" y="627.88" fill="#d9d9d9" text-anchor="middle">build.server</text>
+  <text x="501.98" y="646.88" fill="#d9d9d9" text-anchor="middle">has integrations?</text>
+  <path d="M48 599.48 H296 a8 8 0 0 1 8 8 V657.48 a8 8 0 0 1 -8 8 H48 a8 8 0 0 1 -8 -8 V607.48 a8 8 0 0 1 8 -8 Z" fill="#142814" stroke="#486544"/>
+  <text x="172" y="627.88" fill="#d9d9d9" text-anchor="middle">Build the app itself</text>
+  <text x="172" y="646.88" fill="#d9d9d9" text-anchor="middle">build.server.kit — a program</text>
+  <path d="M434.03 869.82 a67.96 67.96 0 1 0 135.91 0 a67.96 67.96 0 1 0 -135.91 0 Z" fill="#142814" stroke="#486544"/>
+  <text x="501.98" y="865.22" fill="#d9d9d9" text-anchor="middle">integrations</text>
+  <text x="501.98" y="884.22" fill="#d9d9d9" text-anchor="middle">.&lt;kit&gt;?</text>
+  <path d="M119.03 836.82 H308.03 L324.03 852.82 V894.82 a8 8 0 0 1 -8 8 H119.03 a8 8 0 0 1 -8 -8 V844.82 a8 8 0 0 1 8 -8 Z" fill="#142814" stroke="#486544"/>
+  <path d="M308.03 836.82 V852.82 H324.03" fill="none" stroke="#486544"/>
+  <text x="217.53" y="865.22" fill="#d9d9d9" text-anchor="middle">Error — a library</text>
+  <text x="217.53" y="884.22" fill="#d9d9d9" text-anchor="middle">with none for this kit</text>
+  <path d="M356.98 1019.17 H646.98 a8 8 0 0 1 8 8 V1077.17 a8 8 0 0 1 -8 8 H356.98 a8 8 0 0 1 -8 -8 V1027.17 a8 8 0 0 1 8 -8 Z" fill="#142814" stroke="#486544"/>
+  <text x="501.98" y="1047.57" fill="#d9d9d9" text-anchor="middle">Its build kit, as configured</text>
+  <text x="501.98" y="1066.57" fill="#d9d9d9" text-anchor="middle">node on aws, worker on cloudflare</text>
+  <path d="M314.98 1141.17 H688.98 a8 8 0 0 1 8 8 V1199.17 a8 8 0 0 1 -8 8 H314.98 a8 8 0 0 1 -8 -8 V1149.17 a8 8 0 0 1 8 -8 Z" fill="#2b1d0e" stroke="#d2904e"/>
+  <text x="501.98" y="1169.57" fill="#d9d9d9" text-anchor="middle">main.ts becomes main.js, both named by core</text>
+  <text x="501.98" y="1188.57" fill="#d9d9d9" text-anchor="middle">in source/integrations/&lt;kit&gt;/server</text>
+  <path d="M335.98 1263.17 H659.98 L675.98 1279.17 V1321.17 a8 8 0 0 1 -8 8 H335.98 a8 8 0 0 1 -8 -8 V1271.17 a8 8 0 0 1 8 -8 Z" fill="#142814" stroke="#486544"/>
+  <path d="M659.98 1263.17 V1279.17 H675.98" fill="none" stroke="#486544"/>
+  <text x="501.98" y="1291.57" fill="#d9d9d9" text-anchor="middle">A bundle whose main.js default-exports</text>
+  <text x="501.98" y="1310.57" fill="#d9d9d9" text-anchor="middle">{ fetch(request, env) } — function.v1</text>
+  <path d="M306.98 1385.17 H696.98 a8 8 0 0 1 8 8 V1443.17 a8 8 0 0 1 -8 8 H306.98 a8 8 0 0 1 -8 -8 V1393.17 a8 8 0 0 1 8 -8 Z" fill="#142814" stroke="#486544"/>
+  <text x="501.98" y="1413.57" fill="#d9d9d9" text-anchor="middle">The kit runs it: aws adds its Lambda adapter,</text>
+  <text x="501.98" y="1432.57" fill="#d9d9d9" text-anchor="middle">cloudflare runs it as a Worker</text>
+  <path d="M849.38 742.14 H1394.38 a8 8 0 0 1 8 8 V1123.54 a8 8 0 0 1 -8 8 H849.38 a8 8 0 0 1 -8 -8 V750.14 a8 8 0 0 1 8 -8 Z" fill="#191920" stroke="#25242f"/>
+  <text x="855.38" y="770.54" fill="#d9d9d9" text-anchor="start">What the integration imports (project code)</text>
+  <path d="M863.38 785.14 H1153.38 a8 8 0 0 1 8 8 V843.14 a8 8 0 0 1 -8 8 H863.38 a8 8 0 0 1 -8 -8 V793.14 a8 8 0 0 1 8 -8 Z" fill="#2b1d0e" stroke="#d2904e"/>
+  <text x="1008.38" y="813.54" fill="#d9d9d9" text-anchor="middle">integrations/&lt;kit&gt;/server/main.ts</text>
+  <text x="1008.38" y="832.54" fill="#d9d9d9" text-anchor="middle">builds the ports from env</text>
+  <path d="M880.38 929.54 H1136.38 a8 8 0 0 1 8 8 V987.54 a8 8 0 0 1 -8 8 H880.38 a8 8 0 0 1 -8 -8 V937.54 a8 8 0 0 1 8 -8 Z" fill="#2b1d0e" stroke="#d2904e"/>
+  <text x="1008.38" y="957.94" fill="#d9d9d9" text-anchor="middle">apps/server</text>
+  <text x="1008.38" y="976.94" fill="#d9d9d9" text-anchor="middle">new Api(ports).fetch(request)</text>
+  <path d="M1208.38 929.54 H1380.38 a8 8 0 0 1 8 8 V987.54 a8 8 0 0 1 -8 8 H1208.38 a8 8 0 0 1 -8 -8 V937.54 a8 8 0 0 1 8 -8 Z" fill="#2b1d0e" stroke="#d2904e"/>
+  <text x="1294.38" y="957.94" fill="#d9d9d9" text-anchor="middle">@ensemble-adapters/</text>
+  <text x="1294.38" y="976.94" fill="#d9d9d9" text-anchor="middle">&lt;provider&gt;-&lt;tech&gt;</text>
+  <path d="M1023.38 1051.54 H1237.38 a8 8 0 0 1 8 8 V1109.54 a8 8 0 0 1 -8 8 H1023.38 a8 8 0 0 1 -8 -8 V1059.54 a8 8 0 0 1 8 -8 Z" fill="#2b1d0e" stroke="#d2904e"/>
+  <text x="1130.38" y="1079.94" fill="#d9d9d9" text-anchor="middle">@ensemble-adapters/core</text>
+  <text x="1130.38" y="1098.94" fill="#d9d9d9" text-anchor="middle">Table, Bucket: the ports</text>
+  <g font-size="12px">
+  <text x="963.38" y="1253.74" fill="#8b8b8b" text-anchor="start">Of this side Ensemble checks only the bundle</text>
+  <text x="963.38" y="1269.74" fill="#8b8b8b" text-anchor="start">it builds into. The app's shape and the</text>
+  <text x="963.38" y="1285.74" fill="#8b8b8b" text-anchor="start">adapters' names are the project's own</text>
+  <text x="963.38" y="1301.74" fill="#8b8b8b" text-anchor="start">convention.</text>
+  </g>
+  <path d="M764.36 599.48 H1230.36 L1246.36 615.48 V657.48 a8 8 0 0 1 -8 8 H764.36 a8 8 0 0 1 -8 -8 V607.48 a8 8 0 0 1 8 -8 Z" fill="#142814" stroke="#486544"/>
+  <path d="M1230.36 599.48 V615.48 H1246.36" fill="none" stroke="#486544"/>
+  <text x="1001.36" y="627.88" fill="#d9d9d9" text-anchor="middle">kit and integrations together, or neither, is an error:</text>
+  <text x="1001.36" y="646.88" fill="#d9d9d9" text-anchor="middle">an app is a program or a library, never both</text>
+  <line x1="501.98" y1="312.5" x2="501.98" y2="422.5" stroke="#5c5c7c" stroke-width="1.6" marker-end="url(#arrow-5c5c7c)"/>
+  <line x1="501.98" y1="488.5" x2="501.98" y2="544.5" stroke="#5c5c7c" stroke-width="1.6" marker-end="url(#arrow-5c5c7c)"/>
+  <path d="M 414 632.48 C 370 632.48, 348 632.48, 304 632.48" fill="none" stroke="#5c5c7c" stroke-width="1.6" marker-end="url(#arrow-5c5c7c)"/>
+  <rect x="345.5" y="622.98" width="27" height="19" fill="#111111"/>
+  <text x="359" y="637.38" fill="#d9d9d9" text-anchor="middle">no</text>
+  <line x1="501.98" y1="720.46" x2="501.98" y2="801.86" stroke="#5c5c7c" stroke-width="1.6" marker-end="url(#arrow-5c5c7c)"/>
+  <rect x="483.98" y="751.66" width="36" height="19" fill="#111111"/>
+  <text x="501.98" y="766.06" fill="#d9d9d9" text-anchor="middle">yes</text>
+  <path d="M 434.03 869.82 C 390.03 869.82, 368.03 869.82, 324.03 869.82" fill="none" stroke="#5c5c7c" stroke-width="1.6" marker-end="url(#arrow-5c5c7c)"/>
+  <rect x="365.53" y="860.32" width="27" height="19" fill="#111111"/>
+  <text x="379.03" y="874.72" fill="#d9d9d9" text-anchor="middle">no</text>
+  <line x1="501.98" y1="937.77" x2="501.98" y2="1019.17" stroke="#5c5c7c" stroke-width="1.6" marker-end="url(#arrow-5c5c7c)"/>
+  <rect x="483.98" y="968.97" width="36" height="19" fill="#111111"/>
+  <text x="501.98" y="983.37" fill="#d9d9d9" text-anchor="middle">yes</text>
+  <line x1="501.98" y1="1085.17" x2="501.98" y2="1141.17" stroke="#5c5c7c" stroke-width="1.6" marker-end="url(#arrow-5c5c7c)"/>
+  <line x1="501.98" y1="1207.17" x2="501.98" y2="1263.17" stroke="#5c5c7c" stroke-width="1.6" marker-end="url(#arrow-5c5c7c)"/>
+  <path d="M 172 665.48 L 172 676.68 C 172 687.73, 163.05 696.68, 152 696.68 L 53.03 696.68 C 41.98 696.68, 33.03 705.64, 33.03 716.68 L 33.03 1276.17 C 33.03 1287.22, 41.98 1296.17, 53.03 1296.17 L 327.98 1296.17" fill="none" stroke="#5c5c7c" stroke-width="1.6" marker-end="url(#arrow-5c5c7c)"/>
+  <rect x="-34.97" y="986.93" width="136" height="19" fill="#111111"/>
+  <text x="33.03" y="1001.33" fill="#d9d9d9" text-anchor="middle">its own main.js</text>
+  <line x1="501.98" y1="1329.17" x2="501.98" y2="1385.17" stroke="#5c5c7c" stroke-width="1.6" marker-end="url(#arrow-5c5c7c)"/>
+  <path d="M 589.96 632.48 C 656.52 632.48, 689.8 632.48, 756.36 632.48" fill="none" stroke="#5c5c7c" stroke-width="1.6" stroke-dasharray="6.4 4.8" marker-end="url(#arrow-5c5c7c)"/>
+  <rect x="621.16" y="624.48" width="104" height="16" fill="#111111"/>
+  <g font-size="12px">
+  <text x="673.16" y="636.68" fill="#8b8b8b" text-anchor="middle">checked first</text>
+  </g>
+  <line x1="1008.38" y1="851.14" x2="1008.38" y2="929.54" stroke="#5c5c7c" stroke-width="1.6" marker-end="url(#arrow-5c5c7c)"/>
+  <rect x="959.88" y="882.34" width="97" height="16" fill="#111111"/>
+  <g font-size="12px">
+  <text x="1008.38" y="894.54" fill="#8b8b8b" text-anchor="middle">package.json</text>
+  </g>
+  <path d="M 1161.38 818.14 C 1230.78 818.14, 1294.38 860.14, 1294.38 929.54" fill="none" stroke="#5c5c7c" stroke-width="1.6" marker-end="url(#arrow-5c5c7c)"/>
+  <line x1="1041.38" y1="995.54" x2="1097.38" y2="1051.54" stroke="#5c5c7c" stroke-width="1.6" marker-end="url(#arrow-5c5c7c)"/>
+  <line x1="1250.02" y1="995.54" x2="1174.74" y2="1051.54" stroke="#5c5c7c" stroke-width="1.6" marker-end="url(#arrow-5c5c7c)"/>
+  <path d="M 841.38 936.84 C 730.26 936.84, 808.11 1174.17, 696.98 1174.17" fill="none" stroke="#5c5c7c" stroke-width="1.6" stroke-dasharray="6.4 4.8" marker-end="url(#arrow-5c5c7c)"/>
+  <rect x="728.18" y="1047.51" width="82" height="16" fill="#111111"/>
+  <g font-size="12px">
+  <text x="769.18" y="1059.71" fill="#8b8b8b" text-anchor="middle">built from</text>
+  </g>
+</svg>

@@ -203,21 +203,28 @@ Deno.test("aws kit: present() never emits YAML anchors/aliases, even though DbPa
   assertEquals(/[&*]ref_\d/.test(presented.content), false);
 });
 
-Deno.test("aws kit: applyCommand runs cloudformation deploy scoped by the deployment's own stack name", async () => {
-  assertEquals(
-    await awsKit.applyCommand("/tmp/template.yaml", "phase7-smoke-test"),
-    [
-      "aws",
-      "cloudformation",
-      "deploy",
-      "--template-file",
-      "/tmp/template.yaml",
-      "--stack-name",
-      "phase7-smoke-test",
-      "--capabilities",
-      "CAPABILITY_NAMED_IAM",
-    ],
+Deno.test("aws kit: applyCommand runs the kit's own apply script against the template, scoped by the deployment's own stack name", async () => {
+  const [executable, ...args] = await awsKit.applyCommand(
+    "/tmp/template.yaml",
+    "phase7-smoke-test",
   );
+
+  assertEquals(executable, Deno.execPath());
+  assertEquals(args.slice(0, 2), ["run", "-A"]);
+  assertEquals(args.at(-3)?.endsWith("/apply.ts"), true);
+  assertEquals(args.slice(-2), ["/tmp/template.yaml", "phase7-smoke-test"]);
+});
+
+Deno.test("aws kit: watchCommand runs the kit's own watch script against the template, scoped by the stack name", async () => {
+  const [executable, ...args] = (await awsKit.watchCommand!(
+    "/tmp/template.yaml",
+    "phase7-smoke-test",
+  ))!;
+
+  assertEquals(executable, Deno.execPath());
+  assertEquals(args.slice(0, 2), ["run", "-A"]);
+  assertEquals(args.at(-3)?.endsWith("/watch.ts"), true);
+  assertEquals(args.slice(-2), ["/tmp/template.yaml", "phase7-smoke-test"]);
 });
 
 Deno.test("aws kit: rendering the same workload twice produces byte-identical presented content (G5)", async () => {

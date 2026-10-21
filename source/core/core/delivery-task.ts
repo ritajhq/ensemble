@@ -15,7 +15,7 @@ import {
 } from "./task-snapshot.ts";
 import type { Instance } from "./instance.ts";
 import type { RepoLocator } from "./ports.ts";
-import type { EnvFile } from "./env-files.ts";
+import type { EnvFiles } from "./env-files.ts";
 
 /** Thrown when a task name is asked for that the workload doesn't declare — an ordinary typo, named against the tasks that *are* declared. */
 export class UnknownTaskError extends Error {
@@ -46,7 +46,7 @@ export interface RunDeliveryTaskOptions {
   /** Only meaningful if a task argument references `${release.<name>}` for published artifacts — same convention as `ens deploy --version`. */
   readonly version: string;
   /** Same as `RunDeployOptions.envFiles`. */
-  readonly envFiles: readonly EnvFile[];
+  readonly envFiles: EnvFiles;
   /** The instance of the workload whose deployment the task acts on (`ens deploy --instance`); absent is its plain deployment. */
   readonly instance?: Instance;
 }
@@ -270,7 +270,10 @@ async function argumentsFromRender(
   );
   const rendered = needsArtifact ? workload : scopeTo(workload, references);
 
-  const locatorResolver = new Deploy.ReleaseLocatorResolver(deps.gateway);
+  const locatorResolver = new Deploy.ReleaseLocatorResolver(
+    deps.gateway,
+    context.kit,
+  );
   const releaseLocator = new Deploy.PreresolvedReleaseLocator(
     await locatorResolver.resolveAll(
       rendered,

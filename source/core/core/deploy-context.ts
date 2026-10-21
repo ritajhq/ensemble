@@ -2,7 +2,7 @@ import { basename, join, normalize, relative } from "@std/path";
 import { exists } from "@std/fs";
 import * as Deploy from "./deploy/index.ts";
 import type { RepoLocator } from "./ports.ts";
-import { DeploymentEnvironment, type EnvFile } from "./env-files.ts";
+import { DeploymentEnvironment, type EnvFiles } from "./env-files.ts";
 import { DeployKitChoice } from "./deploy-kit-choice.ts";
 
 /**
@@ -151,7 +151,7 @@ export function deploymentNameFor(repoRoot: string, name: string): string {
 
 export interface WorkloadLoadOptions {
   /** Env files supplying values beneath the process environment — see `DeploymentEnvironment`. Empty for a real pipeline. */
-  readonly envFiles: readonly EnvFile[];
+  readonly envFiles: EnvFiles;
   /** The kit to use when neither the command nor `.ensemble/config.yaml` names one (`ens develop`'s compose). None: one of them has to. */
   readonly fallbackKit?: string;
 }
@@ -175,7 +175,11 @@ export async function loadWorkload(
     options.fallbackKit,
   );
   const environment = new DeploymentEnvironment(repoRoot);
-  await environment.load(options.envFiles);
+  await environment.load(
+    typeof options.envFiles === "function"
+      ? options.envFiles(kit)
+      : options.envFiles,
+  );
 
   const workloadDir = join(repoRoot, "ci", name);
   const manifestPath = await new Deploy.Manifest.Locator().find(workloadDir);

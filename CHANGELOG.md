@@ -1,25 +1,52 @@
-## [0.55.1] - 2026-10-20
-
-### ⚙️ Miscellaneous Tasks
-
-- *(release)* Bump library versions for 0.55.1
-## [0.55.0] - 2026-10-20
+## [0.56.0] - 2026-10-20
 
 ### 🚀 Features
 
-- *(compose)* Restart a critical gateway or object storage after a crash or a reboot, as every other critical resource
-- *(deploy)* Deliver a container's files from the project, read by core and mounted by compose as content-named configs
+- *(source/core)* Add platform-neutral function and key-value contracts
+- Add contents, cors and development to object-storage
+- *(.ensemble/kits)* Adapt function bundles to lambda on aws
+- *(.ensemble/kits)* Provision functions, key-value tables and gateways on aws
+- *(.ensemble/kits)* Fill buckets from contents, render their cors and sync rules on aws
+- Give object-storage a publicUrl output, the bucket as a browser reaches it
+- *(.ensemble/kits)* Deploy aws stacks through the kit's own scripts and keep functions and buckets in sync under ens develop
+- Load a kit's own env file under ens develop
+- *(.ensemble/kits)* Deploy to cloudflare workers, d1 and r2
+- *(source/core)* Build and deploy each app's integration for the kit deploying it
+- *(.ensemble/kits)* Run each app's own integration, one bundle per integration
+- *(.ensemble/kits)* Let deno.compile compile an integration as well as an app
+- Scaffold integrations and list them apart from apps
+- *(source/core)* Declare an app's integrations in config.yaml, as a library or a program, never both
 
 ### 🐛 Bug Fixes
 
-- *(platform)* Run each run in its checkout at the host's path, so files a deployment mounts from it reach the host's Docker daemon
+- *(.ensemble/kits)* Clean up after adapting bundles on aws
+- *(source/core)* Refuse an integration with nothing to build it, and reserve its prefix
+- *(.ensemble/kits)* Find the repo from the rendered artifact instead of guessing
+
+### 📚 Documentation
+
+- Describe how the aws kit syncs functions and buckets under ens develop
+- *(source/core)* Describe gateway routes to buckets and the kits that route them
+- *(docs/documentation)* Describe integrations
+- Draw what a deploy runs for an app, explicit steps against conventions
+- Redraw what a deploy runs for an app with the integrations in config.yaml
+
+### ⚡ Performance
+
+- *(source/core)* Pack only the deploying kit's integration
+
+### 🚜 Refactor
+
+- *(.ensemble/kits)* Run the function bundle's entry as core names it
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(changelog)* Update for 0.54.0
-- *(platform)* Render the stack's compose file with its runs' data volume
-- Update lockfile
-- *(release)* Bump library versions for 0.55.0
+- *(.ensemble)* Deploy the platform and the website through compose by default
+- *(release)* Bump library versions for 0.56.0
+
+### 💼 Other
+
+- *(.ensemble/kits)* Keep the aws kit's lambda runtime out of deno's checks
 ## [0.54.0] - 2026-10-17
 
 ### 🚀 Features

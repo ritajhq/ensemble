@@ -20,6 +20,11 @@ build:
       format: cjs
       external:
         - vscode
+deploy:
+  platform:
+    kit: compose
+  website:
+    kit: compose
 publish:
   core:
     - name: core

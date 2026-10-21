@@ -1,13 +1,26 @@
 import { join } from "@std/path";
 import { exists } from "@std/fs";
 import { parse as parseYaml, stringify as stringifyYaml } from "@std/yaml";
+import { parseIntegration } from "./deploy/integration-name.ts";
 
-export interface BuildAppConfig {
+/** How one unit is built: the build kit, its static variant and its own settings — what `build.<app>` holds for an app that builds itself, and `build.<app>.integrations.<deploy kit>` for each of an app's integrations. */
+export interface BuildConfig {
   kit: string;
   /** Static, kit-interpreted build variant (e.g. "ssr" for the `react` kit) — a fact about what the app is, not a per-run override, so it lives here rather than as a `-v` var. */
   target?: string;
-  /** Kit-interpreted settings (e.g. the `deno.bundle` kit's `format`/`external`) — passed through to the kit untouched, so core never needs to learn a kit's knobs. */
+  /** Kit-interpreted settings (e.g. the `node` kit's `format`/`external`) — passed through to the kit untouched, so core never needs to learn a kit's knobs. */
   options?: Record<string, unknown>;
+}
+
+/**
+ * An app is built one of two ways, never both: as itself (`kit`, with its
+ * own `target` and `options`), a program on its own; or as a library built
+ * only through its `integrations` — one per deploy kit it runs on, each
+ * with the build kit that builds that platform's wiring
+ * (`source/integrations/<deploy kit>/<app>`, see `./deploy/integration.ts`).
+ */
+export interface BuildAppConfig extends Partial<BuildConfig> {
+  integrations?: Record<string, BuildConfig>;
 }
 
 /** A named shell command, so `ens` can announce which hook is running without printing its whole script. */
@@ -156,20 +169,67 @@ export class EnsembleConfigStore {
     );
   }
 
+  /** `name`'s `build` entry, checked: a `kit` or `integrations` (not both, not neither), and each integration a `kit` of its own. */
   getAppBuildConfig(config: EnsembleConfig, name: string): BuildAppConfig {
     const appConfig = config.build?.[name];
     if (!appConfig) {
       throw new Error(
         `No build configuration found for app "${name}" ` +
-          `(expected a "build.${name}.kit" entry in .ensemble/config.yaml)`,
+          `(expected a "build.${name}.kit" or "build.${name}.integrations" entry in .ensemble/config.yaml)`,
       );
     }
-    if (!appConfig.kit) {
+    const { kit, integrations } = appConfig;
+    if (kit && integrations) {
       throw new Error(
-        `App "${name}" is missing a "kit" property in .ensemble/config.yaml`,
+        `App "${name}" has both a "kit" and "integrations" in .ensemble/config.yaml: it's built as itself, ` +
+          `or as a library through its integrations, never both.`,
       );
+    }
+    if (!kit && !integrations) {
+      throw new Error(
+        `App "${name}" is missing a "kit" (or "integrations") property in .ensemble/config.yaml`,
+      );
+    }
+    for (const [deployKit, integration] of Object.entries(integrations ?? {})) {
+      if (!integration?.kit) {
+        throw new Error(
+          `App "${name}"'s integration for "${deployKit}" is missing a "kit" in .ensemble/config.yaml`,
+        );
+      }
     }
     return appConfig;
+  }
+
+  /**
+   * What `unit` is built with: an app's own build, or — for a unit named
+   * `integrations/<deploy kit>/<app>` — that app's integration for the
+   * deploy kit.
+   */
+  getUnitBuildConfig(config: EnsembleConfig, unit: string): BuildConfig {
+    const integration = parseIntegration(unit);
+    if (!integration) {
+      const app = this.getAppBuildConfig(config, unit);
+      if (!app.kit) {
+        throw new Error(
+          `App "${unit}" is a library built through its integrations (${
+            Object.keys(app.integrations!).join(", ")
+          }), not as itself.`,
+        );
+      }
+      return {
+        kit: app.kit,
+        ...(app.target ? { target: app.target } : {}),
+        ...(app.options ? { options: app.options } : {}),
+      };
+    }
+    const built = this.getAppBuildConfig(config, integration.app).integrations
+      ?.[integration.kit];
+    if (!built) {
+      throw new Error(
+        `App "${integration.app}" has no integration for "${integration.kit}" under build.${integration.app}.integrations in .ensemble/config.yaml`,
+      );
+    }
+    return built;
   }
 
   /**
@@ -206,6 +266,58 @@ export class EnsembleConfigStore {
       build: {
         ...existingConfig.build,
         [appName]: target ? { kit, target } : { kit },
+      },
+    };
+    await Deno.writeTextFile(
+      path,
+      stringifyYaml(config as unknown as Record<string, unknown>),
+    );
+  }
+
+  /**
+   * Sets build.<app>.integrations.<deployKit>.kit in .ensemble/config.yaml —
+   * the app's wiring for that deploy kit, built by the build kit `kit` —
+   * creating the file and the entry if need be and preserving the rest. An
+   * app built as itself (`build.<app>.kit`) takes none: it's a program, not
+   * a library. A plain parse-modify-rewrite, so hand-written comments are
+   * not preserved.
+   */
+  async setAppIntegration(
+    appName: string,
+    deployKit: string,
+    kit: string,
+  ): Promise<void> {
+    const kitEntry = join(
+      this.repoRoot,
+      ".ensemble",
+      "kits",
+      "build",
+      kit,
+      "main.ts",
+    );
+    if (!await exists(kitEntry, { isFile: true })) {
+      throw new Error(`Build kit "${kit}" not found (expected ${kitEntry})`);
+    }
+
+    const path = this.configPath;
+    const existingConfig: EnsembleConfig = await exists(path, { isFile: true })
+      ? ((parseYaml(await Deno.readTextFile(path)) ?? {}) as EnsembleConfig)
+      : {};
+    const existing = existingConfig.build?.[appName];
+    if (existing?.kit) {
+      throw new Error(
+        `App "${appName}" is built as itself (build.${appName}.kit: ${existing.kit}): ` +
+          `an app with integrations is a library, built only through them.`,
+      );
+    }
+
+    const config: EnsembleConfig = {
+      ...existingConfig,
+      build: {
+        ...existingConfig.build,
+        [appName]: {
+          integrations: { ...existing?.integrations, [deployKit]: { kit } },
+        },
       },
     };
     await Deno.writeTextFile(

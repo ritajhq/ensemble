@@ -73,19 +73,39 @@ Deno.test("DeploymentEnvironment.load: a required file that doesn't exist fails"
   });
 });
 
-Deno.test("DeploymentEnvironment.load: develop's conventional files are optional, and both are read", async () => {
-  await withoutEnv(["DOMAIN", "PGPASSWORD"], async () => {
+Deno.test("DeploymentEnvironment.load: develop's conventional files are optional, and all are read", async () => {
+  await withoutEnv(["DOMAIN", "AWS_ENDPOINT_URL", "PGPASSWORD"], async () => {
     await withRepo({
       "ci/portal/dev.env": "domain=lvh.me\n",
+      "ci/portal/aws.env": "aws_endpoint_url=http://localhost:4566\n",
       ".ensemble/deploy/portal/secrets.env": "pgpassword=hunter2\n",
     }, async (environment) => {
-      await environment.load(DeploymentEnvironment.developConvention("portal"));
+      await environment.load(
+        DeploymentEnvironment.developConvention("portal", "aws"),
+      );
       assertEquals(Deno.env.get("DOMAIN"), "lvh.me");
+      assertEquals(Deno.env.get("AWS_ENDPOINT_URL"), "http://localhost:4566");
       assertEquals(Deno.env.get("PGPASSWORD"), "hunter2");
     });
     await withRepo({}, async (environment) => {
-      await environment.load(DeploymentEnvironment.developConvention("portal"));
+      await environment.load(
+        DeploymentEnvironment.developConvention("portal", "aws"),
+      );
     });
+  });
+});
+
+Deno.test("DeploymentEnvironment.load: develop reads only the deploying kit's own file", async () => {
+  await withoutEnv(["AWS_ENDPOINT_URL"], async () => {
+    await withRepo(
+      { "ci/portal/aws.env": "aws_endpoint_url=http://localhost:4566\n" },
+      async (environment) => {
+        await environment.load(
+          DeploymentEnvironment.developConvention("portal", "cloudflare"),
+        );
+        assertEquals(Deno.env.get("AWS_ENDPOINT_URL"), undefined);
+      },
+    );
   });
 });
 

@@ -10,7 +10,7 @@ import { IngressFile, IngressRecorder } from "./ingress-record.ts";
 import { RunPackReleasePacker } from "./release-packer.ts";
 import { runBuild } from "./build.ts";
 import type { Ports } from "./ports.ts";
-import type { EnvFile } from "./env-files.ts";
+import type { EnvFiles } from "./env-files.ts";
 import type { Instance } from "./instance.ts";
 import type { PackReporter } from "./pack-reporter.ts";
 import type { BuildReporter } from "./build-reporter.ts";
@@ -29,8 +29,8 @@ export interface RunDeployOptions {
   /** What the deployment is brought up for (`--mode`), handed to every provisioner: `development` lets a kit add what only a developer needs (host access, `development` blocks) to the same topology `deployment` renders. Independent of `artifacts` and `watch`. */
   mode: Deploy.Mode;
   acceptCapabilityGaps: boolean;
-  /** Env files supplying values beneath the process environment (`--env-file`; `ens develop`'s conventional pair). Empty for a real pipeline, which exports every value itself. */
-  envFiles: readonly EnvFile[];
+  /** Env files supplying values beneath the process environment (`--env-file`; `ens develop`'s conventional files). Empty for a real pipeline, which exports every value itself. */
+  envFiles: EnvFiles;
   /** Run the kit's long-lived watch command instead of a one-shot apply, torn down cleanly on SIGINT. Also starts one companion `ens build --watch` per app any resource's `development.sync` references, so the kit's own sync has freshly built output to copy — both torn down together. Ignored by `eject`/`plan`. */
   watch: boolean;
   /** Pack the referenced releases before a local apply. `true` by default; ignored for published artifacts. */
@@ -151,7 +151,7 @@ export async function runDeploy(
   );
   const { repoRoot, workload, target, registry, kit } = context;
 
-  const locatorResolver = new Deploy.ReleaseLocatorResolver(gateway);
+  const locatorResolver = new Deploy.ReleaseLocatorResolver(gateway, kit);
   const releaseLocator = new Deploy.PreresolvedReleaseLocator(
     await locatorResolver.resolveAll(
       workload,
@@ -199,8 +199,16 @@ export async function runDeploy(
     new IngressRecorder(IngressFile.for(repoRoot, scope, kit), deploymentName),
   );
 
+  // What a sync rule names is an app; what the kit deploying runs for it is
+  // that app's integration for the kit, when the project has one.
   const watchedApps = options.watch
-    ? Deploy.discoverWatchedApps(workload)
+    ? new Set(
+      await Promise.all(
+        [...Deploy.discoverWatchedApps(workload)].map((app) =>
+          Deploy.buildUnitFor(repoRoot, app, kit)
+        ),
+      ),
+    )
     : new Set<string>();
 
   // A watch session's console is for what the developer opens; the target's
@@ -213,7 +221,7 @@ export async function runDeploy(
     new Deploy.Terminations.Ejector(sink),
     new Deploy.Terminations.Planner(cache),
     new Deploy.Terminations.Applier(sink, cache, undefined, deployed),
-    new Deploy.Terminations.ReleaseAvailabilityPreflight(gateway),
+    new Deploy.Terminations.ReleaseAvailabilityPreflight(gateway, kit),
     new Deploy.Terminations.LocalArtifactsPacker(
       new RunPackReleasePacker(
         ports,
@@ -221,6 +229,7 @@ export async function runDeploy(
         options.verbose,
         options.reporter,
         options.buildReporter,
+        kit,
       ),
     ),
     new Deploy.Terminations.WatchRunner(

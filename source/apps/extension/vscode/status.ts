@@ -16,6 +16,8 @@ export interface App {
   name: string;
   kit: string;
   target?: string;
+  /** Set for an integration (`integrations/<kit>/<app>`): the deploy kit it's wired for and the app it wires. */
+  integration?: { kit: string; app: string };
 }
 
 export type KitRole = "build" | "pack" | "deploy" | "lib";

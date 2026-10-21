@@ -20,7 +20,7 @@ const config = parseYaml(await Deno.readTextFile(configPath)) as {
 };
 if (typeof config.source !== "string" || config.source.length === 0) {
   throw new Error(
-    `compile.yml: "source" is required and must name an app under source/apps/.`,
+    `compile.yml: "source" is required and must name an app under source/apps/ (or an integration, integrations/<kit>/<app>).`,
   );
 }
 

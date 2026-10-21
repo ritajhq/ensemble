@@ -41,8 +41,11 @@ const RELATIONAL_BOUNDS: Readonly<Record<string, Bound>> = {
 
 const RELATIONAL_DYNAMIC_OUTPUTS: readonly string[] = ["host", "url"];
 
+/** Provider-allocated: a function's name (CloudFormation names it). */
+const FUNCTION_DYNAMIC_OUTPUTS: readonly string[] = ["name"];
+
 /** An `AWS::S3::Bucket`'s domain embeds the stack's own deploy region (`../provisioners/object-storage.ts`'s own `Fn::Sub` on `${AWS::Region}`) — never knowable at render time, unlike `bucket` (a passthrough of the manifest's own literal param). */
-const OBJECT_STORAGE_DYNAMIC_OUTPUTS: readonly string[] = ["url"];
+const OBJECT_STORAGE_DYNAMIC_OUTPUTS: readonly string[] = ["url", "publicUrl"];
 
 /**
  * The aws kit's realization: `relational` presets expand `class` into real
@@ -106,6 +109,12 @@ export async function awsRealization(): Promise<KitSdk.Deploy.Realization> {
       if (
         category === "storage" && type === "object-storage" &&
         OBJECT_STORAGE_DYNAMIC_OUTPUTS.includes(output)
+      ) {
+        return "dynamic";
+      }
+      if (
+        category === "compute" && type === "function" &&
+        FUNCTION_DYNAMIC_OUTPUTS.includes(output)
       ) {
         return "dynamic";
       }
