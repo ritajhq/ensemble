@@ -1,3 +1,11 @@
+## [0.57.0] - 2026-10-21
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.55.1
+- *(changelog)* Update for 0.55.0
+- *(changelog)* Update for 0.56.0
+- *(release)* Bump library versions for 0.57.0
 ## [0.56.0] - 2026-10-20
 
 ### 🚀 Features
