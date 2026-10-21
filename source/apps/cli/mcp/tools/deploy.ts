@@ -1,5 +1,11 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { DeploymentEnvironment, runDeploy, runExplain } from "@ensemble/core";
+import {
+  DeploymentEnvironment,
+  presentTargets,
+  reportTargets,
+  runDeploy,
+  runExplain,
+} from "@ensemble/core";
 import * as Host from "@ensemble/host";
 import { z } from "zod";
 import { ToolResult } from "../tool-result.ts";
@@ -141,6 +147,28 @@ export class DeployTools {
           );
           return `Explained "${resource}" for "${name}" via "${kit}".`;
         }),
+    );
+
+    ToolRegistration.Register(
+      server,
+      "ensemble_deploy_targets",
+      {
+        title: "Where a workload can run",
+        description:
+          "For every installed deploy kit, whether it can deploy the workload's manifest and how it would hold each resource's engine — and, where it can't, why. Pinned engines are what narrow the answer.",
+        inputSchema: { name: z.string().describe("Workload name.") },
+      },
+      ({ name }) =>
+        ToolResult.from(async () =>
+          presentTargets(
+            name,
+            await reportTargets(
+              name,
+              Host.createPorts().repo,
+              new Host.SubprocessKitLoader(),
+            ),
+          )
+        ),
     );
 
     ToolRegistration.Register(

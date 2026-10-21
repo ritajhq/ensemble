@@ -76,6 +76,12 @@ export {
 } from "./ingress-record.ts";
 export { runExplain, type RunExplainOptions } from "./explain.ts";
 export {
+  type PlacedResource,
+  presentTargets,
+  reportTargets,
+  type TargetReport,
+} from "./targets.ts";
+export {
   DeploymentEnvironment,
   type EnvFile,
   type EnvFiles,

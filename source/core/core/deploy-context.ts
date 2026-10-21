@@ -152,6 +152,8 @@ export function deploymentNameFor(repoRoot: string, name: string): string {
 export interface WorkloadLoadOptions {
   /** Env files supplying values beneath the process environment — see `DeploymentEnvironment`. Empty for a real pipeline. */
   readonly envFiles: EnvFiles;
+  /** Whether every value the manifest needs must be present in the environment (default). Off for what only reads the manifest — which kits can deploy it — and renders nothing. */
+  readonly requireEnvironment?: boolean;
   /** The kit to use when neither the command nor `.ensemble/config.yaml` names one (`ens develop`'s compose). None: one of them has to. */
   readonly fallbackKit?: string;
 }
@@ -199,7 +201,9 @@ export async function loadWorkload(
     ),
     repoRoot,
   );
-  environment.assertComplete(workload);
+  if (options.requireEnvironment !== false) {
+    environment.assertComplete(workload);
+  }
 
   const kitDir = join(repoRoot, ".ensemble", "kits", "deploy", kit);
   if (!await exists(join(kitDir, "main.ts"), { isFile: true })) {

@@ -2,6 +2,8 @@ import { Command, EnumType } from "@cliffy/command";
 import {
   DeploymentEnvironment,
   Instance,
+  presentTargets,
+  reportTargets,
   runDeploy,
   runDestroy,
   runExplain,
@@ -56,6 +58,21 @@ const explainCommand = new Command()
       );
     },
   );
+
+const targetsCommand = new Command()
+  .name("targets")
+  .description(
+    "Where a workload can run: for every installed deploy kit, whether it can deploy the manifest and how it would hold each resource's engine — and, where it can't, why. Pinned engines (`engine:` on a resource) are what narrow the answer.",
+  )
+  .arguments("<name:string>")
+  .action(async (_options, name) => {
+    const reports = await reportTargets(
+      name,
+      Host.createPorts().repo,
+      new Host.SubprocessKitLoader(),
+    );
+    console.log(presentTargets(name, reports));
+  });
 
 export const deployCommand = new Command()
   .name("deploy")
@@ -204,4 +221,5 @@ export const deployCommand = new Command()
       );
     },
   )
-  .command("explain", explainCommand);
+  .command("explain", explainCommand)
+  .command("targets", targetsCommand);
