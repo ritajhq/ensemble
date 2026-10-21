@@ -34,6 +34,12 @@ const RELATIONAL_CLASS_PRESETS: Readonly<Record<string, ClassPreset>> = {
   },
 };
 
+/** What each contract is held in here: the technologies a developer may pin, and the default when nobody does. */
+const ENGINES = new KitSdk.Deploy.Engines({
+  "storage.object-storage": { provides: ["garage"], default: "garage" },
+  "databases.relational": { provides: ["postgres"], default: "postgres" },
+});
+
 /**
  * The compose kit's realization: no bounds (nothing about a local Docker
  * Compose stack needs a platform cap), no capabilities satisfied yet (no
@@ -57,8 +63,19 @@ export async function composeRealization(): Promise<KitSdk.Deploy.Realization> {
       return undefined;
     },
     // deno-lint-ignore require-await
-    async defaultFor(): Promise<number | boolean | string | undefined> {
-      return undefined;
+    async defaultFor(
+      category: Category,
+      type: string,
+      concern: string,
+    ): Promise<number | boolean | string | undefined> {
+      return ENGINES.defaultFor(category, type, concern);
+    },
+    // deno-lint-ignore require-await
+    async enginesFor(
+      category: Category,
+      type: string,
+    ): Promise<readonly string[] | undefined> {
+      return ENGINES.provides(category, type);
     },
     // deno-lint-ignore require-await
     async boundFor(): Promise<Bound | undefined> {

@@ -39,6 +39,16 @@ const RELATIONAL_BOUNDS: Readonly<Record<string, Bound>> = {
   backupRetention: { max: MAX_BACKUP_RETENTION_DAYS },
 };
 
+/** What each contract is held in here: the technologies a developer may pin, and the default when nobody does. A platform changes the default in its kit config (`targetValues`), not here. */
+const ENGINES = new KitSdk.Deploy.Engines({
+  "databases.key-value": { provides: ["dynamodb"], default: "dynamodb" },
+  "storage.object-storage": { provides: ["s3"], default: "s3" },
+  "databases.relational": {
+    provides: ["postgres", "mysql", "mariadb"],
+    default: "postgres",
+  },
+});
+
 const RELATIONAL_DYNAMIC_OUTPUTS: readonly string[] = ["host", "url"];
 
 /** Provider-allocated: a function's name (CloudFormation names it). */
@@ -71,8 +81,19 @@ export async function awsRealization(): Promise<KitSdk.Deploy.Realization> {
       return undefined;
     },
     // deno-lint-ignore require-await
-    async defaultFor(): Promise<number | boolean | string | undefined> {
-      return undefined;
+    async defaultFor(
+      category: Category,
+      type: string,
+      concern: string,
+    ): Promise<number | boolean | string | undefined> {
+      return ENGINES.defaultFor(category, type, concern);
+    },
+    // deno-lint-ignore require-await
+    async enginesFor(
+      category: Category,
+      type: string,
+    ): Promise<readonly string[] | undefined> {
+      return ENGINES.provides(category, type);
     },
     // deno-lint-ignore require-await
     async boundFor(

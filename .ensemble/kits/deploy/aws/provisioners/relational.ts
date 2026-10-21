@@ -65,7 +65,7 @@ export function relationalProvisioner(): KitSdk.Deploy.Provisioner {
               [logicalId]: {
                 Type: "AWS::RDS::DBInstance",
                 Properties: {
-                  Engine: request.params.engine,
+                  Engine: request.values.engine?.value,
                   EngineVersion: request.params.version,
                   MasterUsername: request.params.user,
                   MasterUserPassword: ref(secretParamName),
