@@ -1,3 +1,13 @@
+## [0.58.0] - 2026-10-21
+
+### 🚀 Features
+
+- *(cli)* Run a delivery task by name with the kit from config.yaml or -k, loading develop's env files, and read its scripts from tasks/
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.57.0
+- *(release)* Bump library versions for 0.58.0
 ## [0.57.0] - 2026-10-21
 
 ### ⚙️ Miscellaneous Tasks
