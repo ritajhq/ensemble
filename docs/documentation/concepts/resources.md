@@ -218,6 +218,32 @@ integration folder (`source/integrations/<kit>/<app>`, see
 [Workspace layout](workspace-layout.md#integrations)) lists its platform's
 adapters in its own `main.ts`.
 
+## When portable isn't enough
+
+The entry is portable by default: `fetch(request, env)` knows nothing of the
+platform that runs it, and the kit adapts it (on aws, a Lambda handler around
+it). That is what lets a team move between platforms for reasons outside the
+code — cost, reachability, a customer's requirement — without touching it.
+
+Code that needs what only one platform offers (Lambda's event and context,
+Workers' bindings and `ctx`) doesn't reach for it through the portable entry. It
+commits to that platform with an **integration**: a folder
+`source/integrations/<kit>/<app>/` whose `main.ts` replaces the app's own entry
+for that kit only, and exports whatever that platform runs.
+
+```ts
+// source/integrations/aws/server/main.ts
+import { Api } from "../../../apps/server/api.ts";
+
+export const handler = async (event, context) => {/* Lambda, in full */};
+```
+
+The integration is a separate entry, not a separate program: the logic stays in
+the app's modules and the integration imports it, so what is platform-specific
+is only the thin edge. The other kits keep building the portable entry. The
+commitment is visible where it is made — a folder named for the platform — and
+nothing in the portable entry can quietly depend on it.
+
 ## Writing a kit: declaring engines
 
 A deploy kit says which engines it provides in its realization, from one table:
@@ -249,3 +275,7 @@ keep working; declaring them is what makes a refusal explicit.
   enough for several engines to keep. `relational`'s `version`, `user` and
   `passwordSecret` are still required and engine-shaped; a smaller portable SQL
   contract is future work.
+- **Map other triggers.** Queues, schedules and streams don't fit `fetch`. A
+  portable form (named exports the kits map to their own triggers, declared in
+  the manifest, as Workers do with `scheduled` and `queue`) is noted for later;
+  until then they belong in an integration.
