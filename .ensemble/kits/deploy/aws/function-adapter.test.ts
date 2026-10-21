@@ -1,7 +1,11 @@
 import { join, toFileUrl } from "@std/path";
 import { assertEquals, assertThrows } from "@std/assert";
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
-import { FunctionAdapter } from "./function-adapter.ts";
+import {
+  FunctionAdapter,
+  HANDLER,
+  NATIVE_HANDLER,
+} from "./function-adapter.ts";
 
 const ENTRY = `export default {
   async fetch(request, env) {
@@ -44,6 +48,28 @@ Deno.test("FunctionAdapter: keeps the bundle's own package.json", () => {
     type: "module",
     x: 1,
   });
+});
+
+Deno.test("FunctionAdapter: a native bundle keeps its own handler, with no adapter added", () => {
+  const native = zipSync({
+    "main.js": strToU8("export const handler = async () => ({});"),
+    "main.native": strToU8(""),
+  });
+  const adapter = new FunctionAdapter();
+  assertEquals(Object.keys(unzipSync(adapter.adapt(native))).sort(), [
+    "main.js",
+    "main.native",
+    "package.json",
+  ]);
+  assertEquals(adapter.handlerOfZip(native), "main.handler");
+  assertEquals(NATIVE_HANDLER, "main.handler");
+});
+
+Deno.test("FunctionAdapter: a bundle without the native marker runs through the adapter", () => {
+  assertEquals(
+    new FunctionAdapter().handlerOfZip(zipSync({ "main.js": strToU8(ENTRY) })),
+    HANDLER,
+  );
 });
 
 Deno.test("FunctionAdapter: refuses a bundle with no main.js", () => {

@@ -83,13 +83,15 @@ export class Stack {
     ) {
       if (resource.Type !== "AWS::Lambda::Function") continue;
       const zip = join(dir, `${logicalId}.zip`);
-      await Deno.writeFile(
-        zip,
-        adapter.adapt(await this.bundleAt(resource.Properties?.Code, dir)),
-      );
+      const bundle = await this.bundleAt(resource.Properties?.Code, dir);
+      await Deno.writeFile(zip, adapter.adapt(bundle));
       resources[logicalId] = {
         ...resource,
-        Properties: { ...resource.Properties, Code: zip },
+        Properties: {
+          ...resource.Properties,
+          Code: zip,
+          Handler: adapter.handlerOfZip(bundle),
+        },
       };
     }
     const path = join(dir, "template.yaml");
