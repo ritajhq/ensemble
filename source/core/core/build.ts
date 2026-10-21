@@ -11,8 +11,10 @@ import {
   integrationOf,
   isIntegration,
   isReserved,
+  sourceDirOf,
   sourceOf,
 } from "./deploy/integration.ts";
+import * as Entry from "./entry.ts";
 
 export interface RunBuildOptions {
   mode: Build.Mode;
@@ -93,6 +95,7 @@ async function runUnit(
 
   const outDir = join(workspace, "artifacts", name);
   await ensureDir(outDir);
+  await markNative(outDir, await ownsEntry(workspace, name));
 
   const envFile = join(workspace, "envs", "build", `${name}.env`);
   const fileVars = await loadEnv({ envPath: envFile, export: false });
@@ -149,4 +152,17 @@ async function runUnit(
   else progress?.fail();
 
   return code;
+}
+
+/** Whether `name` is an integration with a folder of its own: an entry the platform runs natively. */
+async function ownsEntry(workspace: string, name: string): Promise<boolean> {
+  return isIntegration(name) &&
+    await exists(sourceDirOf(workspace, name), { isDirectory: true });
+}
+
+/** Leaves `Entry.NATIVE` in `outDir` for a native entry, and no stale one from an earlier build otherwise. */
+async function markNative(outDir: string, native: boolean): Promise<void> {
+  const marker = join(outDir, Entry.NATIVE);
+  if (native) await Deno.writeTextFile(marker, "");
+  else await Deno.remove(marker).catch(() => undefined);
 }

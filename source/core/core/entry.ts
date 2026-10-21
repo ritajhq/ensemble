@@ -7,3 +7,12 @@
  */
 export const SOURCE = "main.ts";
 export const BUNDLE = "main.js";
+/** What a deploy kit calls in a native bundle (`NATIVE`): the platform's own handler, exported by `BUNDLE`. */
+export const HANDLER = "handler";
+/**
+ * Written beside `BUNDLE` when an integration has a folder of its own: its
+ * entry speaks the platform's native interface, not `function.v1`'s, so a
+ * deploy kit runs it as it is instead of adapting it. The build writes it and
+ * every zip of the output carries it.
+ */
+export const NATIVE = "main.native";
