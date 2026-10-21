@@ -280,6 +280,10 @@
         "secretKeySecret": {
           "description": "Name of a secrets entry supplying the S3 secret access key. Required on compose, dropped on aws.",
           "type": "string"
+        },
+        "engine": {
+          "description": "Optional pin of the store holding the bucket (s3, r2, garage); left out, the deploy kit's own default. A kit that doesn't provide it refuses the manifest.",
+          "type": "string"
         }
       }
     },
@@ -288,7 +292,6 @@
       "type": "object",
       "required": [
         "type",
-        "engine",
         "version",
         "user",
         "database",
@@ -309,7 +312,7 @@
           "additionalProperties": { "type": ["boolean", "number"] }
         },
         "engine": {
-          "description": "Database engine (e.g. postgres).",
+          "description": "Optional pin of the database engine (e.g. postgres); left out, the deploy kit's own default. A kit that doesn't provide it refuses the manifest.",
           "type": "string"
         },
         "version": {

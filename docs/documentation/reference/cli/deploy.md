@@ -86,3 +86,25 @@ ens deploy web compose explain databases.primary
   development render can be ejected or planned too. Default: `deployment`.
 - `--version <version>` — released version to resolve `${release.<name>}`
   references to, for published artifacts. Default: `latest`.
+
+## `ens deploy targets <name>`
+
+Where a workload can run: for every installed deploy kit, whether it can deploy
+the manifest and how it would hold each resource — and, where it can't, why.
+
+```sh
+ens deploy targets web
+```
+
+```text
+web:
+  ✓ aws — databases.experiences on dynamodb (pinned), storage.files on s3
+  ✗ compose — No provisioner matches compute.api (type "function").
+Runs on: aws. Pinned: databases.experiences → dynamodb.
+```
+
+It resolves the manifest against each kit (matching provisioners, negotiating
+engines) without rendering or applying anything, and needs no secrets or
+variables. An engine pinned with `engine:` on a resource narrows the answer: a
+kit that doesn't provide it is listed with the reason. See
+[Resources and engines](../../concepts/resources.md).

@@ -13,6 +13,13 @@ node key ""  style: invisible  right of title  gap: wide
 node key.explicit    "explicit — written in the manifest, / config.yaml or the code"  style: explicit
 node key.convention  "convention — read off a name / or a path, or only agreed on"  style: convention
 
+// The deployment's own decisions: which technology holds each resource.
+node res    "A resource in the manifest / type, and engine: only if pinned"  style: explicit  right of key  gap: wide
+node pin    "engine / provided by the kit?"  shape: circle  style: explicit  below res
+node refusedpin  "Refused, naming / what the kit provides"  shape: document  style: explicit  right of pin  gap: wide  level with pin
+node desc   "Core describes the granted resources / ENSEMBLE_RESOURCE_*: type, engine, outputs"  style: explicit  below pin
+
+// What gets built and run for the app.
 node ship    "A release ships app server / ci/<name>/delivery.yml, its ship file"  style: explicit  below title  gap: wide
 node kit     "The kit deploying it / config.yaml's deploy.<name>.kit, or -k"  style: explicit  below ship
 
@@ -23,19 +30,23 @@ node declared "integrations / .<kit>?"  shape: circle  style: explicit  below li
 node refused  "Error — a library / with none for this kit"  shape: document  style: explicit  left of declared  gap: wide  level with declared
 
 node kitbox  "Its build kit, as configured / node on aws, worker on cloudflare"  style: explicit  below declared
-node build   "main.ts becomes main.js, both named by core / in source/integrations/<kit>/server"  style: convention  below kitbox
+node build   "Built from source/integrations/<kit>/server if it exists, / else source/apps/server — / main.ts becomes main.js, both named by core"  style: convention  below kitbox
 node bundle  "A bundle whose main.js default-exports / { fetch(request, env) } — function.v1"  shape: document  style: explicit  below build
 node run     "The kit runs it: aws adds its Lambda adapter, / cloudflare runs it as a Worker"  style: explicit  below bundle
 
-node code "What the integration imports (project code)"  right of library and bundle  gap: wide
-node code.main      "integrations/<kit>/server/main.ts / builds the ports from env"  style: convention
-node code.app       "apps/server / new Api(ports).fetch(request)"  style: convention  below code.main
-node code.adapters  "@ensemble-adapters/ / <provider>-<tech>"  style: convention  right of code.app  level with code.app
-node code.core      "@ensemble-adapters/core / Table, Bucket: the ports"  style: convention  below code.app and code.adapters
+node code "What the entry does (project code)"  right of declared and bundle  gap: wide
+node code.main      "main.ts: Resources.from(env, adapters) / then new Api(ports).fetch(request)"  style: convention
+node code.registry  "@ensemble-adapters/registry / the adapters this platform's bundle holds"  style: convention  below code.main
+node code.adapters  "adapters, one per (type, engine) / aws-dynamo, aws-s3, cloudflare-d1"  style: convention  below code.registry
+node code.core      "@ensemble-adapters/core / Table, Bucket: the ports"  style: convention  below code.adapters
 
-node unchecked "Of this side Ensemble checks only the bundle it builds into. The app's shape and the adapters' names are the project's own convention." (wrap: 46)  style: aside  shape: none  below code  gap: tight
+node unchecked "Of the right-hand side Ensemble checks only the bundle it builds into and the description it hands the function. How code reads it is the project's own convention." (wrap: 46)  style: aside  shape: none  below code  gap: tight
 
-node both "kit and integrations together, or neither, is an error: / an app is a program or a library, never both"  shape: document  style: explicit  right of library  gap: wide  level with library
+node both "kit and integrations together, or neither, is an error: / an app is a program or a library, never both"  shape: document  style: explicit  left of kit  gap: wide  level with kit
+
+edge res -> pin
+edge pin -> refusedpin  "no"  from: right  to: left
+edge pin -> desc  "yes"
 
 edge ship -> kit
 edge kit -> library
@@ -48,10 +59,10 @@ edge build -> bundle
 edge program -> bundle  "its own main.js"  from: bottom  to: left  left of refused
 edge bundle -> run
 
-edge library -> both  "checked first"  (size: small, color: muted)  line: (pattern: dashed)  from: right  to: left
+edge kit -> both  "config checked"  (size: small, color: muted)  line: (pattern: dashed)  from: left  to: right
 
-edge code.main -> code.app  "package.json"  (size: small, color: muted)
-edge code.main -> code.adapters  from: right  to: top
-edge code.app -> code.core
+edge code.main -> code.registry
+edge code.registry -> code.adapters
 edge code.adapters -> code.core
 edge code -> build  "built from"  (size: small, color: muted)  line: (pattern: dashed)  from: left  to: right
+edge desc -> code  "in env"  (size: small, color: muted)  line: (pattern: dashed)  from: bottom  to: top

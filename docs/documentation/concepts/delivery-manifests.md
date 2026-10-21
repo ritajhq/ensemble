@@ -51,16 +51,21 @@ deploy:
 - **`deploy`** — the workload's resources, grouped into **categories**:
   `compute`, `storage`, `databases`, `messaging`, `networking`, `secrets`,
   `variables`, `external`. Each category holds named entries; a category with
-  more than one possible shape uses a `type:` discriminant (its **kind**). Only
-  three kinds have a seeded, fully-typed contract today — `compute`'s
-  `container-orchestrated`, `storage`'s `volume`, and `databases`' `relational`
-  (a Postgres-shaped resource: `engine`, `version`, `user`, `database`,
-  `passwordSecret` in, `host`/`port`/`user`/ `database`/`url` out). Any other
-  kind (a `key-value` database, a `load-balancer`, a message queue, ...) is
-  validated only as a generic `{ type, class?, capabilities? }` shape until a
-  contract is registered for it — its real fields are whatever a deploy kit's
-  provisioner expects, not something this schema checks. `variables` and
-  `secrets` are single-kind categories and need no `type` at all.
+  more than one possible shape uses a `type:` discriminant (its **kind**). Seven
+  kinds have a seeded, fully-typed contract today: `compute`'s
+  `container-orchestrated` and `function`, `storage`'s `volume` and
+  `object-storage`, `databases`' `relational` and `key-value`, and
+  `networking`'s `gateway`. `relational` takes `engine`, `version`, `user`,
+  `database` and `passwordSecret` in and gives `host`, `port`, `user`,
+  `database`, `url` and `engine` out. `key-value`, `object-storage` and
+  `relational` take an optional `engine`: left out, the deploy kit's own
+  default; written, a deliberate choice of that technology — see
+  [Resources and engines](resources.md). Any other kind (a `load-balancer`, a
+  message queue, ...) is validated only as a generic
+  `{ type, class?, capabilities? }` shape until a contract is registered for it
+  — its real fields are whatever a deploy kit's provisioner expects, not
+  something this schema checks. `variables` and `secrets` are single-kind
+  categories and need no `type` at all.
 
 ## References and batches
 

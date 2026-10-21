@@ -68,6 +68,12 @@ instances). Support is uneven by design: each kit documents its own drops (e.g.
 entry rather than dropping it, since it has no provisioner for storage yet).
 There is no `kubernetes` deploy kit in this repo.
 
+A deploy kit also says which technologies (**engines**) it provides for each
+resource type, and which one a type gets when a manifest doesn't pin one; a
+manifest that pins an engine the kit lacks is refused, naming what it does
+provide. `ens deploy targets <name>` shows which installed kits can deploy a
+manifest. See [Resources and engines](resources.md).
+
 ## Authoring, installing, and sharing kits
 
 Kits live under `.ensemble/kits/<role>/<name>` and are managed through the
