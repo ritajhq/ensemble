@@ -3,6 +3,7 @@ import type { Target } from "../kit/target.ts";
 import { ContractMatcher } from "./contract-matcher.ts";
 import { ProvisionerSelector } from "./provisioner-selector.ts";
 import { ValueNegotiator } from "./value-negotiator.ts";
+import { GrantDescriptor } from "./grant-descriptor.ts";
 import { RequestAssembler } from "./request-assembler.ts";
 import type { MatchedResource } from "./matched-resource.ts";
 import type { ProvisioningRequest } from "./provisioning-request.ts";
@@ -52,6 +53,7 @@ export class WorkloadResolver {
     private readonly selector: ProvisionerSelector = new ProvisionerSelector(),
     private readonly negotiator: ValueNegotiator = new ValueNegotiator(),
     private readonly assembler: RequestAssembler = new RequestAssembler(),
+    private readonly grants: GrantDescriptor = new GrantDescriptor(),
   ) {
     this.matcher = new ContractMatcher(registry);
   }
@@ -84,6 +86,11 @@ export class WorkloadResolver {
         values.set(key, resolvedValues);
         requests.set(key, this.assembler.assemble(matched, resolvedValues));
       }
+    }
+
+    // A function is told what it's granted, which needs every resource matched first.
+    for (const [key, request] of requests) {
+      requests.set(key, this.grants.describe(request, matches));
     }
 
     return { matches, selections, values, requests, gaps };

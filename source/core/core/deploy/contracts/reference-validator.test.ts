@@ -47,7 +47,7 @@ Deno.test("ReferenceValidator: rejects a reference to an undeclared output", () 
   const error = assertThrows(() => validator.validate(workload), ContractError);
   assertEquals(
     error.message,
-    'compute.api.env.DATABASE_URL references undeclared output "password" on databases.relational (declared outputs: host, port, user, database, url).',
+    'compute.api.env.DATABASE_URL references undeclared output "password" on databases.relational (declared outputs: host, port, user, database, url, engine).',
   );
 });
 

@@ -3,11 +3,21 @@ import type { Target } from "../kit/target.ts";
 import type { MatchedResource } from "./matched-resource.ts";
 import type { ResolvedValue, ResolvedValues } from "./resolved-values.ts";
 
+/** A pin the target's kit can't honor: the developer chose a specific tech that kit doesn't provide for the type. */
+export class EngineNotProvidedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "EngineNotProvidedError";
+  }
+}
+
 /**
  * Resolves every negotiated concern a resource's contract declares (Section
- * 7): the developer's own capability expression, if any → else the class
- * preset → else the platform default; then clamps to the platform bound,
- * recording provenance and — on a clamp — a warning at every step.
+ * 7): the developer's own pin (a param named like the concern, `engine:
+ * postgres`) or capability expression, if any → else the class preset → else
+ * the platform default; then clamps to the platform bound, recording
+ * provenance and — on a clamp — a warning at every step. A pinned `engine`
+ * must be one the kit provides for the type.
  */
 export class ValueNegotiator {
   async negotiate(
@@ -25,6 +35,14 @@ export class ValueNegotiator {
         concern,
       );
       if (!resolved) continue;
+      if (concern === "engine") {
+        await this.assertProvided(
+          resource,
+          realization,
+          String(resolved.value),
+          resolved.provenance,
+        );
+      }
       values[concern] = await this.clamp(
         resource,
         realization,
@@ -42,6 +60,14 @@ export class ValueNegotiator {
     realization: Realization,
     concern: string,
   ): Promise<ResolvedValue | undefined> {
+    const pinned = resource.declaration.params[concern];
+    if (
+      typeof pinned === "string" &&
+      resource.contract.params.some((p) => p.name === concern)
+    ) {
+      return { value: pinned, provenance: "pin" };
+    }
+
     const capabilityValue = resource.declaration.capabilities?.[concern];
     if (capabilityValue !== undefined) {
       return { value: capabilityValue, provenance: "capability" };
@@ -67,6 +93,27 @@ export class ValueNegotiator {
     return defaultValue === undefined
       ? undefined
       : { value: defaultValue, provenance: "default" };
+  }
+
+  /** The explicit trade-off of an engine: honored only where the kit provides it, and refused, naming what the kit does provide, where it doesn't — whether the developer pinned it or a platform's kit config made it the default. */
+  private async assertProvided(
+    resource: MatchedResource,
+    realization: Realization,
+    engine: string,
+    provenance: string,
+  ): Promise<void> {
+    const provided = await realization.enginesFor?.(
+      resource.category,
+      resource.declaration.type,
+    );
+    if (!provided || provided.includes(engine)) return;
+    const advice = provenance === "pin"
+      ? `Remove the pin to take what the kit provides, or deploy with a kit that provides ${engine}.`
+      : `It was set as the default in this kit's config (targetValues); change it there.`;
+    throw new EngineNotProvidedError(
+      `${resource.category}.${resource.name}: engine "${engine}" isn't one this kit provides for ${resource.declaration.type} ` +
+        `(it provides: ${provided.join(", ")}). ${advice}`,
+    );
   }
 
   private async clamp(

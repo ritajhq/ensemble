@@ -12,7 +12,13 @@ export type {
   ResolvedValue,
   ResolvedValues,
 } from "./resolved-values.ts";
-export { ValueNegotiator } from "./value-negotiator.ts";
+export { EngineNotProvidedError, ValueNegotiator } from "./value-negotiator.ts";
+export {
+  envIdOf,
+  envOutputOf,
+  GrantDescriptor,
+  GrantDescriptorError,
+} from "./grant-descriptor.ts";
 export type { ProvisioningRequest } from "./provisioning-request.ts";
 export { RequestAssembler } from "./request-assembler.ts";
 export {

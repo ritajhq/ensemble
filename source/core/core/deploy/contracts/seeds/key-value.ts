@@ -16,13 +16,25 @@ import { ResourceContract } from "../contract.ts";
  * it without waiting on the target, and what a `function.v1`'s `tables`
  * grants access to. A provider's own identity for the table (an ARN, a
  * database id) stays the kit's: nothing portable needs it.
+ *
+ * `engine` is the technology that holds the table — `dynamodb`, `d1` — and
+ * is the developer's to pin or to leave to the kit: written, it's a
+ * deliberate choice of that tech, honored only by a kit that provides it
+ * (refused at resolution otherwise); left out, the kit's own default, which
+ * a platform may change in its kit config. Either way it comes back as an
+ * output, with the key schema's two attribute names as `partition` and
+ * `sort` (empty without one) — what a resource description (`../../grants.ts`)
+ * hands the code, so it needn't repeat what the manifest already says.
  */
 export const keyValueV1: ResourceContract = new ResourceContract(
   "databases",
   "key-value",
   "v1",
-  [{ name: "keySchema", required: true, type: "object" }],
+  [
+    { name: "keySchema", required: true, type: "object" },
+    { name: "engine", required: false, type: "string" },
+  ],
+  ["engine"],
   [],
-  [],
-  ["name"],
+  ["name", "engine", "partition", "sort"],
 );

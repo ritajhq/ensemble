@@ -1,5 +1,10 @@
+import { exists } from "@std/fs";
 import { EnsembleConfigStore } from "../config.ts";
-import { integrationOf } from "./integration-name.ts";
+import {
+  integrationOf,
+  parseIntegration,
+  sourceDirOf,
+} from "./integration-name.ts";
 
 export * from "./integration-name.ts";
 
@@ -34,4 +39,20 @@ export async function buildUnitFor(
     );
   }
   return integrationOf(app, kit);
+}
+
+/**
+ * Where `name` is built from: an integration's own folder when it has one,
+ * the app's otherwise. An integration needs code of its own only when the
+ * app does something different on that platform; one that doesn't is the
+ * app's own entry built for that platform's runtime and resources.
+ */
+export async function sourceOf(
+  workspace: string,
+  name: string,
+): Promise<string> {
+  const own = sourceDirOf(workspace, name);
+  const integration = parseIntegration(name);
+  if (!integration || await exists(own, { isDirectory: true })) return own;
+  return sourceDirOf(workspace, integration.app);
 }

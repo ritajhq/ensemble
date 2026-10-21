@@ -10,6 +10,11 @@ import { ResourceContract } from "../contract.ts";
  * `port`, `user`, `database` are exposed individually so a future reference
  * can address any one of them without a contract change.
  *
+ * `engine` is the developer's to pin or to leave to the kit, as on
+ * `key-value.v1`: left out, the kit's own default (`postgres` on the kits
+ * that provision this today); it comes back as an output, so what the code
+ * connects to is never a guess.
+ *
  * `deletionProtection` was added once Appendix A's own aws golden (Phase 7)
  * showed `class: critical` materializing it as a real RDS property alongside
  * `backupRetention`/`multiAz` — evidence compose's golden (Phase 5) never
@@ -33,14 +38,14 @@ export const relationalV1: ResourceContract = new ResourceContract(
   "relational",
   "v1",
   [
-    { name: "engine", required: true, type: "string" },
+    { name: "engine", required: false, type: "string" },
     { name: "version", required: true, type: "string" },
     { name: "user", required: true, type: "string" },
     { name: "database", required: true, type: "string" },
     { name: "passwordSecret", required: true, type: "string" },
     { name: "init", required: false, type: "array" },
   ],
-  ["storageSize", "backupRetention", "multiAz", "deletionProtection"],
+  ["storageSize", "backupRetention", "multiAz", "deletionProtection", "engine"],
   [{ name: "read-replicas", quantified: true }],
-  ["host", "port", "user", "database", "url"],
+  ["host", "port", "user", "database", "url", "engine"],
 );

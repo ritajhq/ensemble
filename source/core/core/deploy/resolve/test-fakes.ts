@@ -35,6 +35,7 @@ export class FakeRealization implements Realization {
   private readonly bounds = new Map<string, Bound>();
   private readonly capabilities = new Map<string, boolean>();
   private readonly knowability = new Map<string, Knowability>();
+  private readonly engines = new Map<string, readonly string[]>();
 
   withClassPreset(
     category: Category,
@@ -54,6 +55,22 @@ export class FakeRealization implements Realization {
   ): this {
     this.defaults.set(`${category}.${type}.${concern}`, value);
     return this;
+  }
+
+  withEngines(
+    category: Category,
+    type: string,
+    engines: readonly string[],
+  ): this {
+    this.engines.set(`${category}.${type}`, engines);
+    return this;
+  }
+
+  enginesFor(
+    category: Category,
+    type: string,
+  ): Promise<readonly string[] | undefined> {
+    return Promise.resolve(this.engines.get(`${category}.${type}`));
   }
 
   withBound(

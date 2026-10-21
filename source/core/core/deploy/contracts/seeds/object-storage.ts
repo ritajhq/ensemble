@@ -51,6 +51,10 @@ import { ResourceContract } from "../contract.ts";
  * a browser reaches it — what a presigned URL handed to a page has to point
  * at, and not always `url`: a local stand-in serves the stack's network and
  * the developer's machine at different addresses.
+ *
+ * `engine` is the store that holds the bucket — `s3`, `r2`, `garage` — and,
+ * as on `key-value.v1`, the developer's to pin or to leave to the kit; it
+ * comes back as an output too.
  */
 export const objectStorageV1: ResourceContract = new ResourceContract(
   "storage",
@@ -63,8 +67,9 @@ export const objectStorageV1: ResourceContract = new ResourceContract(
     { name: "contents", required: false, type: "string" },
     { name: "cors", required: false, type: "array" },
     { name: "development", required: false, type: "object" },
+    { name: "engine", required: false, type: "string" },
   ],
+  ["engine"],
   [],
-  [],
-  ["url", "publicUrl", "bucket"],
+  ["url", "publicUrl", "bucket", "engine"],
 );

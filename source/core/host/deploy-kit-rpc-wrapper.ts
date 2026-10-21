@@ -65,6 +65,8 @@ interface Request {
 const mod = await import(new URL("./main.ts", import.meta.url).href);
 const kit = mod.default;
 
+const OPTIONAL_REALIZATION = ["enginesFor"];
+
 let realization: Promise<any> | undefined;
 let provisioners: Promise<any[]> | undefined;
 
@@ -114,7 +116,10 @@ async function serveProvisioner(index: number, method: string, args: any[]) {
 async function serve(req: Request) {
   if (req.target === "kit") return await serveKit(req.method, req.args);
   if (req.target === "realization") {
-    return await (await realizationOf())[req.method](...req.args);
+    const realization = await realizationOf();
+    // A method a kit may leave out (a realization older than it): no answer, not an error.
+    if (OPTIONAL_REALIZATION.includes(req.method) && typeof realization[req.method] !== "function") return undefined;
+    return await realization[req.method](...req.args);
   }
   if (req.target.startsWith("provisioner:")) {
     return await serveProvisioner(Number(req.target.split(":")[1]), req.method, req.args);

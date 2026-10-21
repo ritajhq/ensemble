@@ -12,3 +12,4 @@ export { OutputsLedger, OutputsLedgerError } from "./outputs-ledger.ts";
 export { ReferenceResolver } from "./reference-resolver.ts";
 export { Renderer, RendererError } from "./renderer.ts";
 export { DeclaredValueError, DeclaredValues } from "./declared-values.ts";
+export { CoreOutputs } from "./core-outputs.ts";

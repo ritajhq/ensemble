@@ -9,6 +9,7 @@ import {
   isReserved,
   parseIntegration,
   sourceDirOf,
+  sourceOf,
 } from "./integration.ts";
 
 Deno.test("integration: an app's wiring for a kit is a build unit of its own, under source/integrations", () => {
@@ -132,6 +133,27 @@ Deno.test("config: what a unit is built with is its app's own build, or the inte
       () => store.getUnitBuildConfig(config, "integrations/cloudflare/server"),
       Error,
       `no integration for "cloudflare"`,
+    );
+  });
+});
+
+Deno.test("integration: an integration with no folder of its own is built from its app's", async () => {
+  await inRepo(LIBRARY, async (repo) => {
+    const workspace = join(repo, "source");
+    assertEquals(
+      await sourceOf(workspace, "integrations/aws/server"),
+      join(workspace, "apps", "server"),
+    );
+    await Deno.mkdir(join(workspace, "integrations", "aws", "server"), {
+      recursive: true,
+    });
+    assertEquals(
+      await sourceOf(workspace, "integrations/aws/server"),
+      join(workspace, "integrations", "aws", "server"),
+    );
+    assertEquals(
+      await sourceOf(workspace, "editor"),
+      join(workspace, "apps", "editor"),
     );
   });
 });

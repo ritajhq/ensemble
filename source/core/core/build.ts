@@ -11,7 +11,7 @@ import {
   integrationOf,
   isIntegration,
   isReserved,
-  sourceDirOf,
+  sourceOf,
 } from "./deploy/integration.ts";
 
 export interface RunBuildOptions {
@@ -72,7 +72,7 @@ async function runUnit(
   const repoRoot = await ports.repo.findRepoRoot();
   const workspace = join(repoRoot, "source");
 
-  const sourceDir = sourceDirOf(workspace, name);
+  const sourceDir = await sourceOf(workspace, name);
   if (!await exists(sourceDir, { isDirectory: true })) {
     throw new Error(
       `App "${name}" does not exist (expected a directory at ${sourceDir})`,

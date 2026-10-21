@@ -1,5 +1,5 @@
-/** Where a negotiated value came from — how `explain`/plan (Phase 8) will flag an unreviewed kit default or a clamped value. */
-export type Provenance = "preset" | "default" | "capability" | "clamp";
+/** Where a negotiated value came from — `pin` is the developer's own explicit choice of a tech, written as a param; how `explain`/plan (Phase 8) will flag an unreviewed kit default or a clamped value. */
+export type Provenance = "pin" | "preset" | "default" | "capability" | "clamp";
 
 export interface ResolvedValue {
   readonly value: number | boolean | string;

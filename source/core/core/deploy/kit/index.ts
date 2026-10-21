@@ -44,3 +44,4 @@ export type {
   ReleaseAvailability,
 } from "./pack-kit-gateway.ts";
 export { ReleaseLocatorResolver } from "./release-locator-resolver.ts";
+export { Engines, type EngineSet, type EngineTable } from "./engines.ts";

@@ -22,6 +22,7 @@ import type {
   Ingress,
   InitCommand,
 } from "./artifact.ts";
+import { CoreOutputs } from "./core-outputs.ts";
 import { DeclaredValues } from "./declared-values.ts";
 import { OutputsLedger } from "./outputs-ledger.ts";
 import type { ReferenceResolver } from "./reference-resolver.ts";
@@ -70,6 +71,7 @@ export class Renderer {
     private readonly mode: Mode = "deployment",
     private readonly syntax: ReferenceSyntax = new ReferenceParser(),
     private readonly declared: DeclaredValues = new DeclaredValues(),
+    private readonly coreOutputs: CoreOutputs = new CoreOutputs(),
   ) {}
 
   async render(
@@ -180,15 +182,43 @@ export class Renderer {
       mode: this.mode,
     });
 
-    this.validateOutputs(id, request.type, outcome.outputs);
+    const outputs = {
+      ...outcome.outputs,
+      ...this.derivedOutputs(id, request.type, params, request),
+    };
+    this.validateOutputs(id, request.type, outputs);
     ledger.record(
       id.category,
       id.name,
       request.type,
-      outcome.outputs,
+      outputs,
       this.portsOf(id.category, params),
     );
-    return outcome;
+    return { ...outcome, outputs };
+  }
+
+  /** The outputs core provides itself (`./core-outputs.ts`), failing clearly when one can't be: the usual cause is a kit with no default engine for a type nobody pinned. */
+  private derivedOutputs(
+    id: ResourceId,
+    type: string,
+    params: Readonly<Record<string, unknown>>,
+    request: ProvisioningRequest,
+  ): Record<string, unknown> {
+    const contractId = `${id.category}.${type}`;
+    const derived = this.coreOutputs.derive(contractId, {
+      params,
+      values: request.values,
+    });
+    const missing = this.coreOutputs.namesFor(contractId).filter((name) =>
+      !(name in derived)
+    );
+    if (missing.length === 0) return derived;
+    throw new RendererError(
+      `${contractId} "${id.name}": no value for ${missing.join(", ")} — ` +
+        (missing.includes("engine")
+          ? `the kit declares no default engine for ${type} and none was pinned (\`engine:\` on the resource).`
+          : `the declaration doesn't determine it.`),
+    );
   }
 
   /** Section 6: "validate each kit's produced outputs against them at render time." A missing declared output would silently break portability the moment another manifest referenced it on a different kit; an extra undeclared one is just as much a contract violation, even if harmless today. */

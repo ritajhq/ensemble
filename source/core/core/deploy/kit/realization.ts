@@ -42,6 +42,19 @@ export interface Realization {
     type: string,
     capability: string,
   ): Promise<boolean>;
+  /**
+   * The engines this kit can provide for a type — the technologies a
+   * developer may pin (`engine: postgres` on a `relational`, say) and the
+   * kit's own default among them, which `defaultFor(…, "engine")` names.
+   * `undefined` means the kit doesn't say, which is read as unrestricted:
+   * a pin is accepted as written rather than refused for want of a list.
+   * A kit that does say refuses any other pin at resolution time, naming
+   * what it provides — the explicit price of choosing a specific tech.
+   */
+  enginesFor?(
+    category: Category,
+    type: string,
+  ): Promise<readonly string[] | undefined>;
   /** Not consumed until Phase 5's `ReferenceResolver` — declared now so `Realization`'s shape doesn't change once Render lands. */
   knowabilityOf(
     category: Category,

@@ -98,7 +98,7 @@ function buildPipeline(manifestText: string) {
         type: "relational",
         class: "critical",
         params: workload.databases!.primary.params,
-        values: {},
+        values: { engine: { value: "postgres", provenance: "pin" } },
       },
     ],
     [
@@ -256,7 +256,7 @@ Deno.test("Renderer.render: a dynamic output's native wiring passes through to t
         type: "relational",
         class: "critical",
         params: workload.databases!.primary.params,
-        values: {},
+        values: { engine: { value: "postgres", provenance: "pin" } },
       },
     ],
     [
@@ -605,7 +605,7 @@ deploy:
         name: "primary",
         type: "relational",
         params: workload.databases!.primary.params,
-        values: {},
+        values: { engine: { value: "postgres", provenance: "pin" } },
       },
     ],
     ["compute.api", {

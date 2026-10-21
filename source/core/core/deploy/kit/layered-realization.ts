@@ -63,6 +63,13 @@ export class LayeredRealization implements Realization {
     return this.underlying.supportsCapability(category, type, capability);
   }
 
+  async enginesFor(
+    category: Category,
+    type: string,
+  ): Promise<readonly string[] | undefined> {
+    return await this.underlying.enginesFor?.(category, type);
+  }
+
   knowabilityOf(
     category: Category,
     type: string,

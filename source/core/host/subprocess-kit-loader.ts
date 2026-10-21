@@ -103,6 +103,14 @@ class SubprocessRealization implements Deploy.Realization {
       boolean
     >;
   }
+  enginesFor(
+    category: Deploy.Category,
+    type: string,
+  ): Promise<readonly string[] | undefined> {
+    return this.call("enginesFor", [category, type]) as Promise<
+      readonly string[] | undefined
+    >;
+  }
   knowabilityOf(
     category: Deploy.Category,
     type: string,
