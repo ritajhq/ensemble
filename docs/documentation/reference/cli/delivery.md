@@ -4,7 +4,7 @@ Commands that act on an already-deployed delivery, as declared by the workload's
 manifest.
 
 ```sh
-ens delivery task <name> <kit> [task] [args...]
+ens delivery task <name> [task] [args...] [-k <kit>]
 ```
 
 ## `ens delivery task`
@@ -14,9 +14,9 @@ no task named, it lists the ones the workload declares instead of running
 anything:
 
 ```sh
-ens delivery task portal compose                 # list
-ens delivery task portal compose auth-migrate    # run
-ens delivery task portal compose trust-gateway-ca --force
+ens delivery task portal                 # list
+ens delivery task portal auth-migrate    # run
+ens delivery task portal trust-gateway-ca --force
 ```
 
 `--instance <slug>` runs the task against that named instance of the workload
@@ -28,7 +28,8 @@ Trailing arguments are handed to the task as `$1..$n`. A task that exits
 non-zero makes this command exit non-zero too — that invocation failed; no
 deploy started, so there is nothing to roll back.
 
-The kit is required, and not just for symmetry with `ens deploy`: a task's
+The kit is `-k <kit>`, else the one `deploy.<name>.kit` in
+`.ensemble/config.yaml` names (as for `ens deploy`). A task needs one because its
 `arguments` may reference anything a resource field may
 (`${databases.database.host}`, `${compute.web.http}`), and only a kit can render
 the workload to resolve those.
@@ -41,7 +42,7 @@ for it. Every `ens deploy` that applies (or starts a watch session, as
 provisioner's output, a port, a release — in
 `.ensemble/deploy/<name>/<kit>.tasks.json`, gitignored like the render cache
 next to it. The rest are resolved when the task runs, as always: literals,
-`${variables.*}` (from the environment and any `--env-file`, so no variable —
+`${variables.*}` (from the environment and the env files, so no variable —
 and no secret — is ever written there), `${external.*}`, and
 `${deployment.name}`/`${deployment.root}`. With that file, a task runs without
 loading the kit at all.

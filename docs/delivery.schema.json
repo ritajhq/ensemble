@@ -91,7 +91,7 @@
       }
     },
     "tasks": {
-      "description": "Commands the workload declares for a human (or a CI job) to invoke against a deployed stack, e.g. `ens delivery task <workload> <kit> <task>`. Declared here so a task can name the deployment's own identity (${deployment.name}, ${deployment.artifact}, ${deployment.root}) instead of hardcoding container, network, or artifact names.",
+      "description": "Commands the workload declares for a human (or a CI job) to invoke against a deployed stack, e.g. `ens delivery task <workload> <task>`. Declared here so a task can name the deployment's own identity (${deployment.name}, ${deployment.artifact}, ${deployment.root}) instead of hardcoding container, network, or artifact names.",
       "type": "object",
       "additionalProperties": { "$ref": "#/definitions/task" }
     }
@@ -501,7 +501,7 @@
     },
     "task": {
       "type": "object",
-      "description": "One command, declared by the workload. Exactly one of run or script drives it: an inline `run` is handed to `sh -c`, a `script` is resolved under ci/<workload>/scripts/ and run with `sh`. Trailing command-line arguments arrive as $1..$n. A task is invoked, never fired by a deploy; a task that exits non-zero fails that invocation only.",
+      "description": "One command, declared by the workload. Exactly one of run or script drives it: an inline `run` is handed to `sh -c`, a `script` is resolved under ci/<workload>/tasks/ and run with `sh`. Trailing command-line arguments arrive as $1..$n. A task is invoked, never fired by a deploy; a task that exits non-zero fails that invocation only.",
       "additionalProperties": false,
       "properties": {
         "run": {
@@ -510,7 +510,7 @@
           "minLength": 1
         },
         "script": {
-          "description": "A script file under ci/<workload>/scripts/, run with `sh`. Rejects absolute paths and any `..` segment.",
+          "description": "A script file under ci/<workload>/tasks/, run with `sh`. Rejects absolute paths and any `..` segment.",
           "type": "string",
           "minLength": 1
         },

@@ -7,8 +7,8 @@
  * regenerating seed data.
  *
  * Declared in the manifest so it travels with the workload instead of living
- * in a loose `ci/<workload>/scripts/` file whose name nothing else knows, but
- * invoked explicitly (`ens delivery task <name> <kit> <task>`) rather than
+ * in a loose `ci/<workload>/tasks/` file whose name nothing else knows, but
+ * invoked explicitly (`ens delivery task <name> <task>`) rather than
  * fired by a deploy. That split is the point: a kit's own init commands are
  * provisioning — the deploy must run them every time to be correct, and the
  * target knows how — while an operator step is a decision, and running
@@ -18,7 +18,7 @@
 export interface Task {
   /** A `sh -c` script, for a step short enough to read inline. Mutually exclusive with `script`. */
   readonly run?: string;
-  /** A shell file under `ci/<workload>/scripts/`, run as `sh <path>` — the file carries its own shebang; the core never relies on it. Mutually exclusive with `run`. */
+  /** A shell file under `ci/<workload>/tasks/`, run as `sh <path>` — the file carries its own shebang; the core never relies on it. Mutually exclusive with `run`. */
   readonly script?: string;
   /**
    * Name → value, handed to the task as environment variables under exactly

@@ -35,7 +35,15 @@ export class TaskOptions {
     if (input === undefined) return undefined;
 
     await this.memory.update(this.key(workload, task), { kit, input });
-    return ["delivery", "task", workload, kit, task, ...this.words(input)];
+    return [
+      "delivery",
+      "task",
+      "-k",
+      kit,
+      workload,
+      task,
+      ...this.words(input),
+    ];
   }
 
   private async pickKit(

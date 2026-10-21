@@ -56,7 +56,8 @@ const DEPLOYMENT_VALUES = ["name", "artifact", "root"] as const;
 
 /**
  * Runs one of a workload's declared tasks (`ens delivery task`); with no task
- * named, lists what the workload declares instead. See `./deploy/task.ts` for
+ * named, lists what the workload declares instead. The kit is the caller's, else the
+ * project's configured one for the deployment (`DeployKitChoice`). See `./deploy/task.ts` for
  * what a task is and why it's invoked rather than fired by a deploy.
  *
  * The front half is `ens deploy explain`'s own — same manifest lookup, same
@@ -79,7 +80,7 @@ const DEPLOYMENT_VALUES = ["name", "artifact", "root"] as const;
  */
 export async function runDeliveryTask(
   name: string,
-  kit: string,
+  requestedKit: string | undefined,
   taskName: string | undefined,
   taskArgs: readonly string[],
   options: RunDeliveryTaskOptions,
@@ -87,10 +88,10 @@ export async function runDeliveryTask(
   gateway: Deploy.PackKitGateway,
   kitLoader: Deploy.KitLoader,
 ): Promise<void> {
-  const context = await loadWorkload(name, kit, repo, {
+  const context = await loadWorkload(name, requestedKit, repo, {
     envFiles: options.envFiles,
   });
-  const { repoRoot, workload } = context;
+  const { repoRoot, workload, kit } = context;
 
   const tasks = workload.tasks ?? {};
   if (taskName === undefined) {
@@ -408,13 +409,11 @@ function presentTasks(
   console.log(`Tasks declared by "${name}":`);
   for (const taskName of declared) {
     const task = tasks[taskName];
-    const what = task.script
-      ? `sh ci/${name}/scripts/${task.script}`
-      : task.run!;
+    const what = task.script ? `sh ci/${name}/tasks/${task.script}` : task.run!;
     console.log(`  ${taskName}: ${what}`);
   }
   console.log(
-    `\nRun one with: ens delivery task ${name} <kit> <task> [args...]`,
+    `\nRun one with: ens delivery task ${name} <task> [args...]`,
   );
 }
 
@@ -490,7 +489,7 @@ async function runProcess(
   },
 ): Promise<void> {
   const argv = task.script
-    ? [join(context.repoRoot, "ci", context.workload, "scripts", task.script)]
+    ? [join(context.repoRoot, "ci", context.workload, "tasks", task.script)]
     : ["-c", task.run!, "ens-delivery-task"];
 
   const { success, code } = await new Deno.Command("sh", {

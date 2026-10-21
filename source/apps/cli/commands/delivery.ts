@@ -7,12 +7,16 @@ import {
 import * as Host from "@ensemble/host";
 
 /**
- * `ens delivery task <name> <kit> [task] [args...]` — runs one of a workload's
+ * `ens delivery task <name> [task] [args...]` — runs one of a workload's
  * declared tasks (see `@ensemble/core`'s `deploy/task.ts` for what a task is
  * and why it's invoked rather than fired by a deploy); with no task named, it
- * lists what the workload declares. The kit is required because resolving a
- * task's arguments means rendering the workload, and only a kit can render it
- * — the same reason `ens deploy` and `ens deploy explain` take one.
+ * lists what the workload declares. The kit (`-k`, else the one
+ * `deploy.<name>.kit` in .ensemble/config.yaml names, as for `ens deploy`) is
+ * needed because resolving a task's arguments means rendering the workload,
+ * and only a kit can render it.
+ *
+ * A task acts on a deployment you brought up locally, so without `--env-file`
+ * it loads the same files `ens develop` does.
  *
  * Nested under `delivery` rather than a bare `ens task`, because what makes a
  * task meaningful is *which* delivery it belongs to: the manifest declaring
@@ -25,7 +29,11 @@ const taskCommand = new Command()
     "Run one of a workload's tasks declared in ci/<name>/delivery.yml, or list them when no task is named.",
   )
   .type("artifacts", new EnumType(["local", "published"]))
-  .arguments("<name:string> <kit:string> [task:string] [args...:string]")
+  .arguments("<name:string> [task:string] [args...:string]")
+  .option(
+    "-k, --kit <kit:string>",
+    "Deploy kit to use (default: the one `deploy.<name>.kit` in .ensemble/config.yaml names).",
+  )
   .option(
     "--artifacts <artifacts:artifacts>",
     "Which release locator to resolve.",
@@ -44,14 +52,13 @@ const taskCommand = new Command()
   )
   .option(
     "--env-file <path:string>",
-    "Load an env file (repo-root relative or absolute, repeatable) as values beneath the process environment. None by default: a pipeline exports every value itself.",
+    "Load an env file (repo-root relative or absolute, repeatable) instead of the default ci/<name>/dev.env, ci/<name>/<kit>.env and .ensemble/deploy/<name>/secrets.env.",
     { collect: true },
   )
   .action(
     async (
-      { artifacts, version, envFile, instance },
+      { artifacts, version, envFile, instance, kit },
       name: string,
-      kit: string,
       task: string | undefined,
       ...args: string[]
     ) => {
@@ -63,7 +70,10 @@ const taskCommand = new Command()
         {
           artifacts,
           version,
-          envFiles: DeploymentEnvironment.required(envFile),
+          envFiles: envFile
+            ? DeploymentEnvironment.required(envFile)
+            : (resolvedKit) =>
+              DeploymentEnvironment.developConvention(name, resolvedKit),
           instance: instance ? Instance.parse(instance) : undefined,
         },
         Host.createPorts().repo,

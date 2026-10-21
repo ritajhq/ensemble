@@ -128,7 +128,7 @@ export class Parser {
     const hasScript = raw.script !== undefined;
     if (hasRun === hasScript) {
       throw new ManifestError(
-        `${path} must declare exactly one of "run" (a shell one-liner) or "script" (a file under ci/<workload>/scripts/).`,
+        `${path} must declare exactly one of "run" (a shell one-liner) or "script" (a file under ci/<workload>/tasks/).`,
       );
     }
     if (hasRun && (typeof raw.run !== "string" || raw.run.length === 0)) {
@@ -144,7 +144,7 @@ export class Parser {
   }
 
   /**
-   * A task's script is a path *inside* `ci/<workload>/scripts/` — the core
+   * A task's script is a path *inside* `ci/<workload>/tasks/` — the core
    * spawns whatever this names, so absolute paths and any `..` segment are
    * rejected outright rather than resolved and checked later.
    */
@@ -155,7 +155,7 @@ export class Parser {
     const segments = value.split("/");
     if (value.startsWith("/") || segments.includes("..")) {
       throw new ManifestError(
-        `${path}.script must be a path inside the workload's own scripts/ folder (got "${value}").`,
+        `${path}.script must be a path inside the workload's own tasks/ folder (got "${value}").`,
       );
     }
   }

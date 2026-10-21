@@ -129,7 +129,7 @@ whole value instead.
 ## `tasks`
 
 A task is one command the workload declares, run **by invocation** —
-`ens delivery task <workload> <kit> <task> [args...]` — never fired by a deploy.
+`ens delivery task <workload> <task> [args...]` — never fired by a deploy.
 A task that exits non-zero fails that invocation, its own exit code and nothing
 else: no deploy has started, so there is nothing to roll back. Run the command
 with no task named to list what the workload declares.
@@ -144,7 +144,7 @@ tasks:
 ```
 
 Exactly one of `run` (a shell one-liner, handed to `sh -c`) or `script` (a file
-under `ci/<workload>/scripts/`, run with `sh`) drives the task; both reject a
+under `ci/<workload>/tasks/`, run with `sh`) drives the task; both reject a
 `..` segment or an absolute path, since `ens` spawns whatever the path names.
 Trailing command-line arguments arrive as `$1..$n`.
 

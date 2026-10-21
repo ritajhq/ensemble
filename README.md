@@ -213,9 +213,10 @@ pgpassword=devpassword
 
 Env files are flat `KEY=value` lists — no `$` interpolation, and the same key in
 two files is an error. Any value already exported in the environment wins over
-them. `ens deploy` and `ens delivery task` read no file unless given
-`--env-file <path>` (repeatable), so a real pipeline never picks up a committed
-dev value: before rendering, every variable without a `default:` and every
+them. `ens deploy` reads no file unless given `--env-file <path>` (repeatable), so a
+real pipeline never picks up a committed dev value (`ens develop` and
+`ens delivery task` default to `ci/<name>/dev.env`, `ci/<name>/<kit>.env` and
+`.ensemble/deploy/<name>/secrets.env`, and `--env-file` replaces them): before rendering, every variable without a `default:` and every
 environment-sourced secret must have a value, or the deploy fails naming all the
 missing ones.
 
@@ -238,8 +239,8 @@ declared under `tasks` in the manifest and invoked by hand (a task is never
 fired by a deploy, so a failing one can't fail a deployment):
 
 ```sh
-ens delivery task <name> <kit>                  # list what the workload declares
-ens delivery task <name> <kit> auth-migrate     # e.g. portal's auth schema migration
+ens delivery task <name>                         # list what the workload declares
+ens delivery task <name> auth-migrate            # e.g. portal's auth schema migration
 ```
 
 A task's `arguments` reach its script as environment variables, resolved from
