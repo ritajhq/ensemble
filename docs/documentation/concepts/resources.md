@@ -229,14 +229,24 @@ Code that needs what only one platform offers (Lambda's event and context,
 Workers' bindings and `ctx`) doesn't reach for it through the portable entry. It
 commits to that platform with an **integration**: a folder
 `source/integrations/<kit>/<app>/` whose `main.ts` replaces the app's own entry
-for that kit only, and exports whatever that platform runs.
+for that kit only. The folder is the switch, and it changes what the entry is:
+instead of the portable `fetch`, it is **the platform's own interface**, run as
+it is with no adapter in between.
 
 ```ts
-// source/integrations/aws/server/main.ts
+// source/integrations/aws/server/main.ts — what Lambda itself calls
 import { Api } from "../../../apps/server/api.ts";
 
 export const handler = async (event, context) => {/* Lambda, in full */};
 ```
+
+On aws the function's `Handler` is then `main.handler`; the name is fixed by
+Ensemble like `main.ts` and `main.js`, and nothing in `config.yaml` selects it.
+Without the folder, the kit wraps the portable `fetch` as before. On cloudflare
+the Worker module's own exports (`fetch`, `scheduled`, `queue`) are already what
+the platform runs, so an integration there is the same module with more exports.
+(The build leaves a `main.native` file beside `main.js` for an entry of its own;
+the aws kit reads it to leave the shim out.)
 
 The integration is a separate entry, not a separate program: the logic stays in
 the app's modules and the integration imports it, so what is platform-specific

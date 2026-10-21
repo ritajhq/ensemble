@@ -64,9 +64,9 @@ resources it grants the function and the engine holding each (see
 [Resources and engines](resources.md)), so an integration can be as small as the
 app's own entry built for one platform's runtime; when the app does something
 platform-specific it has code of its own, `source/integrations/<kit>/<app>`,
-owning the dependencies that takes and exporting what the kit runs — for a
-`function`, a `main.js` default-exporting `{ fetch(request, env) }`, with `env`
-as the kit documents it.
+owning the dependencies that takes and exporting the platform's own interface,
+not the portable `fetch` (see
+[When portable isn't enough](resources.md#when-portable-isnt-enough)).
 
 An app is built one of two ways, never both. A program on its own is
 `build.<app>.kit`, run as it is by whichever kit deploys it. A library is
