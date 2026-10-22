@@ -1,3 +1,9 @@
+## [0.59.0] - 2026-10-22
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.58.0
+- *(release)* Bump library versions for 0.59.0
 ## [0.58.0] - 2026-10-21
 
 ### 🚀 Features
