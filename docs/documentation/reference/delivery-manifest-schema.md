@@ -103,13 +103,16 @@ particular field until you've checked the deploy kit you're targeting.
 
 ## `secrets`, `variables`, `external`
 
-- `secrets` — `{ source: "file" | "environment" }`. `ens` never mints a secret's
+`description` on a secret or a variable is optional free text saying what it is
+for; it documents the manifest and changes nothing about a deploy.
+
+- `secrets` — `{ source: "file" | "environment", description? }`. `ens` never mints a secret's
   value; it only wires whichever source you declare through to the deploy kit.
   `source: file` is declared here but not yet implemented by either built-in kit
   (`compose` only supports `environment`, wired as a native `${VAR:?}`
   interpolation, so an unset one fails instead of deploying empty).
-- `variables` — a permissive passthrough bag (`{ type: "object" }`), read from
-  `ens`'s own process environment at deploy time.
+- `variables` — `{ type?, default?, description? }`, read from `ens`'s own
+  process environment at deploy time.
 - `external` — `{ type, name }`. A resource `ens` doesn't provision, only
   references by the name it already has outside `ens`'s management (see
   `--emulate-externals` in the [`ens deploy` reference](cli/deploy.md) for the

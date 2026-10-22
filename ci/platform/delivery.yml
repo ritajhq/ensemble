@@ -265,29 +265,30 @@ deploy:
   secrets:
     platform-secret-key:
       source: environment
+      description: Key the platform seals its stored secrets with; keep it, as secrets sealed with one key open with no other (PLATFORM_SECRET_KEY)
     auth-secret:
       source: environment
+      description: Secret khatm signs sessions with (AUTH_SECRET)
 
   variables:
-    # The compose project this stack runs as — `<checkout directory>-platform`
-    # — which its containers are named after.
     stack:
       default: ensemble-platform
+      description: Compose project name, which the containers are named after and the platform knows itself by
     platform_host:
       default: platform.ensemble.blue
+      description: Host the platform's UI and its GitHub App webhook answer on
     auth_host:
       default: auth.ensemble.blue
-    # Previews answer one label beneath it; the platform's sign-in cookie is
-    # set on it, so it must hold the platform and auth hosts too.
+      description: Host khatm's sign-in answers on
     preview_domain:
       default: ensemble.blue
-    # The first operator, created on khatm's first start.
+      description: Domain previews answer one label beneath and the sign-in cookie is set on, so it must hold the platform and auth hosts too
     admin_email:
       default: operator@ensemble.blue
-    # The host directory mounted as the platform's DOCKER_CONFIG. Docker
-    # creates it empty if it's missing: no registry logins until one is made.
+      description: Email of the first operator, created on khatm's first start
     registry_credentials:
       default: /var/lib/ens-platform/docker
+      description: Host directory with the registry logins deploys pull and release packs push with; Docker creates it empty if missing, so no logins until one is made
 
   external:
     ingress:

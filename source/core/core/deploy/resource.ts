@@ -16,6 +16,8 @@ export interface ResourceDeclaration {
 /** A `secrets` entry — sourced externally (file or environment), never minted by ens. */
 export interface SecretDeclaration {
   readonly source: "file" | "environment";
+  /** What the secret is for, for whoever has to supply it. */
+  readonly description?: string;
 }
 
 /**
@@ -31,6 +33,8 @@ export interface VariableDeclaration {
   /** `list` resolves the comma-separated value to its trimmed, non-empty entries (`""` → `[]`); `string` (the default) is the value as-is. */
   readonly type?: VariableType;
   readonly default?: string;
+  /** What the variable is for, for whoever has to supply it. */
+  readonly description?: string;
 }
 
 export const VARIABLE_TYPES = ["string", "list"] as const;

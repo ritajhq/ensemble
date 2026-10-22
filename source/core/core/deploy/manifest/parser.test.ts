@@ -149,6 +149,42 @@ deploy:
   );
 });
 
+Deno.test("parse: secrets and variables take an optional description", () => {
+  const workload = parser.parse(`
+version: v1
+deploy:
+  secrets:
+    db-password: { source: environment, description: Admin login for the database }
+  variables:
+    region: { default: us-east-1, description: Where everything is deployed }
+`);
+  assertEquals(workload.secrets?.["db-password"], {
+    source: "environment",
+    description: "Admin login for the database",
+  });
+  assertEquals(workload.variables?.region, {
+    default: "us-east-1",
+    description: "Where everything is deployed",
+  });
+});
+
+Deno.test("parse: a description must be a string", () => {
+  const error = assertThrows(
+    () =>
+      parser.parse(`
+version: v1
+deploy:
+  secrets:
+    db-password: { source: environment, description: 3 }
+`),
+    ManifestError,
+  );
+  assertEquals(
+    error.message,
+    "manifest.deploy.secrets.db-password.description must be a string.",
+  );
+});
+
 Deno.test("parse: external entries require type and name, reject extras", () => {
   const workload = parser.parse(`
 version: v1

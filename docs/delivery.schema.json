@@ -77,7 +77,11 @@
                 "description": "`list` resolves the comma-separated value to its trimmed, non-empty entries (empty → []); `string` (the default) is the value as-is.",
                 "enum": ["string", "list"]
               },
-              "default": { "type": "string" }
+              "default": { "type": "string" },
+              "description": {
+                "description": "What the variable is for, for whoever has to supply it.",
+                "type": "string"
+              }
             }
           }
         },
@@ -481,6 +485,10 @@
           "description": "Where the secret's value comes from.",
           "type": "string",
           "enum": ["file", "environment"]
+        },
+        "description": {
+          "description": "What the secret is for, for whoever has to supply it.",
+          "type": "string"
         }
       }
     },

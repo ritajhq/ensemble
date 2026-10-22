@@ -56,9 +56,11 @@ deploy:
   secrets:
     docs-webhook-secret:
       source: environment
+      description: Secret the docs repository's GitHub webhook signs its deliveries with (WEBHOOK_SECRET_DOCS)
 
   variables:
     repos:
+      description: JSON list of the repositories, refs and paths the website builds its content from
       default: '[{"id":"docs","repo":"ritajhq/ensemble","ref":"main","path":"docs"},{"id":"docs","repo":"ritajhq/ensemble","ref":"main","path":"docs", "trigger":"manual"}]'
 
   external:

@@ -17,8 +17,8 @@ const SUPPORTED_VERSIONS = ["v1"];
 const ENVELOPE_KEYS = ["version", "release", "deploy", "tasks"] as const;
 const RELEASE_KEYS = ["kit", "mode", "outputName", "publish"] as const;
 const PUBLISH_KEYS = ["target", "name", "options"] as const;
-const SECRET_KEYS = ["source"] as const;
-const VARIABLE_KEYS = ["type", "default"] as const;
+const SECRET_KEYS = ["source", "description"] as const;
+const VARIABLE_KEYS = ["type", "default", "description"] as const;
 const EXTERNAL_KEYS = ["type", "name"] as const;
 const RESOURCE_COMMON_KEYS = ["type", "class", "capabilities"] as const;
 const TASK_KEYS = ["run", "script", "arguments"] as const;
@@ -230,7 +230,10 @@ export class Parser {
         `${path}.source is required and must be "file" or "environment".`,
       );
     }
-    return { source: raw.source };
+    return {
+      source: raw.source,
+      ...this.parseDescription(raw.description, path),
+    };
   }
 
   private parseVariable(value: unknown, path: string): VariableDeclaration {
@@ -252,7 +255,20 @@ export class Parser {
     return {
       ...(raw.type !== undefined && { type: raw.type as VariableType }),
       default: raw.default as string | undefined,
+      ...this.parseDescription(raw.description, path),
     };
+  }
+
+  /** Spreads to nothing when absent, so a declaration without one keeps its exact shape. */
+  private parseDescription(
+    value: unknown,
+    path: string,
+  ): { description?: string } {
+    if (value === undefined) return {};
+    if (typeof value !== "string") {
+      throw new ManifestError(`${path}.description must be a string.`);
+    }
+    return { description: value };
   }
 
   private parseExternal(value: unknown, path: string): ExternalDeclaration {
