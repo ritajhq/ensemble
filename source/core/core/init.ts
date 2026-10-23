@@ -25,6 +25,7 @@ const SKELETON_DIRS = [
   "source/libs",
   "source/artifacts",
   "ci",
+  "docs",
 ];
 
 // Per-developer and per-machine state only — a kit's own build tools are
@@ -64,6 +65,7 @@ each live in their own top-level folder. See \`ens --help\` for the full CLI.
   default build/pack vars.
 - \`source/artifacts/\` — build output (gitignored, except \`deploy/\`).
 - \`ci/<name>/delivery.yml\` — deploy manifest for the workload of that name.
+- \`docs/\` — the project's documentation.
 - \`.ensemble/kits/{build,pack,deploy}/\` — pluggable kits doing the actual work.
 - \`.ensemble/config.yaml\` — which kit each app/ship uses (shared, git-tracked).
 - \`.ensemble/config.local.yaml\` — personal default vars (gitignored).

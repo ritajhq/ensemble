@@ -40,11 +40,12 @@ my-project/
 │   └── artifacts/
 │       └── .gitignore           # ignores build output, keeps deploy/
 ├── ci/                          # delivery manifests, ci/<name>/delivery.yml
+├── docs/                        # the project's documentation
 ├── deno.json                    # a workspace over apps, core, libs and the kits
 └── README.md                    # the layout and the commands, with the project's name
 ```
 
-Every folder under `source/` and `ci/` starts empty. Git doesn't track empty
+Every folder under `source/`, plus `ci/` and `docs/`, starts empty. Git doesn't track empty
 folders, so they appear in the repository as you add files to them.
 `source/integrations/` isn't created: add it when an app needs one, as described
 in [Workspace layout](../../concepts/workspace-layout.md).
