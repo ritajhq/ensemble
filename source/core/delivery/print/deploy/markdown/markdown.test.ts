@@ -5,13 +5,36 @@ import { Files } from "./files.ts";
 import { Page } from "./page.ts";
 import { Renderer } from "./renderer.ts";
 
-Deno.test("page: shows the drawing and lists uses, including of variables", () => {
-  const page = new Page().write("shop", "architecture", shopArchitecture());
-  assertStringIncludes(page, 'srcset="architecture.svg"');
-  assertStringIncludes(page, 'src="architecture-light.svg"');
-  assertStringIncludes(page, "`variables.region`");
-  assertStringIncludes(page, "| Name | Type | Details | Uses |");
-  assertStringIncludes(page, "| Name | Type | Details | Used by |");
+const page = () => new Page().write("shop", "architecture", shopArchitecture());
+
+Deno.test("page: shows the drawing for a dark and a light page, with no instructions on reading it", () => {
+  assertStringIncludes(page(), 'srcset="architecture.svg"');
+  assertStringIncludes(page(), 'src="architecture-light.svg"');
+  assertEquals(page().includes("Drawn from"), false);
+});
+
+Deno.test("page: leaves out what the drawing already shows, the computes and the storage", () => {
+  assertEquals(page().includes("## compute"), false);
+  assertEquals(page().includes("## storage"), false);
+});
+
+Deno.test("page: variables and secrets are one table, each typed as which it is, with what uses it", () => {
+  const text = page();
+  assertStringIncludes(text, "## Variables and secrets");
+  assertStringIncludes(text, "| `region` | variable: string |");
+  assertStringIncludes(text, "| `db-password` | secret: environment |");
+  assertStringIncludes(text, "`compute.api`");
+  assertEquals(text.includes("## variables"), false);
+  assertEquals(text.includes("## secrets"), false);
+});
+
+Deno.test("page: externals are told in a sentence, not a table", () => {
+  const text = page();
+  assertStringIncludes(text, "## External");
+  assertStringIncludes(
+    text,
+    "The deployment relies on what it doesn't create: `edge` (network, name: edge).",
+  );
 });
 
 Deno.test("files: writes the page, both drawings and the source, creating the folder", async () => {

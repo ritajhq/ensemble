@@ -1,10 +1,17 @@
 import type { Architecture, Entry } from "../architecture.ts";
 import { Theme } from "../reladraw/theme.ts";
 
+/** The categories listed together as one table, and what each is called in its type. */
+const VALUE_KIND: Readonly<Record<string, string>> = {
+  variables: "variable",
+  secrets: "secret",
+};
+const VALUE_CATEGORIES = Object.keys(VALUE_KIND);
+
 /**
- * The Markdown page about an architecture: its drawing, then for each
- * category a table of its entries with what they use and what uses them —
- * all of it, including the lines the drawing leaves out.
+ * The Markdown page about an architecture: its drawing, then what the drawing
+ * leaves out: the variables and secrets with every entry that uses them, and
+ * the externals the deployment expects to find.
  */
 export class Page {
   /** `stem` is the file name the drawings' `.svg` and `.reladraw` share with the page, without extension. */
@@ -14,65 +21,77 @@ export class Page {
       "",
       `<picture><source media="(prefers-color-scheme: dark)" srcset="${stem}.svg"><img alt="Architecture of ${name}" src="${stem}${Theme.light.suffix}.svg"></picture>`,
       "",
-      `Drawn from \`ci/${name}/delivery.yml\` by \`ens delivery print ${name} --render markdown\`; the drawing's source is [${stem}.reladraw](${stem}.reladraw). A network is an area around the computes attached to it (a compute on two networks sits where they overlap). An arrow goes from what uses to what it uses, and has the color of the compute it leaves. Variables and secrets are not drawn, so the tables below list them and every use of them.`,
-      "",
-      ...this.categories(architecture).flatMap((category) =>
-        this.table(category, architecture)
-      ),
+      ...this.valuesSection(architecture),
+      ...this.externalsSection(architecture),
     ].join("\n");
   }
 
-  private categories(architecture: Architecture): string[] {
-    return [...new Set(architecture.entries.map((entry) => entry.category))];
-  }
-
-  private table(category: string, architecture: Architecture): string[] {
+  /** One table of the variables and secrets, each typed as which it is, with what uses it; nothing where there are none. */
+  private valuesSection(architecture: Architecture): string[] {
     const entries = architecture.entries.filter((entry) =>
-      entry.category === category
+      VALUE_CATEGORIES.includes(entry.category)
     );
-    const uses = this.relatedBy(architecture, "from", "to");
-    const usedBy = this.relatedBy(architecture, "to", "from");
-    const hasUses = entries.some((entry) => uses.has(entry.id));
-    const hasUsedBy = entries.some((entry) => usedBy.has(entry.id));
-
-    const headers = [
-      "Name",
-      "Type",
-      "Details",
-      ...(hasUses ? ["Uses"] : []),
-      ...(hasUsedBy ? ["Used by"] : []),
-    ];
+    if (entries.length === 0) return [];
+    const usedBy = this.usersOf(architecture);
+    const headers = ["Name", "Type", "Details", "Used by"];
     return [
-      `## ${category}`,
+      "## Variables and secrets",
       "",
       this.row(headers),
       this.row(headers.map(() => "---")),
       ...entries.map((entry) =>
         this.row([
           `\`${entry.name}\``,
-          entry.type,
+          `${VALUE_KIND[entry.category]}: ${entry.type}`,
           this.detailsOf(entry),
-          ...(hasUses ? [this.listed(uses.get(entry.id))] : []),
-          ...(hasUsedBy ? [this.listed(usedBy.get(entry.id))] : []),
+          this.listed(usedBy.get(entry.id)),
         ])
       ),
       "",
     ];
   }
 
-  /** For each entry id at `key` of a relation, the ids at `other` of every relation it is in, in order and without repeats. */
-  private relatedBy(
-    architecture: Architecture,
-    key: "from" | "to",
-    other: "from" | "to",
-  ): Map<string, string[]> {
-    const related = new Map<string, string[]>();
+  /** The externals as a sentence: what each is, its name there, and why it matters if its entry says. */
+  private externalsSection(architecture: Architecture): string[] {
+    const externals = architecture.entries.filter((entry) =>
+      entry.category === "external"
+    );
+    if (externals.length === 0) return [];
+    return [
+      "## External",
+      "",
+      `The deployment relies on what it doesn't create: ${
+        this.sentenceOf(externals.map((entry) => this.externalIn(entry)))
+      }.`,
+      "",
+    ];
+  }
+
+  private externalIn(entry: Entry): string {
+    const facts = [
+      entry.type,
+      ...entry.details.map((detail) => `${detail.label}: ${detail.value}`),
+    ].join(", ");
+    return `\`${entry.name}\` (${facts})${
+      entry.description ? `, ${entry.description}` : ""
+    }`;
+  }
+
+  /** `a`, `a and b`, `a, b and c`. */
+  private sentenceOf(parts: readonly string[]): string {
+    if (parts.length < 2) return parts.join("");
+    return `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+  }
+
+  /** For each entry id, the ids of the entries that use it, in order and without repeats. */
+  private usersOf(architecture: Architecture): Map<string, string[]> {
+    const users = new Map<string, string[]>();
     for (const relation of architecture.relations) {
-      const ids = related.get(relation[key]) ?? [];
-      if (!ids.includes(relation[other])) ids.push(relation[other]);
-      related.set(relation[key], ids);
+      const ids = users.get(relation.to) ?? [];
+      if (!ids.includes(relation.from)) ids.push(relation.from);
+      users.set(relation.to, ids);
     }
-    return related;
+    return users;
   }
 
   private detailsOf(entry: Entry): string {

@@ -122,8 +122,10 @@ Draws the architecture with [reladraw](https://github.com/reladraw/reladraw) and
 writes four files that share a name, in `docs/<name>/` unless `-o <path>` names
 the page (the folder is created if it doesn't exist):
 
-- `architecture.md` — the drawing, and for each category a table of its entries
-  with what they use and what uses them.
+- `architecture.md` — the drawing, then one table of the variables and secrets
+  (typed `variable: <type>` or `secret: <source>`, with their description,
+  default and what uses them) and a sentence naming the externals the deployment
+  expects to exist. The computes and storage are in the drawing only.
 - `architecture.svg` and `architecture-light.svg` — the drawing, for a dark page
   and for a light one (the page shows the one that suits the reader's theme):
   computes in rows by how far down the calls between them they sit (a compute
