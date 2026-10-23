@@ -1,3 +1,24 @@
+## [0.60.0] - 2026-10-23
+
+### 🚀 Features
+
+- *(manifest)* Accept an optional description on secrets and variables, and describe those of the platform and website manifests
+- *(cli)* Add ens delivery show deploy, printing the deploy architecture with resolved relations as JSON, in a new @ensemble/delivery package
+- *(deploy)* Rename container-orchestrated to container, always restart it, and let computes reach each other with ${compute.<name>.host}
+- *(cli)* Ens delivery print renders markdown with a reladraw diagram of the architecture, in a dark and a light theme
+
+### 🐛 Bug Fixes
+
+- *(kits)* Compile deno.compile ships in a staged workspace with their own lockfile, and build the compile task through it
+
+### 📚 Documentation
+
+- Add the generated architecture pages of the platform and website manifests
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.59.0
+- *(release)* Bump library versions for 0.60.0
 ## [0.59.0] - 2026-10-22
 
 ### ⚙️ Miscellaneous Tasks
