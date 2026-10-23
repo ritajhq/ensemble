@@ -1,4 +1,4 @@
-import { dirname } from "@std/path";
+import { dirname, fromFileUrl } from "@std/path";
 import { stringify as stringifyYaml } from "@std/yaml";
 import * as KitSdk from "@ensemble/kit-sdk";
 import { composeRealization } from "./realization.ts";
@@ -58,10 +58,21 @@ const kit: KitSdk.Deploy.Kit = {
     "--volumes",
     "--remove-orphans",
   ],
-  // deno-lint-ignore require-await
+  // Through a script of this kit's own (./watch.ts), as the other deploy kits
+  // do, which starts the local proxy before compose's own watch.
   // `--progress quiet` drops compose's own progress display, which it writes
   // to stderr alongside real errors; those still come through.
+  // deno-lint-ignore require-await
   watchCommand: async (artifactPath, name, options) => [
+    Deno.execPath(),
+    "run",
+    "-A",
+    "-q",
+    "--minimum-dependency-age",
+    "0",
+    fromFileUrl(new URL("./watch.ts", import.meta.url)),
+    artifactPath,
+    "--",
     "docker",
     "compose",
     "-f",

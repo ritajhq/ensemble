@@ -1,7 +1,6 @@
 export type { Kit, WatchOptions } from "./kit.ts";
 export type { ExternalEmulation } from "./external-emulation.ts";
 export type {
-  Mode,
   Provisioner,
   ProvisionerSet,
   ProvisionOutcome,

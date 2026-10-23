@@ -8,6 +8,7 @@ import {
   type SyncRule,
 } from "./development-sync.ts";
 import { FunctionAdapter } from "./function-adapter.ts";
+import { LocalRuntime } from "./local-runtime.ts";
 import { FunctionPackage } from "./function-package.ts";
 import { pascalCase } from "./pascal-case.ts";
 import { CLOUDFRONT_URL, RouteListing } from "./route-listing.ts";
@@ -15,8 +16,9 @@ import { type RoutedTarget, ROUTES_METADATA } from "./routes-metadata.ts";
 import { readTemplate, Stack } from "./stack.ts";
 
 // The aws kit's watch (see main.ts's `watchCommand`), what `ens develop` runs:
-// the same stack deploy as an apply, then — for as long as the session lasts —
-// every resource that declares `development.sync` is kept current straight
+// the local AWS the environment points at, brought up first unless `ens
+// develop` is told not to (./local-runtime.ts); the same stack deploy as an
+// apply, then — for as long as the session lasts — every resource that declares `development.sync` is kept current straight
 // from its apps' build output whenever that output changes, in seconds rather
 // than a stack update: a function gets its code replaced (`aws lambda
 // update-function-code`), a bucket its contents re-uploaded (`aws s3 sync`)
@@ -197,6 +199,9 @@ const [templatePath, stackName] = Deno.args;
 if (!templatePath || !stackName) {
   throw new Error("usage: watch.ts <template path> <stack name>");
 }
+
+const runtime = LocalRuntime.wanted ? LocalRuntime.of(Deno.env) : undefined;
+if (runtime) console.error(await runtime.ensure());
 
 const stack = new Stack(stackName);
 const deployed = await stack.deploy(templatePath);

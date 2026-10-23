@@ -14,7 +14,6 @@ const explainCommand = new Command()
     'Explain one resource\'s resolution: which provisioner matched (and why others didn\'t), each value\'s provenance, accepted capability gaps, and resolved outputs. <resource> is given as "category.name" (e.g. "databases.primary").',
   )
   .type("artifacts", new EnumType(["local", "published"]))
-  .type("mode", new EnumType(["development", "deployment"]))
   .arguments("<name:string> <kit:string> <resource:string>")
   .option(
     "--artifacts <artifacts:artifacts>",
@@ -22,11 +21,6 @@ const explainCommand = new Command()
     {
       default: "published" as const,
     },
-  )
-  .option(
-    "--mode <mode:mode>",
-    "What the deployment is for: `development` lets the kit add what only a developer needs (host ports, development blocks) to the same topology.",
-    { default: "deployment" as const },
   )
   .option(
     "--version <version:string>",
@@ -39,14 +33,13 @@ const explainCommand = new Command()
     { collect: true },
   )
   .action(
-    async ({ artifacts, mode, version, envFile }, name, kit, resource) => {
+    async ({ artifacts, version, envFile }, name, kit, resource) => {
       await runExplain(
         name,
         kit,
         resource,
         {
           artifacts,
-          mode,
           version,
           envFiles: DeploymentEnvironment.required(envFile),
         },
@@ -64,7 +57,6 @@ export const deployCommand = new Command()
       "--destroy tears it down instead (the same as `ens destroy`).",
   )
   .type("artifacts", new EnumType(["local", "published"]))
-  .type("mode", new EnumType(["development", "deployment"]))
   .arguments("<name:string> [kit:string]")
   .option(
     "--artifacts <artifacts:artifacts>",
@@ -72,11 +64,6 @@ export const deployCommand = new Command()
     {
       default: "published" as const,
     },
-  )
-  .option(
-    "--mode <mode:mode>",
-    "What the deployment is for: `development` lets the kit add what only a developer needs (host ports, development blocks) to the same topology.",
-    { default: "deployment" as const },
   )
   .option(
     "--version <version:string>",
@@ -133,7 +120,6 @@ export const deployCommand = new Command()
     async (
       {
         artifacts,
-        mode,
         version,
         eject,
         plan,
@@ -188,7 +174,6 @@ export const deployCommand = new Command()
           version,
           termination,
           instance: instance ? Instance.parse(instance) : undefined,
-          mode,
           acceptCapabilityGaps,
           watch,
           pack,

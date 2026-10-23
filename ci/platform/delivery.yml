@@ -1,4 +1,3 @@
-# yaml-language-server: $schema=../../docs/delivery.schema.json
 version: v1
 
 # The platform, the router in front of every deployment it makes, and what
@@ -11,6 +10,13 @@ version: v1
 #   export PLATFORM_SECRET_KEY=$(openssl rand -base64 32)   # keep it: secrets sealed with one key open with no other
 #   export AUTH_SECRET=$(openssl rand -base64 32)
 #   ens deploy platform compose --artifacts local --emulate-externals
+#
+# To try it on your machine, `ens develop platform` starts a local proxy in front
+# of it (see docs/documentation/guides/local-development.md); give the hosts a
+# domain that resolves there, signing in over its HTTPS:
+#
+#   PREVIEW_DOMAIN=ensemble.lvh.me PLATFORM_HOST=platform.ensemble.lvh.me \
+#   AUTH_HOST=auth.ensemble.lvh.me ens develop platform
 #
 # The platform reaches GitHub as a GitHub App of its own, made on its home page
 # the first time it's opened, and installed on the repositories it releases
@@ -254,6 +260,28 @@ deploy:
       mounts:
         - source: ${storage.auth-data.name}
           path: /data
+
+  networking:
+    # What a host puts in front of the router, as the hand-kept gateway of a
+    # real host does: the platform's host, its sign-in and every preview, all
+    # under the preview domain, to the router. Behind the host's own gateway
+    # or tunnel it sits idle; under `ens develop` it is what the local proxy
+    # reaches the platform through.
+    gateway:
+      type: gateway
+      networks:
+        - ${external.platform.name}
+      routes:
+        - host: ${variables.preview_domain.value}
+          path: /*
+          target:
+            service: router
+            port: ${compute.router.http}
+        - host: "*.${variables.preview_domain.value}"
+          path: /*
+          target:
+            service: router
+            port: ${compute.router.http}
 
   storage:
     # Checkouts, and the platform's own database.

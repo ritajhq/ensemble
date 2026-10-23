@@ -84,33 +84,6 @@ function developmentSync(development: unknown): DevelopmentSync | undefined {
 }
 
 /**
- * The function's environment plus its `development.env` additions, under `ens
- * develop` only. Naming a variable `env` already sets is an error, not an
- * override: development may run with more than production, never with
- * something different.
- */
-function environmentOf(
-  request: KitSdk.Deploy.ResolvedRequest,
-): Record<string, unknown> | undefined {
-  const env = request.params.env as Record<string, unknown> | undefined;
-  if (request.params.development === undefined) return env;
-  const additions =
-    KitSdk.Deploy.parseDevelopmentBlock(request.params.development).env;
-  const replaced = Object.keys(additions).filter((name) => name in (env ?? {}));
-  if (replaced.length > 0) {
-    throw new Error(
-      `compute.${request.name}: development.env may only add variables, but ${
-        replaced.join(", ")
-      } already set by env.`,
-    );
-  }
-  if (request.mode !== "development" || Object.keys(additions).length === 0) {
-    return env;
-  }
-  return { ...env, ...additions };
-}
-
-/**
  * Fulfills `function` on aws as an `AWS::Lambda::Function` with its own
  * execution role: CloudWatch Logs (the basic execution policy) plus item-level
  * access to exactly the `key-value` tables it lists in `tables` — and their
@@ -137,7 +110,7 @@ export function functionProvisioner(): KitSdk.Deploy.Provisioner {
         (request.params.tables as readonly unknown[] | undefined) ?? [];
       const buckets =
         (request.params.buckets as readonly unknown[] | undefined) ?? [];
-      const env = environmentOf(request);
+      const env = request.params.env as Record<string, unknown> | undefined;
       const sync = developmentSync(request.params.development);
 
       const role = {

@@ -7,6 +7,7 @@ import {
   type Tls,
   tlsMode,
 } from "./caddy-config.ts";
+import { LocalProxy } from "./local-proxy.ts";
 
 /**
  * Caddy's own official image, and the reason this kit's gateway is Caddy:
@@ -120,6 +121,11 @@ function ingressNetworks(value: unknown): readonly string[] {
  * no host port at all — nothing on the host can reach it around that proxy,
  * and two such stacks on one host never fight over port 80.
  *
+ * A gateway on ingress networks carries, in every mode, the labels the shared
+ * `LocalProxy` routes its hosts by. They do nothing on a host without one;
+ * `ens develop` starts the proxy (`../watch.ts`), so the hosts a manifest
+ * describes for a real host answer there too.
+ *
  * Published on `8443:443` for `tls: internal`, `80:80` for `none` — HTTPS
  * only in the former case, deliberately: Caddy's automatic HTTP→HTTPS
  * redirect names Caddy's own 443, which a host-side 8443 mapping can't
@@ -217,6 +223,7 @@ export function gatewayProvisioner(): KitSdk.Deploy.Provisioner {
       const alias = request.params.alias as string | undefined;
       const config = caddyfile(routes, tls);
       const listener = HOST_LISTENERS[tls];
+      const proxy = ingress.length > 0 ? new LocalProxy(ingress) : undefined;
 
       return {
         fragment: {
@@ -229,6 +236,7 @@ export function gatewayProvisioner(): KitSdk.Deploy.Provisioner {
                 ? { ports: [`${listener.hostPort}:${listener.containerPort}`] }
                 : {}),
               networks: networkAttachments(ingress, alias ?? PROJECT_ALIAS),
+              ...(proxy ? { labels: proxy.labelsFor(routes, tls) } : {}),
               configs: [
                 { source: configName, target: "/etc/caddy/Caddyfile" },
               ],

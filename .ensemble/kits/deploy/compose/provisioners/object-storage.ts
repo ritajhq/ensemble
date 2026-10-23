@@ -1,10 +1,9 @@
 import * as KitSdk from "@ensemble/kit-sdk";
 import { composeSecretWiring } from "../secret-wiring.ts";
-import { hostAccess } from "../host-access.ts";
 import { garageSeedScript, garageToml } from "./garage-config.ts";
 
 const GARAGE_IMAGE = "dxflrs/garage:v1.0.1";
-/** The port Garage's own S3 API binds *inside* the container (the `api_bind_addr` `garageToml` renders, and what `${storage.<name>.url}` addresses over the compose network). Published on the host only under `ens develop` (`hostAccess`): under `ens deploy` a host-side S3 API would expose the bucket past the stack network. */
+/** The port Garage's own S3 API binds *inside* the container (the `api_bind_addr` `garageToml` renders, and what `${storage.<name>.url}` addresses over the compose network). */
 const S3_API_PORT = 3900;
 
 /**
@@ -87,7 +86,6 @@ export function objectStorageProvisioner(): KitSdk.Deploy.Provisioner {
           content: {
             service: {
               image: GARAGE_IMAGE,
-              ...hostAccess(request, [S3_API_PORT]),
               configs: [
                 { source: tomlConfigName, target: "/etc/garage.toml" },
               ],
@@ -104,10 +102,9 @@ export function objectStorageProvisioner(): KitSdk.Deploy.Provisioner {
             ...(critical ? { volumes: { [volumeName]: {} } } : {}),
           },
         },
-        // A browser has no address of its own for the bucket here: its S3
-        // API is published on the host only under `ens develop`, on an
-        // ephemeral port (`hostAccess`). `publicUrl` is the stack network's
-        // address, then — presigned URLs for a page need a gateway route.
+        // A browser has no address of its own for the bucket here.
+        // `publicUrl` is the stack network's address, then — presigned URLs
+        // for a page need a gateway route.
         outputs: {
           url: `http://${request.name}:${S3_API_PORT}`,
           publicUrl: `http://${request.name}:${S3_API_PORT}`,

@@ -147,8 +147,7 @@ function stringList(raw: unknown, field: string, required: boolean): string[] {
  * The bucket's `development.sync` rules, as the template metadata `ens
  * develop`'s watch (../watch.ts) reads back to keep `contents` current —
  * `undefined` when there's nothing to sync. A bucket has no process to
- * restart nor environment to extend, so `sync+restart` and `env` are
- * rejected, and syncing needs `contents` to keep current in the first place.
+ * restart, so `sync+restart` is rejected, and syncing needs `contents` to keep current in the first place.
  */
 function developmentSync(
   development: unknown,
@@ -160,11 +159,6 @@ function developmentSync(
   if (block["sync+restart"].length > 0) {
     throw new Error(
       `storage.${name}: a bucket has nothing to restart — use development.sync.`,
-    );
-  }
-  if (Object.keys(block.env).length > 0) {
-    throw new Error(
-      `storage.${name}: a bucket has no environment for development.env to add to.`,
     );
   }
   if (block.sync.length === 0) return undefined;

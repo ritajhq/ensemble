@@ -16,14 +16,13 @@ ens develop website
 ```
 
 `ens develop <name>` is sugar for
-`ens deploy <name> compose --mode
-development --artifacts local --emulate-externals --watch`:
-it builds and packs every app the workload's `release:` section references,
-brings the workload up, creates any `external` resource it knows how to emulate
-locally (e.g. a shared Docker network like `ci/website/delivery.yml`'s `edge`
-network) instead of requiring it to already exist, and keeps watching for source
-changes. Stop it with Ctrl+C. Pass `-k, --kit <kit>` to target a different
-deploy kit (defaults to `compose`).
+`ens deploy <name> compose --artifacts local --emulate-externals --watch`: it
+builds and packs every app the workload's `release:` section references, brings
+the workload up, creates any `external` resource it knows how to emulate locally
+(e.g. a shared Docker network like `ci/website/delivery.yml`'s `edge` network)
+instead of requiring it to already exist, and keeps watching for source changes.
+Stop it with Ctrl+C. Pass `-k, --kit <kit>` to target a different deploy kit
+(defaults to `compose`).
 
 To change an app while the stack runs, just edit its source — the manifest's
 `development.sync` rules (see the example above) tell the kit which app paths to
@@ -33,24 +32,39 @@ sync into which container paths, and whether a sync also needs a restart
 app's build output on every change, and on an `object-storage` bucket re-upload
 its `contents` under the rule's `path`.
 
-## What develop mode adds
+## What `ens develop` adds
 
-A development deploy renders the same topology as any other — same services,
-routes and images — and only adds to it. `--mode development` is what tells the
-kit (each provisioner receives `mode: "development"` instead of `"deployment"`);
-it's independent of `--watch` and `--artifacts`, so
-`ens deploy <name> compose --mode development --eject` shows exactly what
-`ens develop` brings up. The `compose` kit adds:
+A development run renders the same topology as any other:
+`ens deploy <name>
+compose --artifacts local --eject` shows exactly what
+`ens develop` brings up. What it adds is around the render, in the kit's watch:
 
-- the resource's `development.sync` / `sync+restart` rules and its
-  `development.env` variables (see the
-  [manifest reference](../reference/delivery-manifest-schema.md#mounts-and-development));
-- host access to everything inside the stack: every database, object-storage
-  bucket and compute port is published on an _ephemeral_ host port, so `psql`,
-  an S3 client or a debugger can reach it. Find one with
-  `docker compose -p <project> port <service> <container port>` (e.g.
-  `port database 5432`). In `deployment` mode nothing is published but the
-  gateway's own ingress.
+- the resource's `development.sync` / `sync+restart` rules, kept current while
+  it runs;
+- a shared entrypoint for gateways that sit on ingress networks. They publish
+  nothing, since on a real host a gateway or tunnel of the host's own reaches
+  them there, and they carry labels with their hosts in every render.
+  `ens
+  develop` starts `ens-local-proxy` (caddy-docker-proxy) on ports 80 and
+  443 and joins it to their networks, so the hosts a manifest describes answer
+  here too, over HTTPS from the proxy's local CA, for every stack at once. Point
+  the manifest's domain variables at a domain that resolves to 127.0.0.1 —
+  `lvh.me` and every name under it does — e.g.
+  `PREVIEW_DOMAIN=ensemble.lvh.me PLATFORM_HOST=platform.ensemble.lvh.me AUTH_HOST=auth.ensemble.lvh.me`
+  for the platform (a domain of its own, since two stacks can't both claim
+  `lvh.me` and `*.lvh.me`). The proxy reads its networks when it starts, so the
+  kit restarts it when it joins a new one. `docker rm -f ens-local-proxy`
+  removes it.
+
+Both this proxy and the local AWS an `aws` stack lands in (MiniStack, started
+when `AWS_ENDPOINT_URL` points at this machine) are the kit's _runtime_:
+`ens develop` brings it up when none is running. `ens develop --no-runtime`, or
+`runtime: false` under `deploy.<name>.development` in `.ensemble/config.yaml`,
+leaves it to you.
+
+A value only development sets (a frontend's live reload, say) is a manifest
+variable like any other. `ens develop` reads `ci/<name>/dev.env` for it, or the
+files `--env-file` names.
 
 ## Doing it by hand
 
@@ -76,7 +90,7 @@ ens pack website docker
 **3. Deploy against local artifacts, watching:**
 
 ```sh
-ens deploy website compose --mode development --artifacts local --emulate-externals --watch
+ens deploy website compose --artifacts local --emulate-externals --watch
 ```
 
 `--artifacts local` resolves `${release.*}` references to what you just packed

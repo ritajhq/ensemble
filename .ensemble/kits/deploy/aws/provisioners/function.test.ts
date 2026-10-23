@@ -1,11 +1,10 @@
-import { assertEquals, assertRejects } from "@std/assert";
+import { assertEquals } from "@std/assert";
 import * as KitSdk from "@ensemble/kit-sdk";
 import { functionProvisioner } from "./function.ts";
 import { DEVELOPMENT_METADATA } from "../development-sync.ts";
 
 function request(
   params: Record<string, unknown>,
-  mode?: KitSdk.Deploy.Mode,
 ): KitSdk.Deploy.ResolvedRequest {
   return {
     category: "compute",
@@ -14,17 +13,15 @@ function request(
     params: { code: "/repo/source/artifacts/packages/api.zip", ...params },
     values: {},
     secrets: {},
-    ...(mode ? { mode } : {}),
   };
 }
 
 async function lambdaOf(
   params: Record<string, unknown>,
-  mode?: KitSdk.Deploy.Mode,
 ): Promise<
   { Metadata?: Record<string, unknown>; Properties: Record<string, unknown> }
 > {
-  const outcome = await functionProvisioner().provision!(request(params, mode));
+  const outcome = await functionProvisioner().provision!(request(params));
   return (outcome.fragment.content as {
     resources: Record<
       string,
@@ -58,38 +55,6 @@ Deno.test("aws function: no development block renders no metadata", async () => 
   const lambda = await lambdaOf({});
 
   assertEquals(lambda.Metadata, undefined);
-});
-
-Deno.test("aws function: development.env adds variables under ens develop only", async () => {
-  const params = {
-    env: { TABLE: "experiences" },
-    development: { env: { DEBUG: true } },
-  };
-
-  assertEquals(
-    ((await lambdaOf(params, "development")).Properties.Environment as {
-      Variables: unknown;
-    }).Variables,
-    { TABLE: "experiences", DEBUG: "true" },
-  );
-  assertEquals(
-    ((await lambdaOf(params, "deployment")).Properties.Environment as {
-      Variables: unknown;
-    }).Variables,
-    { TABLE: "experiences" },
-  );
-});
-
-Deno.test("aws function: development.env naming a variable env already sets is rejected", async () => {
-  await assertRejects(
-    () =>
-      lambdaOf({
-        env: { TABLE: "experiences" },
-        development: { env: { TABLE: "other" } },
-      }),
-    Error,
-    "development.env may only add variables",
-  );
 });
 
 Deno.test("aws function: buckets grant object access and listing on exactly those buckets", async () => {

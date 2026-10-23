@@ -78,7 +78,6 @@ export function objectStorageProvisioner(): KitSdk.Deploy.Provisioner {
       const cors = corsRules(request.params.cors, request.name);
       const sync = syncRules(request.params.development, where, {
         restart: true,
-        env: true,
       });
       if (sync && contents === undefined) {
         throw new Error(

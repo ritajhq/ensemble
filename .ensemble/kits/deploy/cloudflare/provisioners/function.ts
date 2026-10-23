@@ -2,11 +2,7 @@ import * as KitSdk from "@ensemble/kit-sdk";
 import { syncRules } from "../development-sync.ts";
 import type { Fragment } from "../plan.ts";
 
-/**
- * The function's environment as a Worker's plain-text vars, plus its
- * `development.env` additions under `ens develop` only. Naming a variable
- * `env` already sets is an error, not an override, as on every kit.
- */
+/** The function's environment as a Worker's plain-text vars. */
 function environmentOf(
   request: KitSdk.Deploy.ResolvedRequest,
 ): Record<string, string> {
@@ -18,19 +14,7 @@ function environmentOf(
       typeof value === "string" ? value : JSON.stringify(value),
     ]),
   );
-  if (request.params.development === undefined) return env;
-  const additions =
-    KitSdk.Deploy.parseDevelopmentBlock(request.params.development).env;
-  const replaced = Object.keys(additions).filter((name) => name in env);
-  if (replaced.length > 0) {
-    throw new Error(
-      `compute.${request.name}: development.env may only add variables, but ${
-        replaced.join(", ")
-      } already set by env.`,
-    );
-  }
-  if (request.mode !== "development") return env;
-  return { ...env, ...additions };
+  return env;
 }
 
 function names(raw: unknown, field: string, name: string): string[] {

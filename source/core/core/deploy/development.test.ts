@@ -18,7 +18,6 @@ Deno.test("parseDevelopmentBlock: a single sync rule with defaults", () => {
       ignore: [],
     }],
     "sync+restart": [],
-    env: {},
   });
 });
 
@@ -74,7 +73,7 @@ Deno.test("parseDevelopmentBlock: throws on an unknown top-level key", () => {
 
 Deno.test("parseDevelopmentBlock: an entirely empty block is valid (nothing to sync)", () => {
   const block = parseDevelopmentBlock({});
-  assertEquals(block, { sync: [], "sync+restart": [], env: {} });
+  assertEquals(block, { sync: [], "sync+restart": [] });
 });
 
 Deno.test("parseDevelopmentBlock: throws when sync isn't a list", () => {
@@ -141,7 +140,7 @@ Deno.test("parseDevelopmentBlock: throws when ignore isn't a list of strings", (
 
 Deno.test("parseDevelopmentBlock: an empty sync list is valid (a watchable resource with nothing to sync)", () => {
   const block = parseDevelopmentBlock({ sync: [] });
-  assertEquals(block, { sync: [], "sync+restart": [], env: {} });
+  assertEquals(block, { sync: [], "sync+restart": [] });
 });
 
 Deno.test("discoverWatchedApps: collects every app across every resource's sync rules, deduped", () => {
@@ -206,27 +205,10 @@ Deno.test("discoverWatchedApps: an invalid development block still throws Develo
   assertThrows(() => discoverWatchedApps(workload), DevelopmentBlockError);
 });
 
-Deno.test("parseDevelopmentBlock: env additions, scalars stringified", () => {
-  const block = parseDevelopmentBlock({
-    env: { LIVE_RELOAD: true, DEBUG_PORT: 9229, LOG_LEVEL: "debug" },
-  });
-
-  assertEquals(block.env, {
-    LIVE_RELOAD: "true",
-    DEBUG_PORT: "9229",
-    LOG_LEVEL: "debug",
-  });
-});
-
-Deno.test("parseDevelopmentBlock: throws when env isn't a mapping of scalars", () => {
+Deno.test("parseDevelopmentBlock: env is no longer a key — a variable carries what only development sets", () => {
   assertThrows(
-    () => parseDevelopmentBlock({ env: ["LIVE_RELOAD=true"] }),
+    () => parseDevelopmentBlock({ env: { LIVE_RELOAD: true } }),
     DevelopmentBlockError,
-    "development.env must be a mapping.",
-  );
-  assertThrows(
-    () => parseDevelopmentBlock({ env: { LIVE_RELOAD: { on: true } } }),
-    DevelopmentBlockError,
-    "development.env.LIVE_RELOAD must be a string, number, or boolean.",
+    'development has no key "env".',
   );
 });

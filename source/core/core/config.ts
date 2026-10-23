@@ -68,6 +68,11 @@ export interface PublishConfig {
 export interface DeployConfig {
   /** The deploy kit `ens deploy <name>` (and `ens develop <name>`) uses when the command names none. */
   kit?: string;
+  /** What `ens develop <name>` adds to the same deploy. */
+  development?: {
+    /** Whether it brings up the local runtime the kit deploys to (a compose stack's proxy, a local AWS) if none is running — `--no-runtime` overrides it per run. Absent: yes. */
+    runtime?: boolean;
+  };
 }
 
 export interface EnsembleConfig {

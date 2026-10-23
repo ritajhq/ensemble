@@ -25,10 +25,6 @@ ens deploy <name> [kit]
 
 - `--artifacts <local|published>` — which release locator to resolve. Default:
   `published`.
-- `--mode <development|deployment>` — what the deployment is for. `development`
-  lets the kit add what only a developer needs (host ports, `development`
-  blocks) to the same topology; independent of `--artifacts` and `--watch`, so a
-  development render can be ejected or planned too. Default: `deployment`.
 - `--version <version>` — released version to resolve `${release.<name>}`
   references to, for published artifacts. Default: `latest`.
 - `--instance <slug>` — deploy as a named instance beside the plain deployment;
@@ -80,9 +76,5 @@ ens deploy web compose explain databases.primary
 - `<resource>` — given as `category.name` (e.g. `databases.primary`).
 - `--artifacts <local|published>` — which release locator to resolve. Default:
   `published`.
-- `--mode <development|deployment>` — what the deployment is for. `development`
-  lets the kit add what only a developer needs (host ports, `development`
-  blocks) to the same topology; independent of `--artifacts` and `--watch`, so a
-  development render can be ejected or planned too. Default: `deployment`.
 - `--version <version>` — released version to resolve `${release.<name>}`
   references to, for published artifacts. Default: `latest`.

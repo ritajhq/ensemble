@@ -195,14 +195,12 @@ exactly as a deploy receives them.
 - `mounts` (on a `container` compute) — `{ source, path,
   readOnly? }[]`,
   attaching a `storage.volume` entry's `${storage.<name>.name}` output.
-- `development` — what only `ens deploy --mode development` (and so
-  `ens develop`) adds to a resource. Sync rules are grouped by action: `sync`
-  (copy files) and `sync+restart` (copy, then restart the container), each rule
-  `{ app, path, ignore? }`. `env` is a mapping of environment variables added on
-  top of the resource's own (`env: { LIVE_RELOAD: "true" }`). It may only add:
-  naming a variable `env` or `envSecrets` already sets fails the render, in
-  either mode, so development never runs with a different value than production,
-  only with more. Honored only by provisioners that support it.
+- `development` — what `ens develop` keeps current while it runs. Sync rules are
+  grouped by action: `sync` (copy files) and `sync+restart` (copy, then restart
+  the container), each rule `{ app, path, ignore? }`. Honored only by
+  provisioners that support it. It adds nothing to the render: what differs
+  between a development run and a deployment is a `variables` entry, which
+  `ens develop` fills from `ci/<name>/dev.env`.
 
 ## Capability negotiation
 

@@ -191,11 +191,13 @@ Deno.test("compose kit: applyCommand runs docker compose up scoped by the deploy
 });
 
 Deno.test("compose kit: watchCommand runs docker compose watch scoped by the deployment's own project name, with --project-directory pointed at source/artifacts/ (what the container actually runs)", async () => {
+  const command = await composeKit.watchCommand?.(
+    "/repo/source/artifacts/deploy/phase7-smoke-test/compose.yaml",
+    "phase7-smoke-test",
+  );
+
   assertEquals(
-    await composeKit.watchCommand?.(
-      "/repo/source/artifacts/deploy/phase7-smoke-test/compose.yaml",
-      "phase7-smoke-test",
-    ),
+    command?.slice(command.indexOf("--") + 1),
     [
       "docker",
       "compose",

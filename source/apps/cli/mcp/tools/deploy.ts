@@ -27,10 +27,6 @@ export class DeployTools {
             .describe(
               "Which release locator to resolve.",
             ),
-          mode: z.enum(["development", "deployment"]).default("deployment")
-            .describe(
-              "What the deployment is for: `development` lets the kit add what only a developer needs (host ports, development blocks) to the same topology.",
-            ),
           version: z.string().default("latest").describe(
             "Released version to resolve ${release.<name>} references to for published artifacts.",
           ),
@@ -60,7 +56,6 @@ export class DeployTools {
           name,
           kit,
           artifacts,
-          mode,
           version,
           termination,
           acceptCapabilityGaps,
@@ -78,7 +73,6 @@ export class DeployTools {
               artifacts,
               version,
               termination,
-              mode,
               acceptCapabilityGaps,
               watch: false,
               pack,
@@ -111,10 +105,6 @@ export class DeployTools {
             .describe(
               "Which release locator to resolve.",
             ),
-          mode: z.enum(["development", "deployment"]).default("deployment")
-            .describe(
-              "What the deployment is for: `development` lets the kit add what only a developer needs (host ports, development blocks) to the same topology.",
-            ),
           version: z.string().default("latest").describe(
             "Released version to resolve ${release.<name>} references to for published artifacts.",
           ),
@@ -123,7 +113,7 @@ export class DeployTools {
           ),
         },
       },
-      ({ name, kit, resource, artifacts, mode, version, envFiles }) =>
+      ({ name, kit, resource, artifacts, version, envFiles }) =>
         ToolResult.from(async () => {
           await runExplain(
             name,
@@ -131,7 +121,6 @@ export class DeployTools {
             resource,
             {
               artifacts,
-              mode,
               version,
               envFiles: DeploymentEnvironment.required(envFiles),
             },
@@ -160,10 +149,6 @@ export class DeployTools {
           artifacts: z.enum(["local", "published"]).default("local").describe(
             "Which release locator to resolve.",
           ),
-          mode: z.enum(["development", "deployment"]).default("deployment")
-            .describe(
-              "What the deployment is for: `development` lets the kit add what only a developer needs (host ports, development blocks) to the same topology.",
-            ),
           version: z.string().default("latest").describe(
             "Released version to resolve ${release.<name>} references to for published artifacts.",
           ),
@@ -186,7 +171,6 @@ export class DeployTools {
           name,
           kit,
           artifacts,
-          mode,
           version,
           acceptCapabilityGaps,
           pack,
@@ -201,8 +185,6 @@ export class DeployTools {
             ...(kit ? [kit] : []),
             "--artifacts",
             artifacts,
-            "--mode",
-            mode,
             "--version",
             version,
             "--watch",

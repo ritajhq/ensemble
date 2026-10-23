@@ -62,11 +62,6 @@ Deno.test("aws object storage: a bucket has nothing to restart nor an environmen
     Error,
     "a bucket has nothing to restart",
   );
-  await assertRejects(
-    () => bucketOf({ contents, development: { env: { DEBUG: true } } }),
-    Error,
-    "a bucket has no environment",
-  );
 });
 
 async function propertiesOf(

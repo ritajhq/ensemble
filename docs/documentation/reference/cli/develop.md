@@ -2,8 +2,8 @@
 
 Deploy a workload locally for development. Pure sugar for
 `ens deploy
-<name> <kit> --mode development --artifacts local --emulate-externals --watch`
-— see [Deploying](../../guides/deploying.md) for what each of those means, and
+<name> <kit> --artifacts local --emulate-externals --watch` — see
+[Deploying](../../guides/deploying.md) for what each of those means, and
 [Local development](../../guides/local-development.md) for the full walkthrough.
 
 ```sh
@@ -13,6 +13,13 @@ ens develop <name>
 - `<name>` — the workload's name, matching `ci/<name>/delivery.yml`.
 - `-k, --kit <kit>` — deploy kit to use. Default: the one `deploy.<name>.kit` in
   `.ensemble/config.yaml` names (see [`ens deploy`](deploy.md)), else `compose`.
+- `--no-runtime` — leave the local runtime the kit deploys to alone: nothing is
+  brought up, and the deploy attaches to what is running. By default
+  `ens
+  develop` brings it up if none is: with `compose`, the proxy in front of
+  the stack's gateways; with `aws`, MiniStack, when `AWS_ENDPOINT_URL` points at
+  this machine. Default: `deploy.<name>.development.runtime` in
+  `.ensemble/config.yaml`, else on.
 - `--verbose` — let the initial pack step show the kit's own build-tool output
   instead of hiding it behind the pack spinner.
 - `--env-file <path>` — load an env file (repo-root relative or absolute,

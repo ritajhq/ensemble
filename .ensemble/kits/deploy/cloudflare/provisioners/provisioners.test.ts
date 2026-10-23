@@ -9,7 +9,6 @@ function request(
   category: KitSdk.Deploy.Category,
   type: string,
   params: Record<string, unknown>,
-  mode?: KitSdk.Deploy.Mode,
 ): KitSdk.Deploy.ResolvedRequest {
   return {
     category,
@@ -18,7 +17,6 @@ function request(
     params,
     values: {},
     secrets: {},
-    ...(mode ? { mode } : {}),
   };
 }
 
@@ -43,35 +41,22 @@ async function withEnv<T>(
   }
 }
 
-Deno.test("cloudflare function: a Worker with its env as vars, development.env only under ens develop", async () => {
-  const params = {
-    code: "/api.zip",
-    env: { TABLE: "experiences", PORT: 8 },
-    tables: ["experiences"],
-    development: { env: { DEBUG: "1" } },
-  };
-  const developing = await functionProvisioner().provision!(
-    request("compute", "function", params, "development"),
+Deno.test("cloudflare function: a Worker with its env as vars", async () => {
+  const outcome = await functionProvisioner().provision!(
+    request("compute", "function", {
+      code: "/api.zip",
+      env: { TABLE: "experiences", PORT: 8 },
+      tables: ["experiences"],
+    }),
   );
   assertEquals(
-    (developing.fragment.content as { workers: Record<string, unknown> })
+    (outcome.fragment.content as { workers: Record<string, unknown> })
       .workers["it"],
     {
       code: "/api.zip",
-      env: { TABLE: "experiences", PORT: "8", DEBUG: "1" },
+      env: { TABLE: "experiences", PORT: "8" },
       tables: ["experiences"],
       buckets: [],
-    },
-  );
-  const deployed = await functionProvisioner().provision!(
-    request("compute", "function", params, "deployment"),
-  );
-  assertEquals(
-    (deployed.fragment.content as { workers: Record<string, { env: unknown }> })
-      .workers["it"]!.env,
-    {
-      TABLE: "experiences",
-      PORT: "8",
     },
   );
 });

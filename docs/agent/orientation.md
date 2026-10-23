@@ -153,7 +153,8 @@ process env, referenced as `${variables.<name>.value}`) and `secrets` (same, but
 delivered as a mounted file / `_FILE` convention when `source: environment`)
 make per-environment values explicit: they're declared in the manifest but
 supplied by the surrounding pipeline. Environment selection is not an `ens`
-concept — `--mode` is a dev-loop-vs-not toggle, not an environment.
+concept — `ens develop` is a dev loop, not an environment: what differs between
+them is a variable, supplied by an env file.
 
 ### The deploy kit contract
 

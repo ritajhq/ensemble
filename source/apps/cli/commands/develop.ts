@@ -3,7 +3,7 @@ import { DeploymentEnvironment, runDeploy } from "@ensemble/core";
 import * as Host from "@ensemble/host";
 
 /**
- * Pure sugar for `ens deploy <name> <kit> --mode development --artifacts
+ * Pure sugar for `ens deploy <name> <kit> --artifacts
  * local --emulate-externals --watch` — no semantics of its own, beyond
  * defaulting the kit to compose when neither `-k` nor `deploy.<name>.kit` in
  * .ensemble/config.yaml names one. Packs the referenced releases, then runs
@@ -13,7 +13,7 @@ import * as Host from "@ensemble/host";
 export const developCommand = new Command()
   .name("develop")
   .description(
-    "Deploy a workload locally for development (sugar for `deploy --mode development --emulate-externals --artifacts local --watch`).",
+    "Deploy a workload locally for development (sugar for `deploy --emulate-externals --artifacts local --watch`).",
   )
   .arguments("<name:string>")
   .option(
@@ -26,11 +26,15 @@ export const developCommand = new Command()
     { default: false },
   )
   .option(
+    "--no-runtime",
+    "Leave the local runtime the kit deploys to alone (the proxy in front of a compose stack's gateways, the local AWS): bring up nothing, attach to what is running. Default: `deploy.<name>.development.runtime` in .ensemble/config.yaml, else bring it up.",
+  )
+  .option(
     "--env-file <path:string>",
     "Load an env file (repo-root relative or absolute, repeatable) instead of the default ci/<name>/dev.env, ci/<name>/<kit>.env and .ensemble/deploy/<name>/secrets.env.",
     { collect: true },
   )
-  .action(async ({ kit, verbose, envFile }, name) => {
+  .action(async ({ kit, verbose, envFile, runtime }, name) => {
     await runDeploy(
       name,
       kit,
@@ -39,9 +43,9 @@ export const developCommand = new Command()
         fallbackKit: "compose",
         version: "latest",
         termination: "apply",
-        mode: "development",
         acceptCapabilityGaps: false,
         watch: true,
+        runtime: runtime === false ? false : undefined,
         pack: true,
         emulateExternals: true,
         verbose,

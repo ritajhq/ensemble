@@ -1,6 +1,7 @@
 import { join } from "@std/path";
 import * as Deploy from "./deploy/index.ts";
 import { deploymentNameFor, loadDeployContext } from "./deploy-context.ts";
+import { EnsembleConfigStore } from "./config.ts";
 import {
   DeploymentFingerprint,
   TaskSnapshotFile,
@@ -26,13 +27,13 @@ export interface RunDeployOptions {
   termination: DeployTermination;
   /** Which of several concurrent deployments of this manifest this is (`--instance`); absent is the manifest's one plain deployment. */
   instance?: Instance;
-  /** What the deployment is brought up for (`--mode`), handed to every provisioner: `development` lets a kit add what only a developer needs (host access, `development` blocks) to the same topology `deployment` renders. Independent of `artifacts` and `watch`. */
-  mode: Deploy.Mode;
   acceptCapabilityGaps: boolean;
   /** Env files supplying values beneath the process environment (`--env-file`; `ens develop`'s conventional files). Empty for a real pipeline, which exports every value itself. */
   envFiles: EnvFiles;
   /** Run the kit's long-lived watch command instead of a one-shot apply, torn down cleanly on SIGINT. Also starts one companion `ens build --watch` per app any resource's `development.sync` references, so the kit's own sync has freshly built output to copy — both torn down together. Ignored by `eject`/`plan`. */
   watch: boolean;
+  /** `ens develop --no-runtime`: leave the local runtime the kit deploys to alone. Absent: the deployment's `development.runtime` in config.yaml, else bring it up. Only a `watch` session brings one up. */
+  runtime?: boolean;
   /** Pack the referenced releases before a local apply. `true` by default; ignored for published artifacts. */
   pack: boolean;
   /** Before a real apply, stand up a local substitute for each `deploy.external` entry the target's kit knows how to emulate, instead of assuming it already exists elsewhere (`docker network create` for a compose external network). Ignored by `eject`/`plan`. */
@@ -151,6 +152,12 @@ export async function runDeploy(
   );
   const { repoRoot, workload, target, registry, kit } = context;
 
+  if (options.watch) {
+    const configured = (await new EnsembleConfigStore(repoRoot).loadOrEmpty())
+      .deploy?.[name]?.development?.runtime;
+    new Deploy.RuntimeStart(options.runtime, configured).announce();
+  }
+
   const locatorResolver = new Deploy.ReleaseLocatorResolver(gateway, kit);
   const releaseLocator = new Deploy.PreresolvedReleaseLocator(
     await locatorResolver.resolveAll(
@@ -180,7 +187,6 @@ export async function runDeploy(
     ),
     releaseLocator,
     registry,
-    options.mode,
   );
 
   const outputsDir = join(repoRoot, "source", "artifacts", "deploy", scope);

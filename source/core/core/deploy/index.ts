@@ -13,5 +13,6 @@ export { ComputeAddress } from "./compute-address.ts";
 export * from "./development.ts";
 export * from "./key-schema.ts";
 export * from "./artifacts-source.ts";
+export { RuntimeStart } from "./runtime-start.ts";
 export * from "./kit/index.ts";
 export * from "./integration.ts";

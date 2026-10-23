@@ -1,7 +1,6 @@
 import * as KitSdk from "@ensemble/kit-sdk";
 import { composeSecretWiring } from "../secret-wiring.ts";
 import { publishedPorts } from "./published-ports.ts";
-import { hostAccess } from "../host-access.ts";
 
 /**
  * A `mounts` entry (`{ source, path, readOnly? }`, `source` already resolved
@@ -86,8 +85,8 @@ function developBlock(
  * (`env` plus any `envSecrets`, each resolved to compose's own `${VAR}`
  * interpolation placeholder), any networks it attaches to, any `mounts` as
  * service-level `volumes:` entries, and — when the resource declares one —
- * its `develop.watch` sync wiring. No `ports:` entry under `ens deploy`
- * (`hostAccess` adds ephemeral ones under `ens develop`): a compute's own
+ * its `develop.watch` sync wiring. No `ports:` entry unless the manifest
+ * publishes one: a compute's own
  * `ports` param is only the port the container *listens on* — reachable over
  * the compose network by name (`http://<service>:<port>`, what the gateway's
  * own `proxy_pass` and every `${compute.*}` reference resolve to) or via
@@ -104,33 +103,6 @@ function developBlock(
  * referenced directly off its own `ports` param, not through a
  * provisioner-declared output.
  */
-/**
- * The resource's environment plus its `development.env` additions, under
- * `ens develop` only. An addition naming a variable the resource already
- * sets is an error, not an override: development may run with more than
- * production, never with something different.
- */
-function withDevelopmentEnv(
-  request: KitSdk.Deploy.ResolvedRequest,
-  environment: Record<string, string>,
-): Record<string, string> {
-  if (request.params.development === undefined) return environment;
-  // A kit-sdk older than `development.env` parses no `env` at all.
-  const additions = KitSdk.Deploy.parseDevelopmentBlock(
-    request.params.development,
-  ).env ?? {};
-  const replaced = Object.keys(additions).filter((name) => name in environment);
-  if (replaced.length > 0) {
-    throw new Error(
-      `compute.${request.name}: development.env may only add variables, but ${
-        replaced.join(", ")
-      } already set by env/envSecrets.`,
-    );
-  }
-  if (request.mode !== "development") return environment;
-  return { ...environment, ...additions };
-}
-
 /**
  * A `files` param (`{ path, content }` entries, each file already read by
  * core — see `container.v1`'s contract comment) as compose
@@ -169,14 +141,6 @@ async function fileConfigs(
   return { mounts, configs };
 }
 
-/** The ports a compute listens on (its `ports` param, name → number), in declaration order. */
-function containerPorts(ports: unknown): number[] {
-  if (typeof ports !== "object" || ports === null) return [];
-  return Object.values(ports as Record<string, unknown>).filter(
-    (port): port is number => typeof port === "number",
-  );
-}
-
 export function containerProvisioner(): KitSdk.Deploy.Provisioner {
   return {
     // deno-lint-ignore require-await
@@ -190,16 +154,7 @@ export function containerProvisioner(): KitSdk.Deploy.Provisioner {
         request.params.publish,
         request.params.ports,
       );
-      // `ens develop`'s ephemeral host ports cover what isn't published
-      // explicitly; a port the manifest published is not also given a second,
-      // random mapping.
-      const ephemeral = hostAccess(
-        request,
-        containerPorts(request.params.ports).filter((port) =>
-          !published.containerPorts.includes(port)
-        ),
-      ).ports ?? [];
-      const hostPorts = [...published.entries, ...ephemeral];
+      const hostPorts = published.entries;
       return {
         fragment: {
           category: request.category,
@@ -207,13 +162,13 @@ export function containerProvisioner(): KitSdk.Deploy.Provisioner {
           content: {
             service: {
               image: request.params.image,
-              environment: withDevelopmentEnv(request, {
+              environment: {
                 ...(request.params.env as Record<string, string> ?? {}),
                 ...envSecretVariables(
                   request.params.envSecrets,
                   request.secrets,
                 ),
-              }),
+              },
               ...(request.params.networks
                 ? { networks: request.params.networks }
                 : {}),
