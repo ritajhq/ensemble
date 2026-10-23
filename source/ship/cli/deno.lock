@@ -795,7 +795,7 @@
           "jsr:@david/dax@0.42.0",
           "jsr:@david/which@0.4.2",
           "jsr:@duesabati/evento@1.0.0",
-          "jsr:@ensemble/core@0.59",
+          "jsr:@ensemble/core@0.61",
           "jsr:@std/assert@1.0.14",
           "jsr:@std/fmt@1.0.10",
           "jsr:@std/fs@1.0.24",
