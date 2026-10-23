@@ -1,3 +1,23 @@
+## [0.61.0] - 2026-10-23
+
+### 🚀 Features
+
+- *(cli)* Trim the printed markdown page to the drawing, one table of variables and secrets, and a sentence on externals
+- *(cli)* Create a top-level docs folder in ens init
+- *(platform)* Sync the platform's server, web and ens builds into its container under ens develop
+- *(develop)* Start the local runtime on ens develop, front gateways with a local proxy, and drop --mode and development.env
+
+### 📚 Documentation
+
+- Regenerate the architecture pages of the platform and website manifests
+- Show the file tree ens init creates, and describe the kits it fetches
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.60.0
+- Clear backlog
+- Update deploy artifacts
+- *(release)* Bump library versions for 0.61.0
 ## [0.60.0] - 2026-10-23
 
 ### 🚀 Features
