@@ -4,6 +4,7 @@ import {
   Instance,
   runDeliveryTask,
 } from "@ensemble/core";
+import * as Delivery from "@ensemble/delivery";
 import * as Host from "@ensemble/host";
 
 /**
@@ -83,9 +84,41 @@ const taskCommand = new Command()
     },
   );
 
+/**
+ * `ens delivery show deploy <name>` — prints the architecture
+ * `ci/<name>/delivery.yml` declares as JSON: every piece of its `deploy` block
+ * (with the icon, details, description and layer a renderer draws it by) and
+ * every use one makes of another. The manifest is read as written, so no deploy
+ * kit or env file is needed.
+ *
+ * `show` is the scope of what is shown, one subcommand per scope; `deploy`
+ * is the first.
+ */
+const showDeployCommand = new Command()
+  .name("deploy")
+  .description(
+    "Show the architecture a delivery manifest's deploy block declares, with every reference resolved, as JSON.",
+  )
+  .arguments("<name:string>")
+  .action(async (_options, name: string) => {
+    const workload = await new Delivery.Show.Deploy.ManifestSource(
+      Host.createPorts().repo,
+    ).read(name);
+    const architecture = new Delivery.Show.Deploy.Mapper().map(workload);
+    console.log(JSON.stringify(architecture, null, 2));
+  });
+
+const showCommand = new Command()
+  .name("show")
+  .description(
+    "Show what a delivery manifest declares, scoped by subcommand.",
+  )
+  .command("deploy", showDeployCommand);
+
 export const deliveryCommand = new Command()
   .name("delivery")
   .description(
     "Workload delivery: the non-provisioning operator steps a manifest declares.",
   )
-  .command("task", taskCommand);
+  .command("task", taskCommand)
+  .command("show", showCommand);

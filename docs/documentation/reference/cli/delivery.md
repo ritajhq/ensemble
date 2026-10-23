@@ -1,10 +1,11 @@
 # `ens delivery`
 
-Commands that act on an already-deployed delivery, as declared by the workload's
+Commands that act on, or show, a delivery as declared by the workload's
 manifest.
 
 ```sh
 ens delivery task <name> [task] [args...] [-k <kit>]
+ens delivery show deploy <name>
 ```
 
 ## `ens delivery task`
@@ -29,8 +30,8 @@ non-zero makes this command exit non-zero too — that invocation failed; no
 deploy started, so there is nothing to roll back.
 
 The kit is `-k <kit>`, else the one `deploy.<name>.kit` in
-`.ensemble/config.yaml` names (as for `ens deploy`). A task needs one because its
-`arguments` may reference anything a resource field may
+`.ensemble/config.yaml` names (as for `ens deploy`). A task needs one because
+its `arguments` may reference anything a resource field may
 (`${databases.database.host}`, `${compute.web.http}`), and only a kit can render
 the workload to resolve those.
 
@@ -42,8 +43,8 @@ for it. Every `ens deploy` that applies (or starts a watch session, as
 provisioner's output, a port, a release — in
 `.ensemble/deploy/<name>/<kit>.tasks.json`, gitignored like the render cache
 next to it. The rest are resolved when the task runs, as always: literals,
-`${variables.*}` (from the environment and the env files, so no variable —
-and no secret — is ever written there), `${external.*}`, and
+`${variables.*}` (from the environment and the env files, so no variable — and
+no secret — is ever written there), `${external.*}`, and
 `${deployment.name}`/`${deployment.root}`. With that file, a task runs without
 loading the kit at all.
 
@@ -78,3 +79,28 @@ See [`tasks` in the manifest schema](../delivery-manifest-schema.md#tasks) for
 what a task declares, and in particular the `${deployment.*}` namespace that
 lets a script name the deployment's own artifact, project, and root instead of
 hardcoding what `docker compose` derives.
+
+## `ens delivery show`
+
+Prints what `ci/<name>/delivery.yml` declares, as JSON a renderer can draw from.
+The subcommand is the scope shown; `deploy` is the only one so far.
+
+```sh
+ens delivery show deploy website
+```
+
+`show deploy` reads the manifest as written, so it needs no deploy kit, env file
+or secret. It prints an `entries` list, one per piece of the `deploy` block
+(compute, storage, databases, messaging, networking, secrets, variables,
+external), and a `relations` list, one per use of an entry by another:
+
+- an entry has its `id` (`compute.server`), `category`, `name`, `type`, an
+  `icon` name (a file in `source/core/delivery/icons/`), a `layer` (0 uses
+  nothing; each later one uses an earlier one), `details` as label/value pairs,
+  and a `description` where a secret or variable declares one.
+- a relation has `from`, `to` and `via`, the field of `from` that uses `to`. It
+  is found from `${...}` references in any field and from secrets named the way
+  contracts name them (`envSecrets` values, fields ending in `Secret`). `to` can
+  be a release (`release.<name>`), which is not an entry here.
+
+A reference to an undeclared entry, or a cycle, fails the command.
