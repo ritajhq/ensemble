@@ -164,6 +164,7 @@ export class Mapper {
 
   /** A param's value as one line of text, or nothing when it is no more than a scalar, a list of them or a mapping of them. */
   private shown(value: unknown): string | undefined {
+    if (typeof value === "string") return this.withoutBraces(value);
     if (this.isScalar(value)) return String(value);
     if (Array.isArray(value) && value.every((item) => this.isScalar(item))) {
       return value.join(", ");
@@ -172,6 +173,11 @@ export class Mapper {
     const members = Object.entries(value);
     if (!members.every(([, member]) => this.isScalar(member))) return undefined;
     return members.map(([key, member]) => `${key}: ${member}`).join(", ");
+  }
+
+  /** A value that is one whole reference as its name alone, `release.api` for `${release.api}`: braces mean nothing to a reader. */
+  private withoutBraces(value: string): string {
+    return this.syntax.isWhole(value) ? value.slice(2, -1) : value;
   }
 
   private isScalar(value: unknown): value is string | number | boolean {
@@ -245,7 +251,12 @@ export class Mapper {
     return path === "envSecrets" || key.endsWith("Secret");
   }
 
-  /** Each entry sits one row below the lowest row of any entry it uses; a release isn't one, so using it moves nothing. */
+  /** A use of a compute is of its address, which needs it to be neither rendered first nor above, so it puts nothing in a row of its own. */
+  private isAddress(target: Id): boolean {
+    return target.startsWith("compute.");
+  }
+
+  /** Each entry sits one row below the lowest row of any entry it uses, by what it needs rendered first; a release isn't one, so using it moves nothing. */
   private layersOf(
     graph: Deploy.Resolve.DependencyGraph,
     relations: readonly Relation[],
@@ -262,7 +273,9 @@ export class Mapper {
         if (PROVIDED_CATEGORIES.includes(resource.category)) continue;
         const id = this.id(resource.category, resource.name);
         const used = relations
-          .filter((relation) => relation.from === id)
+          .filter((relation) =>
+            relation.from === id && !this.isAddress(relation.to)
+          )
           .map((relation) => (layers.get(relation.to) ?? -1) + 1);
         layers.set(id, Math.max(0, ...used));
       }

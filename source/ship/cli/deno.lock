@@ -36,6 +36,7 @@
     "npm:@modelcontextprotocol/sdk@^1.12.0": "1.32.1_zod@3.25.76",
     "npm:@types/react-dom@19": "19.3.0_@types+react@19.3.0",
     "npm:@types/react@19": "19.3.0",
+    "npm:reladraw@0.18.0": "0.18.0",
     "npm:vscode-languageserver-textdocument@1.0.12": "1.0.12",
     "npm:vscode-languageserver@9.0.1": "9.0.1",
     "npm:zod@^3.25.0": "3.25.76"
@@ -583,6 +584,10 @@
         "unpipe"
       ]
     },
+    "reladraw@0.18.0": {
+      "integrity": "sha512-W36ST2cmgHdl6c9BaAVSsF0CmwjrrXVj5aua3AvhVSHLrZhRZ+GmRfcQlTip0QpYboY35BNQYt5J7m4zBQnvWg==",
+      "bin": true
+    },
     "require-from-string@2.0.2": {
       "integrity": "sha512-Xf0nWe6RseziFMu+Ap9biiUbmplq6S9/p+7w7YXP/JBHhrUDDUhwa+vANyubuqfZWTveU//DYVGsDG7RKL/vEw=="
     },
@@ -780,7 +785,9 @@
         "dependencies": [
           "jsr:@ensemble/core@*",
           "jsr:@std/assert@1.0.14",
-          "jsr:@std/path@1.1.6"
+          "jsr:@std/fs@1.0.24",
+          "jsr:@std/path@1.1.6",
+          "npm:reladraw@0.18.0"
         ]
       },
       "source/core/host": {

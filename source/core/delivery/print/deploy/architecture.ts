@@ -17,7 +17,7 @@ export interface Entry {
   /** The resource's `type`; for a secret its `source`, and for a variable its `type` (`string` unless stated). */
   readonly type: string;
   readonly icon: Icon;
-  /** The row of the architecture it sits in: 0 depends on nothing, each later one on an earlier one. */
+  /** The row of the architecture it sits in: 0 needs nothing rendered first, each later one something in an earlier one. A compute naming another's address needs nothing of it, so computes are in one row however they refer to each other. */
   readonly layer: number;
   readonly description?: string;
   readonly details: readonly Detail[];

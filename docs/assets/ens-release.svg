@@ -1,97 +1,176 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="606" height="1798" viewBox="0 0 606 1798" font-family="'DejaVu Sans Mono', 'Menlo', 'Consolas', 'Liberation Mono', 'Courier New', monospace" font-size="14px">
+<svg xmlns="http://www.w3.org/2000/svg" width="606" height="1798"
+  viewBox="0 0 606 1798"
+  font-family="'DejaVu Sans Mono', 'Menlo', 'Consolas', 'Liberation Mono', 'Courier New', monospace"
+  font-size="14px">
   <defs>
-    <marker id="arrow-5c5c7c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#5c5c7c"/>
+    <marker id="arrow-5c5c7c" viewBox="0 0 10 10" refX="9" refY="5"
+      markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#5c5c7c" />
     </marker>
-    <marker id="arrow-5c5c7c-back" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#5c5c7c"/>
+    <marker id="arrow-5c5c7c-back" viewBox="0 0 10 10" refX="9" refY="5"
+      markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#5c5c7c" />
     </marker>
   </defs>
-  <rect x="0" y="0" width="606" height="1798" fill="#111111"/>
+  <rect x="0" y="0" width="606" height="1798" fill="#111111" />
   <g font-size="17px">
-  <text x="119.5" y="57.45" fill="#d9d9d9" text-anchor="start">ens release</text>
+    <text x="119.5" y="57.45" fill="#d9d9d9"
+      text-anchor="start">ens release</text>
   </g>
-  <path d="M48 173 H304 a8 8 0 0 1 8 8 V212 a8 8 0 0 1 -8 8 H48 a8 8 0 0 1 -8 -8 V181 a8 8 0 0 1 8 -8 Z" fill="#191728" stroke="#4f5367"/>
-  <text x="176" y="201.4" fill="#d9d9d9" text-anchor="middle">Check for uncommitted changes</text>
-  <path d="M86 330 H266 a8 8 0 0 1 8 8 V388 a8 8 0 0 1 -8 8 H86 a8 8 0 0 1 -8 -8 V338 a8 8 0 0 1 8 -8 Z" fill="#191728" stroke="#4f5367"/>
-  <text x="176" y="358.4" fill="#d9d9d9" text-anchor="middle">Compute next version</text>
-  <text x="176" y="377.4" fill="#d9d9d9" text-anchor="middle">from existing tags</text>
-  <path d="M126.7 501.3 a49.3 49.3 0 1 0 98.6 0 a49.3 49.3 0 1 0 -98.6 0 Z" fill="#191728" stroke="#4f5367"/>
+  <path
+    d="M48 173 H304 a8 8 0 0 1 8 8 V212 a8 8 0 0 1 -8 8 H48 a8 8 0 0 1 -8 -8 V181 a8 8 0 0 1 8 -8 Z"
+    fill="#191728" stroke="#4f5367" />
+  <text x="176" y="201.4" fill="#d9d9d9"
+    text-anchor="middle">Check for uncommitted changes</text>
+  <path
+    d="M86 330 H266 a8 8 0 0 1 8 8 V388 a8 8 0 0 1 -8 8 H86 a8 8 0 0 1 -8 -8 V338 a8 8 0 0 1 8 -8 Z"
+    fill="#191728" stroke="#4f5367" />
+  <text x="176" y="358.4" fill="#d9d9d9"
+    text-anchor="middle">Compute next version</text>
+  <text x="176" y="377.4" fill="#d9d9d9"
+    text-anchor="middle">from existing tags</text>
+  <path d="M126.7 501.3 a49.3 49.3 0 1 0 98.6 0 a49.3 49.3 0 1 0 -98.6 0 Z"
+    fill="#191728" stroke="#4f5367" />
   <text x="176" y="506.2" fill="#d9d9d9" text-anchor="middle">dry-run?</text>
-  <path d="M343.3 468.3 H549.3 L565.3 484.3 V526.3 a8 8 0 0 1 -8 8 H343.3 a8 8 0 0 1 -8 -8 V476.3 a8 8 0 0 1 8 -8 Z" fill="#191728" stroke="#4f5367"/>
-  <path d="M549.3 468.3 V484.3 H565.3" fill="none" stroke="#4f5367"/>
-  <text x="450.3" y="496.7" fill="#d9d9d9" text-anchor="middle">Print preview &amp;</text>
-  <text x="450.3" y="515.7" fill="#d9d9d9" text-anchor="middle">authorization, then exit</text>
-  <path d="M114.54 693.47 a61.46 61.46 0 1 0 122.92 0 a61.46 61.46 0 1 0 -122.92 0 Z" fill="#191728" stroke="#4f5367"/>
-  <text x="176" y="698.37" fill="#d9d9d9" text-anchor="middle">authorized?</text>
-  <path d="M355.46 660.47 H519.46 L535.46 676.47 V718.47 a8 8 0 0 1 -8 8 H355.46 a8 8 0 0 1 -8 -8 V668.47 a8 8 0 0 1 8 -8 Z" fill="#191728" stroke="#4f5367"/>
-  <path d="M519.46 660.47 V676.47 H535.46" fill="none" stroke="#4f5367"/>
-  <text x="441.46" y="688.87" fill="#d9d9d9" text-anchor="middle">Exit — refused,</text>
-  <text x="441.46" y="707.87" fill="#d9d9d9" text-anchor="middle">nothing was changed</text>
-  <path d="M126.7 885.63 a49.3 49.3 0 1 0 98.6 0 a49.3 49.3 0 1 0 -98.6 0 Z" fill="#191728" stroke="#4f5367"/>
+  <path
+    d="M343.3 468.3 H549.3 L565.3 484.3 V526.3 a8 8 0 0 1 -8 8 H343.3 a8 8 0 0 1 -8 -8 V476.3 a8 8 0 0 1 8 -8 Z"
+    fill="#191728" stroke="#4f5367" />
+  <path d="M549.3 468.3 V484.3 H565.3" fill="none" stroke="#4f5367" />
+  <text x="450.3" y="496.7" fill="#d9d9d9"
+    text-anchor="middle">Print preview &amp;</text>
+  <text x="450.3" y="515.7" fill="#d9d9d9"
+    text-anchor="middle">authorization, then exit</text>
+  <path
+    d="M114.54 693.47 a61.46 61.46 0 1 0 122.92 0 a61.46 61.46 0 1 0 -122.92 0 Z"
+    fill="#191728" stroke="#4f5367" />
+  <text x="176" y="698.37" fill="#d9d9d9"
+    text-anchor="middle">authorized?</text>
+  <path
+    d="M355.46 660.47 H519.46 L535.46 676.47 V718.47 a8 8 0 0 1 -8 8 H355.46 a8 8 0 0 1 -8 -8 V668.47 a8 8 0 0 1 8 -8 Z"
+    fill="#191728" stroke="#4f5367" />
+  <path d="M519.46 660.47 V676.47 H535.46" fill="none" stroke="#4f5367" />
+  <text x="441.46" y="688.87" fill="#d9d9d9"
+    text-anchor="middle">Exit — refused,</text>
+  <text x="441.46" y="707.87" fill="#d9d9d9"
+    text-anchor="middle">nothing was changed</text>
+  <path d="M126.7 885.63 a49.3 49.3 0 1 0 98.6 0 a49.3 49.3 0 1 0 -98.6 0 Z"
+    fill="#191728" stroke="#4f5367" />
   <text x="176" y="890.53" fill="#d9d9d9" text-anchor="middle">proceed?</text>
-  <path d="M343.3 852.63 H465.3 L481.3 868.63 V910.63 a8 8 0 0 1 -8 8 H343.3 a8 8 0 0 1 -8 -8 V860.63 a8 8 0 0 1 8 -8 Z" fill="#191728" stroke="#4f5367"/>
-  <path d="M465.3 852.63 V868.63 H481.3" fill="none" stroke="#4f5367"/>
-  <text x="408.3" y="881.03" fill="#d9d9d9" text-anchor="middle">Exit — nothing</text>
-  <text x="408.3" y="900.03" fill="#d9d9d9" text-anchor="middle">was changed</text>
-  <path d="M98.5 1016.33 H253.5 a8 8 0 0 1 8 8 V1074.33 a8 8 0 0 1 -8 8 H98.5 a8 8 0 0 1 -8 -8 V1024.33 a8 8 0 0 1 8 -8 Z" fill="#191728" stroke="#4f5367"/>
-  <text x="176" y="1044.73" fill="#d9d9d9" text-anchor="middle">Stamp &amp; commit</text>
-  <text x="176" y="1063.73" fill="#d9d9d9" text-anchor="middle">core lib versions</text>
-  <path d="M94 1138.33 H258 a8 8 0 0 1 8 8 V1196.33 a8 8 0 0 1 -8 8 H94 a8 8 0 0 1 -8 -8 V1146.33 a8 8 0 0 1 8 -8 Z" fill="#191728" stroke="#4f5367"/>
-  <text x="176" y="1166.73" fill="#d9d9d9" text-anchor="middle">Create release tag</text>
+  <path
+    d="M343.3 852.63 H465.3 L481.3 868.63 V910.63 a8 8 0 0 1 -8 8 H343.3 a8 8 0 0 1 -8 -8 V860.63 a8 8 0 0 1 8 -8 Z"
+    fill="#191728" stroke="#4f5367" />
+  <path d="M465.3 852.63 V868.63 H481.3" fill="none" stroke="#4f5367" />
+  <text x="408.3" y="881.03" fill="#d9d9d9"
+    text-anchor="middle">Exit — nothing</text>
+  <text x="408.3" y="900.03" fill="#d9d9d9"
+    text-anchor="middle">was changed</text>
+  <path
+    d="M98.5 1016.33 H253.5 a8 8 0 0 1 8 8 V1074.33 a8 8 0 0 1 -8 8 H98.5 a8 8 0 0 1 -8 -8 V1024.33 a8 8 0 0 1 8 -8 Z"
+    fill="#191728" stroke="#4f5367" />
+  <text x="176" y="1044.73" fill="#d9d9d9"
+    text-anchor="middle">Stamp &amp; commit</text>
+  <text x="176" y="1063.73" fill="#d9d9d9"
+    text-anchor="middle">core lib versions</text>
+  <path
+    d="M94 1138.33 H258 a8 8 0 0 1 8 8 V1196.33 a8 8 0 0 1 -8 8 H94 a8 8 0 0 1 -8 -8 V1146.33 a8 8 0 0 1 8 -8 Z"
+    fill="#191728" stroke="#4f5367" />
+  <text x="176" y="1166.73" fill="#d9d9d9"
+    text-anchor="middle">Create release tag</text>
   <text x="176" y="1185.73" fill="#d9d9d9" text-anchor="middle">locally</text>
-  <path d="M128 1260.33 H224 a8 8 0 0 1 8 8 V1299.33 a8 8 0 0 1 -8 8 H128 a8 8 0 0 1 -8 -8 V1268.33 a8 8 0 0 1 8 -8 Z" fill="#191728" stroke="#4f5367"/>
-  <text x="176" y="1288.73" fill="#d9d9d9" text-anchor="middle">Pack ships</text>
-  <path d="M94 1363.33 H258 a8 8 0 0 1 8 8 V1402.33 a8 8 0 0 1 -8 8 H94 a8 8 0 0 1 -8 -8 V1371.33 a8 8 0 0 1 8 -8 Z" fill="#191728" stroke="#4f5367"/>
-  <text x="176" y="1391.73" fill="#d9d9d9" text-anchor="middle">Push commits &amp; tag</text>
-  <path d="M107 1466.33 H245 a8 8 0 0 1 8 8 V1524.33 a8 8 0 0 1 -8 8 H107 a8 8 0 0 1 -8 -8 V1474.33 a8 8 0 0 1 8 -8 Z" fill="#191728" stroke="#4f5367"/>
-  <text x="176" y="1494.73" fill="#d9d9d9" text-anchor="middle">Publish ships &amp;</text>
+  <path
+    d="M128 1260.33 H224 a8 8 0 0 1 8 8 V1299.33 a8 8 0 0 1 -8 8 H128 a8 8 0 0 1 -8 -8 V1268.33 a8 8 0 0 1 8 -8 Z"
+    fill="#191728" stroke="#4f5367" />
+  <text x="176" y="1288.73" fill="#d9d9d9"
+    text-anchor="middle">Pack ships</text>
+  <path
+    d="M94 1363.33 H258 a8 8 0 0 1 8 8 V1402.33 a8 8 0 0 1 -8 8 H94 a8 8 0 0 1 -8 -8 V1371.33 a8 8 0 0 1 8 -8 Z"
+    fill="#191728" stroke="#4f5367" />
+  <text x="176" y="1391.73" fill="#d9d9d9"
+    text-anchor="middle">Push commits &amp; tag</text>
+  <path
+    d="M107 1466.33 H245 a8 8 0 0 1 8 8 V1524.33 a8 8 0 0 1 -8 8 H107 a8 8 0 0 1 -8 -8 V1474.33 a8 8 0 0 1 8 -8 Z"
+    fill="#191728" stroke="#4f5367" />
+  <text x="176" y="1494.73" fill="#d9d9d9"
+    text-anchor="middle">Publish ships &amp;</text>
   <text x="176" y="1513.73" fill="#d9d9d9" text-anchor="middle">core libs</text>
-  <path d="M98.5 1588.33 H253.5 a8 8 0 0 1 8 8 V1646.33 a8 8 0 0 1 -8 8 H98.5 a8 8 0 0 1 -8 -8 V1596.33 a8 8 0 0 1 8 -8 Z" fill="#191728" stroke="#4f5367"/>
-  <text x="176" y="1616.73" fill="#d9d9d9" text-anchor="middle">Run release-after</text>
-  <text x="176" y="1635.73" fill="#d9d9d9" text-anchor="middle">hook (once)</text>
-  <path d="M90 1710.33 H262 a8 8 0 0 1 8 8 V1749.33 a8 8 0 0 1 -8 8 H90 a8 8 0 0 1 -8 -8 V1718.33 a8 8 0 0 1 8 -8 Z" fill="#191728" stroke="#4f5367"/>
-  <text x="176" y="1738.73" fill="#d9d9d9" text-anchor="middle">Clear release state</text>
-  <path d="M371 1366.33 H548 L564 1382.33 V1418.33 a8 8 0 0 1 -8 8 H371 a8 8 0 0 1 -8 -8 V1374.33 a8 8 0 0 1 8 -8 Z" fill="#191728" stroke="#4f5367"/>
-  <path d="M548 1366.33 V1382.33 H564" fill="none" stroke="#4f5367"/>
+  <path
+    d="M98.5 1588.33 H253.5 a8 8 0 0 1 8 8 V1646.33 a8 8 0 0 1 -8 8 H98.5 a8 8 0 0 1 -8 -8 V1596.33 a8 8 0 0 1 8 -8 Z"
+    fill="#191728" stroke="#4f5367" />
+  <text x="176" y="1616.73" fill="#d9d9d9"
+    text-anchor="middle">Run release-after</text>
+  <text x="176" y="1635.73" fill="#d9d9d9"
+    text-anchor="middle">hook (once)</text>
+  <path
+    d="M90 1710.33 H262 a8 8 0 0 1 8 8 V1749.33 a8 8 0 0 1 -8 8 H90 a8 8 0 0 1 -8 -8 V1718.33 a8 8 0 0 1 8 -8 Z"
+    fill="#191728" stroke="#4f5367" />
+  <text x="176" y="1738.73" fill="#d9d9d9"
+    text-anchor="middle">Clear release state</text>
+  <path
+    d="M371 1366.33 H548 L564 1382.33 V1418.33 a8 8 0 0 1 -8 8 H371 a8 8 0 0 1 -8 -8 V1374.33 a8 8 0 0 1 8 -8 Z"
+    fill="#191728" stroke="#4f5367" />
+  <path d="M548 1366.33 V1382.33 H564" fill="none" stroke="#4f5367" />
   <g font-size="12px">
-  <text x="463.5" y="1392.53" fill="#8b8b8b" text-anchor="middle">ens release resume &lt;tag&gt;</text>
-  <text x="463.5" y="1408.53" fill="#8b8b8b" text-anchor="middle">(authorizes again first)</text>
+    <text x="463.5" y="1392.53" fill="#8b8b8b"
+      text-anchor="middle">ens release resume &lt;tag&gt;</text>
+    <text x="463.5" y="1408.53" fill="#8b8b8b"
+      text-anchor="middle">(authorizes again first)</text>
   </g>
-  <line x1="176" y1="220" x2="176" y2="330" stroke="#5c5c7c" stroke-width="1.6" marker-end="url(#arrow-5c5c7c)"/>
-  <line x1="176" y1="396" x2="176" y2="452" stroke="#5c5c7c" stroke-width="1.6" marker-end="url(#arrow-5c5c7c)"/>
-  <path d="M 225.3 501.3 C 269.3 501.3, 291.3 501.3, 335.3 501.3" fill="none" stroke="#5c5c7c" stroke-width="1.6" marker-end="url(#arrow-5c5c7c)"/>
-  <rect x="262.3" y="491.8" width="36" height="19" fill="#111111"/>
+  <line x1="176" y1="220" x2="176" y2="330" stroke="#5c5c7c" stroke-width="1.6"
+    marker-end="url(#arrow-5c5c7c)" />
+  <line x1="176" y1="396" x2="176" y2="452" stroke="#5c5c7c" stroke-width="1.6"
+    marker-end="url(#arrow-5c5c7c)" />
+  <path d="M 225.3 501.3 C 269.3 501.3, 291.3 501.3, 335.3 501.3" fill="none"
+    stroke="#5c5c7c" stroke-width="1.6" marker-end="url(#arrow-5c5c7c)" />
+  <rect x="262.3" y="491.8" width="36" height="19" fill="#111111" />
   <text x="280.3" y="506.2" fill="#d9d9d9" text-anchor="middle">yes</text>
-  <line x1="176" y1="550.6" x2="176" y2="632" stroke="#5c5c7c" stroke-width="1.6" marker-end="url(#arrow-5c5c7c)"/>
-  <rect x="162.5" y="581.8" width="27" height="19" fill="#111111"/>
+  <line x1="176" y1="550.6" x2="176" y2="632" stroke="#5c5c7c"
+    stroke-width="1.6" marker-end="url(#arrow-5c5c7c)" />
+  <rect x="162.5" y="581.8" width="27" height="19" fill="#111111" />
   <text x="176" y="596.2" fill="#d9d9d9" text-anchor="middle">no</text>
-  <path d="M 237.46 693.47 C 281.46 693.47, 303.46 693.47, 347.46 693.47" fill="none" stroke="#5c5c7c" stroke-width="1.6" marker-end="url(#arrow-5c5c7c)"/>
-  <rect x="278.96" y="683.97" width="27" height="19" fill="#111111"/>
+  <path d="M 237.46 693.47 C 281.46 693.47, 303.46 693.47, 347.46 693.47"
+    fill="none" stroke="#5c5c7c" stroke-width="1.6"
+    marker-end="url(#arrow-5c5c7c)" />
+  <rect x="278.96" y="683.97" width="27" height="19" fill="#111111" />
   <text x="292.46" y="698.37" fill="#d9d9d9" text-anchor="middle">no</text>
-  <line x1="176" y1="754.93" x2="176" y2="836.33" stroke="#5c5c7c" stroke-width="1.6" marker-end="url(#arrow-5c5c7c)"/>
-  <rect x="158" y="786.13" width="36" height="19" fill="#111111"/>
+  <line x1="176" y1="754.93" x2="176" y2="836.33" stroke="#5c5c7c"
+    stroke-width="1.6" marker-end="url(#arrow-5c5c7c)" />
+  <rect x="158" y="786.13" width="36" height="19" fill="#111111" />
   <text x="176" y="800.53" fill="#d9d9d9" text-anchor="middle">yes</text>
-  <path d="M 225.3 885.63 C 269.3 885.63, 291.3 885.63, 335.3 885.63" fill="none" stroke="#5c5c7c" stroke-width="1.6" marker-end="url(#arrow-5c5c7c)"/>
-  <rect x="266.8" y="876.13" width="27" height="19" fill="#111111"/>
+  <path d="M 225.3 885.63 C 269.3 885.63, 291.3 885.63, 335.3 885.63"
+    fill="none" stroke="#5c5c7c" stroke-width="1.6"
+    marker-end="url(#arrow-5c5c7c)" />
+  <rect x="266.8" y="876.13" width="27" height="19" fill="#111111" />
   <text x="280.3" y="890.53" fill="#d9d9d9" text-anchor="middle">no</text>
-  <line x1="176" y1="934.93" x2="176" y2="1016.33" stroke="#5c5c7c" stroke-width="1.6" marker-end="url(#arrow-5c5c7c)"/>
-  <rect x="158" y="966.13" width="36" height="19" fill="#111111"/>
+  <line x1="176" y1="934.93" x2="176" y2="1016.33" stroke="#5c5c7c"
+    stroke-width="1.6" marker-end="url(#arrow-5c5c7c)" />
+  <rect x="158" y="966.13" width="36" height="19" fill="#111111" />
   <text x="176" y="980.53" fill="#d9d9d9" text-anchor="middle">yes</text>
-  <line x1="176" y1="1082.33" x2="176" y2="1138.33" stroke="#5c5c7c" stroke-width="1.6" marker-end="url(#arrow-5c5c7c)"/>
-  <line x1="176" y1="1204.33" x2="176" y2="1260.33" stroke="#5c5c7c" stroke-width="1.6" marker-end="url(#arrow-5c5c7c)"/>
-  <line x1="176" y1="1307.33" x2="176" y2="1363.33" stroke="#5c5c7c" stroke-width="1.6" marker-end="url(#arrow-5c5c7c)"/>
-  <line x1="176" y1="1410.33" x2="176" y2="1466.33" stroke="#5c5c7c" stroke-width="1.6" marker-end="url(#arrow-5c5c7c)"/>
-  <line x1="176" y1="1532.33" x2="176" y2="1588.33" stroke="#5c5c7c" stroke-width="1.6" marker-end="url(#arrow-5c5c7c)"/>
-  <line x1="176" y1="1654.33" x2="176" y2="1710.33" stroke="#5c5c7c" stroke-width="1.6" marker-end="url(#arrow-5c5c7c)"/>
-  <path d="M 232 1283.83 C 299.03 1283.83, 295.97 1388.33, 363 1388.33" fill="none" stroke="#5c5c7c" stroke-width="1.6" stroke-dasharray="6.4 4.8" marker-end="url(#arrow-5c5c7c)"/>
-  <rect x="256.5" y="1328.08" width="82" height="16" fill="#111111"/>
+  <line x1="176" y1="1082.33" x2="176" y2="1138.33" stroke="#5c5c7c"
+    stroke-width="1.6" marker-end="url(#arrow-5c5c7c)" />
+  <line x1="176" y1="1204.33" x2="176" y2="1260.33" stroke="#5c5c7c"
+    stroke-width="1.6" marker-end="url(#arrow-5c5c7c)" />
+  <line x1="176" y1="1307.33" x2="176" y2="1363.33" stroke="#5c5c7c"
+    stroke-width="1.6" marker-end="url(#arrow-5c5c7c)" />
+  <line x1="176" y1="1410.33" x2="176" y2="1466.33" stroke="#5c5c7c"
+    stroke-width="1.6" marker-end="url(#arrow-5c5c7c)" />
+  <line x1="176" y1="1532.33" x2="176" y2="1588.33" stroke="#5c5c7c"
+    stroke-width="1.6" marker-end="url(#arrow-5c5c7c)" />
+  <line x1="176" y1="1654.33" x2="176" y2="1710.33" stroke="#5c5c7c"
+    stroke-width="1.6" marker-end="url(#arrow-5c5c7c)" />
+  <path d="M 232 1283.83 C 299.03 1283.83, 295.97 1388.33, 363 1388.33"
+    fill="none" stroke="#5c5c7c" stroke-width="1.6" stroke-dasharray="6.4 4.8"
+    marker-end="url(#arrow-5c5c7c)" />
+  <rect x="256.5" y="1328.08" width="82" height="16" fill="#111111" />
   <g font-size="12px">
-  <text x="297.5" y="1340.28" fill="#8b8b8b" text-anchor="middle">on failure</text>
+    <text x="297.5" y="1340.28" fill="#8b8b8b"
+      text-anchor="middle">on failure</text>
   </g>
-  <path d="M 253 1499.33 C 311.14 1499.33, 304.86 1404.33, 363 1404.33" fill="none" stroke="#5c5c7c" stroke-width="1.6" stroke-dasharray="6.4 4.8" marker-end="url(#arrow-5c5c7c)"/>
-  <rect x="267" y="1443.83" width="82" height="16" fill="#111111"/>
+  <path d="M 253 1499.33 C 311.14 1499.33, 304.86 1404.33, 363 1404.33"
+    fill="none" stroke="#5c5c7c" stroke-width="1.6" stroke-dasharray="6.4 4.8"
+    marker-end="url(#arrow-5c5c7c)" />
+  <rect x="267" y="1443.83" width="82" height="16" fill="#111111" />
   <g font-size="12px">
-  <text x="308" y="1456.03" fill="#8b8b8b" text-anchor="middle">on failure</text>
+    <text x="308" y="1456.03" fill="#8b8b8b"
+      text-anchor="middle">on failure</text>
   </g>
 </svg>

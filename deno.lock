@@ -81,7 +81,8 @@
     "npm:react@19.2.8": "19.2.8",
     "npm:rehype-slug@6": "6.0.0",
     "npm:rehype-stringify@10": "10.0.1",
-    "npm:reladraw@*": "0.8.0",
+    "npm:reladraw@*": "0.18.0",
+    "npm:reladraw@0.18.0": "0.18.0",
     "npm:remark-gfm@4": "4.0.1",
     "npm:remark-parse@11": "11.0.0",
     "npm:remark-rehype@11": "11.1.2",
@@ -3688,8 +3689,8 @@
         "unified"
       ]
     },
-    "reladraw@0.8.0": {
-      "integrity": "sha512-YkJ8fHX1iZEeWyfPjqOvjU86gYqvibzLdnvgDYkASPvQ3rNiznRhGjTWK8wJUTSAX237O9hZlcbQEIrF0hp6BA==",
+    "reladraw@0.18.0": {
+      "integrity": "sha512-W36ST2cmgHdl6c9BaAVSsF0CmwjrrXVj5aua3AvhVSHLrZhRZ+GmRfcQlTip0QpYboY35BNQYt5J7m4zBQnvWg==",
       "bin": true
     },
     "remark-gfm@4.0.1": {
@@ -4527,7 +4528,9 @@
         "dependencies": [
           "jsr:@ensemble/core@*",
           "jsr:@std/assert@1.0.14",
-          "jsr:@std/path@1.1.6"
+          "jsr:@std/fs@1.0.24",
+          "jsr:@std/path@1.1.6",
+          "npm:reladraw@0.18.0"
         ]
       },
       "source/core/host": {

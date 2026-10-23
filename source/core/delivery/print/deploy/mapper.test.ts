@@ -13,7 +13,7 @@ release:
 deploy:
   compute:
     api:
-      type: container-orchestrated
+      type: container
       image: \${release.api}
       replicas: 2
       env:
@@ -95,7 +95,7 @@ version: v1
 deploy:
   compute:
     api:
-      type: container-orchestrated
+      type: container
       env:
         URL: http://\${variables.host.value}:\${variables.host.value}
   variables:
@@ -135,10 +135,25 @@ version: v1
 deploy:
   compute:
     api:
-      type: container-orchestrated
+      type: container
       env:
         REGION: \${variables.region.value}
 `)),
     Deploy.Resolve.DependencyGraphError,
   );
+});
+
+Deno.test("map: a value that is one whole reference is shown as its name alone", () => {
+  const { entries } = mapper.map(parse(`
+version: v1
+release:
+  api:
+    kit: docker
+deploy:
+  compute:
+    api:
+      type: container
+      image: \${release.api}
+`));
+  assertEquals(entries[0].details, [{ label: "image", value: "release.api" }]);
 });

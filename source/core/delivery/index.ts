@@ -1,1 +1,1 @@
-export * as Show from "./show/index.ts";
+export * as Print from "./print/index.ts";

@@ -18,7 +18,7 @@ export type Icon =
 /** Which icon stands for a resource of some `type`; a type this doesn't know falls back to `unknown`. */
 export class Icons {
   private static readonly BY_TYPE: Readonly<Record<string, Icon>> = {
-    "container-orchestrated": "compute-container",
+    "container": "compute-container",
     "function": "compute-function",
     "key-value": "database-key-value",
     "relational": "database-relational",

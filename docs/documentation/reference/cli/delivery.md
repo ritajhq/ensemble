@@ -1,11 +1,11 @@
 # `ens delivery`
 
-Commands that act on, or show, a delivery as declared by the workload's
+Commands that act on, or print, a delivery as declared by the workload's
 manifest.
 
 ```sh
 ens delivery task <name> [task] [args...] [-k <kit>]
-ens delivery show deploy <name>
+ens delivery print <name> [-r json|markdown] [-o <path>]
 ```
 
 ## `ens delivery task`
@@ -80,19 +80,21 @@ what a task declares, and in particular the `${deployment.*}` namespace that
 lets a script name the deployment's own artifact, project, and root instead of
 hardcoding what `docker compose` derives.
 
-## `ens delivery show`
+## `ens delivery print`
 
-Prints what `ci/<name>/delivery.yml` declares, as JSON a renderer can draw from.
-The subcommand is the scope shown; `deploy` is the only one so far.
+Prints what `ci/<name>/delivery.yml` declares. For now that is the architecture
+of its `deploy` block.
 
 ```sh
-ens delivery show deploy website
+ens delivery print website
+ens delivery print website --render markdown
 ```
 
-`show deploy` reads the manifest as written, so it needs no deploy kit, env file
-or secret. It prints an `entries` list, one per piece of the `deploy` block
-(compute, storage, databases, messaging, networking, secrets, variables,
-external), and a `relations` list, one per use of an entry by another:
+It reads the manifest as written, so it needs no deploy kit, env file or secret.
+`--render json`, the default, prints an `entries` list, one per piece of the
+`deploy` block (compute, storage, databases, messaging, networking, secrets,
+variables, external), and a `relations` list, one per use of an entry by
+another:
 
 - an entry has its `id` (`compute.server`), `category`, `name`, `type`, an
   `icon` name (a file in `source/core/delivery/icons/`), a `layer` (0 uses
@@ -103,4 +105,41 @@ external), and a `relations` list, one per use of an entry by another:
   contracts name them (`envSecrets` values, fields ending in `Secret`). `to` can
   be a release (`release.<name>`), which is not an entry here.
 
-A reference to an undeclared entry, or a cycle, fails the command.
+A reference to an undeclared entry, or a cycle, fails the command. A value that
+is one whole reference is shown as its name alone (`release.api` for
+`${release.api}`).
+
+A compute uses another compute only where a field says so with a reference to
+its address (`http://${compute.judge.host}:${compute.judge.http}`). A host name
+written out by hand is a string to `ens`, so no relation, and no line, comes of
+it. Naming an address needs the other compute neither rendered first nor above,
+so computes that refer to each other can all be in one layer of the JSON; the
+drawing orders them by the calls instead.
+
+### `--render markdown`
+
+Draws the architecture with [reladraw](https://github.com/reladraw/reladraw) and
+writes four files that share a name, in `docs/<name>/` unless `-o <path>` names
+the page (the folder is created if it doesn't exist):
+
+- `architecture.md` — the drawing, and for each category a table of its entries
+  with what they use and what uses them.
+- `architecture.svg` and `architecture-light.svg` — the drawing, for a dark page
+  and for a light one (the page shows the one that suits the reader's theme):
+  computes in rows by how far down the calls between them they sit (a compute
+  nothing calls on top, each below the ones that call it, two that call each
+  other side by side), then storage under all of them, with lines turning at
+  right angles from what uses to what is used, each at a height of its own, and
+  going round the boxes of the rows it passes by a lane at the left. Each
+  compute has a color: its box's border, and every line it leaves by (an arrow
+  at both ends where two use each other, in the color of the first). A network
+  is not a node: it is a tinted area, with the network icon and its name in its
+  top-left corner, around the computes attached to it by their `networks`, and a
+  compute on two networks sits where the two areas overlap. Variables and
+  secrets are not in it, nor lines to them; the tables list them.
+- `architecture.reladraw` — the dark drawing's source; the light one differs in
+  its colors only.
+
+reladraw may report how the drawing reads (a line crossing a box, say). That
+doesn't stop the files being written; `reladraw check architecture.reladraw`
+lists what it found.
