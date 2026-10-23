@@ -16,11 +16,11 @@ release:
 deploy:
   compute:
     api:
-      type: container-orchestrated
+      type: container
       image: \${release.web}
       replicas: 2
     worker:
-      type: container-orchestrated
+      type: container
       image: \${release.web}
       replicas: 1
 `;

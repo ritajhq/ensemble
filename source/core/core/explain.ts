@@ -1,5 +1,5 @@
 import * as Deploy from "./deploy/index.ts";
-import { loadDeployContext } from "./deploy-context.ts";
+import { deploymentNameFor, loadDeployContext } from "./deploy-context.ts";
 import type { RepoLocator } from "./ports.ts";
 import type { EnvFiles } from "./env-files.ts";
 
@@ -58,7 +58,10 @@ export async function runExplain(
     ),
   );
   const renderer = new Deploy.Render.Renderer(
-    new Deploy.Render.ReferenceResolver(await target.kit.realization()),
+    new Deploy.Render.ReferenceResolver(
+      await target.kit.realization(),
+      deploymentNameFor(context.repoRoot, name),
+    ),
     releaseLocator,
     registry,
     options.mode,

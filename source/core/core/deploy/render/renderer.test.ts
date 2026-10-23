@@ -13,12 +13,12 @@ import { FakeRealization } from "../resolve/test-fakes.ts";
 import type { Knowability } from "../kit/realization.ts";
 import { ContractCatalog } from "../contracts/registry.ts";
 import { relationalV1 } from "../contracts/seeds/relational.ts";
-import { containerOrchestratedV1 } from "../contracts/seeds/container-orchestrated.ts";
+import { containerV1 } from "../contracts/seeds/container.ts";
 import { ReferenceResolver } from "./reference-resolver.ts";
 import { EmbeddedReferenceError, Renderer, RendererError } from "./renderer.ts";
 import { OutputsLedger } from "./outputs-ledger.ts";
 
-const registry = new ContractCatalog([relationalV1, containerOrchestratedV1]);
+const registry = new ContractCatalog([relationalV1, containerV1]);
 
 const APPENDIX_A = `
 version: v1
@@ -27,7 +27,7 @@ release:
 deploy:
   compute:
     api:
-      type: container-orchestrated
+      type: container
       image: \${release.web}
       replicas: 2
       env:
@@ -106,7 +106,7 @@ function buildPipeline(manifestText: string) {
       {
         category: "compute",
         name: "api",
-        type: "container-orchestrated",
+        type: "container",
         params: workload.compute!.api.params,
         values: {},
       },
@@ -264,7 +264,7 @@ Deno.test("Renderer.render: a dynamic output's native wiring passes through to t
       {
         category: "compute",
         name: "api",
-        type: "container-orchestrated",
+        type: "container",
         params: workload.compute!.api.params,
         values: {},
       },
@@ -379,7 +379,7 @@ Deno.test("Renderer.render: throws when a provisioner produces an output its con
   ) =>
     Promise.resolve({
       fragment: { category: request.category, name: request.name, content: {} },
-      outputs: { url: "not declared by container-orchestrated.v1" },
+      outputs: { url: "not declared by container.v1" },
     });
   const selections = new Map<string, SelectedProvisioner>([
     ["databases.primary", {
@@ -404,7 +404,7 @@ Deno.test("Renderer.render: throws when a provisioner produces an output its con
   );
   assertEquals(
     error.message,
-    'compute.container-orchestrated\'s provisioner produced the wrong outputs for "compute.api" (extra: url).',
+    'compute.container\'s provisioner produced the wrong outputs for "compute.api" (extra: url).',
   );
 });
 
@@ -414,7 +414,7 @@ version: v1
 deploy:
   compute:
     api:
-      type: container-orchestrated
+      type: container
       image: nginx
       replicas: 1
       networks: ["\${external.edge-net.name}"]
@@ -430,7 +430,7 @@ deploy:
     ["compute.api", {
       category: "compute",
       name: "api",
-      type: "container-orchestrated",
+      type: "container",
       params: workload.compute!.api.params,
       values: {},
     }],
@@ -477,19 +477,19 @@ deploy:
   );
 });
 
-Deno.test("Renderer.render: bakes another compute's declared port into a consumer's env — the reference surface container-orchestrated.v1's own contract comment documents (${compute.<name>.<port-name>})", async () => {
+Deno.test("Renderer.render: bakes another compute's declared port into a consumer's env — the reference surface container.v1's own contract comment documents (${compute.<name>.<port-name>})", async () => {
   const manifest = `
 version: v1
 deploy:
   compute:
     auth:
-      type: container-orchestrated
+      type: container
       image: nginx
       replicas: 1
       ports:
         http: 4100
     admin-server:
-      type: container-orchestrated
+      type: container
       image: nginx
       replicas: 1
       env:
@@ -502,14 +502,14 @@ deploy:
     ["compute.auth", {
       category: "compute",
       name: "auth",
-      type: "container-orchestrated",
+      type: "container",
       params: workload.compute!.auth.params,
       values: {},
     }],
     ["compute.admin-server", {
       category: "compute",
       name: "admin-server",
-      type: "container-orchestrated",
+      type: "container",
       params: workload.compute!["admin-server"].params,
       values: {},
     }],
@@ -560,12 +560,12 @@ version: v1
 deploy:
   compute:
     api:
-      type: container-orchestrated
+      type: container
       image: nginx
       replicas: 1
       env: { DATABASE_URL: "\${databases.primary.url}" }
     worker:
-      type: container-orchestrated
+      type: container
       image: nginx
       replicas: 1
       env: { DATABASE_URL: "\${databases.primary.url}" }
@@ -611,7 +611,7 @@ deploy:
     ["compute.api", {
       category: "compute",
       name: "api",
-      type: "container-orchestrated",
+      type: "container",
       params: workload.compute!.api.params,
       values: {},
     }],
@@ -620,7 +620,7 @@ deploy:
       {
         category: "compute",
         name: "worker",
-        type: "container-orchestrated",
+        type: "container",
         params: workload.compute!.worker.params,
         values: {},
       },

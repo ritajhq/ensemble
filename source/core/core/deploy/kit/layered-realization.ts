@@ -70,4 +70,14 @@ export class LayeredRealization implements Realization {
   ): Promise<Knowability> {
     return this.underlying.knowabilityOf(category, type, output);
   }
+
+  hostOf(
+    category: Category,
+    type: string,
+    name: string,
+    deployment: string,
+  ): Promise<string | undefined> {
+    return this.underlying.hostOf?.(category, type, name, deployment) ??
+      Promise.resolve(undefined);
+  }
 }

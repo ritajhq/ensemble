@@ -3,11 +3,11 @@ import { Parser } from "../manifest/parser.ts";
 import { ContractError } from "./errors.ts";
 import { ContractCatalog } from "./registry.ts";
 import { ReferenceValidator } from "./reference-validator.ts";
-import { containerOrchestratedV1 } from "./seeds/container-orchestrated.ts";
+import { containerV1 } from "./seeds/container.ts";
 import { relationalV1 } from "./seeds/relational.ts";
 
 const parser = new Parser();
-const registry = new ContractCatalog([relationalV1, containerOrchestratedV1]);
+const registry = new ContractCatalog([relationalV1, containerV1]);
 const validator = new ReferenceValidator(registry);
 
 const APPENDIX_A = `
@@ -17,7 +17,7 @@ release:
 deploy:
   compute:
     api:
-      type: container-orchestrated
+      type: container
       image: \${release.web}
       replicas: 2
       ports: { http: 8080 }
@@ -79,7 +79,7 @@ version: v1
 deploy:
   compute:
     api:
-      type: container-orchestrated
+      type: container
       image: nginx
       replicas: 1
       ports: { http: 8080 }
@@ -97,7 +97,7 @@ version: v1
 deploy:
   compute:
     api:
-      type: container-orchestrated
+      type: container
       image: nginx
       replicas: 1
       networks: ["\${external.edge-net.name}"]
@@ -115,7 +115,7 @@ version: v1
 deploy:
   compute:
     api:
-      type: container-orchestrated
+      type: container
       image: nginx
       replicas: 1
       networks: ["\${external.edge-net.name}"]
@@ -133,7 +133,7 @@ version: v1
 deploy:
   compute:
     api:
-      type: container-orchestrated
+      type: container
       image: nginx
       replicas: 1
       networks: ["\${external.edge-net.id}"]
@@ -155,7 +155,7 @@ version: v1
 deploy:
   compute:
     api:
-      type: container-orchestrated
+      type: container
       image: nginx
       replicas: 1
       ports: { http: 8080 }
@@ -167,7 +167,7 @@ deploy:
   const error = assertThrows(() => validator.validate(workload), ContractError);
   assertEquals(
     error.message,
-    'networking.lb.target references undeclared output "grpc" on compute.container-orchestrated (declared outputs: none).',
+    'networking.lb.target references undeclared output "grpc" on compute.container (declared outputs: none).',
   );
 });
 

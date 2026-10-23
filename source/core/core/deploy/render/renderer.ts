@@ -22,6 +22,7 @@ import type {
   Ingress,
   InitCommand,
 } from "./artifact.ts";
+import { ComputeAddress } from "../compute-address.ts";
 import { DeclaredValues } from "./declared-values.ts";
 import { OutputsLedger } from "./outputs-ledger.ts";
 import type { ReferenceResolver } from "./reference-resolver.ts";
@@ -216,7 +217,7 @@ export class Renderer {
     );
   }
 
-  /** `container-orchestrated.v1`'s own reference surface: only `compute` resources declare ports today, and only their resolved `ports` param (never a provisioner output) is what `${compute.<name>.<port>}` addresses. */
+  /** `container.v1`'s own reference surface: only `compute` resources declare ports today, and only their resolved `ports` param (never a provisioner output) is what `${compute.<name>.<port>}` addresses. */
   private portsOf(
     category: string,
     params: Readonly<Record<string, unknown>>,
@@ -254,6 +255,12 @@ export class Renderer {
     if (reference) {
       if (this.declared.covers(reference)) {
         return this.declared.resolve(reference, workload);
+      }
+      if (ComputeAddress.names(reference, workload)) {
+        return await this.referenceResolver.addresses.resolve(
+          reference,
+          workload,
+        );
       }
       return await this.bakeOrDefer(reference, ledger);
     }

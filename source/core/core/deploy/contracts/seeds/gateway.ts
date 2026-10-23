@@ -10,7 +10,7 @@ import { ResourceContract } from "../contract.ts";
  *
  * `networks` names the ingress networks something in front of the gateway
  * reaches it through — same `${external.<name>.name}` convention
- * `container-orchestrated.v1`'s own `networks` entries use, or a whole
+ * `container.v1`'s own `networks` entries use, or a whole
  * `${variables.<name>.value}` of a `type: list` variable so each environment
  * picks its own. None (absent or empty) means nothing fronts the gateway, so
  * a kit publishes it on the host instead.
@@ -23,7 +23,7 @@ import { ResourceContract } from "../contract.ts";
  * without one, for the deployment's own name to fill in.
  *
  * `routes` is shallow at the contract level (`type: "array"`), same
- * treatment as `container-orchestrated.v1`'s `mounts`/`development`: the
+ * treatment as `container.v1`'s `mounts`/`development`: the
  * per-entry shape — `{ host, path, target: { service, port } }` or
  * `{ path, target: { storage } }`, `path`
  * either a plain prefix string or `{ match, strip }`, `target.port` normally

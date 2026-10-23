@@ -25,7 +25,8 @@ export class ReferenceSyntaxError extends Error {
   }
 }
 
-const REFERENCE_SHAPE = /^\$\{(.+)\}$/;
+/** One whole reference: braces open it and close it and nothing inside is a brace, so a string that merely starts and ends with a reference (`${a.b.c}:${d.e.f}`) is not taken for one. */
+const REFERENCE_SHAPE = /^\$\{([^{}]+)\}$/;
 
 /**
  * A reference inside a larger string, recognised only when it names a

@@ -8,7 +8,7 @@ import * as KitSdk from "@ensemble/kit-sdk";
  * same as `relational`'s own `class: critical` volume already does inline.
  * `name` is `static` (`../realization.ts`): like a compose service, it's
  * just the resource's own manifest name, never provider-allocated — a
- * `container-orchestrated` compute's `mounts` entry references it as
+ * `container` compute's `mounts` entry references it as
  * `${storage.<name>.name}`.
  */
 export function storageVolumeProvisioner(): KitSdk.Deploy.Provisioner {

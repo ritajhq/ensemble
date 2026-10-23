@@ -2,7 +2,7 @@ import { assertEquals, assertRejects } from "@std/assert";
 import { Parser } from "../manifest/parser.ts";
 import { ContractError } from "../contracts/errors.ts";
 import { ContractCatalog } from "../contracts/registry.ts";
-import { containerOrchestratedV1 } from "../contracts/seeds/container-orchestrated.ts";
+import { containerV1 } from "../contracts/seeds/container.ts";
 import { relationalV1 } from "../contracts/seeds/relational.ts";
 import { ReferenceResolver } from "../render/reference-resolver.ts";
 import { Renderer } from "../render/renderer.ts";
@@ -42,7 +42,7 @@ release:
 deploy:
   compute:
     api:
-      type: container-orchestrated
+      type: container
       image: \${release.web}
       replicas: 2
       env:
@@ -60,7 +60,7 @@ deploy:
     db-password: { source: environment }
 `;
 
-const registry = new ContractCatalog([relationalV1, containerOrchestratedV1]);
+const registry = new ContractCatalog([relationalV1, containerV1]);
 const realization = new FakeRealization();
 
 /** None of the eject/plan/local-apply tests below ever reach the published-apply-only availability preflight, so this default gateway's `verify` is never actually invoked — only present to satisfy the constructor. */
@@ -106,7 +106,7 @@ function fakeKit(
         {
           matches: (resource) =>
             Promise.resolve(
-              resource.declaration.type === "container-orchestrated",
+              resource.declaration.type === "container",
             ),
           provision: (request) =>
             Promise.resolve({
@@ -360,11 +360,11 @@ release:
 deploy:
   compute:
     api:
-      type: container-orchestrated
+      type: container
       image: \${release.web}
       replicas: 2
     worker:
-      type: container-orchestrated
+      type: container
       image: \${release.web}
       replicas: 1
   databases:

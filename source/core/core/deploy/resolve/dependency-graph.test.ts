@@ -16,7 +16,7 @@ release:
 deploy:
   compute:
     api:
-      type: container-orchestrated
+      type: container
       image: \${release.web}
       replicas: 2
       env:
@@ -65,7 +65,7 @@ version: v1
 deploy:
   compute:
     api:
-      type: container-orchestrated
+      type: container
       image: nginx
       replicas: 1
       env: { DATABASE_URL: "\${databases.primary.url}" }
@@ -89,7 +89,7 @@ release:
 deploy:
   compute:
     api:
-      type: container-orchestrated
+      type: container
       image: \${release.web}
       replicas: 2
       env:
@@ -127,7 +127,7 @@ version: v1
 deploy:
   compute:
     api:
-      type: container-orchestrated
+      type: container
       image: nginx
       replicas: 1
       networks: ["\${external.edge-net.name}"]
@@ -161,4 +161,50 @@ deploy:
     error.message,
     "Cycle detected among: networking.a, networking.b.",
   );
+});
+
+Deno.test("DependencyGraphBuilder.build: computes may name each other's address without either waiting for the other", () => {
+  const workload = parser.parse(`
+version: v1
+deploy:
+  compute:
+    guard:
+      type: container
+      image: guard
+      replicas: 1
+      ports:
+        http: 8080
+      env:
+        UPSTREAM: http://\${compute.platform.host}:\${compute.platform.http}
+    platform:
+      type: container
+      image: platform
+      replicas: 1
+      ports:
+        http: 8090
+      env:
+        ROUTE: http://\${compute.guard.host}:\${compute.guard.http}
+`);
+
+  const graph = builder.build(workload);
+  assertEquals(graph.batches().length, 1);
+  assertEquals(
+    graph.dependenciesOf({ category: "compute", name: "guard" }),
+    [],
+  );
+});
+
+Deno.test("DependencyGraphBuilder.build: an address of a compute that is not declared is still an error", () => {
+  const workload = parser.parse(`
+version: v1
+deploy:
+  compute:
+    guard:
+      type: container
+      image: guard
+      replicas: 1
+      env:
+        UPSTREAM: \${compute.nowhere.host}
+`);
+  assertThrows(() => builder.build(workload), DependencyGraphError);
 });

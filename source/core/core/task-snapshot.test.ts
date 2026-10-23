@@ -12,7 +12,7 @@ const workload: Deploy.Workload = {
   variables: { greeting: { default: "hi" } },
   compute: {
     web: {
-      type: "container-orchestrated",
+      type: "container",
       params: { image: "web:latest", ports: { http: 8080 } },
     },
   } as never,
@@ -100,7 +100,7 @@ Deno.test("DeploymentFingerprint: changes with the kit's files and the tasks' ar
 Deno.test("TaskSnapshotRecorder: keeps every task argument only a render answers, and nothing the manifest or the environment does", async () => {
   await withKit(async (context) => {
     const ledger = new Deploy.Render.OutputsLedger();
-    ledger.record("compute", "web", "container-orchestrated", {}, {
+    ledger.record("compute", "web", "container", {}, {
       http: 8080,
     });
     ledger.record("databases", "db", "relational", {

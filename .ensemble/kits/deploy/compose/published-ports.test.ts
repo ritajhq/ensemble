@@ -1,15 +1,15 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import * as KitSdk from "@ensemble/kit-sdk";
-import { containerOrchestratedProvisioner } from "./provisioners/container-orchestrated.ts";
+import { containerProvisioner } from "./provisioners/container.ts";
 
 async function hostPorts(
   params: Record<string, unknown>,
   mode: KitSdk.Deploy.Mode,
 ): Promise<string[] | undefined> {
-  const outcome = await containerOrchestratedProvisioner().provision!({
+  const outcome = await containerProvisioner().provision!({
     category: "compute",
     name: "router",
-    type: "container-orchestrated",
+    type: "container",
     params: { image: "router:dev", ...params },
     values: {},
     secrets: {},

@@ -104,6 +104,9 @@ export class ResourceContract {
 
   private validateClass(resource: ResourceDeclaration): void {
     if (resource.class === undefined) return;
+    if (this.classes.length === 0) {
+      throw new ContractError(`${this.id} takes no class.`);
+    }
     if (!this.classes.includes(resource.class)) {
       throw new ContractError(
         `${this.id} does not support class "${resource.class}" (expected one of: ${

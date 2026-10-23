@@ -14,7 +14,7 @@ release:
 deploy:
   compute:
     api:
-      type: container-orchestrated
+      type: container
       image: \${release.web}
       replicas: 1
       ports:
@@ -77,7 +77,7 @@ Deno.test("ReferenceTargets: every listed target passes ReferenceValidator", () 
       compute: {
         ...workload.compute,
         probe: {
-          type: "container-orchestrated",
+          type: "container",
           params: { image: syntax.format(reference), replicas: 1 },
         },
       },

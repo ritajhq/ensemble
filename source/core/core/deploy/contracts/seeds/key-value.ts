@@ -7,7 +7,7 @@ import { ResourceContract } from "../contract.ts";
  * concepts DynamoDB, Cassandra, Bigtable and Cosmos DB all build on); its
  * per-entry shape is validated by `parseKeySchema` (`../../key-schema.ts`),
  * shared by every kit, rather than here — the contract layer only checks
- * that it's a mapping, same as `container-orchestrated.v1`'s `development`.
+ * that it's a mapping, same as `container.v1`'s `development`.
  * A store's own specifics (attribute types, capacity mode) are the kit's
  * realization, never the manifest's.
  *

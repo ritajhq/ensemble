@@ -1,7 +1,7 @@
 import { ResourceContract } from "../contract.ts";
 
 /**
- * `container-orchestrated.v1` — a container-based compute entry. Params mirror
+ * `container.v1` — a container-based compute entry. Params mirror
  * Appendix A's worked example (`image`, `replicas`, `ports`, `env`). No
  * negotiated concerns or capabilities are evidenced by the worked example yet
  * — left empty rather than invented ahead of a concrete need. No contract
@@ -69,10 +69,23 @@ import { ResourceContract } from "../contract.ts";
  * delivers files — never by a host path, which, like a host bind mount, no
  * other target could follow. Text files only. Shallow at the contract level,
  * same as `mounts`.
+ *
+ * Another compute reaches this one by its `host`, `${compute.<name>.host}`, and
+ * a port of its `ports`, `${compute.<name>.<port>}`. Neither is an output a
+ * provisioner produces: a port is the manifest's own number, and the host is
+ * a name the kit's realization gives from the deployment's name and this
+ * compute's (`Realization.hostOf`), so each is known without this compute
+ * being rendered, and two computes may name each other. The compute declares
+ * no outputs.
+ *
+ * A compute takes no `class`: what a class changes is how much a kit does to
+ * keep data (backups, a persistent volume), and a container holds none of its
+ * own. Whether it comes back after a crash is not a choice, so a target always
+ * restarts it.
  */
-export const containerOrchestratedV1: ResourceContract = new ResourceContract(
+export const containerV1: ResourceContract = new ResourceContract(
   "compute",
-  "container-orchestrated",
+  "container",
   "v1",
   [
     { name: "image", required: true, type: "string" },
@@ -86,6 +99,7 @@ export const containerOrchestratedV1: ResourceContract = new ResourceContract(
     { name: "envSecrets", required: false, type: "object" },
     { name: "files", required: false, type: "array" },
   ],
+  [],
   [],
   [],
   [],

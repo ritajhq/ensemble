@@ -9,6 +9,7 @@ export * from "./resource.ts";
 export type { Task } from "./task.ts";
 export * from "./release.ts";
 export * from "./reference.ts";
+export { ComputeAddress } from "./compute-address.ts";
 export * from "./development.ts";
 export * from "./key-schema.ts";
 export * from "./artifacts-source.ts";

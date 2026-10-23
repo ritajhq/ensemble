@@ -1,6 +1,6 @@
 import { assertEquals } from "@std/assert";
 import * as KitSdk from "@ensemble/kit-sdk";
-import { containerOrchestratedProvisioner } from "./provisioners/container-orchestrated.ts";
+import { containerProvisioner } from "./provisioners/container.ts";
 import { relationalProvisioner } from "./provisioners/relational.ts";
 import { objectStorageProvisioner } from "./provisioners/object-storage.ts";
 
@@ -15,11 +15,11 @@ const REQUESTS: Record<string, {
   request: Omit<KitSdk.Deploy.ResolvedRequest, "mode">;
 }> = {
   compute: {
-    provisioner: containerOrchestratedProvisioner(),
+    provisioner: containerProvisioner(),
     request: {
       category: "compute",
       name: "api",
-      type: "container-orchestrated",
+      type: "container",
       params: { image: "api:dev", ports: { http: 4000, metrics: 9100 } },
       values: {},
       secrets: SECRETS,

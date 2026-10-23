@@ -78,14 +78,14 @@ version: v1
 deploy:
   compute:
     api:
-      type: container-orchestrated
+      type: container
       class: critical
       capabilities: { ordering: true }
       image: \${release.web}
       replicas: 2
 `);
   assertEquals(workload.compute?.api, {
-    type: "container-orchestrated",
+    type: "container",
     class: "critical",
     capabilities: { ordering: true },
     params: { image: "${release.web}", replicas: 2 },

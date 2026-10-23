@@ -82,7 +82,7 @@ function developBlock(
 }
 
 /**
- * Fulfills `container-orchestrated` on compose: an image, its environment
+ * Fulfills `container` on compose: an image, its environment
  * (`env` plus any `envSecrets`, each resolved to compose's own `${VAR}`
  * interpolation placeholder), any networks it attaches to, any `mounts` as
  * service-level `volumes:` entries, and — when the resource declares one —
@@ -97,10 +97,10 @@ function developBlock(
  * server all listen on 8000) would collide. `replicas` has no compose-native
  * equivalent outside swarm mode, so it's silently dropped rather than
  * rendered as something misleading — Appendix A's own golden output has no
- * trace of it either. `class: critical` adds `restart: always`, as it does
- * for `relational`: the container comes back after a crash or a reboot.
+ * trace of it either. It always gets `restart: always`: the container comes back
+ * after a crash or a reboot. A compute has no `class`.
  * Declares no outputs (Phase 2's
- * `container-orchestrated.v1` contract declares none): a compute's ports are
+ * `container.v1` contract declares none): a compute's ports are
  * referenced directly off its own `ports` param, not through a
  * provisioner-declared output.
  */
@@ -133,7 +133,7 @@ function withDevelopmentEnv(
 
 /**
  * A `files` param (`{ path, content }` entries, each file already read by
- * core — see `container-orchestrated.v1`'s contract comment) as compose
+ * core — see `container.v1`'s contract comment) as compose
  * `configs:`: one inline config per file, mounted at its path. Each config is
  * named after its content's hash, because compose reads an inline config only
  * when it creates a container: a changed file is a new config, which compose
@@ -177,13 +177,12 @@ function containerPorts(ports: unknown): number[] {
   );
 }
 
-export function containerOrchestratedProvisioner(): KitSdk.Deploy.Provisioner {
+export function containerProvisioner(): KitSdk.Deploy.Provisioner {
   return {
     // deno-lint-ignore require-await
-    matches: async (resource) =>
-      resource.declaration.type === "container-orchestrated",
+    matches: async (resource) => resource.declaration.type === "container",
     // deno-lint-ignore require-await
-    describe: async () => "container-orchestrated (compose service)",
+    describe: async () => "container (compose service)",
     provision: async (request) => {
       const develop = developBlock(request.params.development);
       const files = await fileConfigs(request.name, request.params.files);
@@ -224,7 +223,7 @@ export function containerOrchestratedProvisioner(): KitSdk.Deploy.Provisioner {
               ...(develop ? { develop } : {}),
               ...(hostPorts.length > 0 ? { ports: hostPorts } : {}),
               ...(files.mounts.length > 0 ? { configs: files.mounts } : {}),
-              ...(request.class === "critical" ? { restart: "always" } : {}),
+              restart: "always",
             },
             ...(files.mounts.length > 0 ? { configs: files.configs } : {}),
           },

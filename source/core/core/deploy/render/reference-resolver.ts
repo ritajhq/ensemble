@@ -3,6 +3,7 @@ import type { Realization } from "../kit/realization.ts";
 import type { Reference } from "../reference.ts";
 import type { OutputsLedger } from "./outputs-ledger.ts";
 import type { ResolvedReference } from "./resolved-reference.ts";
+import { ComputeAddresses } from "./compute-addresses.ts";
 
 /**
  * Resolves one reference against the ledger of everything rendered so far.
@@ -17,7 +18,15 @@ import type { ResolvedReference } from "./resolved-reference.ts";
  * evaluates or interprets that value, only classifies it via knowability.
  */
 export class ReferenceResolver {
-  constructor(private readonly realization: Realization) {}
+  /** A compute's host and ports, which need no render to be known. */
+  readonly addresses: ComputeAddresses;
+
+  constructor(
+    private readonly realization: Realization,
+    deployment?: string,
+  ) {
+    this.addresses = new ComputeAddresses(realization, deployment);
+  }
 
   async resolve(
     reference: Reference,
@@ -31,7 +40,7 @@ export class ReferenceResolver {
     const output = reference.output!;
 
     // A compute's ports are developer-declared data, not a provisioner
-    // output (container-orchestrated.v1's own contract comment) — resolved
+    // output (container.v1's own contract comment) — resolved
     // straight off the ledger's port record, same as ReferenceValidator.
     // hasPort's schema-level check of the same data, and always baked: a
     // port number is known at manifest-parse time, never provisioner-

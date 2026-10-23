@@ -148,7 +148,7 @@ Deno.test("discoverWatchedApps: collects every app across every resource's sync 
   const workload: Workload = {
     compute: {
       api: {
-        type: "container-orchestrated",
+        type: "container",
         params: {
           development: {
             sync: [
@@ -159,7 +159,7 @@ Deno.test("discoverWatchedApps: collects every app across every resource's sync 
         },
       },
       worker: {
-        type: "container-orchestrated",
+        type: "container",
         params: {
           // Same app as api's — must only appear once in the result.
           development: {
@@ -180,7 +180,7 @@ Deno.test("discoverWatchedApps: a resource with no development block contributes
   const workload: Workload = {
     compute: {
       api: {
-        type: "container-orchestrated",
+        type: "container",
         params: {},
       },
     },
@@ -197,7 +197,7 @@ Deno.test("discoverWatchedApps: an invalid development block still throws Develo
   const workload: Workload = {
     compute: {
       api: {
-        type: "container-orchestrated",
+        type: "container",
         params: { development: { sync: "not-a-list" } },
       },
     },

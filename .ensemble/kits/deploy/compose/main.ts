@@ -2,7 +2,7 @@ import { dirname } from "@std/path";
 import { stringify as stringifyYaml } from "@std/yaml";
 import * as KitSdk from "@ensemble/kit-sdk";
 import { composeRealization } from "./realization.ts";
-import { containerOrchestratedProvisioner } from "./provisioners/container-orchestrated.ts";
+import { containerProvisioner } from "./provisioners/container.ts";
 import { relationalProvisioner } from "./provisioners/relational.ts";
 import { storageVolumeProvisioner } from "./provisioners/storage-volume.ts";
 import { gatewayProvisioner } from "./provisioners/gateway.ts";
@@ -31,7 +31,7 @@ function artifactsDirFor(artifactPath: string): string {
 const kit: KitSdk.Deploy.Kit = {
   // deno-lint-ignore require-await
   provisioners: async () => [
-    containerOrchestratedProvisioner(),
+    containerProvisioner(),
     relationalProvisioner(),
     storageVolumeProvisioner(),
     gatewayProvisioner(),

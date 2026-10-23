@@ -1,5 +1,6 @@
 import { CATEGORIES, type Category, type Workload } from "../workload.ts";
 import { ReferenceSyntax } from "../reference.ts";
+import { ComputeAddress } from "../compute-address.ts";
 import type { Reference } from "../reference.ts";
 import type { ContractRegistry } from "./registry.ts";
 import { ContractError } from "./errors.ts";
@@ -7,7 +8,7 @@ import { ContractError } from "./errors.ts";
 /**
  * Walks every resource's params for `${...}` references and checks each one
  * targets something real: a declared output key on the target's contract, or
- * — for a `compute` target — one of its own declared `ports`. Deliberately
+ * — for a `compute` target — its `host` or one of its own declared `ports`. Deliberately
  * narrower than the full `DependencyGraph` (Phase 3): it does not detect
  * cycles and does not order anything, it only answers "does this reference
  * point at a real, contractually-declared thing?" — a local, per-reference
@@ -117,7 +118,7 @@ export class ReferenceValidator {
     }
 
     const output = reference.output!;
-    if (category === "compute" && this.hasPort(target, output)) return;
+    if (ComputeAddress.names(reference, workload)) return;
 
     const contract = this.registry.contractFor(category, target.type);
     if (!contract) {
@@ -170,13 +171,5 @@ export class ReferenceValidator {
         `${path} references undeclared field "${output}" on variables.${reference.name} (declared fields: value).`,
       );
     }
-  }
-
-  private hasPort(
-    target: { params: Record<string, unknown> },
-    output: string,
-  ): boolean {
-    const ports = target.params.ports;
-    return typeof ports === "object" && ports !== null && output in ports;
   }
 }

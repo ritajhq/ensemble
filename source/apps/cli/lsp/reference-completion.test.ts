@@ -12,7 +12,7 @@ deploy:
       type: relational
   compute:
     api:
-      type: container-orchestrated
+      type: container
       image: \${rel
       replicas: 1
 tasks:

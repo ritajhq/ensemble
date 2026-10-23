@@ -3,7 +3,7 @@ import { Parser } from "../manifest/parser.ts";
 import { ContractError } from "../contracts/errors.ts";
 import { ContractCatalog } from "../contracts/registry.ts";
 import { relationalV1 } from "../contracts/seeds/relational.ts";
-import { containerOrchestratedV1 } from "../contracts/seeds/container-orchestrated.ts";
+import { containerV1 } from "../contracts/seeds/container.ts";
 import { ReferenceResolver } from "../render/reference-resolver.ts";
 import { Renderer } from "../render/renderer.ts";
 import { StubReleaseLocator } from "../kit/release-locator.ts";
@@ -18,7 +18,7 @@ release:
 deploy:
   compute:
     api:
-      type: container-orchestrated
+      type: container
       image: \${release.web}
       replicas: 2
       env:
@@ -36,7 +36,7 @@ deploy:
     db-password: { source: environment }
 `;
 
-const registry = new ContractCatalog([relationalV1, containerOrchestratedV1]);
+const registry = new ContractCatalog([relationalV1, containerV1]);
 const releaseLocator = new StubReleaseLocator({
   local: { web: { ref: "ens-local/web:dev" } },
   published: { web: { ref: "registry.ritaj.app/web:1.4.2" } },
@@ -72,9 +72,8 @@ function fakeKit(
             }),
         },
         {
-          matches: (r) =>
-            Promise.resolve(r.declaration.type === "container-orchestrated"),
-          describe: () => Promise.resolve("container-orchestrated"),
+          matches: (r) => Promise.resolve(r.declaration.type === "container"),
+          describe: () => Promise.resolve("container"),
           provision: (request) =>
             Promise.resolve({
               fragment: {
@@ -147,7 +146,7 @@ Deno.test("Explainer.explain: names which provisioner matched and which didn't",
   assertEquals(explanation.contractId, "databases.relational");
   assertEquals(explanation.provisionerMatches, [
     { description: "relational", matched: true },
-    { description: "container-orchestrated", matched: false },
+    { description: "container", matched: false },
   ]);
 });
 

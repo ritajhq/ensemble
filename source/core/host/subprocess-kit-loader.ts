@@ -112,6 +112,16 @@ class SubprocessRealization implements Deploy.Realization {
       Deploy.Knowability
     >;
   }
+  hostOf(
+    category: Deploy.Category,
+    type: string,
+    name: string,
+    deployment: string,
+  ): Promise<string | undefined> {
+    return this.call("hostOf", [category, type, name, deployment]) as Promise<
+      string | undefined
+    >;
+  }
 }
 
 class SubprocessKit implements Deploy.Kit {

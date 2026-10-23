@@ -3,7 +3,7 @@ import * as KitSdk from "@ensemble/kit-sdk";
 /**
  * `--emulate-externals` on compose: every `deploy.external` entry is assumed
  * to be a Docker network (the only external type compose gives meaning to —
- * see the `container-orchestrated` provisioner's `networks` param), stood up
+ * see the `container` provisioner's `networks` param), stood up
  * with `docker network create` when `docker network inspect` says it isn't
  * there yet. An entry declaring any other `type` has no compose emulation to
  * offer, so this throws rather than silently skipping it.

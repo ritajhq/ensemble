@@ -283,7 +283,10 @@ async function argumentsFromRender(
     ),
   );
   const renderer = new Deploy.Render.Renderer(
-    new Deploy.Render.ReferenceResolver(await target.kit.realization()),
+    new Deploy.Render.ReferenceResolver(
+      await target.kit.realization(),
+      deployment.name,
+    ),
     releaseLocator,
     registry,
   );

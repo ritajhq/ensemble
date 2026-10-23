@@ -10,7 +10,7 @@ release:
 deploy:
   compute:
     server:
-      type: container-orchestrated
+      type: container
       image: ${release.website}
       replicas: 1
       ports:
@@ -29,7 +29,7 @@ deploy:
             path: /app/content
 
     git-sync:
-      type: container-orchestrated
+      type: container
       image: ${release.git-sync}
       replicas: 1
       ports:

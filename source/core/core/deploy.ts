@@ -159,12 +159,6 @@ export async function runDeploy(
       options.version,
     ),
   );
-  const renderer = new Deploy.Render.Renderer(
-    new Deploy.Render.ReferenceResolver(await target.kit.realization()),
-    releaseLocator,
-    registry,
-    options.mode,
-  );
 
   // A kit's native scoping identifier (a compose project name, a
   // CloudFormation stack name) lives in a namespace shared across the whole
@@ -178,6 +172,16 @@ export async function runDeploy(
   // a project name, rendered artifact, cache or task snapshot.
   const scope = options.instance ? options.instance.scope(name) : name;
   const deploymentName = deploymentNameFor(repoRoot, scope);
+
+  const renderer = new Deploy.Render.Renderer(
+    new Deploy.Render.ReferenceResolver(
+      await target.kit.realization(),
+      deploymentName,
+    ),
+    releaseLocator,
+    registry,
+    options.mode,
+  );
 
   const outputsDir = join(repoRoot, "source", "artifacts", "deploy", scope);
   const sink = new Deploy.Terminations.FileArtifactSink(outputsDir);

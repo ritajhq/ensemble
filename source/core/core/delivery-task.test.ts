@@ -61,13 +61,13 @@ deploy:
     greeting: { default: hi }
   compute:
     web:
-      type: container-orchestrated
+      type: container
       image: web:latest
       replicas: 1
       ports:
         http: 8080
     worker:
-      type: container-orchestrated
+      type: container
       image: worker:latest
       replicas: 1
 tasks:

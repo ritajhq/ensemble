@@ -23,10 +23,10 @@
       "additionalProperties": false,
       "properties": {
         "compute": {
-          "description": "Compute resources (e.g. container-orchestrated workloads).",
+          "description": "Compute resources (e.g. container workloads).",
           "type": "object",
           "additionalProperties": {
-            "$ref": "#/definitions/containerOrchestratedResource"
+            "$ref": "#/definitions/containerResource"
           }
         },
         "storage": {
@@ -162,18 +162,14 @@
         }
       }
     },
-    "containerOrchestratedResource": {
-      "description": "A `container-orchestrated.v1` compute entry (kit-sdk/deploy/contracts/seeds/container-orchestrated.ts).",
+    "containerResource": {
+      "description": "A `container.v1` compute entry (kit-sdk/deploy/contracts/seeds/container.ts).",
       "type": "object",
       "required": ["type", "image", "replicas"],
       "properties": {
         "type": {
           "type": "string",
-          "const": "container-orchestrated"
-        },
-        "class": {
-          "description": "Optional resource class (e.g. critical) affecting how a kit realizes it.",
-          "type": "string"
+          "const": "container"
         },
         "capabilities": {
           "description": "Optional negotiated capabilities requested from the deploy kit.",

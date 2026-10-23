@@ -1,4 +1,5 @@
 import * as KitSdk from "@ensemble/kit-sdk";
+import { ComposeProject } from "./project-name.ts";
 
 type Category = KitSdk.Deploy.Category;
 type ClassPreset = KitSdk.Deploy.ClassPreset;
@@ -71,6 +72,16 @@ export async function composeRealization(): Promise<KitSdk.Deploy.Realization> {
     // deno-lint-ignore require-await
     async knowabilityOf(): Promise<Knowability> {
       return "static";
+    },
+    // deno-lint-ignore require-await
+    async hostOf(
+      category: Category,
+      type: string,
+      name: string,
+      deployment: string,
+    ): Promise<string | undefined> {
+      if (category !== "compute" || type !== "container") return undefined;
+      return new ComposeProject(deployment).containerOf(name);
     },
   };
 }

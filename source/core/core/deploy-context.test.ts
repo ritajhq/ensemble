@@ -69,7 +69,7 @@ Deno.test("resolveRelationalInitPaths: a non-relational database resource is unt
 
 Deno.test("resolveRelationalInitPaths: a workload with no databases at all is untouched", () => {
   const workload: Workload = {
-    compute: { api: { type: "container-orchestrated", params: {} } },
+    compute: { api: { type: "container", params: {} } },
   };
 
   const resolved = resolveRelationalInitPaths(workload, REPO_ROOT);

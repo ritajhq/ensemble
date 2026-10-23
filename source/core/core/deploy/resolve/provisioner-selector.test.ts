@@ -96,12 +96,12 @@ Deno.test("ProvisionerSelector.explain: reports every provisioner's own match re
     (r) => r.declaration.type === "relational",
     "relational",
   );
-  const containerOrchestrated = new FakeProvisioner(
-    (r) => r.declaration.type === "container-orchestrated",
-    "container-orchestrated",
+  const container = new FakeProvisioner(
+    (r) => r.declaration.type === "container",
+    "container",
   );
   const kit = new FakeKit(
-    [containerOrchestrated, relational],
+    [container, relational],
     new FakeRealization(),
   );
 
@@ -110,7 +110,7 @@ Deno.test("ProvisionerSelector.explain: reports every provisioner's own match re
     fakeTarget(kit),
   );
   assertEquals(explanation, [
-    { description: "container-orchestrated", matched: false },
+    { description: "container", matched: false },
     { description: "relational", matched: true },
   ]);
 });

@@ -1,5 +1,5 @@
 import { fromFileUrl } from "@std/path";
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertRejects } from "@std/assert";
 import { assertSnapshot } from "@std/testing/snapshot";
 import * as KitSdk from "@ensemble/kit-sdk";
 import awsKit from "./main.ts";
@@ -14,7 +14,7 @@ const FIXTURE = fromFileUrl(
 
 const registry = new KitSdk.Deploy.Contracts.Catalog([
   KitSdk.Deploy.Contracts.relationalV1,
-  KitSdk.Deploy.Contracts.containerOrchestratedV1,
+  KitSdk.Deploy.Contracts.containerV1,
   KitSdk.Deploy.Contracts.objectStorageV1,
 ]);
 
@@ -347,7 +347,7 @@ deploy:
       bucket: my-bucket
   compute:
     api:
-      type: container-orchestrated
+      type: container
       image: \${release.web}
       replicas: 1
       env:
@@ -425,4 +425,27 @@ Deno.test("capabilities end-to-end: compose reports a gap for the same read-repl
       gap: { capability: "read-replicas", requested: 2 },
     },
   ]);
+});
+
+Deno.test("aws kit: gives a container no host yet, so a manifest naming one fails clearly", async () => {
+  const realization = await awsKit.realization();
+  const workload = new KitSdk.Deploy.Manifest.Parser().parse(`
+version: v1
+deploy:
+  compute:
+    judge:
+      type: container
+      image: judge
+      replicas: 1
+`);
+  await assertRejects(
+    () =>
+      new KitSdk.Deploy.Render.ComputeAddresses(realization, "shop-web")
+        .resolve(
+          { category: "compute", name: "judge", output: "host" },
+          workload,
+        ),
+    KitSdk.Deploy.Render.ComputeAddressError,
+    "compute.judge.host can't be resolved",
+  );
 });

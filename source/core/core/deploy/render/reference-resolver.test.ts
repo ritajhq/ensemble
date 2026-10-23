@@ -47,7 +47,7 @@ Deno.test("ReferenceResolver.resolve: defers to native wiring for a dynamic outp
 
 Deno.test("ReferenceResolver.resolve: bakes a compute's declared port directly off the ledger's port record, not its (empty) contract outputs", async () => {
   const ledger = new OutputsLedger();
-  ledger.record("compute", "api", "container-orchestrated", {}, { http: 8080 });
+  ledger.record("compute", "api", "container", {}, { http: 8080 });
 
   const resolver = new ReferenceResolver(new FakeRealization());
   assertEquals(

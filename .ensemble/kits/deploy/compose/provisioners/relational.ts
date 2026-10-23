@@ -13,7 +13,7 @@ const POSTGRES_PORT = 5432;
  * `.sql`/`.sql.gz`/`.sh` files there in filename order against a fresh
  * (empty) data volume. `[]` when there's no `init` param — same
  * "absent, not empty" convention `portMappings`/`mountVolumes` use on
- * container-orchestrated's own provisioner.
+ * container's own provisioner.
  */
 function initMounts(init: unknown): string[] {
   if (!Array.isArray(init)) return [];

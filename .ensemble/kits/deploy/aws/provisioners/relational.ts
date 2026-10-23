@@ -16,7 +16,7 @@ const POSTGRES_PORT = 5432;
  * `AllocatedStorage`) — unlike compose, where those concerns had nothing to
  * render into. `init` (compose's docker-entrypoint-initdb.d mounts) has no
  * RDS equivalent and is silently dropped here, same as `ports`/`networks`
- * on container-orchestrated's own aws provisioner — running init SQL
+ * on container's own aws provisioner — running init SQL
  * against RDS is a real gap, not modeled by this contract yet.
  */
 /** How many read replicas to create — the "read-replicas" quantified capability's resolved value, satisfied only on aws (Section 11: undeclared support defaults to unsatisfied, so this provisioner only ever sees the value when `ProvisionerSelector` already found it satisfiable here). Absent entirely (not just zero) when the developer didn't ask for any. */

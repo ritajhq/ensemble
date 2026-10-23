@@ -1,7 +1,7 @@
 import * as KitSdk from "@ensemble/kit-sdk";
 import { pascalCase } from "../pascal-case.ts";
 
-/** `container-orchestrated.v1`'s `env` map, as ECS's own `[{Name, Value}]` array shape. */
+/** `container.v1`'s `env` map, as ECS's own `[{Name, Value}]` array shape. */
 function containerEnvironment(
   env: unknown,
 ): Array<{ Name: string; Value: unknown }> {
@@ -12,20 +12,19 @@ function containerEnvironment(
 }
 
 /**
- * Fulfills `container-orchestrated` on aws as `AWS::ECS::TaskDefinition`.
+ * Fulfills `container` on aws as `AWS::ECS::TaskDefinition`.
  * `replicas` has no equivalent on a bare task definition (that's an ECS
  * *service*'s `DesiredCount`, a resource this contract doesn't model) — left
  * unrendered, same call compose made for its own reason. Declares no
- * outputs, matching `container-orchestrated.v1`'s contract exactly (Section
+ * outputs, matching `container.v1`'s contract exactly (Section
  * 6 — the `Renderer` now enforces this).
  */
-export function containerOrchestratedProvisioner(): KitSdk.Deploy.Provisioner {
+export function containerProvisioner(): KitSdk.Deploy.Provisioner {
   return {
     // deno-lint-ignore require-await
-    matches: async (resource) =>
-      resource.declaration.type === "container-orchestrated",
+    matches: async (resource) => resource.declaration.type === "container",
     // deno-lint-ignore require-await
-    describe: async () => "container-orchestrated (AWS::ECS::TaskDefinition)",
+    describe: async () => "container (AWS::ECS::TaskDefinition)",
     // deno-lint-ignore require-await
     provision: async (request) => ({
       fragment: {

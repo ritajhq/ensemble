@@ -15,7 +15,7 @@ Deno.test("OutputsLedger: records and returns a resource's type and outputs", ()
 
 Deno.test("OutputsLedger: records and returns a compute's declared ports, separately from its contract outputs", () => {
   const ledger = new OutputsLedger();
-  ledger.record("compute", "api", "container-orchestrated", {}, { http: 8080 });
+  ledger.record("compute", "api", "container", {}, { http: 8080 });
 
   assertEquals(ledger.hasPort("compute", "api", "http"), true);
   assertEquals(ledger.portFor("compute", "api", "http"), 8080);
@@ -31,7 +31,7 @@ Deno.test("OutputsLedger: a resource recorded with no ports has none", () => {
 
 Deno.test("OutputsLedger.portFor: throws for an undeclared port on a recorded resource", () => {
   const ledger = new OutputsLedger();
-  ledger.record("compute", "api", "container-orchestrated", {}, { http: 8080 });
+  ledger.record("compute", "api", "container", {}, { http: 8080 });
   assertThrows(
     () => ledger.portFor("compute", "api", "grpc"),
     OutputsLedgerError,

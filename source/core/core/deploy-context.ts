@@ -54,7 +54,7 @@ export class ContainerFileError extends Error {
 }
 
 /**
- * `container-orchestrated.v1`'s optional `files` param (see its contract
+ * `container.v1`'s optional `files` param (see its contract
  * comment): each `{ source, path }` entry's project-relative `source` read
  * into `{ path, content }`, here for the same reason `init` paths are
  * resolved here — a provisioner has no filesystem of its own. A source
@@ -72,7 +72,7 @@ export async function readContainerFiles(
   for (const [name, declaration] of Object.entries(compute)) {
     const files = declaration.params.files;
     if (
-      declaration.type !== "container-orchestrated" || !Array.isArray(files)
+      declaration.type !== "container" || !Array.isArray(files)
     ) {
       resolved[name] = declaration;
       continue;

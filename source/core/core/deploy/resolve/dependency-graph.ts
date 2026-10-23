@@ -1,5 +1,6 @@
 import { CATEGORIES, type Workload } from "../workload.ts";
 import { type Reference, ReferenceSyntax } from "../reference.ts";
+import { ComputeAddress } from "../compute-address.ts";
 
 /** One node's identity in the graph — a deploy resource in some `Category`, or a sibling `release` entry (Section 12: releases are producers too). */
 export interface ResourceId {
@@ -115,6 +116,7 @@ export class DependencyGraphBuilder {
               `${from} references undeclared resource "${to}".`,
             );
           }
+          if (ComputeAddress.names(reference, workload)) return;
           dependencies.add(to);
         });
         edges.set(from, dependencies);

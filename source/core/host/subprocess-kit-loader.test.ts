@@ -100,7 +100,7 @@ version: v1
 deploy:
   compute:
     api:
-      type: container-orchestrated
+      type: container
       image: nginx
       replicas: 1
       env: { DATABASE_URL: "\${databases.primary.url}" }

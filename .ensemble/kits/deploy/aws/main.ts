@@ -2,7 +2,7 @@ import { fromFileUrl } from "@std/path";
 import { stringify as stringifyYaml } from "@std/yaml";
 import * as KitSdk from "@ensemble/kit-sdk";
 import { awsRealization } from "./realization.ts";
-import { containerOrchestratedProvisioner } from "./provisioners/container-orchestrated.ts";
+import { containerProvisioner } from "./provisioners/container.ts";
 import { functionProvisioner } from "./provisioners/function.ts";
 import { relationalProvisioner } from "./provisioners/relational.ts";
 import { keyValueProvisioner } from "./provisioners/key-value.ts";
@@ -13,7 +13,7 @@ import { assembleCloudFormationDocument } from "./cloudformation-document.ts";
 const kit: KitSdk.Deploy.Kit = {
   // deno-lint-ignore require-await
   provisioners: async () => [
-    containerOrchestratedProvisioner(),
+    containerProvisioner(),
     functionProvisioner(),
     relationalProvisioner(),
     keyValueProvisioner(),

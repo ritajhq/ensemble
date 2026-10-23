@@ -1,7 +1,7 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { Parser } from "../manifest/parser.ts";
 import { ContractCatalog } from "../contracts/registry.ts";
-import { containerOrchestratedV1 } from "../contracts/seeds/container-orchestrated.ts";
+import { containerV1 } from "../contracts/seeds/container.ts";
 import { ReferenceResolver } from "../render/reference-resolver.ts";
 import { Renderer } from "../render/renderer.ts";
 import { ReleaseLocatorResolver } from "../kit/release-locator-resolver.ts";
@@ -38,7 +38,7 @@ release:
 deploy:
   compute:
     server:
-      type: container-orchestrated
+      type: container
       image: \${release.web}
       replicas: 1
       development:
@@ -47,9 +47,9 @@ deploy:
             path: /app/server
 `;
 
-const registry = new ContractCatalog([containerOrchestratedV1]);
+const registry = new ContractCatalog([containerV1]);
 
-/** A minimal, real-ish container-orchestrated provisioner (no relational resource in this manifest, so only this one is needed). Command builders receive `(artifactPath, name)` and own their full return value — no implicit appending — so a `sleep`-based watch command can't have a stray path argument corrupt its duration. */
+/** A minimal, real-ish container provisioner (no relational resource in this manifest, so only this one is needed). Command builders receive `(artifactPath, name)` and own their full return value — no implicit appending — so a `sleep`-based watch command can't have a stray path argument corrupt its duration. */
 function fakeKit(
   applyCommand: (path: string, name: string) => readonly string[],
   watchCommand?: (path: string, name: string) => readonly string[],
@@ -61,7 +61,7 @@ function fakeKit(
         {
           matches: (resource) =>
             Promise.resolve(
-              resource.declaration.type === "container-orchestrated",
+              resource.declaration.type === "container",
             ),
           provision: (request) =>
             Promise.resolve({

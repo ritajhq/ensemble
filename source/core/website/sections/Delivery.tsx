@@ -37,7 +37,7 @@ const MANIFEST: Line[] = [
   {
     segs: [{ tone: "field", text: "      type: " }, {
       tone: "value",
-      text: "container-orchestrated",
+      text: "container",
     }],
   },
   {

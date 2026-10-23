@@ -1,15 +1,15 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import * as KitSdk from "@ensemble/kit-sdk";
-import { containerOrchestratedProvisioner } from "./provisioners/container-orchestrated.ts";
+import { containerProvisioner } from "./provisioners/container.ts";
 
 async function environment(
   params: Record<string, unknown>,
   mode: KitSdk.Deploy.Mode,
 ): Promise<Record<string, string>> {
-  const outcome = await containerOrchestratedProvisioner().provision!({
+  const outcome = await containerProvisioner().provision!({
     category: "compute",
     name: "web",
-    type: "container-orchestrated",
+    type: "container",
     params: { image: "web:dev", ...params },
     values: {},
     secrets: {},

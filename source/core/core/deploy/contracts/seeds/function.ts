@@ -4,7 +4,7 @@ import { ResourceContract } from "../contract.ts";
  * `function.v1` — a compute entry that runs on demand rather than as a
  * long-lived process: code invoked per request (or event) by the target,
  * scaled and billed by invocation. The serverless counterpart of
- * `container-orchestrated.v1`.
+ * `container.v1`.
  *
  * `code` is where the deployable bundle lives — always a `${release.<name>}`
  * reference, resolved by that release's pack kit to a local path or a
@@ -20,7 +20,7 @@ import { ResourceContract } from "../contract.ts";
  * integrations is its own bundle, whichever kit deploys it.
  * `runtime` names the language runtime when the target needs one named (a
  * kit-defined default otherwise). `env` is the function's environment, the
- * same shape as `container-orchestrated.v1`'s.
+ * same shape as `container.v1`'s.
  *
  * `tables` lists the `key-value` tables the function reads and writes, as
  * `${databases.<name>.name}` references, and `buckets` the `object-storage`
@@ -33,7 +33,7 @@ import { ResourceContract } from "../contract.ts";
  * so the code finds a table or bucket the same way everywhere: by the name
  * `env` gave it.
  *
- * `development` is the same developer-owned block `container-orchestrated.v1`
+ * `development` is the same developer-owned block `container.v1`
  * takes (`../../development.ts`), checked here only as an object: under `ens
  * develop`, its `sync` rules keep the function's code current with an app's
  * build output (`path` being where that output lands inside the function's

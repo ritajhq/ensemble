@@ -42,6 +42,19 @@ export interface Realization {
     type: string,
     capability: string,
   ): Promise<boolean>;
+  /**
+   * The name a compute is reached by from another compute on a network they
+   * share, as `${compute.<name>.host}`: known from the deployment's name and
+   * the compute's alone, so it can be given before anything is rendered.
+   * `undefined`, or the method absent (a kit older than it), is a kit that
+   * has no such name for that type.
+   */
+  hostOf?(
+    category: Category,
+    type: string,
+    name: string,
+    deployment: string,
+  ): Promise<string | undefined>;
   /** Not consumed until Phase 5's `ReferenceResolver` — declared now so `Realization`'s shape doesn't change once Render lands. */
   knowabilityOf(
     category: Category,

@@ -1,7 +1,7 @@
 import { assertEquals, assertThrows } from "@std/assert";
 import type { ResourceDeclaration } from "../resource.ts";
 import { ContractError } from "./errors.ts";
-import { containerOrchestratedV1 } from "./seeds/container-orchestrated.ts";
+import { containerV1 } from "./seeds/container.ts";
 import { relationalV1 } from "./seeds/relational.ts";
 
 function relationalResource(
@@ -116,8 +116,8 @@ Deno.test("ResourceContract.validate: rejects an undeclared capability", () => {
 });
 
 Deno.test("ResourceContract.validate: accepts Appendix A's compute resource, params passed through as opaque objects", () => {
-  containerOrchestratedV1.validate({
-    type: "container-orchestrated",
+  containerV1.validate({
+    type: "container",
     params: {
       image: "${release.web}",
       replicas: 2,
@@ -128,8 +128,8 @@ Deno.test("ResourceContract.validate: accepts Appendix A's compute resource, par
 });
 
 Deno.test("ResourceContract.validate: accepts a development block (Section 12's reserved watch seam) untouched", () => {
-  containerOrchestratedV1.validate({
-    type: "container-orchestrated",
+  containerV1.validate({
+    type: "container",
     params: {
       image: "web:latest",
       replicas: 1,
@@ -141,21 +141,21 @@ Deno.test("ResourceContract.validate: accepts a development block (Section 12's 
 Deno.test("ResourceContract.validate: rejects a non-object value for an object-typed param", () => {
   const error = assertThrows(
     () =>
-      containerOrchestratedV1.validate({
-        type: "container-orchestrated",
+      containerV1.validate({
+        type: "container",
         params: { image: "web", replicas: 1, ports: "8080" },
       }),
     ContractError,
   );
   assertEquals(
     error.message,
-    'compute.container-orchestrated param "ports" must be a object.',
+    'compute.container param "ports" must be a object.',
   );
 });
 
 Deno.test("ResourceContract.validate: accepts a networks list of external references", () => {
-  containerOrchestratedV1.validate({
-    type: "container-orchestrated",
+  containerV1.validate({
+    type: "container",
     params: {
       image: "web:latest",
       replicas: 1,
@@ -167,19 +167,32 @@ Deno.test("ResourceContract.validate: accepts a networks list of external refere
 Deno.test("ResourceContract.validate: rejects a non-array value for an array-typed param", () => {
   const error = assertThrows(
     () =>
-      containerOrchestratedV1.validate({
-        type: "container-orchestrated",
+      containerV1.validate({
+        type: "container",
         params: { image: "web", replicas: 1, networks: "edge-net" },
       }),
     ContractError,
   );
   assertEquals(
     error.message,
-    'compute.container-orchestrated param "networks" must be a array.',
+    'compute.container param "networks" must be a array.',
   );
 });
 
 Deno.test("id: is category.type", () => {
   assertEquals(relationalV1.id, "databases.relational");
-  assertEquals(containerOrchestratedV1.id, "compute.container-orchestrated");
+  assertEquals(containerV1.id, "compute.container");
+});
+
+Deno.test("ResourceContract.validate: a container takes no class", () => {
+  assertThrows(
+    () =>
+      containerV1.validate({
+        type: "container",
+        class: "critical",
+        params: { image: "x", replicas: 1 },
+      }),
+    ContractError,
+    "compute.container takes no class.",
+  );
 });

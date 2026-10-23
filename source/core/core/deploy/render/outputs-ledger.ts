@@ -23,7 +23,7 @@ export class OutputsLedger {
 
   /**
    * `ports` is separate from a provisioner's contract-bound `outputs`
-   * (Section 6 of `container-orchestrated.v1`'s own contract comment: a
+   * (Section 6 of `container.v1`'s own contract comment: a
    * compute's ports are developer-declared data, not a provisioner-produced
    * output) — recording them here rather than folding them into `outputs`
    * keeps `Renderer.validateOutputs`'s strict declared-vs-produced check

@@ -16,7 +16,7 @@ const FIXTURE = fromFileUrl(
 
 const registry = new KitSdk.Deploy.Contracts.Catalog([
   KitSdk.Deploy.Contracts.relationalV1,
-  KitSdk.Deploy.Contracts.containerOrchestratedV1,
+  KitSdk.Deploy.Contracts.containerV1,
   KitSdk.Deploy.Contracts.storageVolumeV1,
   KitSdk.Deploy.Contracts.gatewayV1,
   KitSdk.Deploy.Contracts.objectStorageV1,
@@ -141,6 +141,7 @@ Deno.test("compose kit: matches Appendix A's documented content exactly", async 
     environment: {
       DATABASE_URL: "postgres://appuser:${DB_PASSWORD:?}@primary:5432/appdb",
     },
+    restart: "always",
   });
 
   assertEquals(document.volumes, { "primary-data": {} });
@@ -226,13 +227,13 @@ release:
 deploy:
   compute:
     web-a:
-      type: container-orchestrated
+      type: container
       image: \${release.web}
       replicas: 1
       ports:
         http: 8000
     web-b:
-      type: container-orchestrated
+      type: container
       image: \${release.web}
       replicas: 1
       ports:
@@ -262,7 +263,7 @@ release:
 deploy:
   compute:
     api:
-      type: container-orchestrated
+      type: container
       image: \${release.web}
       replicas: 1
       development:
@@ -329,7 +330,7 @@ release:
 deploy:
   compute:
     api:
-      type: container-orchestrated
+      type: container
       image: \${release.web}
       replicas: 1
       networks: ["\${external.edge-net.name}"]
@@ -393,7 +394,7 @@ release:
 deploy:
   compute:
     api:
-      type: container-orchestrated
+      type: container
       image: \${release.web}
       replicas: 1
       mounts:
@@ -559,7 +560,7 @@ deploy:
       class: critical
   compute:
     api:
-      type: container-orchestrated
+      type: container
       image: \${release.web}
       replicas: 1
       env:
@@ -664,7 +665,7 @@ deploy:
       name: edge
   compute:
     api:
-      type: container-orchestrated
+      type: container
       image: \${release.web}
       replicas: 1
       ports:

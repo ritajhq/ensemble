@@ -33,27 +33,41 @@ version of the same model.
 Five resource kinds have a dedicated schema definition, matching a seeded
 `ResourceContract`:
 
-| Schema definition               | Category     | `type`                   | Required fields                                           | Declared outputs                                  |
-| ------------------------------- | ------------ | ------------------------ | --------------------------------------------------------- | ------------------------------------------------- |
-| `containerOrchestratedResource` | `compute`    | `container-orchestrated` | `image`, `replicas`                                       | (none listed — see note below)                    |
-| `storageVolumeResource`         | `storage`    | `volume`                 | _(none beyond `type`)_                                    | `name`                                            |
-| `objectStorageResource`         | `storage`    | `object-storage`         | `bucket`                                                  | `url`, `bucket`                                   |
-| `relationalResource`            | `databases`  | `relational`             | `engine`, `version`, `user`, `database`, `passwordSecret` | `host`, `port`, `user`, `database`, `url`         |
-| `gatewayResource`               | `networking` | `gateway`                | `routes` (optional `networks`)                            | (none — nothing references `${networking.*}` yet) |
+| Schema definition       | Category     | `type`           | Required fields                                           | Declared outputs                                  |
+| ----------------------- | ------------ | ---------------- | --------------------------------------------------------- | ------------------------------------------------- |
+| `containerResource`     | `compute`    | `container`      | `image`, `replicas`                                       | (none listed — see note below)                    |
+| `storageVolumeResource` | `storage`    | `volume`         | _(none beyond `type`)_                                    | `name`                                            |
+| `objectStorageResource` | `storage`    | `object-storage` | `bucket`                                                  | `url`, `bucket`                                   |
+| `relationalResource`    | `databases`  | `relational`     | `engine`, `version`, `user`, `database`, `passwordSecret` | `host`, `port`, `user`, `database`, `url`         |
+| `gatewayResource`       | `networking` | `gateway`        | `routes` (optional `networks`)                            | (none — nothing references `${networking.*}` yet) |
 
-A `container-orchestrated` compute's `ports` map is itself the reference surface
-for its ports (`${compute.<name>.<port-name>}`) rather than a separate `outputs`
-list. The name is yours to choose — nothing reads meaning into it — and each
-value is the port the container listens on, never a host binding: `compose`
-never publishes it to the host's own port space, so several computes declaring
-the same container port is fine — they only ever share the compose network,
-where anything that needs a compute reaches it as `<service>:<port>`, the same
-address a compute's own `${compute.*}` references and the gateway's routes
-resolve to. From the host itself, `docker compose exec <service> ...` reaches a
-compute directly, and on native Linux Docker so does its container IP
+A `container` compute's `ports` map is itself the reference surface for its
+ports (`${compute.<name>.<port-name>}`) rather than a separate `outputs` list.
+The name is yours to choose — nothing reads meaning into it — and each value is
+the port the container listens on, never a host binding: `compose` never
+publishes it to the host's own port space, so several computes declaring the
+same container port is fine — they only ever share the compose network, where
+anything that needs a compute reaches it as `<service>:<port>`, the same address
+a compute's own `${compute.*}` references and the gateway's routes resolve to.
+From the host itself, `docker compose exec <service> ...` reaches a compute
+directly, and on native Linux Docker so does its container IP
 (`docker network inspect` finds it) — neither needs a published port, and Docker
 Desktop's own VM-based networking can't reach either without one, so this
 manifest field never tries to bridge that gap.
+
+A compute's address is a host and a port: `${compute.<name>.host}` and
+`${compute.<name>.<port-name>}`, written together as
+`http://${compute.judge.host}:${compute.judge.http}`. The host is the name
+another compute on a network they share reaches it by, and what that name is
+belongs to the deploy kit: on `compose` it is the container's name,
+`<deployment>-<name>-1`, which no other deployment on a shared network can
+answer for; a kit with no such name for a compute (`aws` has none yet) fails the
+render of any manifest that references it, saying so. Neither the host nor a
+port waits on the compute being rendered, so computes may name each other, as a
+guard and the service it fronts do, and naming one's address is no reason for
+`ens` to bring the other up first (`depends_on`). Anything that does need
+another resource up first, such as a volume or a database, is still ordered by
+its reference.
 
 `relationalResource` also accepts an optional `init` — a list of repo-relative
 SQL/shell file paths run against a fresh database on startup. `compose` mounts
@@ -106,11 +120,11 @@ particular field until you've checked the deploy kit you're targeting.
 `description` on a secret or a variable is optional free text saying what it is
 for; it documents the manifest and changes nothing about a deploy.
 
-- `secrets` — `{ source: "file" | "environment", description? }`. `ens` never mints a secret's
-  value; it only wires whichever source you declare through to the deploy kit.
-  `source: file` is declared here but not yet implemented by either built-in kit
-  (`compose` only supports `environment`, wired as a native `${VAR:?}`
-  interpolation, so an unset one fails instead of deploying empty).
+- `secrets` — `{ source: "file" | "environment", description? }`. `ens` never
+  mints a secret's value; it only wires whichever source you declare through to
+  the deploy kit. `source: file` is declared here but not yet implemented by
+  either built-in kit (`compose` only supports `environment`, wired as a native
+  `${VAR:?}` interpolation, so an unset one fails instead of deploying empty).
 - `variables` — `{ type?, default?, description? }`, read from `ens`'s own
   process environment at deploy time.
 - `external` — `{ type, name }`. A resource `ens` doesn't provision, only
@@ -132,8 +146,8 @@ whole value instead.
 ## `tasks`
 
 A task is one command the workload declares, run **by invocation** —
-`ens delivery task <workload> <task> [args...]` — never fired by a deploy.
-A task that exits non-zero fails that invocation, its own exit code and nothing
+`ens delivery task <workload> <task> [args...]` — never fired by a deploy. A
+task that exits non-zero fails that invocation, its own exit code and nothing
 else: no deploy has started, so there is nothing to roll back. Run the command
 with no task named to list what the workload declares.
 
@@ -147,8 +161,8 @@ tasks:
 ```
 
 Exactly one of `run` (a shell one-liner, handed to `sh -c`) or `script` (a file
-under `ci/<workload>/tasks/`, run with `sh`) drives the task; both reject a
-`..` segment or an absolute path, since `ens` spawns whatever the path names.
+under `ci/<workload>/tasks/`, run with `sh`) drives the task; both reject a `..`
+segment or an absolute path, since `ens` spawns whatever the path names.
 Trailing command-line arguments arrive as `$1..$n`.
 
 `arguments` are handed to the task as **environment variables**, so each name
@@ -178,10 +192,9 @@ exactly as a deploy receives them.
 
 ## `mounts` and `development`
 
-- `mounts` (on a `container-orchestrated` compute) —
-  `{ source, path,
-  readOnly? }[]`, attaching a `storage.volume` entry's
-  `${storage.<name>.name}` output.
+- `mounts` (on a `container` compute) — `{ source, path,
+  readOnly? }[]`,
+  attaching a `storage.volume` entry's `${storage.<name>.name}` output.
 - `development` — what only `ens deploy --mode development` (and so
   `ens develop`) adds to a resource. Sync rules are grouped by action: `sync`
   (copy files) and `sync+restart` (copy, then restart the container), each rule
