@@ -134,6 +134,18 @@ deploy:
         # buildx keeps its state beside them.
         - source: ${variables.registry_credentials.value}
           path: /docker
+      # The server is restarted for a change, the web files and the ens it runs
+      # deploys and releases with are read when used. The containers of those
+      # runs are the release's image, not this one, so they don't follow.
+      development:
+        sync+restart:
+          - app: platform/server
+            path: /app/server
+        sync:
+          - app: platform/web
+            path: /app/web
+          - app: cli
+            path: /app/ens
 
     # Joins the ingress network every deployment's gateway is on, and the
     # platform's, where it reaches the platform's guard, the previews' guard
