@@ -31,6 +31,6 @@
   ],
   "tasks": {
     "cli": "deno run -A source/apps/cli/main.ts",
-    "compile": "deno compile -A --output .ensemble/bin/ens source/apps/cli/main.ts"
+    "compile": "deno task cli pack cli deno.compile -o ens && mkdir -p .ensemble/bin && cp source/artifacts/packages/ens.exe .ensemble/bin/ens"
   }
 }

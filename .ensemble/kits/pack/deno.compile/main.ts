@@ -1,9 +1,14 @@
-import { dirname, isAbsolute, join } from "@std/path";
+import { dirname, fromFileUrl, isAbsolute, join } from "@std/path";
 import { ensureDir, exists } from "@std/fs";
 import { parse as parseYaml } from "@std/yaml";
 import { $ } from "@david/dax";
 import * as KitSdk from "@ensemble/kit-sdk";
 import { resolveDenoExecutable } from "@ensemble/kit-sdk";
+import {
+  StagedWorkspace,
+  WorkspaceMembers,
+  WorkspaceRoot,
+} from "./staged-workspace.ts";
 
 const ctx = KitSdk.Pack.getContext();
 
@@ -277,8 +282,45 @@ args.push(...permissionArgs(config.permissions));
 const watchArgs = ctx.watch ? ["--watch"] : [];
 
 const denoExe = await resolveDenoExecutable();
-const result = await $`${denoExe} compile -q ${args} ${watchArgs} ${entrypoint}`
-  .env(ctx.vars)
-  .noThrow();
 
-Deno.exit(result.code);
+// Compiled in the repo's own workspace, `deno compile` embeds every npm
+// package the workspace's lockfile holds, so every dependency of every app
+// and kit would ship in this binary. It is compiled in a workspace of its
+// own instead: just the members its module graph reaches, with a lockfile of
+// its own beside the ship.
+const denoRoot = await new WorkspaceRoot().above(workspace);
+const info = await $`${denoExe} info --json ${entrypoint}`
+  .cwd(denoRoot).env(ctx.vars).quiet().json() as {
+    modules: Array<{ specifier: string }>;
+  };
+const files = info.modules
+  .filter((module) => module.specifier.startsWith("file://"))
+  .map((module) => fromFileUrl(module.specifier));
+const members = await new WorkspaceMembers(denoRoot).reachedBy(files);
+
+const staged = new StagedWorkspace(
+  denoRoot,
+  join(denoRoot, ".ensemble", "cache", "deno.compile", ctx.name),
+  join(ctx.ship, "deno.lock"),
+);
+await staged.stage(members);
+const stagedEntrypoint = staged.stagedPath(entrypoint);
+
+let code: number;
+try {
+  const cached = await $`${denoExe} cache -q ${stagedEntrypoint}`
+    .cwd(staged.stagedDirectory).env(ctx.vars).noThrow();
+  code = cached.code;
+  if (code === 0) {
+    const result =
+      await $`${denoExe} compile -q ${args} ${watchArgs} ${stagedEntrypoint}`
+        .cwd(staged.stagedDirectory)
+        .env(ctx.vars)
+        .noThrow();
+    code = result.code;
+  }
+} finally {
+  await staged.keepLockfile();
+}
+
+Deno.exit(code);
