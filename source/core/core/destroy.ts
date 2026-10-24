@@ -20,7 +20,8 @@ export class DestroyError extends Error {}
 /**
  * Takes a deployment down: the kit's own `destroyCommand`, then the state
  * `ens deploy` kept for it (rendered artifact, render cache, task snapshot),
- * which describes something that no longer exists.
+ * which describes something that no longer exists. The workload's
+ * `secrets.env` is not state and stays.
  *
  * Needs neither the manifest's values nor a render — the deployment is found
  * by its scope alone — so a branch's preview can be destroyed from a
@@ -73,10 +74,29 @@ export async function runDestroy(
   }
 
   await Deno.remove(outputsDir, { recursive: true }).catch(ignoreMissing);
-  await Deno.remove(join(repoRoot, ".ensemble", "deploy", scope), {
-    recursive: true,
-  }).catch(ignoreMissing);
+  await removeStateKeepingSecrets(join(repoRoot, ".ensemble", "deploy", scope));
   console.log(`Destroyed "${deploymentName}".`);
+}
+
+/**
+ * `secrets.env` (see `DeploymentEnvironment.developConvention`) is the one
+ * file in a deployment's state directory that someone wrote by hand: nothing
+ * here can regenerate it, and it holds values for the next deploy, not the
+ * one just destroyed. Everything else is state `ens deploy` kept, and goes.
+ */
+const SECRETS_FILE = "secrets.env";
+
+async function removeStateKeepingSecrets(stateDir: string): Promise<void> {
+  try {
+    for await (const entry of Deno.readDir(stateDir)) {
+      if (entry.name === SECRETS_FILE) continue;
+      await Deno.remove(join(stateDir, entry.name), { recursive: true });
+    }
+  } catch (error) {
+    return ignoreMissing(error);
+  }
+  if (await exists(join(stateDir, SECRETS_FILE))) return;
+  await Deno.remove(stateDir).catch(ignoreMissing);
 }
 
 function ignoreMissing(error: unknown): void {
