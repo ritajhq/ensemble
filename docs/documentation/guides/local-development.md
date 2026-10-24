@@ -49,12 +49,13 @@ compose --artifacts local --eject` shows exactly what
   443 and joins it to their networks, so the hosts a manifest describes answer
   here too, over HTTPS from the proxy's local CA, for every stack at once. Point
   the manifest's domain variables at a domain that resolves to 127.0.0.1 —
-  `lvh.me` and every name under it does — e.g.
-  `PREVIEW_DOMAIN=ensemble.lvh.me PLATFORM_HOST=platform.ensemble.lvh.me AUTH_HOST=auth.ensemble.lvh.me`
-  for the platform (a domain of its own, since two stacks can't both claim
-  `lvh.me` and `*.lvh.me`). The proxy reads its networks when it starts, so the
-  kit restarts it when it joins a new one. `docker rm -f ens-local-proxy`
-  removes it.
+  `lvh.me` and every name under it does — in `ci/<name>/dev.env`, which
+  `ens
+  develop` loads by itself: the platform's sets `preview_domain`,
+  `platform_host` and `auth_host` under `ensemble.lvh.me`, a domain of its own
+  since two stacks can't both claim `lvh.me` and `*.lvh.me`. The proxy reads its
+  networks when it starts, so the kit restarts it when it joins a new one.
+  `docker rm -f ens-local-proxy` removes it.
 
 Both this proxy and the local AWS an `aws` stack lands in (MiniStack, started
 when `AWS_ENDPOINT_URL` points at this machine) are the kit's _runtime_:

@@ -12,11 +12,8 @@ version: v1
 #   ens deploy platform compose --artifacts local --emulate-externals
 #
 # To try it on your machine, `ens develop platform` starts a local proxy in front
-# of it (see docs/documentation/guides/local-development.md); give the hosts a
-# domain that resolves there, signing in over its HTTPS:
-#
-#   PREVIEW_DOMAIN=ensemble.lvh.me PLATFORM_HOST=platform.ensemble.lvh.me \
-#   AUTH_HOST=auth.ensemble.lvh.me ens develop platform
+# of it (see docs/documentation/guides/local-development.md) and serves it under
+# ensemble.lvh.me, which ci/platform/dev.env sets, signing in over its HTTPS.
 #
 # The platform reaches GitHub as a GitHub App of its own, made on its home page
 # the first time it's opened, and installed on the repositories it releases
@@ -264,14 +261,25 @@ deploy:
   networking:
     # What a host puts in front of the router, as the hand-kept gateway of a
     # real host does: the platform's host, its sign-in and every preview, all
-    # under the preview domain, to the router. Behind the host's own gateway
-    # or tunnel it sits idle; under `ens develop` it is what the local proxy
-    # reaches the platform through.
+    # under the preview domain, to the router. The first two are named for the
+    # links `ens develop` lists; the wildcard covers them anyway. Behind the
+    # host's own gateway or tunnel it sits idle; under `ens develop` it is what
+    # the local proxy reaches the platform through.
     gateway:
       type: gateway
       networks:
         - ${external.platform.name}
       routes:
+        - host: ${variables.platform_host.value}
+          path: /*
+          target:
+            service: router
+            port: ${compute.router.http}
+        - host: ${variables.auth_host.value}
+          path: /*
+          target:
+            service: router
+            port: ${compute.router.http}
         - host: ${variables.preview_domain.value}
           path: /*
           target:
@@ -334,3 +342,35 @@ deploy:
     platform:
       type: network
       name: platform
+
+tasks:
+  # The first operator exists from khatm's first start, with no password. Set
+  # it, then sign in at the platform's host:
+  #
+  #   ens delivery task platform operator-password
+  operator-password:
+    script: operator-password.sh
+    arguments:
+      project: ${deployment.name}
+      artifact: ${deployment.artifact}
+      email: ${variables.admin_email.value}
+
+  # khatm's CLI inside the running sign-in container, over its socket: users,
+  # roles, status, and the break-glass path when a bad config breaks sign-in.
+  # Whatever follows the task's name is the CLI's arguments:
+  #
+  #   ens delivery task platform khatm users list
+  khatm:
+    script: khatm.sh
+    arguments:
+      project: ${deployment.name}
+      artifact: ${deployment.artifact}
+
+  # Install the local proxy's CA (what `ens develop` ends TLS with) into this
+  # machine's OS trust store, so the platform's HTTPS hosts stop warning.
+  # Prompts for sudo, and is worth re-running after the proxy's *volume* is
+  # wiped: Caddy mints a new root CA then, and the old anchor no longer matches.
+  #
+  #   ens delivery task platform trust-local-ca
+  trust-local-ca:
+    script: trust-local-ca.sh
