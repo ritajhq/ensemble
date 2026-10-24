@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { gatewayEntrypoints } from "./gateway.ts";
+import { gatewayEntrypoints, proxiedEntrypoints } from "./gateway.ts";
 
 Deno.test("gatewayEntrypoints: one entry per service and host, collecting every path routed there in declaration order", () => {
   const entrypoints = gatewayEntrypoints([
@@ -36,4 +36,16 @@ Deno.test("gatewayEntrypoints: plain HTTP leaves the default port out, and a rou
   assertEquals(entrypoints, [
     { service: "web", url: "http://localhost", paths: ["/*"] },
   ]);
+});
+
+Deno.test("proxiedEntrypoints: HTTPS on the proxy's port, a link per host, none for a wildcard or a catch-all", () => {
+  const target = { service: "router", port: 80 };
+  assertEquals(
+    proxiedEntrypoints([
+      { host: "platform.lvh.me", path: "/*", target },
+      { host: "*.lvh.me", path: "/*", target },
+      { host: "", path: "/*", target },
+    ]),
+    [{ service: "router", url: "https://platform.lvh.me", paths: ["/*"] }],
+  );
 });

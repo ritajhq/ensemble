@@ -139,16 +139,19 @@ function ingressNetworks(value: unknown): readonly string[] {
  * container, and doesn't recreate one when only that content changed: without
  * this, a redeploy that adds a route leaves the gateway serving the old ones.
  * Loading the same config again is a no-op for Caddy, so it is safe on every
- * apply. Retried while a freshly started Caddy brings its admin API up.
+ * apply. Retried while a freshly started Caddy brings its admin API up, which
+ * compose reports for each try ("service is not running"): only the last
+ * failure is worth the developer's attention, so only that one is said.
  */
 export function caddyReloadScript(service: string, config: string): string {
   return `for attempt in 1 2 3 4 5 6 7 8 9 10; do
   docker compose -f "$ENS_ARTIFACT_PATH" -p "$ENS_DEPLOYMENT_NAME" exec -T ${service} \
-    wget -qO- --header 'Content-Type: text/caddyfile' --post-file=/dev/stdin http://127.0.0.1:2019/load <<'ENS_CADDYFILE' && exit 0
+    wget -qO- --header 'Content-Type: text/caddyfile' --post-file=/dev/stdin http://127.0.0.1:2019/load <<'ENS_CADDYFILE' 2>/dev/null && exit 0
 ${config.trimEnd()}
 ENS_CADDYFILE
   sleep 1
 done
+echo "${service}: Caddy didn't take its Caddyfile; see: docker compose -p $ENS_DEPLOYMENT_NAME logs ${service}" >&2
 exit 1`;
 }
 
@@ -207,6 +210,33 @@ export function gatewayIngress(
   };
 }
 
+/**
+ * The links of a gateway reached through the local proxy: one per distinct
+ * (service, host) pair, HTTPS on the proxy's 443, so no port. A wildcard host
+ * is every name under it, not one to open, and a route with no host has no
+ * name the proxy could match.
+ */
+export function proxiedEntrypoints(
+  routes: readonly Route[],
+): KitSdk.Deploy.Render.Entrypoint[] {
+  const entrypoints = new Map<
+    string,
+    { service: string; url: string; paths: string[] }
+  >();
+  for (const route of routes) {
+    if (route.host === "" || route.host.startsWith("*")) continue;
+    const key = `${route.target.service} ${route.host}`;
+    const entrypoint = entrypoints.get(key) ?? {
+      service: route.target.service,
+      url: `https://${route.host}`,
+      paths: [],
+    };
+    entrypoint.paths.push(routeMatch(route));
+    entrypoints.set(key, entrypoint);
+  }
+  return [...entrypoints.values()];
+}
+
 export function gatewayProvisioner(): KitSdk.Deploy.Provisioner {
   return {
     // deno-lint-ignore require-await
@@ -256,13 +286,16 @@ export function gatewayProvisioner(): KitSdk.Deploy.Provisioner {
           name: `${request.name}-caddy-reload`,
           run: caddyReloadScript(request.name, config),
         }],
-        ...(ingress.length === 0
-          ? { entrypoints: gatewayEntrypoints(routes, tls) }
-          : {
+        entrypoints: ingress.length === 0
+          ? gatewayEntrypoints(routes, tls)
+          : proxiedEntrypoints(routes),
+        ...(ingress.length > 0
+          ? {
             ingresses: [
               gatewayIngress(request.name, ingress, alias, routes, tls),
             ],
-          }),
+          }
+          : {}),
       };
     },
   };

@@ -911,7 +911,9 @@ Deno.test("compose kit: a gateway on an ingress network reports where a router r
   const workload = new KitSdk.Deploy.Manifest.Parser().parse(WITH_GATEWAY);
   const { artifacts } = await renderNetworkingWorkload(workload);
 
-  assertEquals(artifacts.entrypoints, undefined);
+  assertEquals(artifacts.entrypoints?.map((entrypoint) => entrypoint.url), [
+    "https://example.localhost",
+  ]);
   assertEquals(artifacts.ingresses, [{
     service: "gateway",
     networks: ["edge"],
