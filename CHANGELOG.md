@@ -1,3 +1,17 @@
+## [0.62.0] - 2026-10-24
+
+### 🚀 Features
+
+- *(compose)* List the links of a gateway behind the local proxy and keep the Caddyfile reload's retries quiet
+- *(platform)* Serve ens develop under ensemble.lvh.me and add tasks to trust the local CA and set the operator's password
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.61.0
+- Update lockfile
+- *(artifacts)* Remove deploy directory from tracking
+- *(artifacts)* Remove unused deploy configuration files for platform and website
+- *(release)* Bump library versions for 0.62.0
 ## [0.61.0] - 2026-10-23
 
 ### 🚀 Features
