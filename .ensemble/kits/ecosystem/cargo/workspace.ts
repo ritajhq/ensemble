@@ -2,6 +2,7 @@ import { dirname, join, relative, SEPARATOR } from "@std/path";
 import { ensureDir, exists, expandGlob } from "@std/fs";
 import { parse as parseToml } from "@std/toml";
 import * as KitSdk from "@ensemble/kit-sdk";
+import { Lockfile } from "./lockfile.ts";
 import { Manifest } from "./manifest.ts";
 
 type Package = KitSdk.Ecosystem.Package;
@@ -65,9 +66,11 @@ export class Workspace {
     await Deno.writeTextFile(manifest, ROOT_MANIFEST);
   }
 
-  /** Lists every crate under `source/` as a member, and points each at this root. */
+  /** Lists every crate under `source/` as a member, points each at this root, and takes over any lockfile of its own. */
   async sync(): Promise<void> {
-    const members = [];
+    await this.initialize();
+    const members: string[] = [];
+    const ownLocks: string[] = [];
     const manifests = expandGlob("source/**/Cargo.toml", {
       root: this.repoRoot,
       exclude: [
@@ -81,6 +84,8 @@ export class Workspace {
       const directory = dirname(manifest.path);
       if (!await this.packageAt(directory)) continue;
       members.push(this.relativeTo(this.root, directory));
+      const ownLock = join(directory, "Cargo.lock");
+      if (await exists(ownLock, { isFile: true })) ownLocks.push(ownLock);
       await this.rewrite(
         manifest.path,
         (text) =>
@@ -93,6 +98,43 @@ export class Workspace {
       join(this.root, "Cargo.toml"),
       (text) => new Manifest(text).withMembers(members.sort()),
     );
+    await this.absorb(ownLocks);
+  }
+
+  /**
+   * A member's own `Cargo.lock` is ignored once it's in a workspace, which
+   * would quietly resolve its pins again and leave the file there to mislead.
+   * Moved here instead: the workspace's lock takes on its packages, Cargo
+   * settles the result, and only then is it removed.
+   */
+  private async absorb(ownLocks: readonly string[]): Promise<void> {
+    if (ownLocks.length === 0) return;
+    const path = join(this.root, "Cargo.lock");
+    const before = await exists(path, { isFile: true })
+      ? await Deno.readTextFile(path)
+      : undefined;
+    let merged = new Lockfile(before ?? await Deno.readTextFile(ownLocks[0]));
+    for (const ownLock of ownLocks) {
+      merged = merged.withPackagesOf(
+        new Lockfile(await Deno.readTextFile(ownLock)),
+      );
+    }
+    await Deno.writeTextFile(path, merged.toString());
+    try {
+      await this.cargo("metadata", "--format-version", "1");
+    } catch (error) {
+      if (before === undefined) await Deno.remove(path);
+      else await Deno.writeTextFile(path, before);
+      throw error;
+    }
+    for (const ownLock of ownLocks) {
+      await Deno.remove(ownLock);
+      console.error(
+        `cargo: moved ${
+          this.relativeTo(this.repoRoot, ownLock)
+        } into the workspace's lock`,
+      );
+    }
   }
 
   /** Cargo finds this root from inside a crate by itself, and from here otherwise. */

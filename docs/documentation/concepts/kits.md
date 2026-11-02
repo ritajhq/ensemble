@@ -99,7 +99,8 @@ date through a `sync` operation that `ens` runs ahead of builds:
   them.
 - `cargo`: the workspace's `Cargo.toml` and `Cargo.lock`, and `target/`. `sync`
   lists every crate under `source/` as a member and adds the `workspace` line
-  each crate needs to find this root.
+  each crate needs to find this root. A crate that had its own `Cargo.lock` has
+  it moved into this one, keeping its pinned versions.
 
 To have everyone on one version of a language's tools, pin it under `tools:`, by
 ecosystem and then tool:
