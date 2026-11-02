@@ -87,7 +87,10 @@ all of them. The `deno.compile` kit instead compiles in a workspace of its own:
 the project's shared Deno settings, with only the members the program's module
 graph reaches, under `.ensemble/cache/deno.compile/<ship>/` (gitignored).
 
-That workspace has its own lockfile, `source/ship/<ship>/deno.lock`. Commit it:
-it pins and checks exactly what the binary contains. The kit creates it on the
-first pack and rewrites it when a dependency changes. `ens` itself is 125 MB
-this way, against 594 MB compiled from the whole workspace.
+That workspace has its own lockfile,
+`.ensemble/ecosystems/deno/ships/<ship>/deno.lock`, or `deno.lock` beside the
+ship in a project whose root holds its `deno.json`. Commit it: it pins and
+checks exactly what the binary contains. The kit creates it on the first pack
+and rewrites it when a dependency changes, but not when a release only moves a
+project package's version. `ens` itself is 125 MB this way, against 594 MB
+compiled from the whole workspace.

@@ -27,6 +27,20 @@ export class WorkspaceRoot {
 }
 
 /**
+ * Where a ship's lockfile is kept: with the project's other Deno files, or
+ * beside the ship in a project whose workspace root is a `deno.json` of its own.
+ */
+export async function shipLockfile(
+  root: string,
+  ship: string,
+  name: string,
+): Promise<string> {
+  return await exists(join(root, "deno.json"), { isFile: true })
+    ? join(ship, "deno.lock")
+    : join(root, ECOSYSTEM_DIRECTORY, "ships", name, "deno.lock");
+}
+
+/**
  * The workspace members a program actually reaches. A member is the nearest
  * directory above one of the program's files that holds a Deno config, as
  * the workspace's own `deno.json` lists them (`source/apps/**`, ...).
@@ -77,9 +91,8 @@ export class WorkspaceMembers {
  * only the members the program reaches, symlinked in at the same relative
  * paths. `deno compile` embeds every npm package the workspace's lockfile
  * knows, whether the program imports it or not, so compiling in the whole
- * repo ships every npm dependency of every app and kit. Here the lockfile
- * (`deno.lock`, kept beside the program's ship and committed) holds only
- * what the program resolves.
+ * repo ships every npm dependency of every app and kit. Here the lockfile,
+ * which is committed (see `shipLockfile`), holds only what the program resolves.
  */
 export class StagedWorkspace {
   constructor(
@@ -109,15 +122,24 @@ export class StagedWorkspace {
     }
   }
 
-  /** Keeps the lockfile the staged workspace resolved: created the first time, rewritten when a dependency changed. */
+  /**
+   * Keeps what the staged workspace resolved: created the first time, rewritten
+   * when a dependency changed. Its `workspace` section is left out: Deno derives
+   * that from the manifests on every run, and a release moving a member's pin
+   * would otherwise change this file after the release's commit was made.
+   */
   async keepLockfile(): Promise<void> {
     const resolved = join(this.directory, "deno.lock");
     if (!await exists(resolved, { isFile: true })) return;
-    const content = await Deno.readTextFile(resolved);
+    const { workspace: _workspace, ...pinned } = JSON.parse(
+      await Deno.readTextFile(resolved),
+    );
+    const content = JSON.stringify(pinned, null, 2) + "\n";
     const current = await exists(this.lockfile, { isFile: true })
       ? await Deno.readTextFile(this.lockfile)
       : undefined;
     if (content === current) return;
+    await ensureDir(dirname(this.lockfile));
     await Deno.writeTextFile(this.lockfile, content);
   }
 

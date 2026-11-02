@@ -5,6 +5,7 @@ import { $ } from "@david/dax";
 import * as KitSdk from "@ensemble/kit-sdk";
 import { resolveDenoExecutable } from "@ensemble/kit-sdk";
 import {
+  shipLockfile,
   StagedWorkspace,
   WorkspaceMembers,
   WorkspaceRoot,
@@ -287,7 +288,7 @@ const denoExe = await resolveDenoExecutable();
 // package the workspace's lockfile holds, so every dependency of every app
 // and kit would ship in this binary. It is compiled in a workspace of its
 // own instead: just the members its module graph reaches, with a lockfile of
-// its own beside the ship.
+// its own.
 const denoRoot = await new WorkspaceRoot().above(workspace);
 const configArgs = await KitSdk.denoConfigArgs(denoRoot);
 const info = await $`${denoExe} info --json ${configArgs} ${entrypoint}`
@@ -302,7 +303,7 @@ const members = await new WorkspaceMembers(denoRoot).reachedBy(files);
 const staged = new StagedWorkspace(
   denoRoot,
   join(denoRoot, ".ensemble", "cache", "deno.compile", ctx.name),
-  join(ctx.ship, "deno.lock"),
+  await shipLockfile(denoRoot, ctx.ship, ctx.name),
 );
 await staged.stage(members);
 const stagedEntrypoint = staged.stagedPath(entrypoint);
