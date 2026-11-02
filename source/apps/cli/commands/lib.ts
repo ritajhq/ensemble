@@ -14,7 +14,6 @@ import * as Host from "@ensemble/host";
 export const libCommand = new Command()
   .name("lib")
   .description("Manage libraries under source/libs/.")
-  .type("bump", new EnumType(["patch", "minor", "major"]))
   .command(
     "new",
     new Command()
@@ -113,6 +112,7 @@ export const libCommand = new Command()
       .description(
         "Move a vendored lib to its next patch/minor/major tag (defaults to patch).",
       )
+      .type("bump", new EnumType(["patch", "minor", "major"]))
       .arguments("<name:string> [bump:bump]")
       .action(async (_, name, bump) => {
         const entry = await runLibUpdate(

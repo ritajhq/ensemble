@@ -13,12 +13,11 @@ import * as Host from "@ensemble/host";
 export const kitCommand = new Command()
   .name("kit")
   .description("Author, install, and manage kits under .ensemble/kits/.")
-  .type("bump", new EnumType(["patch", "minor", "major"]))
-  .type("role", new EnumType(["build", "pack", "deploy", "lib"]))
   .command(
     "new",
     new Command()
       .description("Scaffold a new kit at .ensemble/kits/<role>/<name>.")
+      .type("role", new EnumType(["build", "pack", "deploy", "lib"]))
       .arguments("<name:string> <role:role>")
       .action(async (_, name, role) => {
         await runKitNew(
@@ -110,6 +109,7 @@ export const kitCommand = new Command()
       .description(
         "Move an installed kit to its next patch/minor/major tag (defaults to patch).",
       )
+      .type("bump", new EnumType(["patch", "minor", "major"]))
       .arguments("<name:string> [bump:bump]")
       .action(async (_, name, bump) => {
         const entry = await runKitUpdate(
