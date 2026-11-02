@@ -1,7 +1,8 @@
 import { dirname, join } from "@std/path";
-import { exists, expandGlob } from "@std/fs";
+import { exists } from "@std/fs";
+import { Ecosystems } from "@ensemble/core";
 
-/** The `workspace` globs from the repo's root `deno.json` — either form Deno accepts (a list, or `{ members: [...] }`). */
+/** The `workspace` globs from a root `deno.json` — either form Deno accepts (a list, or `{ members: [...] }`) — or none, in a project without one. */
 export async function readMemberPatterns(repoRoot: string): Promise<string[]> {
   const rootConfig = join(repoRoot, "deno.json");
   if (!await exists(rootConfig, { isFile: true })) return [];
@@ -10,6 +11,11 @@ export async function readMemberPatterns(repoRoot: string): Promise<string[]> {
   const patterns = Array.isArray(workspace) ? workspace : workspace?.members;
   if (!Array.isArray(patterns)) return [];
   return patterns.filter((pattern: unknown) => typeof pattern === "string");
+}
+
+/** The flags pointing a `deno` command at the project's generated config, for a kit running one against the project's own code. Empty in a project with a root `deno.json`, which Deno finds by itself. */
+export function denoConfigArgs(repoRoot: string): Promise<string[]> {
+  return new Ecosystems.DenoWorkspace(repoRoot).configArgs();
 }
 
 /** One named workspace member: where it lives and what its `exports` map exposes. */
@@ -39,19 +45,14 @@ export class WorkspaceMembers {
 
   static async load(repoRoot: string): Promise<WorkspaceMembers> {
     const byName = new Map<string, Member>();
-    for (const pattern of await readMemberPatterns(repoRoot)) {
-      const configs = expandGlob(join(pattern, "deno.json"), {
-        root: repoRoot,
-        exclude: ["**/node_modules/**"],
-      });
-      for await (const config of configs) {
-        const parsed = JSON.parse(await Deno.readTextFile(config.path));
-        if (typeof parsed?.name !== "string") continue;
-        byName.set(
-          parsed.name,
-          new Member(dirname(config.path), exportsMap(parsed.exports)),
-        );
-      }
+    const manifests = await new Ecosystems.DenoWorkspace(repoRoot).manifests();
+    for (const manifest of manifests) {
+      const parsed = JSON.parse(await Deno.readTextFile(manifest));
+      if (typeof parsed?.name !== "string") continue;
+      byName.set(
+        parsed.name,
+        new Member(dirname(manifest), exportsMap(parsed.exports)),
+      );
     }
     return new WorkspaceMembers(byName);
   }

@@ -1,3 +1,5 @@
+role: pack
+protocol: 1
 modes:
   image: image,push=false
   tar: tar

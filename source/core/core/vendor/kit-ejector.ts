@@ -13,7 +13,7 @@ import type { Entry } from "./entry.ts";
  * 5 of the vendoring build plan: "the only core package a kit is allowed to
  * import") — that dependency is the normal case here, not a violation.
  * Instead it runs the same light validation `KitInstaller` does (role
- * known, required entrypoints present) as a pre-flight before pushing
+ * known, protocol spoken, required entrypoints present) as a pre-flight before pushing
  * anything.
  */
 export class KitEjector {
@@ -27,7 +27,7 @@ export class KitEjector {
     const dir = join(this.repoRoot, path);
 
     const manifest = await KitManifest.read(dir);
-    for (const entrypoint of KitManifest.requiredEntrypoints(manifest.role)) {
+    for (const entrypoint of KitManifest.requiredEntrypoints(manifest)) {
       if (!await exists(join(dir, entrypoint), { isFile: true })) {
         throw new Error(
           `Kit at ${path} declares role "${manifest.role}" but is missing its required "${entrypoint}" entrypoint.`,

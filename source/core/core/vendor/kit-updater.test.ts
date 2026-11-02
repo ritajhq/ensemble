@@ -46,15 +46,11 @@ async function withInstalledKit(
   await Deno.mkdir(kitDir, { recursive: true });
   await Deno.writeTextFile(
     join(kitDir, "kit.yml"),
-    `role: build\nkitSdk: "^0.5.0"\n`,
+    `role: build\nprotocol: 1\n`,
   );
   await Deno.writeTextFile(join(kitDir, "main.ts"), `export {};\n`);
 
   await Deno.mkdir(join(repoRoot, ".ensemble"), { recursive: true });
-  await Deno.writeTextFile(
-    join(repoRoot, "deno.lock"),
-    JSON.stringify({ specifiers: { "jsr:@ensemble/kit-sdk@0.5.2": "0.5.2" } }),
-  );
 
   const registry = new FileRegistry(repoRoot);
   await registry.register({

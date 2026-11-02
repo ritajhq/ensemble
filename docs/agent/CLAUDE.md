@@ -10,10 +10,14 @@ just callable directly instead of shelled out to.
 
 ## How this repo expects work to be done
 
-Prefer `deno fmt`, `deno lint`, and `deno check` on the files you touched, and
-build with `deno task cli build <app>` — the smallest command that covers the
-change. `deno test` type-checks by default; don't reach for `--no-check` to make
-a failure go away without understanding it first.
+Prefer `deno fmt`, `deno lint`, and `deno check` on the files you touched, each
+with `--config .ensemble/ecosystems/deno/deno.json` since this repo keeps no
+`deno.json` at its root, and build with
+`deno task --config .ensemble/ecosystems/deno/deno.json cli build <app>` — the
+smallest command that covers the change. `source/libs/ui` has its own formatting
+rules, so format it from inside its own folder. `deno test` type-checks by
+default; don't reach for `--no-check` to make a failure go away without
+understanding it first.
 
 Commit messages are a single summary line — no body, no trailers (see
 [docs/agent-context.md](docs/agent-context.md#commit-scope-conventions) for the

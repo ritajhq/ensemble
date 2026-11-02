@@ -1,5 +1,6 @@
 import { join } from "@std/path";
 import { SelfContainmentChecker } from "./lib-self-containment.ts";
+import { DenoWorkspace, type Ecosystem, Project } from "./ecosystem/index.ts";
 import { LibDeclarationLoader } from "./lib-declaration.ts";
 import { LibKit } from "./lib-kit.ts";
 import type { Ports } from "./ports.ts";
@@ -25,6 +26,7 @@ export class LibPublisher {
       new LibKit(kit, ports),
     private readonly warn: (message: string) => void = (message) =>
       console.warn(message),
+    private readonly ecosystem: Ecosystem = new DenoWorkspace(repoRoot),
   ) {}
 
   async publish(name: string, kit: string, version: string): Promise<void> {
@@ -73,6 +75,13 @@ export class LibPublisher {
         reason: authorization.reason ?? "refused",
       }]);
     }
+    // Ahead of the kit's own stamp, so nothing in the workspace is left pinned
+    // to a version its target no longer carries: Cargo refuses to resolve such
+    // a workspace at all, and Deno would quietly stop linking it locally.
+    await this.ecosystem.stamp(version, [{
+      name: declaration.package,
+      directory: libRoot,
+    }]);
     await libKit.stamp(context);
     await libKit.publish(context);
   }
@@ -86,7 +95,8 @@ export async function runLibPublish(
   ports: Ports,
 ): Promise<void> {
   const repoRoot = await ports.repo.findRepoRoot();
-  const checker = new SelfContainmentChecker(repoRoot);
+  const project = await Project.load(repoRoot, ports);
+  const checker = new SelfContainmentChecker(repoRoot, project);
   const registry = new Vendor.FileRegistry(repoRoot);
   const declarationLoader = new LibDeclarationLoader(repoRoot);
   const publisher = new LibPublisher(
@@ -95,6 +105,9 @@ export async function runLibPublish(
     registry,
     declarationLoader,
     ports,
+    undefined,
+    undefined,
+    project,
   );
   await publisher.publish(name, kit, version);
 }

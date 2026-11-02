@@ -1,5 +1,5 @@
 import { join } from "@std/path";
-import { assertEquals, assertStringIncludes } from "@std/assert";
+import { assertEquals } from "@std/assert";
 import { exists } from "@std/fs";
 import { FileRegistry } from "./registry.ts";
 
@@ -63,18 +63,63 @@ Deno.test("FileRegistry: all lists every registered entry", async () => {
   });
 });
 
-Deno.test("FileRegistry: registering appends the path to .gitignore exactly once", async () => {
+Deno.test("FileRegistry: registering a kit ignores it in .ensemble/.gitignore exactly once", async () => {
   await withRepoRoot(async (repoRoot) => {
     const registry = new FileRegistry(repoRoot);
-    await registry.register({ repo: "a", ref: "1", path: "p1" });
-    await registry.register({ repo: "a", ref: "2", path: "p1" });
+    const path = ".ensemble/kits/build/x";
+    await registry.register({ repo: "a", ref: "1", path });
+    await registry.register({ repo: "a", ref: "2", path });
 
-    const gitignore = await Deno.readTextFile(join(repoRoot, ".gitignore"));
-    const occurrences = gitignore.split("\n").filter((line) =>
-      line === "p1"
-    ).length;
-    assertEquals(occurrences, 1);
-    assertStringIncludes(gitignore, "p1");
+    assertEquals(
+      await Deno.readTextFile(join(repoRoot, ".ensemble/.gitignore")),
+      "/kits/build/x\n",
+    );
+    assertEquals(await exists(join(repoRoot, ".gitignore")), false);
+  });
+});
+
+Deno.test("FileRegistry: registering a lib ignores it beside itself, until the last one goes", async () => {
+  await withRepoRoot(async (repoRoot) => {
+    const registry = new FileRegistry(repoRoot);
+    const gitignore = join(repoRoot, "source/libs/.gitignore");
+    await registry.register({ repo: "a", ref: "1", path: "source/libs/x" });
+    await registry.register({ repo: "b", ref: "1", path: "source/libs/y" });
+    assertEquals(await Deno.readTextFile(gitignore), "/x\n/y\n");
+    assertEquals(await exists(join(repoRoot, ".gitignore")), false);
+
+    await registry.unregister("source/libs/x");
+    assertEquals(await Deno.readTextFile(gitignore), "/y\n");
+
+    await registry.unregister("source/libs/y");
+    assertEquals(await exists(gitignore), false);
+  });
+});
+
+Deno.test("FileRegistry: registering again moves a rule out of the root's .gitignore", async () => {
+  await withRepoRoot(async (repoRoot) => {
+    const registry = new FileRegistry(repoRoot);
+    const rootIgnore = join(repoRoot, ".gitignore");
+    await Deno.writeTextFile(rootIgnore, "dist/\nsource/libs/x\n");
+
+    await registry.register({ repo: "a", ref: "2", path: "source/libs/x" });
+
+    assertEquals(await Deno.readTextFile(rootIgnore), "dist/\n");
+    assertEquals(
+      await Deno.readTextFile(join(repoRoot, "source/libs/.gitignore")),
+      "/x\n",
+    );
+  });
+});
+
+Deno.test("FileRegistry: unregistering clears a rule left in the root's .gitignore", async () => {
+  await withRepoRoot(async (repoRoot) => {
+    const registry = new FileRegistry(repoRoot);
+    const rootIgnore = join(repoRoot, ".gitignore");
+    await Deno.writeTextFile(rootIgnore, "source/libs/x\n");
+
+    await registry.unregister("source/libs/x");
+
+    assertEquals(await exists(rootIgnore), false);
   });
 });
 

@@ -8,6 +8,7 @@ import {
   type Authorization,
   authorizationFrom,
 } from "./publish-authorization.ts";
+import { KitProcess } from "./kit-process.ts";
 
 /**
  * Invokes a named lib kit: spawns its `main.ts` with the standard lib kit
@@ -26,13 +27,8 @@ export class LibKit {
 
   /** Asks the kit, read-only, whether this machine may publish `input` — before anything is stamped, committed, or tagged. */
   async authorize(input: Lib.Context): Promise<Authorization> {
-    const { kitDir, denoExe, args, env } = await this.invocation(
-      "authorize",
-      input,
-    );
-    return authorizationFrom(
-      await this.ports.process.probe(denoExe, args, { cwd: kitDir, env }),
-    );
+    const { kit, args, env } = await this.invocation("authorize", input);
+    return authorizationFrom(await kit.probe("main.ts", args, { env }));
   }
 
   async stamp(input: Lib.Context): Promise<void> {
@@ -56,11 +52,8 @@ export class LibKit {
     input: Lib.Context,
     failureMessage: string,
   ): Promise<void> {
-    const { kitDir, denoExe, args, env } = await this.invocation(mode, input);
-    const code = await this.ports.process.run(denoExe, args, {
-      cwd: kitDir,
-      env,
-    });
+    const { kit, args, env } = await this.invocation(mode, input);
+    const code = await kit.run("main.ts", args, { env });
     if (code !== 0) {
       throw new Error(failureMessage);
     }
@@ -71,8 +64,7 @@ export class LibKit {
     input: Lib.Context,
   ): Promise<
     {
-      kitDir: string;
-      denoExe: string;
+      kit: KitProcess;
       args: string[];
       env: Record<string, string>;
     }
@@ -84,17 +76,9 @@ export class LibKit {
       throw new Error(`Lib kit "${this.kit}" not found (expected ${kitEntry})`);
     }
 
-    const denoExe = await this.ports.denoExe.resolveDenoExecutable();
     const targetArgs = input.target ? ["--target", input.target] : [];
 
-    // --minimum-dependency-age 0: see the identical flag in build.ts/pack.ts.
     const args = [
-      "run",
-      "-A",
-      "-q",
-      "--minimum-dependency-age",
-      "0",
-      kitEntry,
       mode,
       "--lib-root",
       input.libRoot,
@@ -111,6 +95,6 @@ export class LibKit {
       envPath: join(repoRoot, PUBLISH_SECRETS_PATH),
       export: false,
     });
-    return { kitDir, denoExe, args, env };
+    return { kit: new KitProcess(kitDir, this.ports), args, env };
   }
 }

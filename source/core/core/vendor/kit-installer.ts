@@ -1,8 +1,6 @@
 import { join } from "@std/path";
-import { ensureDir, exists, move } from "@std/fs";
+import { copy, ensureDir, exists } from "@std/fs";
 import * as KitManifest from "./kit-manifest.ts";
-import * as SemVer from "./semver.ts";
-import { resolveProjectKitSdkVersion } from "./project-kit-sdk.ts";
 import { nameFromUrl, parseUrl } from "./git-url.ts";
 import type { PackageSource } from "./package-source.ts";
 import type { Registry } from "./registry.ts";
@@ -13,7 +11,7 @@ import type { Entry } from "./entry.ts";
  * door onto the vendoring primitive (`ens kit install <url>`), kept as its
  * own class rather than a generic "vendor add" so its clone/validate/route
  * steps stay specific to what a kit needs (role routing, entrypoint
- * presence, kitSdk compatibility) instead of a one-size-fits-all contract.
+ * presence, protocol compatibility) instead of a one-size-fits-all contract.
  */
 export class KitInstaller {
   constructor(
@@ -34,22 +32,12 @@ export class KitInstaller {
 
       const manifest = await KitManifest.read(scratchDir);
 
-      for (const entrypoint of KitManifest.requiredEntrypoints(manifest.role)) {
+      for (const entrypoint of KitManifest.requiredEntrypoints(manifest)) {
         if (!await exists(join(scratchDir, entrypoint), { isFile: true })) {
           throw new Error(
             `Kit at ${url} declares role "${manifest.role}" but is missing its required "${entrypoint}" entrypoint.`,
           );
         }
-      }
-
-      const projectKitSdkVersion = await resolveProjectKitSdkVersion(
-        this.repoRoot,
-      );
-      if (!SemVer.satisfies(projectKitSdkVersion, manifest.kitSdk)) {
-        throw new Error(
-          `Kit at ${url} requires kit-sdk "${manifest.kitSdk}", but this project resolves kit-sdk ` +
-            `${projectKitSdkVersion}. Pin the kit to a compatible ref, or update this project's kit-sdk version.`,
-        );
       }
 
       const name = nameFromUrl(url);
@@ -60,7 +48,9 @@ export class KitInstaller {
       }
 
       await ensureDir(join(this.repoRoot, ".ensemble", "kits", manifest.role));
-      await move(scratchDir, destination);
+      // Copied, not renamed: the temp folder is often on another volume. The
+      // `finally` below removes the original.
+      await copy(scratchDir, destination);
 
       const entry: Entry = { repo: url, ref: resolvedRef, path: relativePath };
       await this.registry.register(entry);

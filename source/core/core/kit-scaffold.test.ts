@@ -1,3 +1,4 @@
+import { exists } from "@std/fs";
 import { join } from "@std/path";
 import { assertEquals, assertRejects } from "@std/assert";
 import { runKitNew } from "./kit-scaffold.ts";
@@ -38,7 +39,7 @@ Deno.test("runKitNew: scaffolds kit.yml, deno.json, and main.ts for a build kit"
     const kitDir = join(repoRoot, ".ensemble", "kits", "build", "widgets");
     assertEquals(
       await Deno.readTextFile(join(kitDir, "kit.yml")),
-      `role: build\nkitSdk: "*"\n`,
+      `role: build\nprotocol: 1\n`,
     );
 
     const denoJson = JSON.parse(
@@ -55,7 +56,7 @@ Deno.test("runKitNew: scaffolds kit.yml, deno.json, and main.ts for a build kit"
   });
 });
 
-Deno.test("runKitNew: a pack kit also scaffolds publish.ts", async () => {
+Deno.test("runKitNew: a pack kit has no publish.ts until it declares a target", async () => {
   await withProjectRoot(async (repoRoot) => {
     await runKitNew("widgets", "pack", repoAt(repoRoot));
 
@@ -64,10 +65,7 @@ Deno.test("runKitNew: a pack kit also scaffolds publish.ts", async () => {
       await Deno.readTextFile(join(kitDir, "main.ts")),
       "export {};\n",
     );
-    assertEquals(
-      await Deno.readTextFile(join(kitDir, "publish.ts")),
-      "export {};\n",
-    );
+    assertEquals(await exists(join(kitDir, "publish.ts")), false);
   });
 });
 
@@ -77,7 +75,7 @@ Deno.test("runKitNew: the scaffolded kit.yml parses cleanly", async () => {
 
     const kitDir = join(repoRoot, ".ensemble", "kits", "deploy", "widgets");
     const manifest = await KitManifest.read(kitDir);
-    assertEquals(manifest, { role: "deploy", kitSdk: "*" });
+    assertEquals(manifest, { role: "deploy", protocol: 1, publishes: false });
   });
 });
 

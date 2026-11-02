@@ -1,4 +1,3 @@
-import { join } from "@std/path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as Core from "@ensemble/core";
 import * as Host from "@ensemble/host";
@@ -130,16 +129,12 @@ async function tagAndRunCeremony(
   if (coreLibs.length > 0) {
     const repinned = await new Core.Release.ReleaseCeremony(repoRoot, ports)
       .stampCoreLibs(coreLibs, preview.tag);
-    // Includes every workspace member the stamp repinned, and deno.lock
-    // alongside each lib's own directory: stamping spawns
-    // a deno run subprocess per lib kit, and every such invocation resolves
-    // the workspace's module graph against the freshly-bumped versions,
-    // which Deno writes straight into deno.lock as a side effect.
+    // Includes every workspace member the stamp repinned, and any lockfile
+    // it moved, alongside each lib's own directory.
     await release.commitIfChanged(
       [
         ...coreLibs.map((lib) => lib.libRoot),
         ...repinned,
-        join(repoRoot, "deno.lock"),
       ],
       `chore(release): bump library versions for ${preview.tag}`,
     );
@@ -147,7 +142,7 @@ async function tagAndRunCeremony(
   await release.createReleaseTag(preview);
 
   const ceremony = new Core.Release.ReleaseCeremony(repoRoot, ports);
-  if (ships.length > 0) await ceremony.packShips(ships);
+  if (ships.length > 0) await ceremony.packShips(ships, preview.tag);
   await release.pushCommits(remote);
   await release.pushTag(preview.tag, remote);
   if (ships.length > 0) await ceremony.publishShips(ships, preview.tag);
@@ -363,7 +358,7 @@ export class ReleaseTools {
 
           const ceremony = new Core.Release.ReleaseCeremony(repoRoot, ports);
           await ceremony.authorizePublishes(ships, coreLibs, tag);
-          if (ships.length > 0) await ceremony.packShips(ships);
+          if (ships.length > 0) await ceremony.packShips(ships, tag);
           await release.pushCommits(remote);
           await release.pushTag(tag, remote);
           if (ships.length > 0) await ceremony.publishShips(ships, tag);

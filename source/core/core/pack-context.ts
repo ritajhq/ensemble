@@ -1,7 +1,10 @@
 import { parseArgs } from "@std/cli/parse-args";
-import { join } from "@std/path";
+import { dirname, join } from "@std/path";
 import { parse as parseYaml } from "@std/yaml";
+import { type Need, parseNeeds } from "./need-context.ts";
 import { requireFlag, runAuthorization } from "./util.ts";
+
+export type { Need } from "./need-context.ts";
 
 /** The parameters ens passes to every pack kit invocation. */
 export interface Context {
@@ -17,6 +20,12 @@ export interface Context {
   artifacts: string;
   /** Absolute path to the `artifacts/packages/` folder. */
   packages: string;
+  /** Absolute path to the `source/` workspace root. */
+  workspace: string;
+  /** The version being released, for a kit whose artifact carries one. Absent outside a release unless `ens pack --version` asks for it. */
+  version?: string;
+  /** What this ship's `needs:` declared, finished before this kit started. Empty for most. */
+  needs: Need[];
   /** Names of every app declared under `build:` in `.ensemble/config.yaml` (e.g. "server", "demo/spa"). */
   apps: string[];
   /** Mode name, validated against the kit's own `kit.yml`. */
@@ -76,6 +85,9 @@ export function getContext(args: string[] = Deno.args): Context {
       "output-name",
       "artifacts",
       "packages",
+      "workspace",
+      "version",
+      "needs",
       "mode",
       "vars",
       "apps",
@@ -104,6 +116,10 @@ export function getContext(args: string[] = Deno.args): Context {
     outputNameExplicit: outputNameFlag !== undefined,
     artifacts: requireFlag(flags, "artifacts"),
     packages: requireFlag(flags, "packages"),
+    // An `ens` from before this flag passes only the artifacts folder inside it.
+    workspace: flags.workspace || dirname(requireFlag(flags, "artifacts")),
+    ...(flags.version ? { version: flags.version } : {}),
+    needs: parseNeeds(flags.needs),
     mode: requireFlag(flags, "mode"),
     vars: parseVars(flags.vars),
     apps: parseApps(flags.apps),

@@ -18,6 +18,11 @@ function repoAt(repoRoot: string): Ports["repo"] {
   return { findRepoRoot: () => Promise.resolve(repoRoot) };
 }
 
+/** A project declaring no ecosystems uses the built-in Deno one, which never spawns anything. */
+function portsAt(repoRoot: string): Ports {
+  return { repo: repoAt(repoRoot) } as unknown as Ports;
+}
+
 /** `libKitFor` is always overridden by a fake in these tests, so the default's dependency on real ports never actually runs; `ReleaseCeremony`'s pack/publish paths aren't exercised here either. */
 const UNUSED_PORTS: Ports = {
   repo: { findRepoRoot: () => Promise.reject(new Error("not used")) },
@@ -178,7 +183,7 @@ Deno.test("worked example (libs-library path): scaffold, publish unejected (warn
 
     // 1. Scaffold the fixture lib — this alone registers libs.widgets.package
     // in .ensemble/config.yaml, with no manifest file inside libRoot itself.
-    await runLibNew("widgets", repoAt(repoRoot));
+    await runLibNew("widgets", portsAt(repoRoot));
 
     // Give it a publish entry — the bare scaffold declares none yet.
     await Deno.writeTextFile(

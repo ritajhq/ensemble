@@ -16,6 +16,9 @@ ens build <name>
 
 Output is written to `source/artifacts/<name>`.
 
+An app whose build reads the output of another build, or of a pack, says so with
+`needs:`. See [`ens pack`](pack.md#needs) for the full form.
+
 ```sh
 ens build web -m production
 ens build web -w

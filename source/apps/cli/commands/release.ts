@@ -1,4 +1,3 @@
-import { join } from "@std/path";
 import { green, red } from "@std/fmt/colors";
 import { Command, EnumType } from "@cliffy/command";
 import { Confirm } from "@cliffy/prompt";
@@ -110,12 +109,8 @@ async function collectReleases(
  * unconditionally, like tag creation itself — so the tag ends up pointing at
  * a commit that actually carries the version bump. Must run before
  * `release.createReleaseTag`, never after. Includes every workspace member
- * the stamp repinned onto the new version (the kits among them), and the repo-root
- * `deno.lock` alongside each library's own directory: stamping spawns a
- * `deno run` subprocess per lib kit (see `LibKit.run`), and every such
- * invocation resolves the workspace's module graph against the
- * freshly-bumped versions, which Deno writes straight into `deno.lock` as a
- * side effect — left out here, that drift would just sit uncommitted.
+ * the stamp repinned onto the new version (the kits among them), and any
+ * lockfile the stamp moved, alongside each library's own directory.
  */
 async function stampAndCommitCoreLibs(
   repoRoot: string,
@@ -131,7 +126,6 @@ async function stampAndCommitCoreLibs(
     [
       ...coreLibs.map((lib) => lib.libRoot),
       ...repinned,
-      join(repoRoot, "deno.lock"),
     ],
     `chore(release): bump library versions for ${tag}`,
   );
@@ -431,6 +425,7 @@ async function runReleaseCeremony(
     try {
       await ceremony.packShips(
         shipsToPack,
+        tag,
         {
           pack: new Host.AnimatedPackReporter(),
           build: new Host.AnimatedBuildReporter(),

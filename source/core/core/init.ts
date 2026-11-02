@@ -1,12 +1,18 @@
 import { join } from "@std/path";
 import { copy, ensureDir, exists } from "@std/fs";
-import type { ProcessRunner } from "./ports.ts";
+import { Project } from "./ecosystem/index.ts";
+import type { Ports, ProcessRunner } from "./ports.ts";
+import { parseUrl } from "./vendor/git-url.ts";
 import { formatVersionTag, SelfUpdateService } from "./version.ts";
 
 const ENSEMBLE_REPO_URL = "https://github.com/ritajhq/ensemble.git";
 
 export interface RunInitOptions {
   name: string;
+  /** The project's languages, recorded under `ecosystems:`. Left out, the project is a Deno one. */
+  ecosystems?: readonly string[];
+  /** A git repository to fetch the kits from, optionally "<url>@<ref>", instead of ensemble's own at this `ens`'s version. */
+  kitsFrom?: string;
 }
 
 const CONFIG_TEMPLATE = `# Configure each app's build kit here, e.g.:
@@ -15,6 +21,12 @@ const CONFIG_TEMPLATE = `# Configure each app's build kit here, e.g.:
 #   my-app:
 #     kit: deno.bundle
 `;
+
+function configFor(ecosystems: readonly string[] | undefined): string {
+  if (!ecosystems?.length) return CONFIG_TEMPLATE;
+  const listed = ecosystems.map((name) => `  - ${name}\n`).join("");
+  return `ecosystems:\n${listed}\n${CONFIG_TEMPLATE}`;
+}
 
 const SKELETON_DIRS = [
   "source/apps",
@@ -36,6 +48,10 @@ const ENSEMBLE_GITIGNORE_TEMPLATE = `config.local.yaml
 release/secrets.env
 release/state/
 /deploy/
+/cache/
+ecosystems/*/target/
+ecosystems/*/node_modules/
+kits/**/deno.lock
 `;
 
 // `!deploy/` *and* `!deploy/**`: un-ignoring the directory alone only lets git
@@ -66,7 +82,10 @@ each live in their own top-level folder. See \`ens --help\` for the full CLI.
 - \`source/artifacts/\` — build output (gitignored, except \`deploy/\`).
 - \`ci/<name>/delivery.yml\` — deploy manifest for the workload of that name.
 - \`docs/\` — the project's documentation.
-- \`.ensemble/kits/{build,pack,deploy}/\` — pluggable kits doing the actual work.
+- \`.ensemble/kits/{build,pack,deploy,lib,ecosystem}/\` — pluggable kits doing the actual work.
+- \`.ensemble/ecosystems/<language>/\` — each language's workspace files
+  (lockfiles, workspace roots), so that \`source/\` holds only package manifests.
+  Run its tools through \`ens exec\`, e.g. \`ens exec deno test source/core\`.
 - \`.ensemble/config.yaml\` — which kit each app/ship uses (shared, git-tracked).
 - \`.ensemble/config.local.yaml\` — personal default vars (gitignored).
 - \`.ensemble/deploy/<workload>/last-rendered.txt\` — the render cache \`plan\`
@@ -110,6 +129,7 @@ Run any command with \`--help\` for its full option list.
  */
 async function fetchKits(
   destDir: string,
+  repository: string,
   ref: string,
   process: ProcessRunner,
 ): Promise<void> {
@@ -118,7 +138,7 @@ async function fetchKits(
     const git = (args: string[]) =>
       process.exec("git", args, { cwd: scratchDir });
     await git(["init", "-q"]);
-    await git(["remote", "add", "origin", ENSEMBLE_REPO_URL]);
+    await git(["remote", "add", "origin", repository]);
     await git(["sparse-checkout", "init", "--no-cone"]);
     await git(["sparse-checkout", "set", "/.ensemble/kits/*"]);
     await git(["pull", "--depth", "1", "origin", ref, "-q"]);
@@ -136,7 +156,7 @@ async function fetchKits(
  */
 export async function runInit(
   options: RunInitOptions,
-  process: ProcessRunner,
+  ports: Pick<Ports, "denoExe" | "process">,
 ): Promise<void> {
   const projectDir = join(Deno.cwd(), options.name);
   if (await exists(projectDir)) {
@@ -148,35 +168,30 @@ export async function runInit(
   const kitsRef = installedVersion
     ? formatVersionTag(installedVersion)
     : "main";
+  const kitsFrom = options.kitsFrom ? parseUrl(options.kitsFrom) : undefined;
 
   const ensembleDir = join(projectDir, ".ensemble");
   await ensureDir(ensembleDir);
-  await Deno.writeTextFile(join(ensembleDir, "config.yaml"), CONFIG_TEMPLATE);
+  await Deno.writeTextFile(
+    join(ensembleDir, "config.yaml"),
+    configFor(options.ecosystems),
+  );
   await Deno.writeTextFile(
     join(ensembleDir, ".gitignore"),
     ENSEMBLE_GITIGNORE_TEMPLATE,
   );
-  await fetchKits(join(ensembleDir, "kits"), kitsRef, process);
+  await fetchKits(
+    join(ensembleDir, "kits"),
+    kitsFrom?.url ?? ENSEMBLE_REPO_URL,
+    kitsFrom?.ref ?? kitsRef,
+    ports.process,
+  );
 
   for (const dir of SKELETON_DIRS) {
     await ensureDir(join(projectDir, dir));
   }
 
-  await Deno.writeTextFile(
-    join(projectDir, "deno.json"),
-    JSON.stringify(
-      {
-        workspace: [
-          "source/apps/**",
-          "source/core/**",
-          "source/libs/**",
-          ".ensemble/kits/**",
-        ],
-      },
-      null,
-      2,
-    ) + "\n",
-  );
+  await (await Project.load(projectDir, ports)).initialize();
 
   await Deno.writeTextFile(
     join(projectDir, "source/artifacts", ".gitignore"),
@@ -187,5 +202,5 @@ export async function runInit(
     README_TEMPLATE.replace("%NAME%", options.name),
   );
 
-  await process.exec("git", ["init"], { cwd: projectDir });
+  await ports.process.exec("git", ["init"], { cwd: projectDir });
 }

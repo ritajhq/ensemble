@@ -4,11 +4,12 @@ import { load as loadEnv } from "@std/dotenv";
 import type { Ports } from "./ports.ts";
 import * as Pack from "./pack-context.ts";
 import { EnsembleConfigStore } from "./config.ts";
-import { runBuild } from "./build.ts";
 import { resolvePackDependencies } from "./pack-dependencies.ts";
 import type { PackReporter } from "./pack-reporter.ts";
 import { PlainPackReporter } from "./plain-pack-reporter.ts";
 import type { BuildReporter } from "./build-reporter.ts";
+import { KitProcess } from "./kit-process.ts";
+import type { Need } from "./need-context.ts";
 
 export interface RunPackOptions {
   /** Defaults to the first mode declared in the kit's kit.yml, or "default" if it has none. */
@@ -29,6 +30,10 @@ export interface RunPackOptions {
   skipBuildingApps?: ReadonlySet<string>;
   /** Packing for a deployment by this deploy kit: a ship packed once per integration builds and packs only that kit's (see `PackContext.deployKit`). Absent for `ens pack` and a release, which pack them all. */
   deployKit?: string;
+  /** Steps not to run again, shared by a caller running several so each happens once (see `Pipeline`). */
+  done?: Set<string>;
+  /** The version being released, for a kit whose artifact carries one. Absent outside a release unless asked for. */
+  version?: string;
   /** Let the kit's own build tool print its normal output (e.g. `docker buildx build`'s progress log) instead of hiding it behind the pack spinner. `false` by default. */
   verbose?: boolean;
   /** How to report this pack's lifecycle to the terminal — ignored for `watch: true` or `verbose: true` (both have nothing sensible for a spinner to resolve against: a `--watch` kit never exits, and verbose output competes with it for the same line). Defaults to `PlainPackReporter`; the CLI passes `Host.AnimatedPackReporter` instead for an interactive terminal. */
@@ -41,14 +46,17 @@ export interface RunPackOptions {
  * Resolves a pack kit by name and spawns it with the standard pack kit CLI
  * contract. Before that, asks the kit (via its `dependencies.ts`, if it has
  * one — see `resolvePackDependencies`) which of the ship's candidate apps it
- * actually depends on, and builds exactly those first, so the kit always
- * finds fresh build output waiting under `artifacts/` rather than requiring
- * it to have been built out of band beforehand.
+ * actually depends on, and has `buildApp` build exactly those first, so the
+ * kit always finds fresh build output waiting under `artifacts/` rather than
+ * requiring it to have been built out of band beforehand. What the ship
+ * declares under `needs:` has already finished, and `needs` says where.
  */
-export async function runPack(
+export async function packShip(
   shipName: string,
   kit: string,
   options: RunPackOptions,
+  needs: readonly Need[],
+  buildApp: (app: string) => Promise<number>,
   ports: Ports,
 ): Promise<number> {
   const repoRoot = await ports.repo.findRepoRoot();
@@ -90,8 +98,6 @@ export async function runPack(
   const packagesDir = join(artifactsDir, "packages");
   await ensureDir(packagesDir);
 
-  const denoExe = await ports.denoExe.resolveDenoExecutable();
-
   const outputNameArgs = options.outputName
     ? ["--output-name", options.outputName]
     : [];
@@ -117,37 +123,28 @@ export async function runPack(
     apps,
     ports,
     options.deployKit,
+    // A ship declaring what it needs has said what it needs: without an answer
+    // from its kit, that's all of it, not every app in the project.
+    needs.length > 0 ? [] : apps,
   );
   for (const app of dependencies) {
-    if (options.skipBuildingApps?.has(app)) continue;
-    const buildCode = await runBuild(app, {
-      mode: "production",
-      watch: false,
-      reporter: options.buildReporter,
-    }, ports);
-    if (buildCode !== 0) {
-      return buildCode;
-    }
+    const buildCode = await buildApp(app);
+    if (buildCode !== 0) return buildCode;
   }
 
   const progress = options.watch || options.verbose
     ? undefined
     : (options.reporter ?? new PlainPackReporter()).packing(shipName);
 
-  // --minimum-dependency-age 0: see the identical flag in build.ts.
-  const code = await ports.process.run(
-    denoExe,
+  const code = await new KitProcess(kitDir, ports).run(
+    "main.ts",
     [
-      "run",
-      "-A",
-      "-q",
-      "--minimum-dependency-age",
-      "0",
-      kitEntry,
       "--artifacts",
       artifactsDir,
       "--packages",
       packagesDir,
+      "--workspace",
+      workspace,
       "--name",
       shipName,
       "--mode",
@@ -157,12 +154,14 @@ export async function runPack(
       "--apps",
       JSON.stringify(apps),
       ...outputNameArgs,
+      ...(options.version ? ["--version", options.version] : []),
       ...watchArgs,
       ...verboseArgs,
       ...deployKitArgs,
+      ...(needs.length > 0 ? ["--needs", JSON.stringify(needs)] : []),
       shipDir,
     ],
-    { cwd: kitDir, env: packVars },
+    { env: packVars },
   );
 
   if (code === 0) progress?.succeed();

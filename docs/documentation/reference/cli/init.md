@@ -3,16 +3,22 @@
 Scaffold a new Ensemble project.
 
 ```sh
-ens init
+ens init [name]
+ens init my-tool --ecosystem cargo
 ```
 
-Prompts for a project name, then creates a folder of that name in the current
-directory, lays down the layout described in
+Prompts for a project name if none is given, then creates a folder of that name
+in the current directory, lays down the layout described in
 [Workspace layout](../../concepts/workspace-layout.md), fetches the built-in
 kits, and initializes a git repository in it.
 
-No flags or arguments — the project name is entered interactively. If a folder
-with that name already exists, `ens init` stops and changes nothing.
+- `--ecosystem <name>` — a language the project uses: an ecosystem kit's name,
+  or the built-in `deno`. Repeat for several; the first is the default for new
+  libraries. Default: `deno`.
+- `--kits-from <url>` — fetch the kits from this git repository, optionally
+  `<url>@<ref>`, instead of ensemble's own at this `ens`'s version.
+
+If a folder with that name already exists, `ens init` stops and changes nothing.
 
 ## What it creates
 
@@ -28,7 +34,9 @@ my-project/
 │       ├── build/
 │       ├── pack/
 │       ├── deploy/
-│       └── lib/
+│       ├── lib/
+│       └── ecosystem/
+│   └── ecosystems/              # each language's workspace files and lockfile
 ├── source/
 │   ├── apps/                    # one folder per app
 │   ├── core/                    # shared code that speaks this project's domain
@@ -41,12 +49,11 @@ my-project/
 │       └── .gitignore           # ignores build output, keeps deploy/
 ├── ci/                          # delivery manifests, ci/<name>/delivery.yml
 ├── docs/                        # the project's documentation
-├── deno.json                    # a workspace over apps, core, libs and the kits
 └── README.md                    # the layout and the commands, with the project's name
 ```
 
-Every folder under `source/`, plus `ci/` and `docs/`, starts empty. Git doesn't track empty
-folders, so they appear in the repository as you add files to them.
+Every folder under `source/`, plus `ci/` and `docs/`, starts empty. Git doesn't
+track empty folders, so they appear in the repository as you add files to them.
 `source/integrations/` isn't created: add it when an app needs one, as described
 in [Workspace layout](../../concepts/workspace-layout.md).
 
@@ -55,12 +62,13 @@ in [Workspace layout](../../concepts/workspace-layout.md).
 `.ensemble/kits/` holds a copy of the built-in kits, so the project owns the
 versions it builds, packs and deploys with:
 
-| Role   | Kits                               |
-| ------ | ---------------------------------- |
-| build  | `deno.bundle`, `react`             |
-| pack   | `deno.compile`, `docker`, `vscode` |
-| deploy | `aws`, `cloudflare`, `compose`     |
-| lib    | `jsr`                              |
+| Role      | Kits                               |
+| --------- | ---------------------------------- |
+| build     | `deno.bundle`, `react`             |
+| pack      | `deno.compile`, `docker`, `vscode` |
+| deploy    | `aws`, `cloudflare`, `compose`     |
+| lib       | `jsr`                              |
+| ecosystem | `cargo`                            |
 
 They come from the `ens` release you ran: `ens init` fetches the kits at the git
 tag of its own version, so they match the CLI that created them. A development

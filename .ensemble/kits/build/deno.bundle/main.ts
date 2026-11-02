@@ -49,9 +49,12 @@ const modeArgs = ctx.mode === "production" ? ["--minify"] : [];
 const watchArgs = ctx.watch ? ["--watch"] : [];
 const optionArgs = new Options(ctx.options).toArgs();
 const denoExe = await resolveDenoExecutable();
+const configArgs = await KitSdk.denoConfigArgs(
+  await findRepoRoot(ctx.workspace),
+);
 
 const bundle = new RestartableChild(() =>
-  $`${denoExe} bundle -q ${entry} -o ${outFile} ${modeArgs} ${watchArgs} ${optionArgs}`
+  $`${denoExe} bundle -q ${configArgs} ${entry} -o ${outFile} ${modeArgs} ${watchArgs} ${optionArgs}`
     .noThrow()
     .spawn()
 );

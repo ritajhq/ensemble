@@ -19,7 +19,7 @@ export class InitTools {
       },
       ({ name }) =>
         ToolResult.from(async () => {
-          await runInit({ name }, Host.createPorts().process);
+          await runInit({ name }, Host.createPorts());
           return `Scaffolded a new Ensemble project at ${name}/.`;
         }),
     );

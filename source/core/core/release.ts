@@ -2,7 +2,7 @@ import { join } from "@std/path";
 import { ensureDir, exists } from "@std/fs";
 import { Delegate, type Emitter } from "@duesabati/evento";
 import * as Deploy from "./deploy/index.ts";
-import { runPack } from "./pack.ts";
+import { runPack } from "./pipeline.ts";
 import type { PackReporter } from "./pack-reporter.ts";
 import type { BuildReporter } from "./build-reporter.ts";
 import { runPublish, runPublishAuthorization } from "./publish.ts";
@@ -13,7 +13,8 @@ import {
   PublishUnauthorizedError,
 } from "./publish-authorization.ts";
 import { LibDeclarationLoader } from "./lib-declaration.ts";
-import { Workspace } from "./workspace.ts";
+import { PublishOrder } from "./lib-publish-order.ts";
+import { Project } from "./ecosystem/index.ts";
 import {
   type CoreLibRelease,
   CoreLibReleaseCascade,
@@ -442,7 +443,11 @@ export class ReleaseCeremony {
 
   /** Discovers every core lib declared under `publish.core:` in `.ensemble/config.yaml`, resolved against `source/core/<name>` — the core-lib half of the same discovery step, run alongside `collectShipReleases` (Section 9 of the vendoring build plan: core libraries publish via this cascade, never `ens lib publish`). */
   async collectCoreLibReleases(): Promise<CoreLibRelease[]> {
-    return await new LibDeclarationLoader(this.repoRoot).discoverCoreLibs();
+    const libs = await new LibDeclarationLoader(this.repoRoot)
+      .discoverCoreLibs();
+    if (libs.length === 0) return libs;
+    const project = await Project.load(this.repoRoot, this.ports);
+    return await new PublishOrder(project).of(libs);
   }
 
   /**
@@ -510,8 +515,8 @@ export class ReleaseCeremony {
    * tag — call this, then commit the result (see
    * `ReleaseService.commitIfChanged`), then create the tag, so the tag's
    * commit actually carries the version bump. Pure local file writes, no
-   * network. Returns every workspace manifest it repinned — outside the
-   * libraries' own directories, so the commit must name them too.
+   * network. Returns every file it changed outside the libraries' own
+   * directories, so the commit must name them too.
    */
   async stampCoreLibs(
     libs: readonly CoreLibRelease[],
@@ -520,7 +525,7 @@ export class ReleaseCeremony {
     return await new CoreLibReleaseCascade(this.ports).stamp(
       version,
       libs,
-      await new Workspace(this.repoRoot).manifests(),
+      await Project.load(this.repoRoot, this.ports),
     );
   }
 
@@ -553,13 +558,17 @@ export class ReleaseCeremony {
    */
   async packShips(
     ships: readonly ShipRelease[],
+    version: string,
     reporters: { pack?: PackReporter; build?: BuildReporter } = {},
     onPacked?: (ship: ShipRelease) => void | Promise<void>,
   ): Promise<void> {
+    const done = new Set<string>();
     for (const ship of ships) {
       const packCode = await runPack(ship.name, ship.kit, {
         mode: ship.mode,
         outputName: ship.outputName,
+        version,
+        done,
         reporter: reporters.pack,
         buildReporter: reporters.build,
       }, this.ports);

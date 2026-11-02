@@ -2,11 +2,14 @@ import { join } from "@std/path";
 import { assertEquals, assertRejects } from "@std/assert";
 import { exists } from "@std/fs";
 import { runLibNew } from "./lib-scaffold.ts";
-import type { RepoLocator } from "./ports.ts";
+import type { Ports } from "./ports.ts";
 import { LibDeclarationLoader } from "./lib-declaration.ts";
 
-function repoAt(repoRoot: string): RepoLocator {
-  return { findRepoRoot: () => Promise.resolve(repoRoot) };
+/** A project declaring no ecosystems uses the built-in Deno one, which never spawns anything. */
+function portsAt(repoRoot: string): Ports {
+  return {
+    repo: { findRepoRoot: () => Promise.resolve(repoRoot) },
+  } as unknown as Ports;
 }
 
 // findRepoRoot walks up from Deno.cwd() looking for a ".ensemble" marker
@@ -34,7 +37,7 @@ async function withProjectRoot(
 
 Deno.test("runLibNew: scaffolds deno.json and index.ts, with no manifest file inside the lib", async () => {
   await withProjectRoot(async (repoRoot) => {
-    await runLibNew("widgets", repoAt(repoRoot));
+    await runLibNew("widgets", portsAt(repoRoot));
 
     const libDir = join(repoRoot, "source", "libs", "widgets");
     const denoJson = JSON.parse(
@@ -57,7 +60,7 @@ Deno.test("runLibNew: scaffolds deno.json and index.ts, with no manifest file in
 
 Deno.test("runLibNew: registers a publish.libs[] entry with the lib's package in .ensemble/config.yaml", async () => {
   await withProjectRoot(async (repoRoot) => {
-    await runLibNew("widgets", repoAt(repoRoot));
+    await runLibNew("widgets", portsAt(repoRoot));
 
     const declaration = await new LibDeclarationLoader(repoRoot).load(
       "widgets",
@@ -72,7 +75,7 @@ Deno.test("runLibNew: rejects an already-existing lib directory", async () => {
       recursive: true,
     });
     await assertRejects(
-      () => runLibNew("widgets", repoAt(repoRoot)),
+      () => runLibNew("widgets", portsAt(repoRoot)),
       Error,
       "already exists",
     );
@@ -82,7 +85,7 @@ Deno.test("runLibNew: rejects an already-existing lib directory", async () => {
 Deno.test("runLibNew: rejects an invalid lib name", async () => {
   await withProjectRoot(async (repoRoot) => {
     await assertRejects(
-      () => runLibNew("../escape", repoAt(repoRoot)),
+      () => runLibNew("../escape", portsAt(repoRoot)),
       Error,
       "Invalid lib name",
     );

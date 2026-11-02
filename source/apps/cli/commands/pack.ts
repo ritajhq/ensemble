@@ -5,8 +5,10 @@ import * as CliUtil from "./util.ts";
 
 export const packCommand = new Command()
   .name("pack")
-  .description("Pack a ship using the given pack kit.")
-  .arguments("<ship:string> <kit:string>")
+  .description(
+    "Pack a ship using the given pack kit, or the one pack.<ship>.kit names in .ensemble/config.yaml.",
+  )
+  .arguments("<ship:string> [kit:string]")
   .option(
     "-m, --mode <mode:string>",
     "Pack mode, declared by the kit's kit.yml. Defaults to its first declared mode.",
@@ -20,6 +22,10 @@ export const packCommand = new Command()
     "Repack on source changes. Only supported by kits that declare watch support (e.g. deno.compile).",
   )
   .option(
+    "--version <version:string>",
+    "The version being released, for a kit whose artifact carries one.",
+  )
+  .option(
     "--verbose",
     "Show the kit's own build-tool output (e.g. docker buildx build's progress log) instead of hiding it behind the pack spinner.",
   )
@@ -31,10 +37,15 @@ export const packCommand = new Command()
     },
   )
   .action(
-    async ({ mode, outputName, watch, verbose, var: vars }, ship, kit) => {
+    async (
+      { mode, outputName, version, watch, verbose, var: vars },
+      ship,
+      kit,
+    ) => {
       const code = await runPack(ship, kit, {
         mode,
         outputName,
+        version,
         watch: Boolean(watch),
         verbose: Boolean(verbose),
         varOverrides: CliUtil.parseVarOverrides(vars ?? []),

@@ -3,11 +3,16 @@ import { ensureDir, exists } from "@std/fs";
 
 const CONFIG_FILES = ["deno.json", "deno.jsonc"] as const;
 
-/** The directory whose `deno.json` declares the workspace, found from anywhere inside it. */
+/** Where the project's generated config and shared settings live, under its root. */
+const ECOSYSTEM_DIRECTORY = join(".ensemble", "ecosystems", "deno");
+
+/** The directory members are relative to, found from anywhere inside it: the project's root, known by its generated config or by a `deno.json` declaring the workspace. */
 export class WorkspaceRoot {
   async above(start: string): Promise<string> {
     for (let dir = start;; dir = dirname(dir)) {
       if (await this.declaresWorkspace(dir)) return dir;
+      const generated = join(dir, ECOSYSTEM_DIRECTORY, "deno.json");
+      if (await exists(generated, { isFile: true })) return dir;
       if (dir === dirname(dir)) break;
     }
     throw new Error(`${start} is not inside a Deno workspace.`);
@@ -124,10 +129,15 @@ export class StagedWorkspace {
   }
 
   private async config(members: readonly string[]) {
-    const rootConfig = JSON.parse(
-      await Deno.readTextFile(join(this.root, "deno.json")),
-    );
+    const rootConfig = JSON.parse(await Deno.readTextFile(await this.shared()));
     const { tasks: _tasks, workspace: _workspace, ...kept } = rootConfig;
     return { ...kept, workspace: members.map((member) => `./${member}`) };
+  }
+
+  /** What the staged workspace inherits: a root `deno.json`, or the shared settings the generated config starts from, never that config's own import map. */
+  private async shared(): Promise<string> {
+    const atRoot = join(this.root, "deno.json");
+    if (await exists(atRoot, { isFile: true })) return atRoot;
+    return join(this.root, ECOSYSTEM_DIRECTORY, "settings.json");
   }
 }

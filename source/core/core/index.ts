@@ -7,9 +7,11 @@ export {
   type RepoLocator,
 } from "./ports.ts";
 export { runAppCreate, type RunAppCreateOptions } from "./app.ts";
-export { runBuild, type RunBuildOptions } from "./build.ts";
+export type { RunBuildOptions } from "./build.ts";
+export { runBuild, runPack } from "./pipeline.ts";
 export type { BuildProgress, BuildReporter } from "./build-reporter.ts";
 export { PlainBuildReporter } from "./plain-build-reporter.ts";
+export { runExec, runSync } from "./exec.ts";
 export { runInit, type RunInitOptions } from "./init.ts";
 export { runKitContribute } from "./kit-contribute.ts";
 export { runKitEject } from "./kit-eject.ts";
@@ -29,6 +31,7 @@ export {
   LibDeclarationLoader,
   type PublishEntry,
 } from "./lib-declaration.ts";
+export { KitProcess, type KitRunOptions } from "./kit-process.ts";
 export { LibKit } from "./lib-kit.ts";
 export { LibPublisher, runLibPublish } from "./lib-publish.ts";
 export { runLibNew } from "./lib-scaffold.ts";
@@ -40,7 +43,7 @@ export {
   SelfContainmentChecker,
   type Violation,
 } from "./lib-self-containment.ts";
-export { runPack, type RunPackOptions } from "./pack.ts";
+export type { RunPackOptions } from "./pack.ts";
 export { resolvePackDependencies } from "./pack-dependencies.ts";
 export type { PackProgress, PackReporter } from "./pack-reporter.ts";
 export { PlainPackReporter } from "./plain-pack-reporter.ts";
@@ -92,6 +95,7 @@ export { RunPackReleasePacker } from "./release-packer.ts";
 
 export * as Config from "./config.ts";
 export * as Deploy from "./deploy/index.ts";
+export * as Ecosystems from "./ecosystem/index.ts";
 export * as Hooks from "./hooks.ts";
 export * as Release from "./release.ts";
 export * as Vendor from "./vendor/index.ts";

@@ -1,4 +1,5 @@
-import { Deploy as CoreDeploy } from "@ensemble/core";
+import { basename } from "@std/path";
+import { Deploy as CoreDeploy, type KitProcess } from "@ensemble/core";
 import {
   DEPLOY_KIT_WRAPPER_SOURCE,
   RESPONSE_MARKER,
@@ -43,7 +44,7 @@ export class KitHost {
 
   constructor(
     private readonly vendoredDir: string,
-    private readonly denoExe: string,
+    private readonly kit: KitProcess,
   ) {}
 
   async call(
@@ -98,15 +99,12 @@ export class KitHost {
     });
     await Deno.writeTextFile(this.wrapperPath, DEPLOY_KIT_WRAPPER_SOURCE);
 
-    const child = new Deno.Command(this.denoExe, {
-      args: [
-        "run",
-        "-A",
-        "-q",
-        "--minimum-dependency-age",
-        "0",
-        this.wrapperPath,
-      ],
+    const [command, ...args] = await this.kit.commandLine(
+      basename(this.wrapperPath),
+      [],
+    );
+    const child = new Deno.Command(command, {
+      args,
       cwd: this.vendoredDir,
       stdin: "piped",
       stdout: "piped",

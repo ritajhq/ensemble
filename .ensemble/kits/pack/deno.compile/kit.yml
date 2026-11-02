@@ -1,3 +1,5 @@
+role: pack
+protocol: 1
 publish:
   # Option values come from each release's publish: block. The repo is
   # inferred from the git remote unless the release sets a repo option.

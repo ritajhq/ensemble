@@ -1,0 +1,9 @@
+[package]
+name = "tally-cli"
+version = "0.1.0"
+edition = "2021"
+publish = false
+workspace = "../../../../.ensemble/ecosystems/cargo"
+
+[dependencies]
+tally-ledger = { path = "../ledger", version = "0.1.0" }

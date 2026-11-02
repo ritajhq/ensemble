@@ -1,9 +1,10 @@
 import { join } from "@std/path";
 import { exists } from "@std/fs";
 import { $ } from "@david/dax";
-import type { Deploy } from "@ensemble/core";
+import { type Deploy, KitProcess } from "@ensemble/core";
 import { findRepoRoot } from "./repo.ts";
 import { resolveDenoExecutable } from "./deno-exe.ts";
+import { NativeProcessRunner } from "./process-runner.ts";
 
 /**
  * The real `PackKitGateway`: spawns the named pack kit's `describe.ts`/
@@ -22,11 +23,13 @@ export class SubprocessPackKitGateway implements Deploy.PackKitGateway {
     deployKit?: string,
   ): Promise<string> {
     const kitDir = await this.resolveEntrypoint(release.kit, "describe");
-    const denoExe = await resolveDenoExecutable();
+    const command = await this.commandLine(
+      kitDir,
+      "describe.ts",
+      this.contextArgs(releaseName, release, artifacts, version, deployKit),
+    );
 
-    const ref = await $`${denoExe} run -A -q --minimum-dependency-age 0 ${
-      join(kitDir, "describe.ts")
-    } ${this.contextArgs(releaseName, release, artifacts, version, deployKit)}`
+    const ref = await $`${command}`
       .cwd(kitDir)
       .text();
 
@@ -41,11 +44,13 @@ export class SubprocessPackKitGateway implements Deploy.PackKitGateway {
     deployKit?: string,
   ): Promise<Deploy.ReleaseAvailability> {
     const kitDir = await this.resolveEntrypoint(release.kit, "verify");
-    const denoExe = await resolveDenoExecutable();
+    const command = await this.commandLine(
+      kitDir,
+      "verify.ts",
+      this.contextArgs(releaseName, release, artifacts, version, deployKit),
+    );
 
-    const result = await $`${denoExe} run -A -q --minimum-dependency-age 0 ${
-      join(kitDir, "verify.ts")
-    } ${this.contextArgs(releaseName, release, artifacts, version, deployKit)}`
+    const result = await $`${command}`
       .cwd(kitDir)
       .stdout("piped")
       .stderr("piped")
@@ -53,6 +58,17 @@ export class SubprocessPackKitGateway implements Deploy.PackKitGateway {
 
     if (result.code === 0) return { available: true };
     return { available: false, detail: result.stderr.trim() || undefined };
+  }
+
+  private commandLine(
+    kitDir: string,
+    entrypoint: string,
+    args: readonly string[],
+  ): Promise<string[]> {
+    return new KitProcess(kitDir, {
+      denoExe: { resolveDenoExecutable },
+      process: new NativeProcessRunner(),
+    }).commandLine(entrypoint, args);
   }
 
   private async resolveEntrypoint(

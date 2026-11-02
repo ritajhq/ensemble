@@ -1,0 +1,386 @@
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "deno.ns",
+      "deno.unstable"
+    ],
+    "types": [
+      "npm:@types/react@19",
+      "npm:@types/react-dom@19"
+    ]
+  },
+  "unstable": [
+    "kv"
+  ],
+  "nodeModulesDir": "auto",
+  "imports": {
+    "@std/path": "jsr:@std/path@1.1.6",
+    "@std/fs": "jsr:@std/fs@1.0.24",
+    "@std/yaml": "jsr:@std/yaml@1.1.2",
+    "@david/dax": "jsr:@david/dax@0.42.0",
+    "@ensemble/core": "../../../source/core/core/index.ts",
+    "@ensemble/core/": "../../../source/core/core/",
+    "@ensemble/core/build-context": "../../../source/core/core/build-context.ts",
+    "@ensemble/core/deploy": "../../../source/core/core/deploy/index.ts",
+    "@ensemble/core/ecosystem-context": "../../../source/core/core/ecosystem-context.ts",
+    "@ensemble/core/entry": "../../../source/core/core/entry.ts",
+    "@ensemble/core/lib-context": "../../../source/core/core/lib-context.ts",
+    "@ensemble/core/pack-context": "../../../source/core/core/pack-context.ts",
+    "@ensemble/core/scaffold-context": "../../../source/core/core/scaffold-context.ts",
+    "@ensemble/delivery": "../../../source/core/delivery/index.ts",
+    "@ensemble/delivery/": "../../../source/core/delivery/",
+    "@ensemble/host": "../../../source/core/host/index.ts",
+    "@ensemble/host/": "../../../source/core/host/",
+    "@ensemble/kit-sdk": "../../../source/core/kit-sdk/index.ts",
+    "@ensemble/kit-sdk/": "../../../source/core/kit-sdk/",
+    "@ensemble/platform": "../../../source/core/platform/index.ts",
+    "@ensemble/platform/": "../../../source/core/platform/",
+    "@ensemble/website": "../../../source/core/website/index.ts",
+    "@ensemble/website/": "../../../source/core/website/",
+    "@ritaj/ui": "../../../source/libs/ui/index.ts",
+    "@ritaj/ui/": "../../../source/libs/ui/",
+    "@ritaj/ui/styles": "../../../source/libs/ui/styles.css",
+    "@tally/ink": "../../../source/apps/mock/ink/index.ts",
+    "@tally/ink/": "../../../source/apps/mock/ink/"
+  },
+  "tasks": {
+    "cli": "deno run -A --config deno.json ../../../source/apps/cli/main.ts",
+    "compile": "deno task cli pack cli deno.compile -o ens && mkdir -p ../../bin && cp ../../../source/artifacts/packages/ens.exe ../../bin/ens"
+  },
+  "scopes": {
+    "../../../source/apps/cli/": {
+      "@cliffy/command": "jsr:@cliffy/command@1.2.1",
+      "@cliffy/prompt": "jsr:@cliffy/prompt@1.2.1",
+      "@ensemble/core": "../../../source/core/core/index.ts",
+      "@ensemble/core/": "../../../source/core/core/",
+      "@ensemble/core/build-context": "../../../source/core/core/build-context.ts",
+      "@ensemble/core/deploy": "../../../source/core/core/deploy/index.ts",
+      "@ensemble/core/ecosystem-context": "../../../source/core/core/ecosystem-context.ts",
+      "@ensemble/core/entry": "../../../source/core/core/entry.ts",
+      "@ensemble/core/lib-context": "../../../source/core/core/lib-context.ts",
+      "@ensemble/core/pack-context": "../../../source/core/core/pack-context.ts",
+      "@ensemble/core/scaffold-context": "../../../source/core/core/scaffold-context.ts",
+      "@ensemble/delivery": "../../../source/core/delivery/index.ts",
+      "@ensemble/delivery/": "../../../source/core/delivery/",
+      "@ensemble/host": "../../../source/core/host/index.ts",
+      "@ensemble/host/": "../../../source/core/host/",
+      "@modelcontextprotocol/sdk": "npm:@modelcontextprotocol/sdk@^1.12.0",
+      "@std/assert": "jsr:@std/assert@1.0.14",
+      "@std/dotenv": "jsr:@std/dotenv@0.225.5",
+      "@std/fmt": "jsr:@std/fmt@1.0.10",
+      "@std/fs": "jsr:@std/fs@1.0.24",
+      "@std/path": "jsr:@std/path@1.1.6",
+      "@std/yaml": "jsr:@std/yaml@1.1.2",
+      "vscode-languageserver": "npm:vscode-languageserver@9.0.1",
+      "vscode-languageserver-textdocument": "npm:vscode-languageserver-textdocument@1.0.12",
+      "zod": "npm:zod@^3.25.0"
+    },
+    "../../../source/apps/demo/spa/": {
+      "@types/react": "npm:@types/react@19",
+      "@types/react-dom": "npm:@types/react-dom@19",
+      "react": "npm:react@19.2.8",
+      "react-dom": "npm:react-dom@19.2.8",
+      "react-dom/client": "npm:react-dom@19.2.8/client"
+    },
+    "../../../source/apps/extension/vscode/": {
+      "@duesabati/evento": "jsr:@duesabati/evento@1.0.0",
+      "vscode": "npm:@types/vscode@1.105.0",
+      "vscode-languageclient": "npm:vscode-languageclient@9.0.1"
+    },
+    "../../../source/apps/git-sync/": {
+      "@std/path": "jsr:@std/path@1.1.6"
+    },
+    "../../../source/apps/mock/api/": {
+      "@std/path": "jsr:@std/path@1.1.6",
+      "@tally/ink": "../../../source/apps/mock/ink/index.ts",
+      "@tally/ink/": "../../../source/apps/mock/ink/"
+    },
+    "../../../source/apps/mock/desktop/web/": {},
+    "../../../source/apps/mock/ink/": {},
+    "../../../source/apps/platform/server/": {
+      "@duesabati/evento": "jsr:@duesabati/evento@1.0.0",
+      "@ensemble/core": "../../../source/core/core/index.ts",
+      "@ensemble/core/": "../../../source/core/core/",
+      "@ensemble/core/build-context": "../../../source/core/core/build-context.ts",
+      "@ensemble/core/deploy": "../../../source/core/core/deploy/index.ts",
+      "@ensemble/core/ecosystem-context": "../../../source/core/core/ecosystem-context.ts",
+      "@ensemble/core/entry": "../../../source/core/core/entry.ts",
+      "@ensemble/core/lib-context": "../../../source/core/core/lib-context.ts",
+      "@ensemble/core/pack-context": "../../../source/core/core/pack-context.ts",
+      "@ensemble/core/scaffold-context": "../../../source/core/core/scaffold-context.ts",
+      "@ensemble/platform": "../../../source/core/platform/index.ts",
+      "@ensemble/platform/": "../../../source/core/platform/",
+      "@std/assert": "jsr:@std/assert@1.0.14",
+      "@std/path": "jsr:@std/path@1.1.6"
+    },
+    "../../../source/apps/platform/web/": {
+      "@std/assert": "jsr:@std/assert@1.0.14",
+      "react": "npm:react@19.2.8",
+      "react-dom": "npm:react-dom@19.2.8",
+      "react-dom/client": "npm:react-dom@19.2.8/client"
+    },
+    "../../../source/apps/website/content/": {
+      "@ensemble/website": "../../../source/core/website/index.ts",
+      "@ensemble/website/": "../../../source/core/website/",
+      "@types/react": "npm:@types/react@19",
+      "@types/react-dom": "npm:@types/react-dom@19",
+      "react": "npm:react@19.2.8",
+      "react-dom": "npm:react-dom@19.2.8",
+      "react-dom/client": "npm:react-dom@19.2.8/client"
+    },
+    "../../../source/apps/website/server/": {
+      "@ensemble/website": "../../../source/core/website/index.ts",
+      "@ensemble/website/": "../../../source/core/website/",
+      "@shikijs/rehype": "npm:@shikijs/rehype@1",
+      "@std/fs": "jsr:@std/fs@1.0.24",
+      "@std/path": "jsr:@std/path@1.1.6",
+      "@types/react": "npm:@types/react@19",
+      "@types/react-dom": "npm:@types/react-dom@19",
+      "hast": "npm:@types/hast@3",
+      "hast-util-to-string": "npm:hast-util-to-string@3",
+      "mdast": "npm:@types/mdast@4",
+      "mdast-util-to-string": "npm:mdast-util-to-string@4",
+      "react": "npm:react@19.2.8",
+      "react-dom": "npm:react-dom@19.2.8",
+      "react-dom/server": "npm:react-dom@19.2.8/server",
+      "rehype-slug": "npm:rehype-slug@6",
+      "rehype-stringify": "npm:rehype-stringify@10",
+      "remark-gfm": "npm:remark-gfm@4",
+      "remark-parse": "npm:remark-parse@11",
+      "remark-rehype": "npm:remark-rehype@11",
+      "unified": "npm:unified@11",
+      "unist-util-visit": "npm:unist-util-visit@5"
+    },
+    "../../../source/core/core/": {
+      "@duesabati/evento": "jsr:@duesabati/evento@1.0.0",
+      "@std/assert": "jsr:@std/assert@1.0.14",
+      "@std/cli": "jsr:@std/cli@1.0.32",
+      "@std/dotenv": "jsr:@std/dotenv@0.225.5",
+      "@std/fmt": "jsr:@std/fmt@1.0.10",
+      "@std/fs": "jsr:@std/fs@1.0.24",
+      "@std/path": "jsr:@std/path@1.1.6",
+      "@std/yaml": "jsr:@std/yaml@1.1.2"
+    },
+    "../../../source/core/delivery/": {
+      "@ensemble/core": "../../../source/core/core/index.ts",
+      "@ensemble/core/": "../../../source/core/core/",
+      "@ensemble/core/build-context": "../../../source/core/core/build-context.ts",
+      "@ensemble/core/deploy": "../../../source/core/core/deploy/index.ts",
+      "@ensemble/core/ecosystem-context": "../../../source/core/core/ecosystem-context.ts",
+      "@ensemble/core/entry": "../../../source/core/core/entry.ts",
+      "@ensemble/core/lib-context": "../../../source/core/core/lib-context.ts",
+      "@ensemble/core/pack-context": "../../../source/core/core/pack-context.ts",
+      "@ensemble/core/scaffold-context": "../../../source/core/core/scaffold-context.ts",
+      "@std/assert": "jsr:@std/assert@1.0.14",
+      "@std/fs": "jsr:@std/fs@1.0.24",
+      "@std/path": "jsr:@std/path@1.1.6",
+      "reladraw": "npm:reladraw@0.18.0"
+    },
+    "../../../source/core/host/": {
+      "@david/dax": "jsr:@david/dax@0.42.0",
+      "@david/which": "jsr:@david/which@0.4.2",
+      "@duesabati/evento": "jsr:@duesabati/evento@1.0.0",
+      "@ensemble/core": "../../../source/core/core/index.ts",
+      "@ensemble/core/": "../../../source/core/core/",
+      "@ensemble/core/build-context": "../../../source/core/core/build-context.ts",
+      "@ensemble/core/deploy": "../../../source/core/core/deploy/index.ts",
+      "@ensemble/core/ecosystem-context": "../../../source/core/core/ecosystem-context.ts",
+      "@ensemble/core/entry": "../../../source/core/core/entry.ts",
+      "@ensemble/core/lib-context": "../../../source/core/core/lib-context.ts",
+      "@ensemble/core/pack-context": "../../../source/core/core/pack-context.ts",
+      "@ensemble/core/scaffold-context": "../../../source/core/core/scaffold-context.ts",
+      "@std/assert": "jsr:@std/assert@1.0.14",
+      "@std/fmt": "jsr:@std/fmt@1.0.10",
+      "@std/fs": "jsr:@std/fs@1.0.24",
+      "@std/path": "jsr:@std/path@1.1.6"
+    },
+    "../../../source/core/kit-sdk/": {
+      "@ensemble/core": "../../../source/core/core/index.ts",
+      "@ensemble/core/": "../../../source/core/core/",
+      "@ensemble/core/build-context": "../../../source/core/core/build-context.ts",
+      "@ensemble/core/deploy": "../../../source/core/core/deploy/index.ts",
+      "@ensemble/core/ecosystem-context": "../../../source/core/core/ecosystem-context.ts",
+      "@ensemble/core/entry": "../../../source/core/core/entry.ts",
+      "@ensemble/core/lib-context": "../../../source/core/core/lib-context.ts",
+      "@ensemble/core/pack-context": "../../../source/core/core/pack-context.ts",
+      "@ensemble/core/scaffold-context": "../../../source/core/core/scaffold-context.ts",
+      "@ensemble/host": "../../../source/core/host/index.ts",
+      "@ensemble/host/": "../../../source/core/host/"
+    },
+    "../../../source/core/platform/": {
+      "@ensemble/core": "../../../source/core/core/index.ts",
+      "@ensemble/core/": "../../../source/core/core/",
+      "@ensemble/core/build-context": "../../../source/core/core/build-context.ts",
+      "@ensemble/core/deploy": "../../../source/core/core/deploy/index.ts",
+      "@ensemble/core/ecosystem-context": "../../../source/core/core/ecosystem-context.ts",
+      "@ensemble/core/entry": "../../../source/core/core/entry.ts",
+      "@ensemble/core/lib-context": "../../../source/core/core/lib-context.ts",
+      "@ensemble/core/pack-context": "../../../source/core/core/pack-context.ts",
+      "@ensemble/core/scaffold-context": "../../../source/core/core/scaffold-context.ts",
+      "@std/assert": "jsr:@std/assert@1.0.14",
+      "@std/path": "jsr:@std/path@1.1.6"
+    },
+    "../../../source/core/website/": {
+      "@types/react": "npm:@types/react@19",
+      "react": "npm:react@19.2.8"
+    },
+    "../../../source/libs/ui/": {
+      "@base-ui/react": "npm:@base-ui/react@1.8.0",
+      "@base-ui/react/": "npm:/@base-ui/react@1.8.0/",
+      "@radix-ui/react-accordion": "npm:@radix-ui/react-accordion@1.2.20",
+      "@radix-ui/react-checkbox": "npm:@radix-ui/react-checkbox@1.3.11",
+      "@radix-ui/react-collapsible": "npm:@radix-ui/react-collapsible@1.1.20",
+      "@radix-ui/react-dialog": "npm:@radix-ui/react-dialog@1.1.23",
+      "@radix-ui/react-dropdown-menu": "npm:@radix-ui/react-dropdown-menu@2.1.24",
+      "@radix-ui/react-popover": "npm:@radix-ui/react-popover@1.1.23",
+      "@radix-ui/react-radio-group": "npm:@radix-ui/react-radio-group@1.4.7",
+      "@radix-ui/react-scroll-area": "npm:@radix-ui/react-scroll-area@1.2.18",
+      "@radix-ui/react-select": "npm:@radix-ui/react-select@2.3.7",
+      "@radix-ui/react-slider": "npm:@radix-ui/react-slider@1.4.7",
+      "@radix-ui/react-slot": "npm:@radix-ui/react-slot@1.3.3",
+      "@radix-ui/react-switch": "npm:@radix-ui/react-switch@1.3.7",
+      "@radix-ui/react-tabs": "npm:@radix-ui/react-tabs@1.1.21",
+      "@radix-ui/react-tooltip": "npm:@radix-ui/react-tooltip@1.2.16",
+      "@std/path": "jsr:@std/path@1.1.6",
+      "@untitledui/icons": "npm:@untitledui/icons@0.0.23",
+      "class-variance-authority": "npm:class-variance-authority@0.7.1",
+      "clsx": "npm:clsx@2.1.1",
+      "framer-motion": "npm:framer-motion@14.0.0",
+      "react": "npm:react@19.2.8",
+      "react-dom": "npm:react-dom@19.2.8",
+      "tailwind-merge": "npm:tailwind-merge@3.7.0"
+    },
+    "../../kits/build/cargo/": {
+      "@ensemble/kit-sdk": "../../../source/core/kit-sdk/index.ts",
+      "@ensemble/kit-sdk/": "../../../source/core/kit-sdk/",
+      "@std/fs": "jsr:@std/fs@1.0.24",
+      "@std/path": "jsr:@std/path@1.1.6",
+      "@std/toml": "jsr:@std/toml@1.0.11",
+      "@std/yaml": "jsr:@std/yaml@1.1.2"
+    },
+    "../../kits/build/deno.bundle/": {
+      "@david/dax": "jsr:@david/dax@0.42.0",
+      "@ensemble/kit-sdk": "../../../source/core/kit-sdk/index.ts",
+      "@ensemble/kit-sdk/": "../../../source/core/kit-sdk/",
+      "@std/fs": "jsr:@std/fs@1.0.24",
+      "@std/path": "jsr:@std/path@1.1.6"
+    },
+    "../../kits/build/react/": {
+      "@david/dax": "jsr:@david/dax@0.42.0",
+      "@duesabati/evento": "jsr:@duesabati/evento@1.0.0",
+      "@ensemble/kit-sdk": "../../../source/core/kit-sdk/index.ts",
+      "@ensemble/kit-sdk/": "../../../source/core/kit-sdk/",
+      "@std/fs": "jsr:@std/fs@1.0.24",
+      "@std/path": "jsr:@std/path@1.1.6"
+    },
+    "../../kits/build/static-page/": {
+      "@ensemble/kit-sdk": "../../../source/core/kit-sdk/index.ts",
+      "@ensemble/kit-sdk/": "../../../source/core/kit-sdk/",
+      "@std/fs": "jsr:@std/fs@1.0.24",
+      "@std/path": "jsr:@std/path@1.1.6",
+      "@std/toml": "jsr:@std/toml@1.0.11",
+      "@std/yaml": "jsr:@std/yaml@1.1.2"
+    },
+    "../../kits/build/tauri/": {
+      "@ensemble/kit-sdk": "../../../source/core/kit-sdk/index.ts",
+      "@ensemble/kit-sdk/": "../../../source/core/kit-sdk/",
+      "@std/fs": "jsr:@std/fs@1.0.24",
+      "@std/path": "jsr:@std/path@1.1.6",
+      "@std/toml": "jsr:@std/toml@1.0.11",
+      "@std/yaml": "jsr:@std/yaml@1.1.2"
+    },
+    "../../kits/deploy/aws/": {
+      "@david/dax": "jsr:@david/dax@0.42.0",
+      "@ensemble/kit-sdk": "../../../source/core/kit-sdk/index.ts",
+      "@ensemble/kit-sdk/": "../../../source/core/kit-sdk/",
+      "@std/assert": "jsr:@std/assert@^1.0.19",
+      "@std/fs": "jsr:@std/fs@1.0.24",
+      "@std/path": "jsr:@std/path@1.1.6",
+      "@std/testing": "jsr:@std/testing@1.0.16",
+      "@std/yaml": "jsr:@std/yaml@1.1.2",
+      "fflate": "npm:fflate@0.8.3"
+    },
+    "../../kits/deploy/cloudflare/": {
+      "@david/dax": "jsr:@david/dax@0.42.0",
+      "@ensemble/kit-sdk": "../../../source/core/kit-sdk/index.ts",
+      "@ensemble/kit-sdk/": "../../../source/core/kit-sdk/",
+      "@std/assert": "jsr:@std/assert@^1.0.19",
+      "@std/fs": "jsr:@std/fs@1.0.24",
+      "@std/path": "jsr:@std/path@1.1.6",
+      "fflate": "npm:fflate@0.8.3",
+      "wrangler": "npm:wrangler@4.147.0"
+    },
+    "../../kits/deploy/compose/": {
+      "@ensemble/kit-sdk": "../../../source/core/kit-sdk/index.ts",
+      "@ensemble/kit-sdk/": "../../../source/core/kit-sdk/",
+      "@std/assert": "jsr:@std/assert@^1.0.19",
+      "@std/path": "jsr:@std/path@1.1.6",
+      "@std/testing": "jsr:@std/testing@1.0.16",
+      "@std/yaml": "jsr:@std/yaml@1.1.2"
+    },
+    "../../kits/ecosystem/cargo/": {
+      "@ensemble/kit-sdk": "../../../source/core/kit-sdk/index.ts",
+      "@ensemble/kit-sdk/": "../../../source/core/kit-sdk/",
+      "@std/assert": "jsr:@std/assert@1.0.14",
+      "@std/fs": "jsr:@std/fs@1.0.24",
+      "@std/path": "jsr:@std/path@1.1.6",
+      "@std/toml": "jsr:@std/toml@1.0.11"
+    },
+    "../../kits/lib/jsr/": {
+      "@david/dax": "jsr:@david/dax@0.42.0",
+      "@ensemble/kit-sdk": "../../../source/core/kit-sdk/index.ts",
+      "@ensemble/kit-sdk/": "../../../source/core/kit-sdk/",
+      "@std/assert": "jsr:@std/assert@1.0.14",
+      "@std/path": "jsr:@std/path@1.1.6"
+    },
+    "../../kits/pack/deno.compile/": {
+      "@david/dax": "jsr:@david/dax@0.42.0",
+      "@ensemble/kit-sdk": "../../../source/core/kit-sdk/index.ts",
+      "@ensemble/kit-sdk/": "../../../source/core/kit-sdk/",
+      "@std/assert": "jsr:@std/assert@1.0.14",
+      "@std/fs": "jsr:@std/fs@1.0.24",
+      "@std/path": "jsr:@std/path@1.1.6",
+      "@std/yaml": "jsr:@std/yaml@1.1.2"
+    },
+    "../../kits/pack/docker/": {
+      "@david/dax": "jsr:@david/dax@0.42.0",
+      "@ensemble/kit-sdk": "../../../source/core/kit-sdk/index.ts",
+      "@ensemble/kit-sdk/": "../../../source/core/kit-sdk/",
+      "@std/assert": "jsr:@std/assert@1.0.14",
+      "@std/fs": "jsr:@std/fs@1.0.24",
+      "@std/path": "jsr:@std/path@1.1.6"
+    },
+    "../../kits/pack/tarball/": {
+      "@ensemble/kit-sdk": "../../../source/core/kit-sdk/index.ts",
+      "@ensemble/kit-sdk/": "../../../source/core/kit-sdk/",
+      "@std/fs": "jsr:@std/fs@1.0.24",
+      "@std/path": "jsr:@std/path@1.1.6",
+      "@std/toml": "jsr:@std/toml@1.0.11",
+      "@std/yaml": "jsr:@std/yaml@1.1.2"
+    },
+    "../../kits/pack/tauri/": {
+      "@ensemble/kit-sdk": "../../../source/core/kit-sdk/index.ts",
+      "@ensemble/kit-sdk/": "../../../source/core/kit-sdk/",
+      "@std/fs": "jsr:@std/fs@1.0.24",
+      "@std/path": "jsr:@std/path@1.1.6",
+      "@std/toml": "jsr:@std/toml@1.0.11",
+      "@std/yaml": "jsr:@std/yaml@1.1.2"
+    },
+    "../../kits/pack/vscode/": {
+      "@david/dax": "jsr:@david/dax@0.42.0",
+      "@ensemble/kit-sdk": "../../../source/core/kit-sdk/index.ts",
+      "@ensemble/kit-sdk/": "../../../source/core/kit-sdk/",
+      "@std/fs": "jsr:@std/fs@1.0.24",
+      "@std/path": "jsr:@std/path@1.1.6",
+      "@std/yaml": "jsr:@std/yaml@1.1.2"
+    }
+  },
+  "lock": "./deno.lock",
+  "exclude": [
+    "../../kits/deploy/aws/runtime"
+  ]
+}

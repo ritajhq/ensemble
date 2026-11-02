@@ -1,5 +1,6 @@
 import { join } from "@std/path";
-import type { RepoLocator } from "./ports.ts";
+import { Project } from "./ecosystem/index.ts";
+import type { Ports } from "./ports.ts";
 import { SelfContainmentChecker } from "./lib-self-containment.ts";
 import * as Vendor from "./vendor/index.ts";
 
@@ -48,11 +49,14 @@ export class LibEjector {
 export async function runLibEject(
   name: string,
   remote: string,
-  repo: RepoLocator,
+  ports: Ports,
   source: Vendor.PackageSource,
 ): Promise<Vendor.Entry> {
-  const repoRoot = await repo.findRepoRoot();
-  const checker = new SelfContainmentChecker(repoRoot);
+  const repoRoot = await ports.repo.findRepoRoot();
+  const checker = new SelfContainmentChecker(
+    repoRoot,
+    await Project.load(repoRoot, ports),
+  );
   const registry = new Vendor.FileRegistry(repoRoot);
   const ejector = new LibEjector(repoRoot, checker, registry, source);
   return await ejector.eject(name, remote);

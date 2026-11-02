@@ -1,36 +1,37 @@
 import { join } from "@std/path";
-import { ensureDir, exists, move } from "@std/fs";
+import { copy, ensureDir, exists } from "@std/fs";
 import { nameFromUrl, parseUrl } from "./git-url.ts";
 import type { PackageSource } from "./package-source.ts";
 import type { Registry } from "./registry.ts";
 import type { Entry } from "./entry.ts";
 import { SelfContainmentChecker } from "../lib-self-containment.ts";
 import { EnsembleConfigStore } from "../config.ts";
+import { DenoWorkspace, type Ecosystem } from "../ecosystem/index.ts";
 
-/** Reads deno.json's "name" from a freshly cloned lib — the same signal `SelfContainmentChecker` uses to recognize a workspace member, and the only thing that has to live inside the library itself: everything else about it (its declared package name for publishing, its publish targets) is tracked as this project's own tooling config, not the library's. */
-async function readDenoJsonName(dir: string): Promise<string> {
-  const path = join(dir, "deno.json");
-  let parsed: { name?: unknown };
-  try {
-    parsed = JSON.parse(await Deno.readTextFile(path));
-  } catch {
+/** Reads the name of a freshly cloned lib — the same signal `SelfContainmentChecker` uses to recognize a workspace member, and the only thing that has to live inside the library itself: everything else about it (its declared package name for publishing, its publish targets) is tracked as this project's own tooling config, not the library's. */
+async function readPackageName(
+  ecosystem: Ecosystem,
+  dir: string,
+): Promise<string> {
+  const lib = await ecosystem.packageAt(dir);
+  if (!lib) {
     throw new Error(
-      `No deno.json found at ${path} — doesn't look like an installable lib.`,
+      `No package found at ${dir} — doesn't look like an installable lib.`,
     );
   }
-  if (typeof parsed.name !== "string" || parsed.name.length === 0) {
+  if (!lib.name) {
     throw new Error(
-      `deno.json at ${path} is missing a "name" — doesn't look like an installable lib.`,
+      `The package at ${dir} is missing a "name" — doesn't look like an installable lib.`,
     );
   }
-  return parsed.name;
+  return lib.name;
 }
 
 /**
  * Installs a libs library from an external git repository — the inbound
  * counterpart to `LibEjector` (outbound), converging on the same lockfile
  * representation as `KitInstaller`. Kept as its own class rather than
- * reusing `KitInstaller`: a lib has no `role`/`kitSdk`/entrypoint concept to
+ * reusing `KitInstaller`: a lib has no `role`/`protocol`/entrypoint concept to
  * validate, and instead must pass the self-containment check before it's
  * let anywhere near `source/libs/`.
  */
@@ -39,6 +40,7 @@ export class LibInstaller {
     private readonly repoRoot: string,
     private readonly registry: Registry,
     private readonly source: PackageSource,
+    private readonly ecosystem: Ecosystem = new DenoWorkspace(repoRoot),
   ) {}
 
   async install(urlWithOptionalRef: string): Promise<Entry> {
@@ -51,9 +53,12 @@ export class LibInstaller {
       await this.source.fetch(url, ref, scratchDir);
       const resolvedRef = await this.source.currentRef(scratchDir);
 
-      const packageName = await readDenoJsonName(scratchDir);
+      const packageName = await readPackageName(this.ecosystem, scratchDir);
 
-      const violations = await new SelfContainmentChecker(this.repoRoot).check(
+      const violations = await new SelfContainmentChecker(
+        this.repoRoot,
+        this.ecosystem,
+      ).check(
         scratchDir,
       );
       if (violations.length > 0) {
@@ -75,7 +80,9 @@ export class LibInstaller {
       }
 
       await ensureDir(join(this.repoRoot, "source", "libs"));
-      await move(scratchDir, destination);
+      // Copied, not renamed: the temp folder is often on another volume. The
+      // `finally` below removes the original.
+      await copy(scratchDir, destination);
 
       const entry: Entry = { repo: url, ref: resolvedRef, path: relativePath };
       await this.registry.register(entry);

@@ -73,6 +73,11 @@ A non-dry-run goes through these steps, in order:
    are published, without asking again.
 6. `hooks.release.after` runs (once per tag) and whatever it commits is pushed.
 
+Core libraries publish in dependency order, worked out from their manifests, so
+`publish.core` can list them in any order. A dependency only tests need doesn't
+count. Libraries depending on each other stop the release before anything
+changes, naming the cycle.
+
 A failure during packing or publishing leaves an accurate record of what's left
 (`.ensemble/release/state/<tag>.json`) for `resume` to pick up.
 

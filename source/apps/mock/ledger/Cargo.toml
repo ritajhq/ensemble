@@ -1,0 +1,10 @@
+[package]
+name = "tally-ledger"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Keeps a running tally of entries."
+workspace = "../../../../.ensemble/ecosystems/cargo"
+
+[dependencies]
+tally-rounding = { path = "../rounding", version = "0.1.0" }

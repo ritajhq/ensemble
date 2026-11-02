@@ -10,7 +10,11 @@ Scaffold a new library at `source/libs/<name>`.
 
 ```sh
 ens lib new my-utils
+ens lib new my-utils --ecosystem cargo
 ```
+
+- `--ecosystem <name>` — which of the project's ecosystems the library belongs
+  to. Defaults to the first it declares.
 
 ## `ens lib install <url>`
 
@@ -20,6 +24,10 @@ Clone a library from a git repository and install it into `source/libs/<name>`.
 ens lib install https://github.com/org/their-lib
 ens lib install https://github.com/org/their-lib@v2.0.0   # pinned to a ref
 ```
+
+The checkout keeps its own git history, so git ignores it here through a
+`source/libs/.gitignore`, which exists only while a vendored library needs it.
+Commit that file along with `.ensemble/vendor.lock.yml`.
 
 ## `ens lib eject <name> --remote <url>`
 

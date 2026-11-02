@@ -1,6 +1,7 @@
 import { join } from "@std/path";
 import { $ } from "@david/dax";
 import type * as KitSdk from "@ensemble/kit-sdk";
+import { PublishWorkspace } from "./publish-workspace.ts";
 
 /** Runs the actual publish step against an already-prepared library directory — its own seam so a test can stub it out instead of hitting the real registry. */
 export interface PublishRunner {
@@ -12,7 +13,8 @@ export class DenoPublishRunner implements PublishRunner {
   async run(libRoot: string): Promise<void> {
     const token = Deno.env.get("JSR_TOKEN");
     const tokenArgs = token ? ["--token", token] : [];
-    await $`deno publish --allow-dirty ${tokenArgs}`.cwd(libRoot);
+    const directory = await new PublishWorkspace(libRoot).prepare();
+    await $`deno publish --allow-dirty ${tokenArgs}`.cwd(directory);
   }
 }
 

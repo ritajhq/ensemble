@@ -15,12 +15,17 @@ export class PackTools {
         description: "Packs a ship using the given pack kit.",
         inputSchema: {
           ship: z.string().describe("Ship name to pack."),
-          kit: z.string().describe("Pack kit to use."),
+          kit: z.string().optional().describe(
+            "Pack kit to use. Defaults to the one pack.<ship>.kit names in .ensemble/config.yaml.",
+          ),
           mode: z.string().optional().describe(
             "Pack mode, declared by the kit's kit.yml. Defaults to its first declared mode.",
           ),
           outputName: z.string().optional().describe(
             "Name to give the packed output (e.g. an image tag). Defaults to the ship name.",
+          ),
+          version: z.string().optional().describe(
+            "The version being released, for a kit whose artifact carries one.",
           ),
           verbose: z.boolean().default(false).describe(
             "Include the kit's own build-tool output instead of hiding it behind the pack spinner.",
@@ -30,21 +35,22 @@ export class PackTools {
           ),
         },
       },
-      ({ ship, kit, mode, outputName, verbose, varOverrides }) =>
+      ({ ship, kit, mode, outputName, version, verbose, varOverrides }) =>
         ToolResult.from(async () => {
           const code = await runPack(ship, kit, {
             mode,
             outputName,
+            version,
             watch: false,
             verbose,
             varOverrides,
           }, Host.createPorts());
           if (code !== 0) {
             throw new Error(
-              `Packing "${ship}" via "${kit}" failed with exit code ${code}.`,
+              `Packing "${ship}" failed with exit code ${code}.`,
             );
           }
-          return `Packed "${ship}" via "${kit}".`;
+          return `Packed "${ship}".`;
         }),
     );
   }

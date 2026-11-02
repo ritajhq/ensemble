@@ -1,5 +1,5 @@
-import { join } from "@std/path";
-import { exists } from "@std/fs";
+import { dirname, join, relative } from "@std/path";
+import { ensureDir, exists } from "@std/fs";
 import { parse as parseYaml, stringify as stringifyYaml } from "@std/yaml";
 import type { Entry } from "./entry.ts";
 
@@ -8,6 +8,11 @@ const LOCKFILE_NAME = "vendor.lock.yml";
 interface StoredEntry {
   repo: string;
   ref: string;
+}
+
+interface IgnoreRule {
+  file: string;
+  line: string;
 }
 
 /** The vendoring lockfile, as a port — one row per vendored path, `{ repo, ref }`. */
@@ -22,9 +27,11 @@ export interface Registry {
 /**
  * File-backed `Registry`: a small YAML map keyed by vendored path, tracked at
  * `.ensemble/vendor.lock.yml`. The vendored checkout itself is never
- * committed here — registering a path also appends it to the outer repo's
- * `.gitignore` (once), so its contents live in their own git history instead
- * of as committed file contents in this tree.
+ * committed here — registering a path also adds it to a `.gitignore` (once),
+ * so its contents live in their own git history instead of as committed file
+ * contents in this tree. That's `.ensemble/.gitignore` for anything under
+ * `.ensemble`. A `.gitignore` only reaches the folders beneath it, so anything
+ * else gets one beside it, which goes away with the last path it lists.
  */
 export class FileRegistry implements Registry {
   constructor(private readonly repoRoot: string) {}
@@ -43,40 +50,56 @@ export class FileRegistry implements Registry {
     await Deno.writeTextFile(this.lockfilePath, stringifyYaml(entries));
   }
 
-  private async unignorePath(path: string): Promise<void> {
-    const gitignorePath = join(this.repoRoot, ".gitignore");
-    if (!await exists(gitignorePath, { isFile: true })) return;
-    const lines = (await Deno.readTextFile(gitignorePath)).split("\n");
-    await Deno.writeTextFile(
-      gitignorePath,
-      lines.filter((line) => line !== path).join("\n"),
-    );
+  private ignoreRuleFor(path: string): IgnoreRule {
+    const directory = path.startsWith(".ensemble/")
+      ? ".ensemble"
+      : dirname(path);
+    return {
+      file: join(this.repoRoot, directory, ".gitignore"),
+      line: `/${relative(directory, path)}`,
+    };
   }
 
-  private async ignorePath(path: string): Promise<void> {
-    const gitignorePath = join(this.repoRoot, ".gitignore");
-    const existing = await exists(gitignorePath, { isFile: true })
-      ? await Deno.readTextFile(gitignorePath)
+  /** Projects vendored before rules moved out of the root listed the bare path there. */
+  private rootRuleFor(path: string): IgnoreRule {
+    return { file: join(this.repoRoot, ".gitignore"), line: path };
+  }
+
+  private async removeRule({ file, line }: IgnoreRule): Promise<void> {
+    if (!await exists(file, { isFile: true })) return;
+    const lines = (await Deno.readTextFile(file)).split("\n");
+    if (!lines.includes(line)) return;
+    const kept = lines.filter((other) => other !== line).join("\n");
+    if (kept.trim().length === 0) return await Deno.remove(file);
+    await Deno.writeTextFile(file, kept);
+  }
+
+  private async addRule({ file, line }: IgnoreRule): Promise<void> {
+    const existing = await exists(file, { isFile: true })
+      ? await Deno.readTextFile(file)
       : "";
-    if (existing.split("\n").includes(path)) return;
+    if (existing.split("\n").includes(line)) return;
     const withTrailingNewline = existing.length > 0 && !existing.endsWith("\n")
       ? `${existing}\n`
       : existing;
-    await Deno.writeTextFile(gitignorePath, `${withTrailingNewline}${path}\n`);
+    await ensureDir(dirname(file));
+    await Deno.writeTextFile(file, `${withTrailingNewline}${line}\n`);
   }
 
   async register(entry: Entry): Promise<void> {
     const entries = await this.readAll();
     entries[entry.path] = { repo: entry.repo, ref: entry.ref };
     await this.writeAll(entries);
-    await this.ignorePath(entry.path);
+    await this.addRule(this.ignoreRuleFor(entry.path));
+    await this.removeRule(this.rootRuleFor(entry.path));
   }
 
   async unregister(path: string): Promise<void> {
     const entries = await this.readAll();
     delete entries[path];
     await this.writeAll(entries);
-    await this.unignorePath(path);
+    await this.removeRule(this.ignoreRuleFor(path));
+    await this.removeRule(this.rootRuleFor(path));
   }
 
   async entryFor(path: string): Promise<Entry | undefined> {

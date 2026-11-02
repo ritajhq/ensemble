@@ -17,6 +17,9 @@
   },
   "customizations": {
     "vscode": {
+      "settings": {
+        "deno.config": ".ensemble/ecosystems/deno/deno.json"
+      },
       "extensions": [
         "arcanis.vscode-zipfs",
         "bradlc.vscode-tailwindcss",

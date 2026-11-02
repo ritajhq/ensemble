@@ -1,0 +1,23 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Tally",
+  "identifier": "dev.ritaj.tally",
+  "build": {
+    "frontendDist": "../../../../artifacts/mock/desktop/web"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "Tally",
+        "width": 480,
+        "height": 320
+      }
+    ]
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["deb"],
+    "icon": ["icons/icon.png"]
+  }
+}

@@ -13,6 +13,8 @@ import {
   isReserved,
   sourceDirOf,
 } from "./deploy/integration.ts";
+import { KitProcess } from "./kit-process.ts";
+import type { Need } from "./need-context.ts";
 
 export interface RunBuildOptions {
   mode: Build.Mode;
@@ -20,6 +22,8 @@ export interface RunBuildOptions {
   varOverrides?: Record<string, string>;
   /** Aborting this stops the spawned build kit process — meaningful mainly with `watch: true`, which otherwise runs until killed. Used by `runDeploy`'s development-mode build-watcher orchestration to shut every watcher down once the deploy itself ends. */
   signal?: AbortSignal;
+  /** Steps not to run again, shared by a caller running several so each happens once (see `Pipeline`). */
+  done?: Set<string>;
   /** How to report this build's lifecycle to the terminal — ignored for `watch: true` (a long-lived session has no single "done" moment to resolve toward). Defaults to `PlainBuildReporter`; the CLI passes `Host.AnimatedBuildReporter` instead for an interactive terminal. */
   reporter?: BuildReporter;
 }
@@ -33,9 +37,10 @@ export interface RunBuildOptions {
  * by side, a one-shot build one after the other. The code is the first unit's
  * that fails, or 0.
  */
-export async function runBuild(
+export async function buildApp(
   name: string,
   options: RunBuildOptions,
+  needs: readonly Need[],
   ports: Ports,
 ): Promise<number> {
   const repoRoot = await ports.repo.findRepoRoot();
@@ -49,15 +54,15 @@ export async function runBuild(
     : (await integrationKitsOf(repoRoot, name)).map((kit) =>
       integrationOf(name, kit)
     );
-  if (units.length === 0) return await runUnit(name, options, ports);
+  if (units.length === 0) return await runUnit(name, options, needs, ports);
   if (options.watch) {
     const codes = await Promise.all(
-      units.map((unit) => runUnit(unit, options, ports)),
+      units.map((unit) => runUnit(unit, options, needs, ports)),
     );
     return codes.find((code) => code !== 0) ?? 0;
   }
   for (const unit of units) {
-    const code = await runUnit(unit, options, ports);
+    const code = await runUnit(unit, options, needs, ports);
     if (code !== 0) return code;
   }
   return 0;
@@ -67,6 +72,7 @@ export async function runBuild(
 async function runUnit(
   name: string,
   options: RunBuildOptions,
+  needs: readonly Need[],
   ports: Ports,
 ): Promise<number> {
   const repoRoot = await ports.repo.findRepoRoot();
@@ -105,27 +111,14 @@ async function runUnit(
   const optionsArgs = appConfig.options
     ? ["--options", JSON.stringify(appConfig.options)]
     : [];
-  const denoExe = await ports.denoExe.resolveDenoExecutable();
 
   const progress = options.watch
     ? undefined
     : (options.reporter ?? new PlainBuildReporter()).building(name);
 
-  // --minimum-dependency-age 0: this project's own kits depend on
-  // @ensemble/*/@duesabati/* first-party packages, which Deno's default 24h
-  // minimum dependency age (a supply-chain mitigation aimed at unfamiliar
-  // third-party deps) would otherwise block from resolving right after a
-  // fresh release — scoped to just this invocation, not the user's own
-  // project-wide deno.json policy.
-  const code = await ports.process.run(
-    denoExe,
+  const code = await new KitProcess(kitDir, ports).run(
+    "main.ts",
     [
-      "run",
-      "-A",
-      "-q",
-      "--minimum-dependency-age",
-      "0",
-      kitEntry,
       "--source",
       sourceDir,
       "--name",
@@ -141,8 +134,9 @@ async function runUnit(
       ...watchArgs,
       ...targetArgs,
       ...optionsArgs,
+      ...(needs.length > 0 ? ["--needs", JSON.stringify(needs)] : []),
     ],
-    { cwd: kitDir, env: buildVars, signal: options.signal },
+    { env: buildVars, signal: options.signal },
   );
 
   if (code === 0) progress?.succeed();

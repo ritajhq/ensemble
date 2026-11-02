@@ -1,0 +1,8 @@
+[workspace]
+resolver = "2"
+members = [
+  "../../../source/apps/mock/cli",
+  "../../../source/apps/mock/desktop/shell",
+  "../../../source/apps/mock/ledger",
+  "../../../source/apps/mock/rounding",
+]
