@@ -115,7 +115,10 @@ for (
   });
 
   Deno.test(`KitProcess: ENS_DEBUG keeps the stack of ${label}`, async () => {
-    const { code, stderr } = await runKit(source, { ENS_DEBUG: "1" });
+    const { code, stderr } = await runKit(source, {
+      ENS_DEBUG: "1",
+      NO_COLOR: "1",
+    });
     assertEquals(code, 1);
     assertStringIncludes(stderr, "the reason");
     assertStringIncludes(stderr, "main.ts:");
