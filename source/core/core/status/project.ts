@@ -1,4 +1,5 @@
 import type * as Deploy from "../deploy/index.ts";
+import type * as KitManifest from "../vendor/kit-manifest.ts";
 
 /** Where a vendored kit or library comes from — its own git repository, checked out at `ref` (see `.ensemble/vendor.lock.yml`). */
 export interface Vendoring {
@@ -15,19 +16,10 @@ export interface App {
   readonly integration?: Deploy.Integration;
 }
 
-export const KIT_ROLES = [
-  "build",
-  "pack",
-  "deploy",
-  "lib",
-  "ecosystem",
-] as const;
-export type KitRole = typeof KIT_ROLES[number];
-
 /** A kit installed under `.ensemble/kits/<role>/<name>` — authored in this project, or vendored from its own repository. */
 export interface Kit {
   readonly name: string;
-  readonly role: KitRole;
+  readonly role: KitManifest.Role;
   /** Repo-relative path to the kit's directory. */
   readonly path: string;
   readonly vendored?: Vendoring;

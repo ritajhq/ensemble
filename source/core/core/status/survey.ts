@@ -11,8 +11,6 @@ import type { Builder } from "./builder.ts";
 import {
   type App,
   type Kit,
-  KIT_ROLES,
-  type KitRole,
   type Library,
   type Task,
   type Vendoring,
@@ -69,14 +67,14 @@ export class Survey {
 
   private async kits(vendored: Map<string, Vendoring>): Promise<Kit[]> {
     const kits: Kit[] = [];
-    for (const role of KIT_ROLES) {
+    for (const role of Vendor.KitManifest.ROLES) {
       kits.push(...await this.kitsOf(role, vendored));
     }
     return kits;
   }
 
   private async kitsOf(
-    role: KitRole,
+    role: Vendor.KitManifest.Role,
     vendored: Map<string, Vendoring>,
   ): Promise<Kit[]> {
     const dir = join(this.repoRoot, ".ensemble", "kits", role);

@@ -34,7 +34,7 @@ export class Text extends Core.Status.Builder<string> {
 
   kits(kits: readonly Core.Status.Kit[]): void {
     this.section("Installed kits (.ensemble/kits/<role>/)");
-    for (const role of Core.Status.KIT_ROLES) {
+    for (const role of Core.Vendor.KitManifest.ROLES) {
       const ofRole = kits.filter((kit) => kit.role === role);
       const names = ofRole.map((kit) =>
         `${kit.name}${describeVendoring(kit.vendored)}`

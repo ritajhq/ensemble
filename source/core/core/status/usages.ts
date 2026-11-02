@@ -1,11 +1,12 @@
 import { Builder } from "./builder.ts";
-import type { App, Kit, KitRole, Library, Workload } from "./project.ts";
+import type { Role } from "../vendor/kit-manifest.ts";
+import type { App, Kit, Library, Workload } from "./project.ts";
 
 /** Everything the project declares that names one kit — whatever would break if that kit disappeared. Deploy kits are named on the command line, never in a file, so nothing is ever listed for them. */
 export class KitUsages extends Builder<string[]> {
   private readonly usages: string[] = [];
 
-  constructor(private readonly role: KitRole, private readonly name: string) {
+  constructor(private readonly role: Role, private readonly name: string) {
     super();
   }
 
