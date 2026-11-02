@@ -10,6 +10,7 @@ import { ensureDir, exists, expandGlob } from "@std/fs";
 import { $ } from "@david/dax";
 import { Delegate, type Emitter } from "@duesabati/evento";
 import * as KitSdk from "@ensemble/kit-sdk";
+import { JsxRuntimeCheck } from "./jsx-runtime-check.ts";
 import {
   findRepoRoot,
   resolveDenoExecutable,
@@ -294,6 +295,16 @@ class StagedStylesheet {
 
 const ctx = KitSdk.Build.getContext();
 const kitDir = dirname(fromFileUrl(import.meta.url));
+const entry = join(ctx.source, "main.tsx");
+const repoRoot = await findRepoRoot(ctx.workspace);
+
+// Classic JSX with no React in scope bundles without complaint, then throws as
+// soon as the page loads, so this is the only place left to catch it.
+const jsxProblem = await new JsxRuntimeCheck(repoRoot).problemIn(entry);
+if (jsxProblem !== undefined) {
+  console.error(`react: ${jsxProblem}`);
+  Deno.exit(1);
+}
 
 // target "ssr" produces a hydration bundle (main.js + index.css) for a page
 // a server renders itself — there is no standalone page for this kit to own.
@@ -307,12 +318,10 @@ const [denoExe, tailwindBin] = await Promise.all([
   ensureTailwindBinary(kitDir),
 ]);
 
-const entry = join(ctx.source, "main.tsx");
 const cssEntry = join(ctx.source, "index.css");
 const jsOut = join(ctx.out, "main.js");
 const cssOut = join(ctx.out, "index.css");
 
-const repoRoot = await findRepoRoot(ctx.workspace);
 const stylesheet = new StagedStylesheet(
   cssEntry,
   repoRoot,
