@@ -1,3 +1,43 @@
+## [0.63.0] - 2026-11-02
+
+### 🚀 Features
+
+- *(core/core)* [**breaking**] Replace the kit manifest's kitSdk with a protocol version
+- *(core/core)* Manage each language's packages through an Ecosystem kit role
+- *(core/core)* Let ens init choose ecosystems and keep their files under source/
+- *(core/core)* Let builds declare needs and pack kits receive the release version
+- *(core/core)* [**breaking**] Keep every language's workspace files under .ensemble
+- *(core/core)* Let builds and packs declare needs on each other in config.yaml
+- *(core/core)* Pin ecosystem tool versions and publish core libraries in dependency order
+
+### 🐛 Bug Fixes
+
+- *(core/core)* Keep secrets.env when destroying a deployment
+- *(core/core)* Refresh a source workspace's lockfile when stamping a release
+- *(core/core)* Honour negated workspace patterns when listing Deno members
+- *(core/core)* Install kits and libs across volumes
+- *(core/core)* Stop vendoring from writing a .gitignore at the project root
+
+### 📚 Documentation
+
+- *(cli)* List the cargo ecosystem kit among those ens init fetches
+
+### 🚜 Refactor
+
+- *(core/core)* Launch every kit through KitProcess
+- *(core/core)* Gather Deno package handling into DenoWorkspace
+
+### 🧪 Testing
+
+- *(mocks)* Add a Rust mock project and a harness for its goals
+- *(mocks)* Add a mock mixing Rust and Deno in one project
+- *(mock)* Move the mock into source/apps/mock as one project mixing languages
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.62.0
+- Update lockfile
+- *(release)* Bump library versions for 0.63.0
 ## [0.62.0] - 2026-10-24
 
 ### 🚀 Features
