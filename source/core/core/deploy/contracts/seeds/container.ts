@@ -19,6 +19,7 @@ import { ResourceContract } from "../contract.ts";
  * such as an ingress for clients arriving over a VPN; a compute behind a
  * gateway publishes nothing. Host ports are one space shared by every stack
  * on the host, so a second stack publishing the same one fails to start.
+ * Under `ens develop` a kit binds it to loopback, where it binds at all.
  *
  * `development` is accepted here only at the shallow, contract level (must
  * be an object) — the compute `development` block is developer-owned,

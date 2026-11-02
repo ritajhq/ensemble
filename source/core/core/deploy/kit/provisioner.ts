@@ -28,6 +28,8 @@ export interface ResolvedRequest {
   readonly params: Readonly<Record<string, unknown>>;
   readonly values: Readonly<Record<string, ResolvedValue>>;
   readonly secrets: Readonly<Record<string, SecretDeclaration>>;
+  /** True when this render is for a development session (`ens develop`) rather than a deployment. Absent from a core older than the field, which a kit reads as a deployment. */
+  readonly development?: boolean;
 }
 
 /** What provisioning one resource produces: its own artifact fragment, the output values it declares for others to reference — raw values here; whether a given output is static or dynamic is the `Realization`'s call, consulted later by `ReferenceResolver`, not decided by the provisioner's return shape — and any init commands the resource needs run against the target once the target's own apply has brought it up. */

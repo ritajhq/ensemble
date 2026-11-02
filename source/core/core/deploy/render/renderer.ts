@@ -70,7 +70,20 @@ export class Renderer {
     private readonly registry: ContractRegistry,
     private readonly syntax: ReferenceSyntax = new ReferenceParser(),
     private readonly declared: DeclaredValues = new DeclaredValues(),
+    private readonly development: boolean = false,
   ) {}
+
+  /** This renderer, telling every provisioner the render is for a development session. */
+  forDevelopment(): Renderer {
+    return new Renderer(
+      this.referenceResolver,
+      this.releaseLocator,
+      this.registry,
+      this.syntax,
+      this.declared,
+      true,
+    );
+  }
 
   async render(
     workload: Workload,
@@ -177,6 +190,7 @@ export class Renderer {
       params,
       values: request.values,
       secrets: workload.secrets ?? {},
+      ...(this.development ? { development: true } : {}),
     });
 
     this.validateOutputs(id, request.type, outcome.outputs);

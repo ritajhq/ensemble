@@ -188,6 +188,50 @@ Deno.test("Renderer.render: bakes the release sugar into the compute's image, pe
   assertEquals(image(local.fragments), "ens-local/web:dev");
 });
 
+/** The `development` each provisioner of a pipeline's render was told. */
+async function developmentSeen(
+  rendering: (renderer: Renderer) => Renderer,
+): Promise<(boolean | undefined)[]> {
+  const { renderer, workload, requests, selections, graph } = buildPipeline(
+    APPENDIX_A,
+  );
+  const seen: (boolean | undefined)[] = [];
+  const recording = new Map(
+    [...selections].map(([key, selection]) => [key, {
+      ...selection,
+      provisioner: {
+        ...selection.provisioner,
+        provision: (request: ResolvedRequest) => {
+          seen.push(request.development);
+          return selection.provisioner.provision!(request);
+        },
+      },
+    }]),
+  );
+  await rendering(renderer).render(
+    workload,
+    requests,
+    recording,
+    graph,
+    "published",
+  );
+  return seen;
+}
+
+Deno.test("Renderer.render: a deployment's render says nothing about development", async () => {
+  assertEquals(await developmentSeen((renderer) => renderer), [
+    undefined,
+    undefined,
+  ]);
+});
+
+Deno.test("Renderer.forDevelopment: tells every provisioner", async () => {
+  assertEquals(
+    await developmentSeen((renderer) => renderer.forDevelopment()),
+    [true, true],
+  );
+});
+
 Deno.test("Renderer.render: fragments appear in dependency order (database before compute)", async () => {
   const { renderer, workload, requests, selections, graph } = buildPipeline(
     APPENDIX_A,

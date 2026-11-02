@@ -35,9 +35,9 @@ its `contents` under the rule's `path`.
 ## What `ens develop` adds
 
 A development run renders the same topology as any other:
-`ens deploy <name>
-compose --artifacts local --eject` shows exactly what
-`ens develop` brings up. What it adds is around the render, in the kit's watch:
+`ens deploy <name> compose --artifacts local --eject` shows what `ens develop`
+brings up, but for which interface a published port binds to. What it adds is
+around the render, in the kit's watch:
 
 - the resource's `development.sync` / `sync+restart` rules, kept current while
   it runs;
@@ -62,6 +62,12 @@ when `AWS_ENDPOINT_URL` points at this machine) are the kit's _runtime_:
 `ens develop` brings it up when none is running. `ens develop --no-runtime`, or
 `runtime: false` under `deploy.<name>.development` in `.ensemble/config.yaml`,
 leaves it to you.
+
+On `compose`, a compute's `publish` ports bind to loopback under `ens develop`
+(`127.0.0.1:<host>:<container>`), so they answer at `localhost` on this machine
+and to nothing else on its network. A plain `ens deploy` binds them to every
+interface, as a host serving others needs. The local proxy stays on every
+interface, since it's what the hosts a manifest describes resolve to.
 
 A value only development sets (a frontend's live reload, say) is a manifest
 variable like any other. `ens develop` reads `ci/<name>/dev.env` for it, or the

@@ -153,6 +153,7 @@ export function containerProvisioner(): KitSdk.Deploy.Provisioner {
       const published = publishedPorts(
         request.params.publish,
         request.params.ports,
+        request.development,
       );
       const hostPorts = published.entries;
       return {

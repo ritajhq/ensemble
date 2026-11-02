@@ -4,11 +4,15 @@
  * address under `ens deploy`, where nothing is published by default. Each name
  * must be one of the compute's declared `ports` — the container side comes
  * from there, so a manifest never states a container port twice. A host port
- * may arrive as a string (a `${variables.*}` reference resolves to one).
+ * may arrive as a string (a `${variables.*}` reference resolves to one). A
+ * development session binds it to loopback, since a developer's machine sits on
+ * networks a deployment's host doesn't, and every interface on Docker's side
+ * means past the host's own firewall.
  */
 export function publishedPorts(
   publish: unknown,
   ports: unknown,
+  development = false,
 ): { entries: string[]; containerPorts: number[] } {
   const entries: string[] = [];
   const containerPorts: number[] = [];
@@ -34,7 +38,9 @@ export function publishedPorts(
         }).`,
       );
     }
-    entries.push(`${hostPort}:${container}`);
+    entries.push(
+      `${development ? "127.0.0.1:" : ""}${hostPort}:${container}`,
+    );
     containerPorts.push(container);
   }
   return { entries, containerPorts };

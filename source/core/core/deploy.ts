@@ -180,7 +180,7 @@ export async function runDeploy(
   const scope = options.instance ? options.instance.scope(name) : name;
   const deploymentName = deploymentNameFor(repoRoot, scope);
 
-  const renderer = new Deploy.Render.Renderer(
+  const deploymentRenderer = new Deploy.Render.Renderer(
     new Deploy.Render.ReferenceResolver(
       await target.kit.realization(),
       deploymentName,
@@ -188,6 +188,11 @@ export async function runDeploy(
     releaseLocator,
     registry,
   );
+  // What `ens develop` is: `--eject` and `--plan` ignore `--watch`, and show
+  // what a deployment would do.
+  const renderer = options.watch && options.termination === "apply"
+    ? deploymentRenderer.forDevelopment()
+    : deploymentRenderer;
 
   const outputsDir = join(repoRoot, "source", "artifacts", "deploy", scope);
   const sink = new Deploy.Terminations.FileArtifactSink(outputsDir);
