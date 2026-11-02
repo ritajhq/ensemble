@@ -16,6 +16,18 @@ ens build <name>
 
 Output is written to `source/artifacts/<name>`.
 
+An app whose build reads another's output declares it, and `ens build` and
+`ens pack` then build that app first:
+
+```yaml
+# .ensemble/config.yaml
+build:
+  desktop/shell:
+    kit: tauri
+    needs:
+      - desktop/web
+```
+
 ```sh
 ens build web -m production
 ens build web -w

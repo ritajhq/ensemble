@@ -2,7 +2,7 @@ import { join } from "@std/path";
 import { ensureDir, exists } from "@std/fs";
 import { load as loadEnv } from "@std/dotenv";
 import type { Ports } from "./ports.ts";
-import { EnsembleConfigStore } from "./config.ts";
+import { type BuildAppConfig, EnsembleConfigStore } from "./config.ts";
 import type * as Build from "./build-context.ts";
 import type { BuildReporter } from "./build-reporter.ts";
 import { PlainBuildReporter } from "./plain-build-reporter.ts";
@@ -21,8 +21,56 @@ export interface RunBuildOptions {
   varOverrides?: Record<string, string>;
   /** Aborting this stops the spawned build kit process — meaningful mainly with `watch: true`, which otherwise runs until killed. Used by `runDeploy`'s development-mode build-watcher orchestration to shut every watcher down once the deploy itself ends. */
   signal?: AbortSignal;
+  /** Apps not to build again, because they're fresh already or something else keeps them so. Each app this run builds successfully is added, so a caller building several shares one set. */
+  built?: Set<string>;
   /** How to report this build's lifecycle to the terminal — ignored for `watch: true` (a long-lived session has no single "done" moment to resolve toward). Defaults to `PlainBuildReporter`; the CLI passes `Host.AnimatedBuildReporter` instead for an interactive terminal. */
   reporter?: BuildReporter;
+}
+
+/** The order `name`'s `needs:` must be built in, deepest first, without `name` itself. */
+function prerequisitesOf(
+  name: string,
+  build: Record<string, BuildAppConfig>,
+): string[] {
+  const ordered: string[] = [];
+  const visit = (app: string, path: readonly string[]): void => {
+    for (const need of build[app]?.needs ?? []) {
+      if (path.includes(need)) {
+        throw new Error(
+          `Build needs form a cycle: ${[...path, need].join(" -> ")}.`,
+        );
+      }
+      visit(need, [...path, need]);
+      if (!ordered.includes(need)) ordered.push(need);
+    }
+  };
+  visit(name, [name]);
+  return ordered;
+}
+
+/**
+ * Builds what `name` names, after whatever it declares it `needs:`: only
+ * `name` itself watches, since a needed app has to be there before it starts.
+ * The code is the first failure's, or 0.
+ */
+export async function runBuild(
+  name: string,
+  options: RunBuildOptions,
+  ports: Ports,
+): Promise<number> {
+  const repoRoot = await ports.repo.findRepoRoot();
+  const config = await new EnsembleConfigStore(repoRoot).loadOrEmpty();
+  const built = options.built ?? new Set<string>();
+  for (const need of prerequisitesOf(name, config.build ?? {})) {
+    if (built.has(need)) continue;
+    const code = await buildNamed(need, { ...options, watch: false }, ports);
+    if (code !== 0) return code;
+    built.add(need);
+  }
+  if (built.has(name)) return 0;
+  const code = await buildNamed(name, options, ports);
+  if (code === 0) built.add(name);
+  return code;
 }
 
 /**
@@ -34,7 +82,7 @@ export interface RunBuildOptions {
  * by side, a one-shot build one after the other. The code is the first unit's
  * that fails, or 0.
  */
-export async function runBuild(
+async function buildNamed(
   name: string,
   options: RunBuildOptions,
   ports: Ports,

@@ -33,9 +33,9 @@ React SPA, with an `ssr` variant via
 ## Pack kits
 
 A pack kit is also a subprocess, invoked with a positional ship directory plus
-`--name --output-name --artifacts --packages --mode --vars <json>
-[--watch]`. It
-packages a built app into a deployable artifact — a Docker image, an OCI
+`--name --output-name --artifacts --packages --workspace --mode --vars <json>
+[--version <v>] [--watch]`.
+It packages a built app into a deployable artifact — a Docker image, an OCI
 tarball, a compiled binary. A pack kit declares its own `modes` in a `kit.yml`
 manifest (mode name → kit-internal flags).
 

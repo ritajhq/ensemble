@@ -21,6 +21,8 @@ export interface BuildConfig {
  */
 export interface BuildAppConfig extends Partial<BuildConfig> {
   integrations?: Record<string, BuildConfig>;
+  /** Apps whose output this one's build reads (e.g. a desktop shell embedding its web app), built first whenever this one is. */
+  needs?: string[];
 }
 
 /** A named shell command, so `ens` can announce which hook is running without printing its whole script. */

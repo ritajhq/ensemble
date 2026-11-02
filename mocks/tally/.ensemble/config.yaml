@@ -7,6 +7,8 @@ build:
     kit: static-page
   tally-desktop/shell:
     kit: tauri
+    needs:
+      - tally-desktop/web
 publish:
   core:
     - name: ledger

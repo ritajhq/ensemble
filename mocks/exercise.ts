@@ -118,17 +118,27 @@ class Sandbox {
 
 /**
  * Copies this working tree's ecosystem kits into a mock that declares them, as
- * `ens kit install` would, linking them to this tree's kit SDK: they need its
- * `Ecosystem` contract, which a published release may not carry yet.
+ * `ens kit install` would, and links every kit to this tree's kit SDK: they need
+ * contracts a published release may not carry yet.
  */
 async function vendorEcosystemKits(root: string): Promise<void> {
   const config = await Deno.readTextFile(
     join(root, ".ensemble", "config.yaml"),
   );
-  if (!config.includes("- cargo")) return;
-  const kit = join(root, ".ensemble", "kits", "ecosystem", "cargo");
-  await copy(join(REPO, ".ensemble", "kits", "ecosystem", "cargo"), kit);
-  await linkToWorkingTree(kit);
+  if (config.includes("- cargo")) {
+    await copy(
+      join(REPO, ".ensemble", "kits", "ecosystem", "cargo"),
+      join(root, ".ensemble", "kits", "ecosystem", "cargo"),
+    );
+  }
+  await linkKitsToWorkingTree(join(root, ".ensemble", "kits"));
+}
+
+async function linkKitsToWorkingTree(kits: string): Promise<void> {
+  const manifests = expandGlob("*/*/deno.json", { root: kits });
+  for await (const manifest of manifests) {
+    await linkToWorkingTree(dirname(manifest.path));
+  }
 }
 
 async function linkToWorkingTree(kit: string): Promise<void> {
@@ -178,7 +188,7 @@ async function initialize(
   const repository = join(parent, "kits-repo");
   const kits = join(repository, ".ensemble", "kits");
   await copy(join(REPO, ".ensemble", "kits"), kits);
-  await linkToWorkingTree(join(kits, "ecosystem", "cargo"));
+  await linkKitsToWorkingTree(kits);
   await sandbox.run("git", ["init", "-q", "-b", "main"], repository);
   await sandbox.run("git", ["add", "."], repository);
   await sandbox.run("git", ["commit", "-q", "-m", "feat: kits"], repository);
@@ -259,6 +269,22 @@ const SCENARIOS: readonly Scenario[] = [
       const debs = await packaged(sandbox, "*.deb");
       if (debs.length === 0) return { gap: "no .deb produced" };
       return { note: debs.join(", ") };
+    },
+  },
+  {
+    name: "pack-version",
+    goal: "ens pack --version names the .deb after the release, not Cargo.toml",
+    async run(sandbox) {
+      const packed = await sandbox.ens(
+        "pack",
+        "tally-desktop",
+        "tauri",
+        "--version",
+        "0.3.0",
+      );
+      if (packed.code !== 0) return failed("ens pack", packed);
+      const debs = await packaged(sandbox, "Tally_0.3.0_*.deb");
+      return debs.length > 0 ? {} : { gap: "no Tally_0.3.0 .deb produced" };
     },
   },
   {

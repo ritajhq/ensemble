@@ -425,6 +425,7 @@ async function runReleaseCeremony(
     try {
       await ceremony.packShips(
         shipsToPack,
+        tag,
         {
           pack: new Host.AnimatedPackReporter(),
           build: new Host.AnimatedBuildReporter(),

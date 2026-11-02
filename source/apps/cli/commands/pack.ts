@@ -20,6 +20,10 @@ export const packCommand = new Command()
     "Repack on source changes. Only supported by kits that declare watch support (e.g. deno.compile).",
   )
   .option(
+    "--version <version:string>",
+    "The version being released, for a kit whose artifact carries one.",
+  )
+  .option(
     "--verbose",
     "Show the kit's own build-tool output (e.g. docker buildx build's progress log) instead of hiding it behind the pack spinner.",
   )
@@ -31,10 +35,15 @@ export const packCommand = new Command()
     },
   )
   .action(
-    async ({ mode, outputName, watch, verbose, var: vars }, ship, kit) => {
+    async (
+      { mode, outputName, version, watch, verbose, var: vars },
+      ship,
+      kit,
+    ) => {
       const code = await runPack(ship, kit, {
         mode,
         outputName,
+        version,
         watch: Boolean(watch),
         verbose: Boolean(verbose),
         varOverrides: CliUtil.parseVarOverrides(vars ?? []),

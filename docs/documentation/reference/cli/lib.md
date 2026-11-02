@@ -10,7 +10,11 @@ Scaffold a new library at `source/libs/<name>`.
 
 ```sh
 ens lib new my-utils
+ens lib new my-utils --ecosystem cargo
 ```
+
+- `--ecosystem <name>` — which of the project's ecosystems the library belongs
+  to. Defaults to the first it declares.
 
 ## `ens lib install <url>`
 

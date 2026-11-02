@@ -553,6 +553,7 @@ export class ReleaseCeremony {
    */
   async packShips(
     ships: readonly ShipRelease[],
+    version: string,
     reporters: { pack?: PackReporter; build?: BuildReporter } = {},
     onPacked?: (ship: ShipRelease) => void | Promise<void>,
   ): Promise<void> {
@@ -560,6 +561,7 @@ export class ReleaseCeremony {
       const packCode = await runPack(ship.name, ship.kit, {
         mode: ship.mode,
         outputName: ship.outputName,
+        version,
         reporter: reporters.pack,
         buildReporter: reporters.build,
       }, this.ports);

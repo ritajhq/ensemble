@@ -142,7 +142,7 @@ async function tagAndRunCeremony(
   await release.createReleaseTag(preview);
 
   const ceremony = new Core.Release.ReleaseCeremony(repoRoot, ports);
-  if (ships.length > 0) await ceremony.packShips(ships);
+  if (ships.length > 0) await ceremony.packShips(ships, preview.tag);
   await release.pushCommits(remote);
   await release.pushTag(preview.tag, remote);
   if (ships.length > 0) await ceremony.publishShips(ships, preview.tag);
@@ -358,7 +358,7 @@ export class ReleaseTools {
 
           const ceremony = new Core.Release.ReleaseCeremony(repoRoot, ports);
           await ceremony.authorizePublishes(ships, coreLibs, tag);
-          if (ships.length > 0) await ceremony.packShips(ships);
+          if (ships.length > 0) await ceremony.packShips(ships, tag);
           await release.pushCommits(remote);
           await release.pushTag(tag, remote);
           if (ships.length > 0) await ceremony.publishShips(ships, tag);

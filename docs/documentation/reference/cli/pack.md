@@ -15,6 +15,8 @@ ens pack <ship> <kit>
   archive name). Defaults to the ship name.
 - `-w, --watch` — repack on source changes. Only supported by kits that declare
   watch support (e.g. `deno.compile`).
+- `--version <version>` — the version being released, for a kit whose artifact
+  carries one. `ens release` passes its tag.
 - `--verbose` — show the kit's own build-tool output (e.g.
   `docker buildx
   build`'s progress log) instead of hiding it behind the pack

@@ -22,6 +22,9 @@ export class PackTools {
           outputName: z.string().optional().describe(
             "Name to give the packed output (e.g. an image tag). Defaults to the ship name.",
           ),
+          version: z.string().optional().describe(
+            "The version being released, for a kit whose artifact carries one.",
+          ),
           verbose: z.boolean().default(false).describe(
             "Include the kit's own build-tool output instead of hiding it behind the pack spinner.",
           ),
@@ -30,11 +33,12 @@ export class PackTools {
           ),
         },
       },
-      ({ ship, kit, mode, outputName, verbose, varOverrides }) =>
+      ({ ship, kit, mode, outputName, version, verbose, varOverrides }) =>
         ToolResult.from(async () => {
           const code = await runPack(ship, kit, {
             mode,
             outputName,
+            version,
             watch: false,
             verbose,
             varOverrides,

@@ -1,6 +1,5 @@
-# Built in this order: the shell embeds the web app's output.
+# The shell embeds the web app's output, which its build entry declares it needs.
 apps:
-  - tally-desktop/web
   - tally-desktop/shell
 bundles:
   - deb
