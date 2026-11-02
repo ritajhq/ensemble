@@ -1,3 +1,35 @@
+## [0.64.0] - 2026-11-02
+
+### 🚀 Features
+
+- *(kits)* Scaffold a hello-world shell from the tauri build kit
+- *(kits)* Derive a tauri shell's bundle identifier from the origin remote or the project's name
+- *(core/core)* Let a build kit declare its ecosystem, and have ens app create add it to the project
+
+### 🐛 Bug Fixes
+
+- *(kits)* Keep deno.compile lockfiles under .ensemble, free of what a release stamps
+- *(cli)* Register kit and lib argument types on the subcommands that use them
+- *(kits)* Seed the react scaffold's compiler options into the project's shared settings
+- *(core/core)* Let ens kit new and ensemble_kit_new scaffold a working ecosystem kit
+- *(kits)* Fail a react build that would compile to classic JSX with no React in scope
+- *(core/core)* Show a failing kit's message alone, keeping its exit code and leaving the rest to ENS_DEBUG
+- *(kits)* Move a crate's own Cargo.lock into the cargo workspace's, keeping its pins
+- *(kits)* Bind a compute's published ports to loopback under ens develop
+
+### 🚜 Refactor
+
+- *(core/core)* Source ens status's kit roles from the one role list
+
+### 🧪 Testing
+
+- *(core/core)* Keep the ENS_DEBUG stack assertions free of colour codes
+
+### ⚙️ Miscellaneous Tasks
+
+- Update lockfile
+- *(changelog)* Update for 0.63.0
+- *(release)* Bump library versions for 0.64.0
 ## [0.63.0] - 2026-11-02
 
 ### 🚀 Features
