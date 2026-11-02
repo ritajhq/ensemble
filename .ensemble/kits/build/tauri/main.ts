@@ -8,6 +8,16 @@ const TAURI_CLI = "npm:@tauri-apps/cli@2.12.4";
 const ctx = KitSdk.Build.getContext();
 if (ctx.watch) throw new Error("tauri: --watch isn't supported by this kit.");
 
+// Stated rather than left to Cargo: without the cargo ecosystem nothing makes
+// this crate a member of that workspace, and its target would sit beside it.
+const targetDir = Deno.env.get("CARGO_TARGET_DIR") ??
+  join(
+    await KitSdk.findRepoRoot(ctx.workspace),
+    ".ensemble",
+    "ecosystems",
+    "cargo",
+    "target",
+  );
 const deno = await KitSdk.resolveDenoExecutable();
 const { code } = await new Deno.Command(deno, {
   args: [
@@ -23,6 +33,7 @@ const { code } = await new Deno.Command(deno, {
     ...(ctx.mode === "production" ? [] : ["--debug"]),
   ],
   cwd: ctx.source,
+  env: { CARGO_TARGET_DIR: targetDir },
 }).spawn().status;
 if (code !== 0) Deno.exit(code);
 
@@ -31,14 +42,6 @@ const manifest = parseToml(
 ) as { package: { name: string } };
 const crate = manifest.package.name;
 const profile = ctx.mode === "production" ? "release" : "debug";
-const targetDir = Deno.env.get("CARGO_TARGET_DIR") ??
-  join(
-    await KitSdk.findRepoRoot(ctx.workspace),
-    ".ensemble",
-    "ecosystems",
-    "cargo",
-    "target",
-  );
 await ensureDir(ctx.out);
 await copy(join(targetDir, profile, crate), join(ctx.out, crate), {
   overwrite: true,
