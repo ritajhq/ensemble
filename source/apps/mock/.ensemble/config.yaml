@@ -1,0 +1,29 @@
+ecosystems:
+  - deno
+  - cargo
+build:
+  api:
+    kit: deno.bundle
+  tally-cli:
+    kit: cargo
+  tally-desktop/web:
+    kit: static-page
+  tally-desktop/shell:
+    kit: tauri
+    needs:
+      - tally-desktop/web
+publish:
+  core:
+    - name: ledger
+      package: tally-ledger
+      publish:
+        - kit: crates
+    - name: ink
+      package: "@tally/ink"
+      publish:
+        - kit: local
+  libs:
+    - name: rounding
+      package: tally-rounding
+      publish:
+        - kit: crates

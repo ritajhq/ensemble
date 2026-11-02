@@ -25,6 +25,7 @@
   },
   "workspace": [
     "source/apps/**",
+    "!source/apps/mock/**",
     "source/core/**",
     "source/libs/**",
     ".ensemble/kits/**"

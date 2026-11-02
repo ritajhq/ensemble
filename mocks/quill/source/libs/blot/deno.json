@@ -1,8 +1,0 @@
-{
-  "name": "@quill/blot",
-  "version": "0.1.0",
-  "exports": "./index.ts",
-  "imports": {
-    "@quill/ink": "jsr:@quill/ink"
-  }
-}

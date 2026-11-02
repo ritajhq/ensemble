@@ -1,8 +1,0 @@
-[package]
-name = "atlas-cli"
-version = "0.1.0"
-edition = "2021"
-publish = false
-
-[dependencies]
-atlas-ledger = { path = "../../core/ledger", version = "0.1.0" }

@@ -1,5 +1,0 @@
-{
-  "imports": {
-    "@quill/ink": "jsr:@quill/ink@^0.1.0"
-  }
-}
