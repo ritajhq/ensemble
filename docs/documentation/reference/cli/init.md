@@ -62,12 +62,13 @@ in [Workspace layout](../../concepts/workspace-layout.md).
 `.ensemble/kits/` holds a copy of the built-in kits, so the project owns the
 versions it builds, packs and deploys with:
 
-| Role   | Kits                               |
-| ------ | ---------------------------------- |
-| build  | `deno.bundle`, `react`             |
-| pack   | `deno.compile`, `docker`, `vscode` |
-| deploy | `aws`, `cloudflare`, `compose`     |
-| lib    | `jsr`                              |
+| Role      | Kits                               |
+| --------- | ---------------------------------- |
+| build     | `deno.bundle`, `react`             |
+| pack      | `deno.compile`, `docker`, `vscode` |
+| deploy    | `aws`, `cloudflare`, `compose`     |
+| lib       | `jsr`                              |
+| ecosystem | `cargo`                            |
 
 They come from the `ens` release you ran: `ens init` fetches the kits at the git
 tag of its own version, so they match the CLI that created them. A development
