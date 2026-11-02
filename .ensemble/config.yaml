@@ -1,3 +1,6 @@
+ecosystems:
+  - deno
+  - cargo
 build:
   cli:
     kit: deno.bundle
@@ -20,6 +23,16 @@ build:
       format: cjs
       external:
         - vscode
+  mock/api:
+    kit: deno.bundle
+  mock/cli:
+    kit: cargo
+  mock/desktop/web:
+    kit: static-page
+  mock/desktop/shell:
+    kit: tauri
+    needs:
+      - mock/desktop/web
 deploy:
   platform:
     kit: compose

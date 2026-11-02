@@ -8,6 +8,7 @@ import { deliveryCommand } from "./commands/delivery.ts";
 import { deployCommand } from "./commands/deploy.ts";
 import { destroyCommand } from "./commands/destroy.ts";
 import { developCommand } from "./commands/develop.ts";
+import { execCommand, syncCommand } from "./commands/exec.ts";
 import { initCommand } from "./commands/init.ts";
 import { kitCommand } from "./commands/kit.ts";
 import { libCommand } from "./commands/lib.ts";
@@ -31,6 +32,8 @@ try {
     .version(version)
     .description("Ensemble — from source code to deployment, in one CLI.")
     .command("init", initCommand)
+    .command("sync", syncCommand)
+    .command("exec", execCommand)
     .command("app", appCommand)
     .command("kit", kitCommand)
     .command("lib", libCommand)

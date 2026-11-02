@@ -1,7 +1,8 @@
 import { basename, dirname, join, SEPARATOR } from "@std/path";
 import { exists } from "@std/fs";
 import { Delegate, type Emitter } from "@duesabati/evento";
-import { findWorkspaceRoot, readMemberPatterns } from "./workspace-members.ts";
+import { Ecosystems } from "@ensemble/core";
+import { readMemberPatterns } from "./workspace-members.ts";
 
 const CONFIG_FILE_NAMES = new Set(["deno.json", "deno.jsonc"]);
 
@@ -41,19 +42,29 @@ export class WorkspaceConfig {
 
   private notify(): void {
     clearTimeout(this.pending);
-    this.pending = setTimeout(() => this.change.Invoke(), SETTLE_DELAY_MS);
+    this.pending = setTimeout(() => this.settled(), SETTLE_DELAY_MS);
   }
 
-  /** The workspace's root `deno.json` plus the static prefix of every `workspace` glob (`source/core/**` → `source/core`). */
+  /** The generated config has to catch up first: it's what a restarted build reads. */
+  private async settled(): Promise<void> {
+    await new Ecosystems.DenoWorkspace(this.repoRoot).sync();
+    this.change.Invoke();
+  }
+
+  /** A root `deno.json` plus the static prefix of every `workspace` glob (`source/core/**` → `source/core`), or, in a project without one, wherever packages live. */
   private async watchedPaths(): Promise<string[]> {
-    const root = await findWorkspaceRoot(this.repoRoot);
-    const rootConfig = join(root, "deno.json");
-    const members = (await readMemberPatterns(root)).filter((pattern) =>
-      !pattern.startsWith("!")
-    );
-    const bases = members.map((pattern) => join(root, staticPrefix(pattern)));
+    const rootConfig = join(this.repoRoot, "deno.json");
+    const members = (await readMemberPatterns(this.repoRoot)).filter((
+      pattern,
+    ) => !pattern.startsWith("!"));
+    const bases = await exists(rootConfig, { isFile: true })
+      ? [
+        rootConfig,
+        ...members.map((pattern) => join(this.repoRoot, staticPrefix(pattern))),
+      ]
+      : [join(this.repoRoot, "source")];
     const existing = [];
-    for (const path of new Set([rootConfig, ...bases])) {
+    for (const path of new Set(bases)) {
       if (await exists(path)) existing.push(path);
     }
     return existing;

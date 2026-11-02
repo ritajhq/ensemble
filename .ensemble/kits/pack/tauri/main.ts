@@ -11,11 +11,12 @@ const ship = parseYaml(
 ) as { apps: string[]; bundles: string[] };
 
 const shell = join(ctx.workspace, "apps", ship.apps.at(-1)!);
+const repoRoot = await KitSdk.findRepoRoot(ctx.workspace);
 
 // Cargo's target directory outlives a run, and every version's bundles would
 // otherwise be packaged alongside this one's.
 const targetDir = Deno.env.get("CARGO_TARGET_DIR") ??
-  join(ctx.workspace, "target");
+  join(repoRoot, ".ensemble", "ecosystems", "cargo", "target");
 const bundles = join(targetDir, "release", "bundle");
 await Deno.remove(bundles, { recursive: true }).catch(() => {});
 

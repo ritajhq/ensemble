@@ -6,6 +6,8 @@ const INHERITED_VERSION = /^\s*version\s*\.\s*workspace\s*=/;
 const DEPENDENCY_LINE = /^(\s*)([\w-]+)(\s*=\s*)(.*)$/;
 const INLINE_PACKAGE = /\bpackage\s*=\s*"([^"]+)"/;
 const INLINE_VERSION = /\bversion\s*=\s*"[^"]*"/;
+const WORKSPACE_LINE = /^\s*workspace\s*=/;
+const MEMBERS = /^members\s*=\s*\[[^\]]*\]/m;
 const PACKAGE_LINE = /^\s*package\s*=\s*"([^"]+)"/;
 
 /**
@@ -14,6 +16,34 @@ const PACKAGE_LINE = /^\s*package\s*=\s*"([^"]+)"/;
  */
 export class Manifest {
   constructor(private readonly text: string) {}
+
+  /** The text with `[package]` pointing at the workspace root at `path`, which a crate outside its root's folder has to state. */
+  withWorkspace(path: string): string {
+    const line = `workspace = "${path}"`;
+    const lines = this.text.split("\n");
+    let section = "";
+    let insertAt = -1;
+    for (let index = 0; index < lines.length; index++) {
+      const opened = lines[index].match(SECTION)?.[1];
+      if (opened !== undefined) section = opened;
+      if (section !== "package") continue;
+      if (opened !== undefined) insertAt = index + 1;
+      if (WORKSPACE_LINE.test(lines[index])) {
+        lines[index] = line;
+        return lines.join("\n");
+      }
+      if (lines[index].trim() !== "") insertAt = index + 1;
+    }
+    if (insertAt === -1) return this.text;
+    lines.splice(insertAt, 0, line);
+    return lines.join("\n");
+  }
+
+  /** The workspace root's text with its `members` set to `members`. */
+  withMembers(members: readonly string[]): string {
+    const listed = members.map((member) => `  "${member}",\n`).join("");
+    return this.text.replace(MEMBERS, `members = [\n${listed}]`);
+  }
 
   /** The text with `[package]`'s version set to `version`. */
   withVersion(version: string): string {

@@ -1,2 +1,2 @@
 apps:
-  - tally-cli
+  - mock/cli

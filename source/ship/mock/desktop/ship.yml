@@ -1,5 +1,5 @@
 # The shell embeds the web app's output, which its build entry declares it needs.
 apps:
-  - tally-desktop/shell
+  - mock/desktop/shell
 bundles:
   - deb

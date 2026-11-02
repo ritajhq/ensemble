@@ -12,7 +12,13 @@ await copy(join(ctx.source, "public"), ctx.out, { overwrite: true });
 
 const deno = await KitSdk.resolveDenoExecutable();
 const { code } = await new Deno.Command(deno, {
-  args: ["bundle", "-q", "main.ts", "-o", join(ctx.out, "main.js")],
-  cwd: ctx.source,
+  args: [
+    "bundle",
+    "-q",
+    ...await KitSdk.denoConfigArgs(await KitSdk.findRepoRoot(ctx.workspace)),
+    join(ctx.source, "main.ts"),
+    "-o",
+    join(ctx.out, "main.js"),
+  ],
 }).spawn().status;
 Deno.exit(code);

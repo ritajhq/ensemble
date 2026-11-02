@@ -1,21 +1,21 @@
 import { dirname, join } from "@std/path";
-import { exists, expandGlob } from "@std/fs";
+import { exists } from "@std/fs";
+import { Ecosystems } from "@ensemble/core";
 
-/** Where the workspace's root `deno.json` lives: `source/` in a new project, the repository's root in an older one. */
-export async function findWorkspaceRoot(repoRoot: string): Promise<string> {
-  const legacy = await exists(join(repoRoot, "deno.json"), { isFile: true });
-  return legacy ? repoRoot : join(repoRoot, "source");
-}
-
-/** The `workspace` globs from the workspace's root `deno.json` — either form Deno accepts (a list, or `{ members: [...] }`). */
-export async function readMemberPatterns(root: string): Promise<string[]> {
-  const rootConfig = join(root, "deno.json");
+/** The `workspace` globs from a root `deno.json` — either form Deno accepts (a list, or `{ members: [...] }`) — or none, in a project without one. */
+export async function readMemberPatterns(repoRoot: string): Promise<string[]> {
+  const rootConfig = join(repoRoot, "deno.json");
   if (!await exists(rootConfig, { isFile: true })) return [];
   const parsed = JSON.parse(await Deno.readTextFile(rootConfig));
   const workspace = parsed?.workspace;
   const patterns = Array.isArray(workspace) ? workspace : workspace?.members;
   if (!Array.isArray(patterns)) return [];
   return patterns.filter((pattern: unknown) => typeof pattern === "string");
+}
+
+/** The flags pointing a `deno` command at the project's generated config, for a kit running one against the project's own code. Empty in a project with a root `deno.json`, which Deno finds by itself. */
+export function denoConfigArgs(repoRoot: string): Promise<string[]> {
+  return new Ecosystems.DenoWorkspace(repoRoot).configArgs();
 }
 
 /** One named workspace member: where it lives and what its `exports` map exposes. */
@@ -45,25 +45,14 @@ export class WorkspaceMembers {
 
   static async load(repoRoot: string): Promise<WorkspaceMembers> {
     const byName = new Map<string, Member>();
-    const root = await findWorkspaceRoot(repoRoot);
-    const patterns = await readMemberPatterns(root);
-    // A `!` pattern takes members back out, as it does for Deno itself.
-    const excluded = patterns.filter((pattern) => pattern.startsWith("!"))
-      .map((pattern) => pattern.slice(1));
-    for (const pattern of patterns) {
-      if (pattern.startsWith("!")) continue;
-      const configs = expandGlob(join(pattern, "deno.json"), {
-        root,
-        exclude: ["**/node_modules/**", ...excluded],
-      });
-      for await (const config of configs) {
-        const parsed = JSON.parse(await Deno.readTextFile(config.path));
-        if (typeof parsed?.name !== "string") continue;
-        byName.set(
-          parsed.name,
-          new Member(dirname(config.path), exportsMap(parsed.exports)),
-        );
-      }
+    const manifests = await new Ecosystems.DenoWorkspace(repoRoot).manifests();
+    for (const manifest of manifests) {
+      const parsed = JSON.parse(await Deno.readTextFile(manifest));
+      if (typeof parsed?.name !== "string") continue;
+      byName.set(
+        parsed.name,
+        new Member(dirname(manifest), exportsMap(parsed.exports)),
+      );
     }
     return new WorkspaceMembers(byName);
   }

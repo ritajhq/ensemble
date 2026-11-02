@@ -30,6 +30,14 @@ if both get packed). `<name>` throughout the CLI (`ens build <app>`,
 `ens config set-build-kit <app> <kit>`, ...) means that full path relative to
 `apps/`, not just the top-level folder.
 
+## Where a language's files go
+
+A package's folder under `source/` holds its code and its own manifest, such as
+`deno.json` or `Cargo.toml`. What usually sits at a monorepo's root, such as a
+workspace root or a lockfile, lives under `.ensemble/ecosystems/<language>`
+instead, so neither the repository's root nor `source/` fills up with tool
+files. See [Ecosystem kits](kits.md#ecosystem-kits).
+
 ## The principles behind the layout
 
 - **Each app is self-contained.** Everything an app needs to build lives under

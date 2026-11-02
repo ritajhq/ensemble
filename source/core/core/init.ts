@@ -48,6 +48,10 @@ const ENSEMBLE_GITIGNORE_TEMPLATE = `config.local.yaml
 release/secrets.env
 release/state/
 /deploy/
+/cache/
+ecosystems/*/target/
+ecosystems/*/node_modules/
+kits/**/deno.lock
 `;
 
 // `!deploy/` *and* `!deploy/**`: un-ignoring the directory alone only lets git
@@ -68,8 +72,6 @@ each live in their own top-level folder. See \`ens --help\` for the full CLI.
 
 ## Workspace structure
 
-- \`source/\` — also holds each language's root files (\`deno.json\`,
-  \`Cargo.toml\`), so nothing specific to one sits at the repository's root.
 - \`source/apps/<name>/\` — one self-contained app per folder. States which build
   kit it uses (\`.ensemble/config.yaml\`), never how that kit builds it.
 - \`source/core/\` — shared code that speaks this project's business logic.
@@ -81,6 +83,9 @@ each live in their own top-level folder. See \`ens --help\` for the full CLI.
 - \`ci/<name>/delivery.yml\` — deploy manifest for the workload of that name.
 - \`docs/\` — the project's documentation.
 - \`.ensemble/kits/{build,pack,deploy,lib,ecosystem}/\` — pluggable kits doing the actual work.
+- \`.ensemble/ecosystems/<language>/\` — each language's workspace files
+  (lockfiles, workspace roots), so that \`source/\` holds only package manifests.
+  Run its tools through \`ens exec\`, e.g. \`ens exec deno test source/core\`.
 - \`.ensemble/config.yaml\` — which kit each app/ship uses (shared, git-tracked).
 - \`.ensemble/config.local.yaml\` — personal default vars (gitignored).
 - \`.ensemble/deploy/<workload>/last-rendered.txt\` — the render cache \`plan\`

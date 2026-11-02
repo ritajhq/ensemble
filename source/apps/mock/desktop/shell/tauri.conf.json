@@ -3,7 +3,7 @@
   "productName": "Tally",
   "identifier": "dev.ritaj.tally",
   "build": {
-    "frontendDist": "../../../artifacts/tally-desktop/web"
+    "frontendDist": "../../../../artifacts/mock/desktop/web"
   },
   "app": {
     "withGlobalTauri": true,

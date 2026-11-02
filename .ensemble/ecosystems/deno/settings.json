@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "deno.ns",
+      "deno.unstable"
+    ],
+    "types": [
+      "npm:@types/react@19",
+      "npm:@types/react-dom@19"
+    ]
+  },
+  "unstable": [
+    "kv"
+  ],
+  "nodeModulesDir": "auto",
+  "imports": {
+    "@std/path": "jsr:@std/path@1.1.6",
+    "@std/fs": "jsr:@std/fs@1.0.24",
+    "@std/yaml": "jsr:@std/yaml@1.1.2",
+    "@david/dax": "jsr:@david/dax@0.42.0"
+  },
+  "tasks": {
+    "cli": "deno run -A --config deno.json ../../../source/apps/cli/main.ts",
+    "compile": "deno task cli pack cli deno.compile -o ens && mkdir -p ../../bin && cp ../../../source/artifacts/packages/ens.exe ../../bin/ens"
+  }
+}

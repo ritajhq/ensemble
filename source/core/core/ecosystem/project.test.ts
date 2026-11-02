@@ -1,5 +1,6 @@
 import { join } from "@std/path";
 import { assertEquals, assertRejects, assertThrows } from "@std/assert";
+import { exists } from "@std/fs";
 import { Project } from "./project.ts";
 import type { Ports } from "../ports.ts";
 
@@ -79,5 +80,28 @@ Deno.test("Project.named: the first declared is the default, and an undeclared o
 
     assertEquals(project.named(), project.named("deno"));
     assertThrows(() => project.named("cargo"), Error, "doesn't declare");
+  });
+});
+
+Deno.test("Project.sync: Deno's config is current before any ecosystem kit is launched through it", async () => {
+  await withProject("ecosystems:\n  - cargo\n  - deno\n", async (repoRoot) => {
+    const kit = join(repoRoot, ".ensemble", "kits", "ecosystem", "cargo");
+    await Deno.mkdir(kit, { recursive: true });
+    await Deno.writeTextFile(join(kit, "main.ts"), "");
+    const config = join(repoRoot, ".ensemble/ecosystems/deno/deno.json");
+    let configExistedForKit = false;
+    const ports = {
+      denoExe: { resolveDenoExecutable: () => Promise.resolve("/bin/deno") },
+      process: {
+        capture: async () => {
+          configExistedForKit = await exists(config);
+          return JSON.stringify({ result: null });
+        },
+      },
+    } as unknown as Pick<Ports, "denoExe" | "process">;
+
+    await (await Project.load(repoRoot, ports)).sync();
+
+    assertEquals(configExistedForKit, true);
   });
 });

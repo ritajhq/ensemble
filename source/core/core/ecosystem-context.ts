@@ -1,12 +1,22 @@
 import { parseArgs } from "@std/cli/parse-args";
-import type { Package, StampTarget } from "./ecosystem/ecosystem.ts";
+import type {
+  Invocation,
+  Package,
+  StampTarget,
+} from "./ecosystem/ecosystem.ts";
 import { requireFlag } from "./util.ts";
 
-export type { Link, Package, StampTarget } from "./ecosystem/ecosystem.ts";
+export type {
+  Invocation,
+  Link,
+  Package,
+  StampTarget,
+} from "./ecosystem/ecosystem.ts";
 
 /** An ecosystem kit's entry points, the same operations `ens` asks of any ecosystem. `repoRoot` is the project being acted on, which during `ens init` isn't a git repository yet. */
 export interface Actions {
   initialize(repoRoot: string): Promise<void>;
+  sync(repoRoot: string): Promise<void>;
   packageAt(repoRoot: string, directory: string): Promise<Package | undefined>;
   stamp(
     repoRoot: string,
@@ -19,6 +29,11 @@ export interface Actions {
     name: string,
   ): Promise<void>;
   lockfiles(repoRoot: string): Promise<string[]>;
+  invocation(
+    repoRoot: string,
+    tool: string,
+    args: readonly string[],
+  ): Promise<Invocation | undefined>;
 }
 
 /**
@@ -37,11 +52,13 @@ export async function run(
 
   const handlers: Record<string, () => Promise<unknown>> = {
     initialize: () => actions.initialize(repoRoot),
+    sync: () => actions.sync(repoRoot),
     packageAt: () => actions.packageAt(repoRoot, request.directory),
     stamp: () => actions.stamp(repoRoot, request.version, request.targets),
     scaffoldLibrary: () =>
       actions.scaffoldLibrary(repoRoot, request.directory, request.name),
     lockfiles: () => actions.lockfiles(repoRoot),
+    invocation: () => actions.invocation(repoRoot, request.tool, request.args),
   };
   const handler = handlers[operation];
   if (!handler) {

@@ -36,8 +36,8 @@ my-project/
 │       ├── deploy/
 │       ├── lib/
 │       └── ecosystem/
+│   └── ecosystems/              # each language's workspace files and lockfile
 ├── source/
-│   ├── deno.json                # or Cargo.toml: each ecosystem's root files live here
 │   ├── apps/                    # one folder per app
 │   ├── core/                    # shared code that speaks this project's domain
 │   ├── libs/                    # shared code generic enough for other projects

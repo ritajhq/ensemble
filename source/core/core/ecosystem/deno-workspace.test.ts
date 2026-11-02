@@ -1,7 +1,7 @@
 import { join } from "@std/path";
 import { assertEquals } from "@std/assert";
+import { exists } from "@std/fs";
 import { DenoWorkspace } from "./deno-workspace.ts";
-import type { Ports } from "../ports.ts";
 
 async function withRepoRoot(
   run: (repoRoot: string) => Promise<void>,
@@ -151,10 +151,11 @@ Deno.test("DenoWorkspace.packageAt: a directory with no deno.json holds no packa
 
 Deno.test("DenoWorkspace.lockfiles: only a lockfile that exists", async () => {
   await withRepoRoot(async (repoRoot) => {
-    await Deno.mkdir(join(repoRoot, "source"));
+    const directory = join(repoRoot, ".ensemble/ecosystems/deno");
+    await Deno.mkdir(directory, { recursive: true });
     const workspace = new DenoWorkspace(repoRoot);
     assertEquals(await workspace.lockfiles(), []);
-    const lockfile = join(repoRoot, "source", "deno.lock");
+    const lockfile = join(directory, "deno.lock");
     await Deno.writeTextFile(lockfile, "{}");
     assertEquals(await workspace.lockfiles(), [lockfile]);
   });
@@ -164,63 +165,64 @@ Deno.test("DenoWorkspace: a root deno.json keeps the workspace at the repository
   await withRepoRoot(async (repoRoot) => {
     await Deno.writeTextFile(join(repoRoot, "deno.json"), "{}");
     await Deno.writeTextFile(join(repoRoot, "deno.lock"), "{}");
-    assertEquals(await new DenoWorkspace(repoRoot).lockfiles(), [
-      join(repoRoot, "deno.lock"),
+    const workspace = new DenoWorkspace(repoRoot);
+    await workspace.sync();
+
+    assertEquals(await workspace.lockfiles(), [join(repoRoot, "deno.lock")]);
+    assertEquals(await workspace.configArgs(), []);
+    assertEquals(await exists(join(repoRoot, ".ensemble/ecosystems")), false);
+  });
+});
+
+Deno.test("DenoWorkspace.initialize: nothing lands outside .ensemble, and a new package joins the generated config", async () => {
+  await withRepoRoot(async (repoRoot) => {
+    const workspace = new DenoWorkspace(repoRoot);
+    await workspace.initialize();
+    const config = join(repoRoot, ".ensemble/ecosystems/deno/deno.json");
+    assertEquals(await workspace.configArgs(), ["--config", config]);
+    assertEquals(await exists(join(repoRoot, "deno.json")), false);
+
+    await workspace.scaffoldLibrary(
+      join(repoRoot, "source/libs/fees"),
+      "@x/fees",
+    );
+
+    const generated = JSON.parse(await Deno.readTextFile(config));
+    assertEquals(
+      generated.imports["@x/fees"],
+      "../../../source/libs/fees/index.ts",
+    );
+  });
+});
+
+Deno.test("DenoWorkspace.stamp: the generated config is reported only when it changed", async () => {
+  await withRepoRoot(async (repoRoot) => {
+    const workspace = new DenoWorkspace(repoRoot);
+    await workspace.initialize();
+    const app = await writeMember(repoRoot, "source/apps/api");
+    await workspace.sync();
+
+    assertEquals(await workspace.stamp("1.0.0", []), []);
+
+    await Deno.remove(app);
+    assertEquals(await workspace.stamp("1.0.0", []), [
+      join(repoRoot, ".ensemble/ecosystems/deno/deno.json"),
     ]);
   });
 });
 
-Deno.test("DenoWorkspace.initialize: a new workspace lives in source/, its globs relative to it", async () => {
+Deno.test("DenoWorkspace.invocation: only deno, pointed at the generated config", async () => {
   await withRepoRoot(async (repoRoot) => {
-    await Deno.mkdir(join(repoRoot, "source"));
     const workspace = new DenoWorkspace(repoRoot);
-    await workspace.initialize();
-    const member = await writeMember(repoRoot, "source/apps/api");
-
-    assertEquals(await workspace.manifests(), [member]);
-  });
-});
-
-function recordingPorts(calls: { args: readonly string[]; cwd?: string }[]) {
-  return {
-    denoExe: { resolveDenoExecutable: () => Promise.resolve("/bin/deno") },
-    process: {
-      exec: (
-        _command: string,
-        args: readonly string[],
-        options?: { cwd?: string },
-      ) => {
-        calls.push({ args, cwd: options?.cwd });
-        return Promise.resolve();
-      },
-    },
-  } as unknown as Pick<Ports, "denoExe" | "process">;
-}
-
-Deno.test("DenoWorkspace.stamp: a workspace in source/ refreshes its lockfile", async () => {
-  await withRepoRoot(async (repoRoot) => {
-    const root = join(repoRoot, "source");
-    await Deno.mkdir(root);
-    await Deno.writeTextFile(join(root, "deno.lock"), "{}");
-    const calls: { args: readonly string[]; cwd?: string }[] = [];
-
-    await new DenoWorkspace(repoRoot, recordingPorts(calls)).stamp("1.0.0", []);
-
-    assertEquals(calls.length, 1);
-    assertEquals(calls[0].args[0], "install");
-    assertEquals(calls[0].cwd, root);
-  });
-});
-
-Deno.test("DenoWorkspace.stamp: a workspace at the repository's root leaves its lockfile to its kits", async () => {
-  await withRepoRoot(async (repoRoot) => {
-    await Deno.writeTextFile(join(repoRoot, "deno.json"), "{}");
-    await Deno.writeTextFile(join(repoRoot, "deno.lock"), "{}");
-    const calls: { args: readonly string[]; cwd?: string }[] = [];
-
-    await new DenoWorkspace(repoRoot, recordingPorts(calls)).stamp("1.0.0", []);
-
-    assertEquals(calls, []);
+    assertEquals(await workspace.invocation("cargo", ["build"]), undefined);
+    assertEquals(await workspace.invocation("deno", ["test", "source"]), {
+      args: [
+        "test",
+        "--config",
+        join(repoRoot, ".ensemble/ecosystems/deno/deno.json"),
+        "source",
+      ],
+    });
   });
 });
 

@@ -10,6 +10,7 @@ export { runAppCreate, type RunAppCreateOptions } from "./app.ts";
 export { runBuild, type RunBuildOptions } from "./build.ts";
 export type { BuildProgress, BuildReporter } from "./build-reporter.ts";
 export { PlainBuildReporter } from "./plain-build-reporter.ts";
+export { runExec, runSync } from "./exec.ts";
 export { runInit, type RunInitOptions } from "./init.ts";
 export { runKitContribute } from "./kit-contribute.ts";
 export { runKitEject } from "./kit-eject.ts";

@@ -1,23 +1,29 @@
 # Mock
 
-A small project mixing languages, for testing how `ens` copes with them: a Rust
-CLI, a Deno API and a Tauri desktop app whose shell embeds a web app, over a
-Rust core crate, a Deno core package and a publishable Rust lib. Its `crates`
-and `local` lib kits publish nothing, so nothing reaches a registry.
-
-It's its own Ensemble project, not an app of this repository's: the root
-`deno.json` leaves it out of the workspace, and nothing in
-`.ensemble/config.yaml` builds it. Run its scenarios from the repository's root:
+An ordinary app of this repository that mixes languages, for testing how `ens`
+copes with them: a Rust CLI (`cli`), a Deno API (`api`) and a Tauri desktop app
+whose shell embeds a web app (`desktop/shell`, `desktop/web`), with shared code
+in each language (`ledger`, `rounding`, `ink`). Its build entries are in
+`.ensemble/config.yaml`, and its ships are in `source/ship/mock`:
 
 ```sh
-deno run -A --no-config source/apps/mock/exercise.ts --sandbox <scratch-dir> [--only <scenario,...>]
+ens build mock/cli
+ens pack mock/desktop tauri
 ```
 
-Each scenario runs the working tree's `ens` against a fresh copy of the mock, in
-its own git repository with a local `origin`, under `<scratch-dir>`. Its full
-output is saved next to that copy. A scenario reports what a user should be able
-to do: a `GAP` is something `ens` can't do yet, not a broken test.
+`exercise.ts` runs what a user should be able to do in a project like this:
 
+```sh
+deno run -A --no-config source/apps/mock/exercise.ts --sandbox source/artifacts/.mock-sandbox [--only <scenario,...>]
+```
+
+Each scenario runs the working tree's `ens` in a throwaway project: a slice of
+this repository with only the mock for an app, its own git repository and a
+local `origin`, plus libraries for a release to move and lib kits that publish
+nothing. A scenario that passes leaves only its `output.log`. A `GAP` is
+something `ens` can't do yet, not a broken test.
+
+Sandboxes are large, so keep them on a real disk rather than a small `/tmp`.
 Tauri's first build takes several minutes; later ones reuse
 `source/artifacts/.mock-cargo-target/`. It needs Rust, WebKitGTK and GTK
 installed.

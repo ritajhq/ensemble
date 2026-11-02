@@ -3,6 +3,8 @@ import { type Actions, run } from "./ecosystem-context.ts";
 
 const ACTIONS: Actions = {
   initialize: () => Promise.resolve(),
+  sync: () => Promise.resolve(),
+  invocation: () => Promise.resolve(undefined),
   packageAt: (_repoRoot, directory) =>
     Promise.resolve({ directory, links: [] }),
   stamp: (repoRoot, version, targets) =>

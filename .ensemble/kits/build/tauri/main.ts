@@ -31,7 +31,14 @@ const manifest = parseToml(
 ) as { package: { name: string } };
 const crate = manifest.package.name;
 const profile = ctx.mode === "production" ? "release" : "debug";
-const targetDir = Deno.env.get("CARGO_TARGET_DIR") ?? join(ctx.workspace, "target");
+const targetDir = Deno.env.get("CARGO_TARGET_DIR") ??
+  join(
+    await KitSdk.findRepoRoot(ctx.workspace),
+    ".ensemble",
+    "ecosystems",
+    "cargo",
+    "target",
+  );
 await ensureDir(ctx.out);
 await copy(join(targetDir, profile, crate), join(ctx.out, crate), {
   overwrite: true,

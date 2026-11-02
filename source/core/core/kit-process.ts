@@ -1,4 +1,4 @@
-import { join } from "@std/path";
+import { dirname, join, relative } from "@std/path";
 import * as KitManifest from "./vendor/kit-manifest.ts";
 import type { Ports, ProbeResult, ProcessRunOptions } from "./ports.ts";
 
@@ -76,8 +76,35 @@ export class KitProcess {
       "-q",
       "--minimum-dependency-age",
       "0",
+      ...await this.configArgs(),
       join(this.directory, entrypoint),
       ...args,
     ];
+  }
+
+  /**
+   * The project's generated Deno config, when it covers this kit. A kit it
+   * doesn't cover, because the project has no Deno ecosystem or the kit arrived
+   * after the last sync, resolves through its own `deno.json` instead.
+   */
+  private async configArgs(): Promise<string[]> {
+    const config = join(
+      this.directory,
+      "..",
+      "..",
+      "..",
+      "ecosystems",
+      "deno",
+      "deno.json",
+    );
+    let scopes: Record<string, unknown>;
+    try {
+      scopes = JSON.parse(await Deno.readTextFile(config)).scopes ?? {};
+    } catch (error) {
+      if (error instanceof Deno.errors.NotFound) return [];
+      throw error;
+    }
+    const scope = `${relative(dirname(config), this.directory)}/`;
+    return Object.hasOwn(scopes, scope) ? ["--config", config] : [];
   }
 }

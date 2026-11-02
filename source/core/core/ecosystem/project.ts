@@ -3,7 +3,12 @@ import { exists } from "@std/fs";
 import { EnsembleConfigStore } from "../config.ts";
 import type { Ports } from "../ports.ts";
 import { DenoWorkspace } from "./deno-workspace.ts";
-import type { Ecosystem, Package, StampTarget } from "./ecosystem.ts";
+import type {
+  Ecosystem,
+  Invocation,
+  Package,
+  StampTarget,
+} from "./ecosystem.ts";
 import { Kit } from "./kit.ts";
 
 const BUILT_IN = "deno";
@@ -40,7 +45,7 @@ export class Project implements Ecosystem {
     if (await exists(join(directory, "main.ts"), { isFile: true })) {
       return new Kit(repoRoot, directory, ports);
     }
-    if (name === BUILT_IN) return new DenoWorkspace(repoRoot, ports);
+    if (name === BUILT_IN) return new DenoWorkspace(repoRoot);
     throw new Error(
       `Ecosystem "${name}" not found (expected a kit at ${directory}).`,
     );
@@ -62,6 +67,26 @@ export class Project implements Ecosystem {
     for (const ecosystem of this.ecosystems.values()) {
       await ecosystem.initialize();
     }
+  }
+
+  /** The built-in ecosystem first: its generated config is what an ecosystem kit is about to be launched through. */
+  async sync(): Promise<void> {
+    await this.ecosystems.get(BUILT_IN)?.sync();
+    for (const [name, ecosystem] of this.ecosystems) {
+      if (name !== BUILT_IN) await ecosystem.sync();
+    }
+  }
+
+  /** A tool no ecosystem claims runs as it was asked to. */
+  async invocation(
+    tool: string,
+    args: readonly string[],
+  ): Promise<Invocation> {
+    for (const ecosystem of this.ecosystems.values()) {
+      const invocation = await ecosystem.invocation(tool, args);
+      if (invocation) return invocation;
+    }
+    return { args };
   }
 
   /** A directory belongs to at most one ecosystem: two manifests claiming it would leave its version and links ambiguous. Nesting is fine. */

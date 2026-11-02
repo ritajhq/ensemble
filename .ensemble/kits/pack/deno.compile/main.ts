@@ -289,7 +289,8 @@ const denoExe = await resolveDenoExecutable();
 // own instead: just the members its module graph reaches, with a lockfile of
 // its own beside the ship.
 const denoRoot = await new WorkspaceRoot().above(workspace);
-const info = await $`${denoExe} info --json ${entrypoint}`
+const configArgs = await KitSdk.denoConfigArgs(denoRoot);
+const info = await $`${denoExe} info --json ${configArgs} ${entrypoint}`
   .cwd(denoRoot).env(ctx.vars).quiet().json() as {
     modules: Array<{ specifier: string }>;
   };

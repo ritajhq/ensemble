@@ -13,6 +13,7 @@ import {
   isReserved,
   sourceDirOf,
 } from "./deploy/integration.ts";
+import { Project } from "./ecosystem/index.ts";
 import { KitProcess } from "./kit-process.ts";
 
 export interface RunBuildOptions {
@@ -60,6 +61,8 @@ export async function runBuild(
 ): Promise<number> {
   const repoRoot = await ports.repo.findRepoRoot();
   const config = await new EnsembleConfigStore(repoRoot).loadOrEmpty();
+  // A caller sharing `built` across several builds has synced already.
+  if (!options.built) await (await Project.load(repoRoot, ports)).sync();
   const built = options.built ?? new Set<string>();
   for (const need of prerequisitesOf(name, config.build ?? {})) {
     if (built.has(need)) continue;

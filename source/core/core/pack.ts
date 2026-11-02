@@ -9,6 +9,7 @@ import { resolvePackDependencies } from "./pack-dependencies.ts";
 import type { PackReporter } from "./pack-reporter.ts";
 import { PlainPackReporter } from "./plain-pack-reporter.ts";
 import type { BuildReporter } from "./build-reporter.ts";
+import { Project } from "./ecosystem/index.ts";
 import { KitProcess } from "./kit-process.ts";
 
 export interface RunPackOptions {
@@ -119,6 +120,7 @@ export async function runPack(
     ports,
     options.deployKit,
   );
+  await (await Project.load(repoRoot, ports)).sync();
   const built = new Set(options.skipBuildingApps);
   for (const app of dependencies) {
     const buildCode = await runBuild(app, {

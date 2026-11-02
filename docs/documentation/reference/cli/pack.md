@@ -35,8 +35,8 @@ ens pack web docker -v TAG=v1.2.3 -v REGISTRY=ghcr.io/me
 the program imports it or not, so compiling inside a repo whose apps and kits
 use heavy dependencies (a bundler, a runtime for a cloud's workers) would ship
 all of them. The `deno.compile` kit instead compiles in a workspace of its own:
-the root `deno.json`, with only the members the program's module graph reaches,
-under `.ensemble/cache/deno.compile/<ship>/` (gitignored).
+the project's shared Deno settings, with only the members the program's module
+graph reaches, under `.ensemble/cache/deno.compile/<ship>/` (gitignored).
 
 That workspace has its own lockfile, `source/ship/<ship>/deno.lock`. Commit it:
 it pins and checks exactly what the binary contains. The kit creates it on the

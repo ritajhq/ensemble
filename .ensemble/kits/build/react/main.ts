@@ -343,11 +343,10 @@ const watchArgs = ctx.watch ? ["--watch"] : [];
 // the case for a spawned subprocess — `=always` keeps it watching regardless.
 const cssWatchArgs = ctx.watch ? ["--watch=always"] : [];
 
+const configArgs = await KitSdk.denoConfigArgs(repoRoot);
+
 const bundle = new RestartableChild(() =>
-  // From the app: deno bundle finds its workspace from where it runs, and this
-  // kit's own directory isn't a member of a project's workspace.
-  $`${denoExe} bundle -q --platform browser ${entry} -o ${jsOut} ${minifyArgs} ${watchArgs}`
-    .cwd(ctx.source)
+  $`${denoExe} bundle -q ${configArgs} --platform browser ${entry} -o ${jsOut} ${minifyArgs} ${watchArgs}`
     .noThrow()
     .spawn()
 );

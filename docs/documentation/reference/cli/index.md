@@ -4,6 +4,8 @@ Every top-level `ens` command, as registered in `source/apps/cli/main.ts`:
 
 | Command                   | Purpose                                                    |
 | ------------------------- | ---------------------------------------------------------- |
+| [`exec`](exec.md)         | Run a language's own tool against this project.            |
+| [`sync`](exec.md)         | Refresh each language's generated files.                   |
 | [`init`](init.md)         | Scaffold a new Ensemble project.                           |
 | [`app`](app.md)           | Manage apps under `source/apps/`.                          |
 | [`kit`](kit.md)           | Author, install, and manage kits under `.ensemble/kits/`.  |

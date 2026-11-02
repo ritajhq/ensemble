@@ -20,14 +20,23 @@ export interface StampTarget {
   readonly directory: string;
 }
 
+/** How to run a language's own tool against this project. */
+export interface Invocation {
+  readonly args: readonly string[];
+  /** Where to run it from, when that's what finds the root files. Otherwise wherever the caller is. */
+  readonly cwd?: string;
+}
+
 /**
  * What `ens` needs from a language's packaging, without knowing its manifests
  * or lockfiles. An ecosystem acts only on the packages it recognizes, so a
  * project mixing several can tell each of them the same thing.
  */
 export interface Ecosystem {
-  /** Writes the files a new project needs, under its `source/` directory. */
+  /** Writes the files a new project needs, under `.ensemble/ecosystems/<name>`. */
   initialize(): Promise<void>;
+  /** Brings anything derived from the packages on disk up to date. Cheap when nothing changed, since it runs ahead of every build. */
+  sync(): Promise<void>;
   /** The package whose manifest sits directly in `directory`, which needn't be a workspace member yet. */
   packageAt(directory: string): Promise<Package | undefined>;
   /**
@@ -40,4 +49,9 @@ export interface Ecosystem {
   scaffoldLibrary(directory: string, name: string): Promise<void>;
   /** The lockfiles that exist, which a release commit must also carry. */
   lockfiles(): Promise<string[]>;
+  /** How to run `tool` here, when it's this ecosystem's. */
+  invocation(
+    tool: string,
+    args: readonly string[],
+  ): Promise<Invocation | undefined>;
 }

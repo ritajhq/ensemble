@@ -1,6 +1,11 @@
 import { KitProcess } from "../kit-process.ts";
 import type { Ports } from "../ports.ts";
-import type { Ecosystem, Package, StampTarget } from "./ecosystem.ts";
+import type {
+  Ecosystem,
+  Invocation,
+  Package,
+  StampTarget,
+} from "./ecosystem.ts";
 
 /** An ecosystem served by a kit in `.ensemble/kits/ecosystem/<name>`, speaking the contract `KitSdk.Ecosystem.run` implements. */
 export class Kit implements Ecosystem {
@@ -18,6 +23,10 @@ export class Kit implements Ecosystem {
     await this.ask("initialize", {});
   }
 
+  async sync(): Promise<void> {
+    await this.ask("sync", {});
+  }
+
   packageAt(directory: string): Promise<Package | undefined> {
     return this.ask("packageAt", { directory });
   }
@@ -32,6 +41,13 @@ export class Kit implements Ecosystem {
 
   lockfiles(): Promise<string[]> {
     return this.ask("lockfiles", {});
+  }
+
+  invocation(
+    tool: string,
+    args: readonly string[],
+  ): Promise<Invocation | undefined> {
+    return this.ask("invocation", { tool, args });
   }
 
   /** The kit's answer is the last line it prints, so a tool it runs may print before it. */

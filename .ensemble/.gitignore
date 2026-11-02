@@ -7,3 +7,6 @@ release/secrets.env
 release/state/
 /deploy/
 /cache/
+ecosystems/*/target/
+ecosystems/*/node_modules/
+kits/**/deno.lock

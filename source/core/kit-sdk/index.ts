@@ -10,6 +10,7 @@ export * as Lib from "@ensemble/core/lib-context";
 // monorepo (no dax-based adapters), for the few kits that need real
 // machine-level plumbing a kit's own CLI contract doesn't cover.
 export {
+  denoConfigArgs,
   findRepoRoot,
   resolveDenoExecutable,
   RestartableChild,

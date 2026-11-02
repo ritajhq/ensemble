@@ -19,6 +19,7 @@
     "jsr:@std/assert@^1.0.19": "1.0.19",
     "jsr:@std/bytes@0.221": "0.221.0",
     "jsr:@std/cli@1.0.32": "1.0.32",
+    "jsr:@std/collections@^1.1.3": "1.4.0",
     "jsr:@std/dotenv@0.225.5": "0.225.5",
     "jsr:@std/encoding@^1.0.10": "1.0.11",
     "jsr:@std/fmt@1": "1.0.10",
@@ -40,6 +41,7 @@
     "jsr:@std/streams@0.221": "0.221.0",
     "jsr:@std/testing@1.0.16": "1.0.16",
     "jsr:@std/text@^1.0.19": "1.1.0",
+    "jsr:@std/toml@1.0.11": "1.0.11",
     "jsr:@std/yaml@1.1.2": "1.1.2",
     "npm:@base-ui/react@1.8.0": "1.8.0_@types+react@19.2.17_react@19.2.8_react-dom@19.2.8",
     "npm:@modelcontextprotocol/sdk@^1.12.0": "1.30.0_zod@3.25.76",
@@ -63,9 +65,7 @@
     "npm:@types/hast@3": "3.0.5",
     "npm:@types/mdast@4": "4.0.4",
     "npm:@types/react-dom@19": "19.2.3_@types+react@19.2.17",
-    "npm:@types/react-dom@19.2.3": "19.2.3_@types+react@19.2.17",
     "npm:@types/react@19": "19.2.17",
-    "npm:@types/react@19.2.17": "19.2.17",
     "npm:@types/vscode@1.105.0": "1.105.0",
     "npm:@untitledui/icons@0.0.23": "0.0.23_react@19.2.8",
     "npm:class-variance-authority@0.7.1": "0.7.1",
@@ -193,6 +193,9 @@
     "@std/cli@1.0.32": {
       "integrity": "188b3a100d6202d64e3f5bd3d799c7fa4f6d77f92cc65eb7f641c1fa0aa92a66"
     },
+    "@std/collections@1.4.0": {
+      "integrity": "bd7f74966e11de11b1f0420b7e8cb7bb381d8af7872b738443b92050db28c9c0"
+    },
     "@std/dotenv@0.225.5": {
       "integrity": "9ce6f9d0ec3311f74a32535aa1b8c62ed88b1ab91b7f0815797d77a6f60c922f"
     },
@@ -248,6 +251,12 @@
     },
     "@std/text@1.1.0": {
       "integrity": "3db511996317f63e35b76fe18fe35249723ae0ff6f8305398c78dd64ffa809a7"
+    },
+    "@std/toml@1.0.11": {
+      "integrity": "e084988b872ca4bad6aedfb7350f6eeed0e8ba88e9ee5e1590621c5b5bb8f715",
+      "dependencies": [
+        "jsr:@std/collections"
+      ]
     },
     "@std/yaml@1.1.2": {
       "integrity": "de612653c036749ba2044165e316f52412b0f0698afffb7ee80b5331d6d2abae"
@@ -4330,198 +4339,69 @@
   },
   "workspace": {
     "dependencies": [
+      "jsr:@cliffy/command@1.2.1",
+      "jsr:@cliffy/prompt@1.2.1",
       "jsr:@david/dax@0.42.0",
+      "jsr:@david/which@0.4.2",
+      "jsr:@duesabati/evento@1.0.0",
+      "jsr:@std/assert@1.0.14",
+      "jsr:@std/assert@^1.0.19",
+      "jsr:@std/cli@1.0.32",
+      "jsr:@std/dotenv@0.225.5",
+      "jsr:@std/fmt@1.0.10",
       "jsr:@std/fs@1.0.24",
       "jsr:@std/path@1.1.6",
+      "jsr:@std/testing@1.0.16",
+      "jsr:@std/toml@1.0.11",
       "jsr:@std/yaml@1.1.2",
+      "npm:@base-ui/react@1.8.0",
+      "npm:@modelcontextprotocol/sdk@^1.12.0",
+      "npm:@radix-ui/react-accordion@1.2.20",
+      "npm:@radix-ui/react-checkbox@1.3.11",
+      "npm:@radix-ui/react-collapsible@1.1.20",
+      "npm:@radix-ui/react-dialog@1.1.23",
+      "npm:@radix-ui/react-dropdown-menu@2.1.24",
+      "npm:@radix-ui/react-popover@1.1.23",
+      "npm:@radix-ui/react-radio-group@1.4.7",
+      "npm:@radix-ui/react-scroll-area@1.2.18",
+      "npm:@radix-ui/react-select@2.3.7",
+      "npm:@radix-ui/react-slider@1.4.7",
+      "npm:@radix-ui/react-slot@1.3.3",
+      "npm:@radix-ui/react-switch@1.3.7",
+      "npm:@radix-ui/react-tabs@1.1.21",
+      "npm:@radix-ui/react-tooltip@1.2.16",
+      "npm:@shikijs/rehype@1",
+      "npm:@types/hast@3",
+      "npm:@types/mdast@4",
       "npm:@types/react-dom@19",
-      "npm:@types/react@19"
+      "npm:@types/react@19",
+      "npm:@types/vscode@1.105.0",
+      "npm:@untitledui/icons@0.0.23",
+      "npm:class-variance-authority@0.7.1",
+      "npm:clsx@2.1.1",
+      "npm:fflate@0.8.3",
+      "npm:framer-motion@14.0.0",
+      "npm:hast-util-to-string@3",
+      "npm:mdast-util-to-string@4",
+      "npm:react-dom@19.2.8",
+      "npm:react@19.2.8",
+      "npm:rehype-slug@6",
+      "npm:rehype-stringify@10",
+      "npm:reladraw@0.18.0",
+      "npm:remark-gfm@4",
+      "npm:remark-parse@11",
+      "npm:remark-rehype@11",
+      "npm:tailwind-merge@3.7.0",
+      "npm:unified@11",
+      "npm:unist-util-visit@5",
+      "npm:vscode-languageclient@9.0.1",
+      "npm:vscode-languageserver-textdocument@1.0.12",
+      "npm:vscode-languageserver@9.0.1",
+      "npm:wrangler@4.147.0",
+      "npm:zod@^3.25.0"
     ],
-    "members": {
-      ".ensemble/kits/build/deno.bundle": {
-        "dependencies": [
-          "jsr:@david/dax@0.42.0",
-          "jsr:@ensemble/kit-sdk@0.62",
-          "jsr:@std/fs@1.0.24",
-          "jsr:@std/path@1.1.6"
-        ]
-      },
-      ".ensemble/kits/build/react": {
-        "dependencies": [
-          "jsr:@david/dax@0.42.0",
-          "jsr:@duesabati/evento@1.0.0",
-          "jsr:@ensemble/kit-sdk@0.62",
-          "jsr:@std/fs@1.0.24",
-          "jsr:@std/path@1.1.6"
-        ]
-      },
-      ".ensemble/kits/deploy/aws": {
-        "dependencies": [
-          "jsr:@david/dax@0.42.0",
-          "jsr:@ensemble/kit-sdk@0.62",
-          "jsr:@std/assert@^1.0.19",
-          "jsr:@std/fs@1.0.24",
-          "jsr:@std/path@1.1.6",
-          "jsr:@std/testing@1.0.16",
-          "jsr:@std/yaml@1.1.2",
-          "npm:fflate@0.8.3"
-        ]
-      },
-      ".ensemble/kits/deploy/cloudflare": {
-        "dependencies": [
-          "jsr:@david/dax@0.42.0",
-          "jsr:@ensemble/kit-sdk@0.62",
-          "jsr:@std/assert@^1.0.19",
-          "jsr:@std/fs@1.0.24",
-          "jsr:@std/path@1.1.6",
-          "npm:fflate@0.8.3",
-          "npm:wrangler@4.147.0"
-        ]
-      },
-      ".ensemble/kits/deploy/compose": {
-        "dependencies": [
-          "jsr:@ensemble/kit-sdk@0.62",
-          "jsr:@std/assert@^1.0.19",
-          "jsr:@std/path@1.1.6",
-          "jsr:@std/testing@1.0.16",
-          "jsr:@std/yaml@1.1.2"
-        ]
-      },
-      ".ensemble/kits/ecosystem/cargo": {
-        "dependencies": [
-          "jsr:@ensemble/kit-sdk@0.62",
-          "jsr:@std/assert@1.0.14",
-          "jsr:@std/fs@1.0.24",
-          "jsr:@std/path@1.1.6",
-          "jsr:@std/toml@1.0.11"
-        ]
-      },
-      ".ensemble/kits/lib/jsr": {
-        "dependencies": [
-          "jsr:@david/dax@0.42.0",
-          "jsr:@ensemble/kit-sdk@0.62",
-          "jsr:@std/assert@1.0.14",
-          "jsr:@std/path@1.1.6"
-        ]
-      },
-      ".ensemble/kits/pack/deno.compile": {
-        "dependencies": [
-          "jsr:@david/dax@0.42.0",
-          "jsr:@ensemble/kit-sdk@0.62",
-          "jsr:@std/assert@1.0.14",
-          "jsr:@std/fs@1.0.24",
-          "jsr:@std/path@1.1.6",
-          "jsr:@std/yaml@1.1.2"
-        ]
-      },
-      ".ensemble/kits/pack/docker": {
-        "dependencies": [
-          "jsr:@david/dax@0.42.0",
-          "jsr:@ensemble/kit-sdk@0.62",
-          "jsr:@std/assert@1.0.14",
-          "jsr:@std/fs@1.0.24",
-          "jsr:@std/path@1.1.6"
-        ]
-      },
-      ".ensemble/kits/pack/vscode": {
-        "dependencies": [
-          "jsr:@david/dax@0.42.0",
-          "jsr:@ensemble/kit-sdk@0.62",
-          "jsr:@std/fs@1.0.24",
-          "jsr:@std/path@1.1.6",
-          "jsr:@std/yaml@1.1.2"
-        ]
-      },
-      "source/apps/cli": {
-        "dependencies": [
-          "jsr:@cliffy/command@1.2.1",
-          "jsr:@cliffy/prompt@1.2.1",
-          "jsr:@ensemble/core@*",
-          "jsr:@ensemble/delivery@*",
-          "jsr:@ensemble/host@*",
-          "jsr:@std/assert@1.0.14",
-          "jsr:@std/dotenv@0.225.5",
-          "jsr:@std/fmt@1.0.10",
-          "jsr:@std/fs@1.0.24",
-          "jsr:@std/path@1.1.6",
-          "jsr:@std/yaml@1.1.2",
-          "npm:@modelcontextprotocol/sdk@^1.12.0",
-          "npm:vscode-languageserver-textdocument@1.0.12",
-          "npm:vscode-languageserver@9.0.1",
-          "npm:zod@^3.25.0"
-        ]
-      },
-      "source/apps/demo/spa": {
-        "dependencies": [
-          "npm:@types/react-dom@19",
-          "npm:@types/react@19",
-          "npm:react-dom@19.2.8",
-          "npm:react@19.2.8"
-        ]
-      },
-      "source/apps/extension/vscode": {
-        "dependencies": [
-          "jsr:@duesabati/evento@1.0.0",
-          "npm:@types/vscode@1.105.0",
-          "npm:vscode-languageclient@9.0.1"
-        ]
-      },
-      "source/apps/git-sync": {
-        "dependencies": [
-          "jsr:@std/path@1.1.6"
-        ]
-      },
-      "source/apps/platform/server": {
-        "dependencies": [
-          "jsr:@duesabati/evento@1.0.0",
-          "jsr:@ensemble/core@*",
-          "jsr:@ensemble/platform@*",
-          "jsr:@std/assert@1.0.14",
-          "jsr:@std/path@1.1.6"
-        ]
-      },
-      "source/apps/platform/web": {
-        "dependencies": [
-          "jsr:@std/assert@1.0.14",
-          "npm:@types/react-dom@19.2.3",
-          "npm:@types/react@19.2.17",
-          "npm:react-dom@19.2.8",
-          "npm:react@19.2.8"
-        ]
-      },
-      "source/apps/website/content": {
-        "dependencies": [
-          "jsr:@ensemble/website@*",
-          "npm:@types/react-dom@19",
-          "npm:@types/react@19",
-          "npm:react-dom@19.2.8",
-          "npm:react@19.2.8"
-        ]
-      },
-      "source/apps/website/server": {
-        "dependencies": [
-          "jsr:@ensemble/website@*",
-          "jsr:@std/fs@1.0.24",
-          "jsr:@std/path@1.1.6",
-          "npm:@shikijs/rehype@1",
-          "npm:@types/hast@3",
-          "npm:@types/mdast@4",
-          "npm:@types/react-dom@19",
-          "npm:@types/react@19",
-          "npm:hast-util-to-string@3",
-          "npm:mdast-util-to-string@4",
-          "npm:react-dom@19.2.8",
-          "npm:react@19.2.8",
-          "npm:rehype-slug@6",
-          "npm:rehype-stringify@10",
-          "npm:remark-gfm@4",
-          "npm:remark-parse@11",
-          "npm:remark-rehype@11",
-          "npm:unified@11",
-          "npm:unist-util-visit@5"
-        ]
-      },
-      "source/core/core": {
+    "links": {
+      "jsr:@ensemble/core@0.62.0": {
         "dependencies": [
           "jsr:@duesabati/evento@1.0.0",
           "jsr:@std/assert@1.0.14",
@@ -4533,7 +4413,7 @@
           "jsr:@std/yaml@1.1.2"
         ]
       },
-      "source/core/delivery": {
+      "jsr:@ensemble/delivery@0.59.0": {
         "dependencies": [
           "jsr:@ensemble/core@*",
           "jsr:@std/assert@1.0.14",
@@ -4542,7 +4422,7 @@
           "npm:reladraw@0.18.0"
         ]
       },
-      "source/core/host": {
+      "jsr:@ensemble/host@0.62.0": {
         "dependencies": [
           "jsr:@david/dax@0.42.0",
           "jsr:@david/which@0.4.2",
@@ -4554,27 +4434,27 @@
           "jsr:@std/path@1.1.6"
         ]
       },
-      "source/core/kit-sdk": {
+      "jsr:@ensemble/kit-sdk@0.62.0": {
         "dependencies": [
           "jsr:@ensemble/core@0.62",
           "jsr:@ensemble/host@0.62"
         ]
       },
-      "source/core/platform": {
+      "jsr:@ensemble/platform@0.50.0": {
         "dependencies": [
           "jsr:@ensemble/core@*",
           "jsr:@std/assert@1.0.14",
           "jsr:@std/path@1.1.6"
         ]
       },
-      "source/core/website": {
+      "jsr:@ensemble/website": {
         "dependencies": [
           "npm:@types/react-dom@19",
           "npm:@types/react@19",
           "npm:react@19.2.8"
         ]
       },
-      "source/libs/ui": {
+      "jsr:@ritaj/ui": {
         "dependencies": [
           "jsr:@std/path@1.1.6",
           "npm:@base-ui/react@1.8.0",
@@ -4602,7 +4482,8 @@
           "npm:react@19.2.8",
           "npm:tailwind-merge@3.7.0"
         ]
-      }
+      },
+      "jsr:@tally/ink@0.1.0": {}
     }
   }
 }

@@ -3,6 +3,7 @@ import { exists } from "@std/fs";
 import type { Ports } from "./ports.ts";
 import { EnsembleConfigStore } from "./config.ts";
 import { integrationOf, isReserved } from "./deploy/integration.ts";
+import { Project } from "./ecosystem/index.ts";
 import { KitProcess } from "./kit-process.ts";
 
 const APP_NAME_PATTERN = /^[a-zA-Z0-9](?:[a-zA-Z0-9._\-/]*[a-zA-Z0-9])?$/;
@@ -99,6 +100,8 @@ export async function runAppCreate(
   if (code !== 0) {
     throw new Error(`Scaffolding "${unit}" with kit "${options.kit}" failed.`);
   }
+
+  await (await Project.load(repoRoot, ports)).sync();
 
   if (options.integration === undefined) {
     await config.setAppBuildKit(name, options.kit, options.target);

@@ -76,3 +76,30 @@ plain = "0.2.0"
 Deno.test("Manifest.repinned: a manifest depending on none of the names is unchanged", () => {
   assertEquals(new Manifest(CRATE).repinned(["other"], "0.2.0"), CRATE);
 });
+
+Deno.test("Manifest.withWorkspace: adds the line to [package], or corrects it", () => {
+  const added = new Manifest(
+    `[package]\nname = "a"\n\n[dependencies]\nb = "1"\n`,
+  )
+    .withWorkspace("../root");
+  assertEquals(
+    added,
+    `[package]\nname = "a"\nworkspace = "../root"\n\n[dependencies]\nb = "1"\n`,
+  );
+  assertEquals(new Manifest(added).withWorkspace("../root"), added);
+  assertEquals(
+    new Manifest(added).withWorkspace("../moved"),
+    added.replace("../root", "../moved"),
+  );
+});
+
+Deno.test("Manifest.withMembers: replaces the list, however it was written", () => {
+  assertEquals(
+    new Manifest(`[workspace]\nmembers = []\n`).withMembers(["../a", "../b"]),
+    `[workspace]\nmembers = [\n  "../a",\n  "../b",\n]\n`,
+  );
+  assertEquals(
+    new Manifest(`[workspace]\nmembers = [\n  "old",\n]\n`).withMembers([]),
+    `[workspace]\nmembers = [\n]\n`,
+  );
+});

@@ -1,5 +1,5 @@
-import { join } from "@std/path";
-import { exists } from "@std/fs";
+import { dirname, join, relative, SEPARATOR } from "@std/path";
+import { ensureDir, exists, expandGlob } from "@std/fs";
 import { parse as parseToml } from "@std/toml";
 import type * as KitSdk from "@ensemble/kit-sdk";
 import { Manifest } from "./manifest.ts";
@@ -7,9 +7,8 @@ import { Manifest } from "./manifest.ts";
 type Package = KitSdk.Ecosystem.Package;
 type Link = KitSdk.Ecosystem.Link;
 type StampTarget = KitSdk.Ecosystem.StampTarget;
+type Invocation = KitSdk.Ecosystem.Invocation;
 
-// No member globs: cargo fails on one that matches nothing yet, or on any
-// directory it matches without a Cargo.toml. `cargo new` lists each crate instead.
 const ROOT_MANIFEST = `[workspace]
 resolver = "2"
 members = []
@@ -41,17 +40,62 @@ function linksIn(
   return links;
 }
 
-/** The project's Cargo workspace, whose root files live in `source/` so the repository's root holds nothing specific to Rust. */
+/**
+ * The project's Cargo workspace, whose root manifest and lockfile live in
+ * `.ensemble/ecosystems/cargo` so that `source/` holds only crates' own
+ * manifests. Cargo allows that as long as each crate states where its root is,
+ * which `sync` sees to, along with listing every crate as a member.
+ */
 export class Workspace {
   private readonly root: string;
 
-  constructor(repoRoot: string) {
-    this.root = join(repoRoot, "source");
+  constructor(private readonly repoRoot: string) {
+    this.root = join(repoRoot, ".ensemble", "ecosystems", "cargo");
   }
 
   async initialize(): Promise<void> {
+    await ensureDir(this.root);
     await Deno.writeTextFile(join(this.root, "Cargo.toml"), ROOT_MANIFEST);
-    await Deno.writeTextFile(join(this.root, ".gitignore"), "target/\n");
+  }
+
+  /** Lists every crate under `source/` as a member, and points each at this root. */
+  async sync(): Promise<void> {
+    const members = [];
+    const manifests = expandGlob("source/**/Cargo.toml", {
+      root: this.repoRoot,
+      exclude: [
+        "source/artifacts/**",
+        "**/target/**",
+        "**/node_modules/**",
+        "**/testdata/**",
+      ],
+    });
+    for await (const manifest of manifests) {
+      const directory = dirname(manifest.path);
+      if (!await this.packageAt(directory)) continue;
+      members.push(this.relativeTo(this.root, directory));
+      await this.rewrite(
+        manifest.path,
+        (text) =>
+          new Manifest(text).withWorkspace(
+            this.relativeTo(directory, this.root),
+          ),
+      );
+    }
+    await this.rewrite(
+      join(this.root, "Cargo.toml"),
+      (text) => new Manifest(text).withMembers(members.sort()),
+    );
+  }
+
+  /** Cargo finds this root from inside a crate by itself, and from here otherwise. */
+  invocation(
+    tool: string,
+    args: readonly string[],
+  ): Promise<Invocation | undefined> {
+    return Promise.resolve(
+      tool === "cargo" ? { args, cwd: this.root } : undefined,
+    );
   }
 
   async packageAt(directory: string): Promise<Package | undefined> {
@@ -105,7 +149,6 @@ export class Workspace {
     return changed;
   }
 
-  /** `cargo new` adds the crate to the workspace's members itself, unless a glob already covers it. */
   async scaffoldLibrary(directory: string, name: string): Promise<void> {
     await this.cargo(
       "new",
@@ -116,6 +159,7 @@ export class Workspace {
       name,
       directory,
     );
+    await this.sync();
   }
 
   async lockfiles(): Promise<string[]> {
@@ -132,6 +176,19 @@ export class Workspace {
       join(this.root, "Cargo.toml"),
       ...metadata.packages.map((crate) => crate.manifest_path),
     ];
+  }
+
+  private async rewrite(
+    path: string,
+    change: (text: string) => string,
+  ): Promise<void> {
+    const before = await Deno.readTextFile(path);
+    const after = change(before);
+    if (after !== before) await Deno.writeTextFile(path, after);
+  }
+
+  private relativeTo(from: string, to: string): string {
+    return relative(from, to).replaceAll(SEPARATOR, "/");
   }
 
   private async cargo(...args: string[]): Promise<string> {

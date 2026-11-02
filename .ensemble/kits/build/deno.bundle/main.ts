@@ -49,12 +49,12 @@ const modeArgs = ctx.mode === "production" ? ["--minify"] : [];
 const watchArgs = ctx.watch ? ["--watch"] : [];
 const optionArgs = new Options(ctx.options).toArgs();
 const denoExe = await resolveDenoExecutable();
+const configArgs = await KitSdk.denoConfigArgs(
+  await findRepoRoot(ctx.workspace),
+);
 
 const bundle = new RestartableChild(() =>
-  // From the app: deno bundle finds its workspace from where it runs, and this
-  // kit's own directory isn't a member of a project's workspace.
-  $`${denoExe} bundle -q ${entry} -o ${outFile} ${modeArgs} ${watchArgs} ${optionArgs}`
-    .cwd(ctx.source)
+  $`${denoExe} bundle -q ${configArgs} ${entry} -o ${outFile} ${modeArgs} ${watchArgs} ${optionArgs}`
     .noThrow()
     .spawn()
 );
