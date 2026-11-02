@@ -1,0 +1,6 @@
+# Built in this order: the shell embeds the web app's output.
+apps:
+  - tally-desktop/web
+  - tally-desktop/shell
+bundles:
+  - deb

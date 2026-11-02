@@ -1,0 +1,18 @@
+build:
+  tally-cli:
+    kit: cargo
+  tally-desktop/web:
+    kit: static-page
+  tally-desktop/shell:
+    kit: tauri
+publish:
+  core:
+    - name: ledger
+      package: tally-ledger
+      publish:
+        - kit: crates
+  libs:
+    - name: rounding
+      package: tally-rounding
+      publish:
+        - kit: crates
