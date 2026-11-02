@@ -140,7 +140,6 @@ class Sandbox {
   private async sliceThisRepository(): Promise<void> {
     for (
       const path of [
-        ".gitignore",
         ".ensemble/.gitignore",
         ".ensemble/kits",
         ".ensemble/ecosystems/deno/settings.json",
@@ -438,7 +437,6 @@ async function initialize(
 const ROOT_ENTRIES = new Set([
   ".ensemble",
   ".git",
-  ".gitignore",
   "README.md",
   "ci",
   "docs",
@@ -494,6 +492,19 @@ async function packaged(sandbox: Sandbox, pattern: string): Promise<string[]> {
 
 async function uncommitted(sandbox: Sandbox): Promise<string> {
   return (await sandbox.run("git", ["status", "--porcelain"])).output.trim();
+}
+
+/** A vendored checkout must stay out of the project's commits, without a root `.gitignore` to say so. */
+async function vendoredOutOfSight(
+  sandbox: Sandbox,
+  path: string,
+): Promise<Finding> {
+  if (!await exists(sandbox.path(path))) return { gap: `no ${path}` };
+  if (await exists(sandbox.path(".gitignore"))) {
+    return { gap: "vendoring wrote a .gitignore at the root" };
+  }
+  const ignored = await sandbox.run("git", ["check-ignore", "-q", path]);
+  return ignored.code === 0 ? {} : { gap: `git doesn't ignore ${path}` };
 }
 
 const SCENARIOS: readonly Scenario[] = [
@@ -759,9 +770,10 @@ const SCENARIOS: readonly Scenario[] = [
         "1",
       );
       if (resolved.code !== 0) return failed("cargo metadata", resolved);
-      return resolved.output.includes('"name":"tally-fees"')
-        ? {}
-        : { gap: "the installed lib isn't a workspace member" };
+      if (!resolved.output.includes('"name":"tally-fees"')) {
+        return { gap: "the installed lib isn't a workspace member" };
+      }
+      return await vendoredOutOfSight(sandbox, "source/libs/fees");
     },
   },
   {
@@ -809,7 +821,11 @@ const SCENARIOS: readonly Scenario[] = [
         "install",
         `file://${kitRepo}`,
       );
-      return installed.code === 0 ? {} : failed("ens kit install", installed);
+      if (installed.code !== 0) return failed("ens kit install", installed);
+      return await vendoredOutOfSight(
+        sandbox,
+        ".ensemble/kits/build/kit-repo",
+      );
     },
   },
   {

@@ -43,7 +43,7 @@ async function projectWithVendoredKit(): Promise<
   const root = await Deno.makeTempDir();
   await Deno.mkdir(join(root, KIT), { recursive: true });
   const registry = new FileRegistry(root);
-  await Deno.writeTextFile(join(root, ".gitignore"), "node_modules\n");
+  await Deno.writeTextFile(join(root, ".ensemble/.gitignore"), "/cache/\n");
   await registry.register({
     repo: "https://example.com/react.git",
     ref: "1.0.0",
@@ -62,8 +62,8 @@ Deno.test("Uninstaller: removes the checkout, its lockfile entry and its .gitign
   assertEquals(await exists(join(root, KIT)), false);
   assertEquals(await registry.entryFor(KIT), undefined);
   assertEquals(
-    await Deno.readTextFile(join(root, ".gitignore")),
-    "node_modules\n",
+    await Deno.readTextFile(join(root, ".ensemble/.gitignore")),
+    "/cache/\n",
   );
 });
 

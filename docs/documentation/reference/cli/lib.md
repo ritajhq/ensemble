@@ -25,6 +25,10 @@ ens lib install https://github.com/org/their-lib
 ens lib install https://github.com/org/their-lib@v2.0.0   # pinned to a ref
 ```
 
+The checkout keeps its own git history, so git ignores it here through a
+`source/libs/.gitignore`, which exists only while a vendored library needs it.
+Commit that file along with `.ensemble/vendor.lock.yml`.
+
 ## `ens lib eject <name> --remote <url>`
 
 Push `source/libs/<name>` to its own repository and register it as a vendored
