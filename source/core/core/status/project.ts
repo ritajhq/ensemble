@@ -15,7 +15,13 @@ export interface App {
   readonly integration?: Deploy.Integration;
 }
 
-export const KIT_ROLES = ["build", "pack", "deploy", "lib"] as const;
+export const KIT_ROLES = [
+  "build",
+  "pack",
+  "deploy",
+  "lib",
+  "ecosystem",
+] as const;
 export type KitRole = typeof KIT_ROLES[number];
 
 /** A kit installed under `.ensemble/kits/<role>/<name>` — authored in this project, or vendored from its own repository. */

@@ -1,4 +1,4 @@
-import type { DenoWorkspace } from "./ecosystem/index.ts";
+import type { Ecosystem } from "./ecosystem/index.ts";
 import type { LibDeclaration } from "./lib-declaration.ts";
 import { LibKit } from "./lib-kit.ts";
 import type { Ports } from "./ports.ts";
@@ -29,13 +29,13 @@ export class CoreLibReleaseCascade {
       new LibKit(kit, ports),
   ) {}
 
-  /** Has `workspace` move every discovered core library to `version` and repin whatever depends on one, then runs each library's lib kit stamp, ahead of the release commit that gets tagged — see `ReleaseCeremony.stampCoreLibs`. Returns every file the commit must name beyond the libraries' own directories. */
+  /** Has `ecosystem` move every discovered core library to `version` and repin whatever depends on one, then runs each library's lib kit stamp, ahead of the release commit that gets tagged — see `ReleaseCeremony.stampCoreLibs`. Returns every file the commit must name beyond the libraries' own directories. */
   async stamp(
     version: string,
     libs: readonly CoreLibRelease[],
-    workspace: Pick<DenoWorkspace, "stamp" | "lockfiles">,
+    ecosystem: Pick<Ecosystem, "stamp" | "lockfiles">,
   ): Promise<string[]> {
-    const repinned = await workspace.stamp(
+    const repinned = await ecosystem.stamp(
       version,
       libs.map(({ libRoot, declaration }) => ({
         name: declaration.package,
@@ -52,7 +52,7 @@ export class CoreLibReleaseCascade {
         });
       }
     }
-    return [...repinned, ...await workspace.lockfiles()];
+    return [...repinned, ...await ecosystem.lockfiles()];
   }
 
   /** Asks every discovered core library's declared lib kits whether this machine may publish it — all at once, each check being a read-only probe of its own destination — handing each outcome to `onChecked` as it arrives, and returning one `Denial` per refused entry: empty when everything is authorized. Runs before `stamp`. */

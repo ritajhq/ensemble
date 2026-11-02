@@ -4387,6 +4387,15 @@
           "jsr:@std/yaml@1.1.2"
         ]
       },
+      ".ensemble/kits/ecosystem/cargo": {
+        "dependencies": [
+          "jsr:@ensemble/kit-sdk@0.62",
+          "jsr:@std/assert@1.0.14",
+          "jsr:@std/fs@1.0.24",
+          "jsr:@std/path@1.1.6",
+          "jsr:@std/toml@1.0.11"
+        ]
+      },
       ".ensemble/kits/lib/jsr": {
         "dependencies": [
           "jsr:@david/dax@0.42.0",

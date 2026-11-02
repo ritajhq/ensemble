@@ -1,8 +1,8 @@
 import { join } from "@std/path";
 import { exists } from "@std/fs";
-import type { RepoLocator } from "./ports.ts";
+import type { Ports } from "./ports.ts";
 import { EnsembleConfigStore } from "./config.ts";
-import { DenoWorkspace } from "./ecosystem/index.ts";
+import { Project } from "./ecosystem/index.ts";
 
 const LIB_NAME_PATTERN = /^[a-zA-Z0-9](?:[a-zA-Z0-9._\-/]*[a-zA-Z0-9])?$/;
 
@@ -15,7 +15,8 @@ const LIB_NAME_PATTERN = /^[a-zA-Z0-9](?:[a-zA-Z0-9._\-/]*[a-zA-Z0-9])?$/;
  */
 export async function runLibNew(
   name: string,
-  repo: RepoLocator,
+  ports: Ports,
+  ecosystem?: string,
 ): Promise<void> {
   const trimmed = name.trim();
   if (!LIB_NAME_PATTERN.test(trimmed)) {
@@ -25,13 +26,14 @@ export async function runLibNew(
     );
   }
 
-  const repoRoot = await repo.findRepoRoot();
+  const repoRoot = await ports.repo.findRepoRoot();
   const libDir = join(repoRoot, "source", "libs", trimmed);
   if (await exists(libDir)) {
     throw new Error(`"${libDir}" already exists.`);
   }
 
-  await new DenoWorkspace(repoRoot).scaffoldLibrary(libDir, trimmed);
+  const project = await Project.load(repoRoot, ports);
+  await project.named(ecosystem).scaffoldLibrary(libDir, trimmed);
 
   await new EnsembleConfigStore(repoRoot).setLibPackage(trimmed, trimmed);
 }

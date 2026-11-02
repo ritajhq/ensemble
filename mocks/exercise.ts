@@ -20,11 +20,16 @@ class Sandbox {
     private readonly logPath: string,
   ) {}
 
-  static async create(parent: string, scenario: string): Promise<Sandbox> {
+  static async create(
+    parent: string,
+    scenario: string,
+    mock: string,
+  ): Promise<Sandbox> {
     const directory = join(parent, scenario);
     await Deno.remove(directory, { recursive: true }).catch(() => {});
-    const root = join(directory, "tally");
-    await copy(join(MOCKS, "tally"), root);
+    const root = join(directory, mock);
+    await copy(join(MOCKS, mock), root);
+    await vendorEcosystemKits(root);
     const sandbox = new Sandbox(root, join(directory, "output.log"));
 
     const origin = join(directory, "origin.git");
@@ -106,11 +111,35 @@ class Sandbox {
   }
 }
 
+/**
+ * Copies this working tree's ecosystem kits into a mock that declares them, as
+ * `ens kit install` would, linking them to this tree's kit SDK: they need its
+ * `Ecosystem` contract, which a published release may not carry yet.
+ */
+async function vendorEcosystemKits(root: string): Promise<void> {
+  const config = await Deno.readTextFile(
+    join(root, ".ensemble", "config.yaml"),
+  );
+  if (!config.includes("- cargo")) return;
+  const kit = join(root, ".ensemble", "kits", "ecosystem", "cargo");
+  await copy(join(REPO, ".ensemble", "kits", "ecosystem", "cargo"), kit);
+  await Deno.remove(join(kit, "deno.lock")).catch(() => {});
+  const manifest = JSON.parse(
+    await Deno.readTextFile(join(kit, "deno.json")),
+  );
+  manifest.links = ["core", "host", "kit-sdk"].map((member) =>
+    join(REPO, "source", "core", member)
+  );
+  await Deno.writeTextFile(join(kit, "deno.json"), JSON.stringify(manifest));
+}
+
 /** What a scenario found: the user's goal was met, or `gap` says how it wasn't. */
 type Finding = { readonly gap?: string; readonly note?: string };
 
 interface Scenario {
   readonly name: string;
+  /** Which mock it runs against: `tally` unless it says otherwise. */
+  readonly mock?: string;
   readonly goal: string;
   run(sandbox: Sandbox): Promise<Finding>;
 }
@@ -262,6 +291,28 @@ const SCENARIOS: readonly Scenario[] = [
     },
   },
   {
+    name: "lib-containment",
+    goal: "ens lib publish refuses a Rust lib depending on core",
+    async run(sandbox) {
+      const manifest = sandbox.path("source/libs/rounding/Cargo.toml");
+      const text = await Deno.readTextFile(manifest);
+      await Deno.writeTextFile(
+        manifest,
+        `${text}\n[dev-dependencies]\ntally-ledger = { path = "../../core/ledger" }\n`,
+      );
+      const published = await sandbox.ens(
+        "lib",
+        "publish",
+        "rounding",
+        "crates",
+        "0.2.0",
+      );
+      return published.code !== 0 && published.output.includes("source/core/**")
+        ? {}
+        : { gap: `published anyway: ${Sandbox.reason(published)}` };
+    },
+  },
+  {
     name: "kit-install",
     goal: "ens kit install works in a project with no deno.lock",
     async run(sandbox) {
@@ -289,6 +340,10 @@ const SCENARIOS: readonly Scenario[] = [
       const ledger = await sandbox.read("source/core/ledger/Cargo.toml");
       if (!ledger.includes('version = "0.2.0"')) {
         return { gap: "tally-ledger's version wasn't stamped to 0.2.0" };
+      }
+      const cli = await sandbox.read("source/apps/tally-cli/Cargo.toml");
+      if (!cli.includes('path = "../../core/ledger", version = "0.2.0"')) {
+        return { gap: "tally-cli wasn't repinned to tally-ledger 0.2.0" };
       }
       const resolved = await sandbox.cargo("metadata", "--no-deps");
       if (resolved.code !== 0) return failed("cargo metadata", resolved);
@@ -319,6 +374,51 @@ const SCENARIOS: readonly Scenario[] = [
       return await exists(join(parent, "fresh/deno.json"))
         ? { gap: "always writes a root deno.json" }
         : {};
+    },
+  },
+  {
+    name: "deno-release",
+    mock: "quill",
+    goal: "a Deno project declaring no ecosystems still releases as before",
+    async run(sandbox) {
+      const released = await sandbox.ens("release", "next", "minor", "--yes");
+      if (released.code !== 0) return failed("ens release next", released);
+      const core = JSON.parse(await sandbox.read("source/core/ink/deno.json"));
+      if (core.version !== "0.2.0") {
+        return { gap: `core stayed at ${core.version}` };
+      }
+      const app = JSON.parse(await sandbox.read("source/apps/pen/deno.json"));
+      if (app.imports["@quill/ink"] !== "jsr:@quill/ink@^0.2.0") {
+        return { gap: `app pins ${app.imports["@quill/ink"]}` };
+      }
+      const dirt = await sandbox.run("git", ["status", "--porcelain"]);
+      if (dirt.output.trim() !== "") {
+        return { gap: `left uncommitted: ${dirt.output.trim().slice(0, 120)}` };
+      }
+      const tags = await sandbox.run("git", ["tag", "--list", "0.2.0"]);
+      return tags.output.trim() === "0.2.0" ? {} : { gap: "0.2.0 not tagged" };
+    },
+  },
+  {
+    name: "deno-lib",
+    mock: "quill",
+    goal: "ens lib new and its self-containment check still work for Deno",
+    async run(sandbox) {
+      const created = await sandbox.ens("lib", "new", "nib");
+      if (created.code !== 0) return failed("ens lib new", created);
+      if (!await exists(sandbox.path("source/libs/nib/deno.json"))) {
+        return { gap: "wrote no deno.json" };
+      }
+      const leaky = await sandbox.ens(
+        "lib",
+        "publish",
+        "blot",
+        "local",
+        "0.2.0",
+      );
+      return leaky.code !== 0 && leaky.output.includes("source/core/**")
+        ? {}
+        : { gap: `a lib importing core published: ${Sandbox.reason(leaky)}` };
     },
   },
   {
@@ -376,7 +476,11 @@ const selected = SCENARIOS.filter((s) => !only || only.includes(s.name));
 const report = new Report();
 for (const scenario of selected) {
   const started = performance.now();
-  const sandbox = await Sandbox.create(flags.sandbox, scenario.name);
+  const sandbox = await Sandbox.create(
+    flags.sandbox,
+    scenario.name,
+    scenario.mock ?? "tally",
+  );
   const finding = await scenario.run(sandbox);
   report.record(scenario, finding, (performance.now() - started) / 1000);
 }

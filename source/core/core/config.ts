@@ -76,6 +76,8 @@ export interface DeployConfig {
 }
 
 export interface EnsembleConfig {
+  /** The project's languages: each a kit under `.ensemble/kits/ecosystem/<name>`, or the built-in `deno`, which is also what a project declaring none uses. The first is the default for a new library. */
+  ecosystems?: string[];
   build?: Record<string, BuildAppConfig>;
   deploy?: Record<string, DeployConfig>;
   hooks?: HooksConfig;

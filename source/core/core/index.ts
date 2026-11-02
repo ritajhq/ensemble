@@ -93,7 +93,7 @@ export { RunPackReleasePacker } from "./release-packer.ts";
 
 export * as Config from "./config.ts";
 export * as Deploy from "./deploy/index.ts";
-export * as Ecosystem from "./ecosystem/index.ts";
+export * as Ecosystems from "./ecosystem/index.ts";
 export * as Hooks from "./hooks.ts";
 export * as Release from "./release.ts";
 export * as Vendor from "./vendor/index.ts";

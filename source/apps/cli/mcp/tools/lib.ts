@@ -23,11 +23,11 @@ export class LibTools {
       {
         title: "Scaffold a new library",
         description: "Scaffolds a new library at source/libs/<name>.",
-        inputSchema: { name: z.string() },
+        inputSchema: { name: z.string(), ecosystem: z.string().optional() },
       },
-      ({ name }) =>
+      ({ name, ecosystem }) =>
         ToolResult.from(async () => {
-          await runLibNew(name, Host.createPorts().repo);
+          await runLibNew(name, Host.createPorts(), ecosystem);
           return `Scaffolded source/libs/${name}.`;
         }),
     );
@@ -45,7 +45,7 @@ export class LibTools {
         ToolResult.from(async () => {
           const entry = await runLibInstall(
             url,
-            Host.createPorts().repo,
+            Host.createPorts(),
             new Host.GitPackageSource(),
           );
           return `Installed lib at ${entry.path} (${entry.repo}@${entry.ref}).`;
@@ -66,7 +66,7 @@ export class LibTools {
           const entry = await runLibEject(
             name,
             remote,
-            Host.createPorts().repo,
+            Host.createPorts(),
             new Host.GitPackageSource(),
           );
           return `Ejected ${entry.path} to ${entry.repo}@${entry.ref}.`;
@@ -86,7 +86,7 @@ export class LibTools {
           const entry = await runLibPin(
             name,
             ref,
-            Host.createPorts().repo,
+            Host.createPorts(),
             new Host.GitPackageSource(),
           );
           return `Pinned ${entry.path} to ${entry.repo}@${entry.ref}.`;

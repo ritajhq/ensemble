@@ -2,7 +2,12 @@ import { join } from "@std/path";
 import { ensureDir } from "@std/fs";
 import * as KitSdk from "@ensemble/kit-sdk";
 
-/** Stands in for crates.io: packages a crate into a local directory, so a release can be exercised without publishing anything. */
+/**
+ * Stands in for crates.io: packages a crate into a local directory, so a
+ * release can be exercised without publishing anything. It packages the whole
+ * workspace, since cargo looks up a crate's sibling dependencies on the registry
+ * unless they're being packaged alongside it.
+ */
 const LOCAL_REGISTRY = ["source", "artifacts", "packages", "local-registry"];
 
 const VERSION_LINE = /^version = "[^"]*"$/m;
@@ -32,10 +37,11 @@ await KitSdk.Lib.run({
         "--quiet",
         "--allow-dirty",
         "--no-verify",
+        "--workspace",
         "--target-dir",
         registry,
       ],
-      cwd: libRoot,
+      cwd: join(repoRoot, "source"),
     }).spawn().status;
     if (code !== 0) Deno.exit(code);
   },

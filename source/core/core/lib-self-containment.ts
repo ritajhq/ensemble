@@ -1,7 +1,7 @@
 import { basename, join, relative } from "@std/path";
 import { exists } from "@std/fs";
 import { EnsembleConfigStore } from "./config.ts";
-import { DenoWorkspace } from "./ecosystem/index.ts";
+import { DenoWorkspace, type Ecosystem } from "./ecosystem/index.ts";
 
 /** One import a libs library takes that its self-containment check rejects. */
 export interface Violation {
@@ -18,7 +18,7 @@ interface WorkspaceMember {
 async function findMembersUnder(
   repoRoot: string,
   relativeSubdir: string,
-  workspace: DenoWorkspace,
+  ecosystem: Ecosystem,
 ): Promise<WorkspaceMember[]> {
   const members: WorkspaceMember[] = [];
   const base = join(repoRoot, relativeSubdir);
@@ -26,7 +26,7 @@ async function findMembersUnder(
 
   for await (const entry of Deno.readDir(base)) {
     if (!entry.isDirectory) continue;
-    const found = await workspace.packageAt(join(base, entry.name));
+    const found = await ecosystem.packageAt(join(base, entry.name));
     if (found?.name !== undefined) {
       members.push({
         name: found.name,
@@ -53,22 +53,22 @@ async function findMembersUnder(
 export class SelfContainmentChecker {
   constructor(
     private readonly repoRoot: string,
-    private readonly workspace: DenoWorkspace = new DenoWorkspace(repoRoot),
+    private readonly ecosystem: Ecosystem = new DenoWorkspace(repoRoot),
   ) {}
 
   async check(libRoot: string): Promise<Violation[]> {
-    const lib = await this.workspace.packageAt(libRoot);
+    const lib = await this.ecosystem.packageAt(libRoot);
     if (!lib) throw new Error(`No package found at ${libRoot}.`);
 
     const coreMembers = await findMembersUnder(
       this.repoRoot,
       join("source", "core"),
-      this.workspace,
+      this.ecosystem,
     );
     const libsMembers = await findMembersUnder(
       this.repoRoot,
       join("source", "libs"),
-      this.workspace,
+      this.ecosystem,
     );
     const config = await new EnsembleConfigStore(this.repoRoot).loadOrEmpty();
     const thisLibRelativePath = relative(this.repoRoot, libRoot);

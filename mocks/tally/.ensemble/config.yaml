@@ -1,3 +1,5 @@
+ecosystems:
+  - cargo
 build:
   tally-cli:
     kit: cargo

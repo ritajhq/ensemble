@@ -1,6 +1,6 @@
 import { join } from "@std/path";
 import { ensureDir, exists, expandGlob } from "@std/fs";
-import type { Link, Package, StampTarget } from "./package.ts";
+import type { Ecosystem, Link, Package, StampTarget } from "./ecosystem.ts";
 
 interface DenoJson {
   name?: unknown;
@@ -35,7 +35,7 @@ function linkTarget(target: string): string | undefined {
  * Deno accepts (a list, or `{ members: [...] }`), and each member's own
  * `deno.json`.
  */
-export class DenoWorkspace {
+export class DenoWorkspace implements Ecosystem {
   constructor(private readonly repoRoot: string) {}
 
   /** Writes the root `deno.json` a new project's members resolve each other through. */

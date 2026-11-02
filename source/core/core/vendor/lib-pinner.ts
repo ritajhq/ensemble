@@ -2,6 +2,7 @@ import { join } from "@std/path";
 import type { PackageSource } from "./package-source.ts";
 import type { Registry } from "./registry.ts";
 import type { Entry } from "./entry.ts";
+import { DenoWorkspace, type Ecosystem } from "../ecosystem/index.ts";
 import { SelfContainmentChecker } from "../lib-self-containment.ts";
 
 /**
@@ -16,6 +17,7 @@ export class LibPinner {
     private readonly repoRoot: string,
     private readonly registry: Registry,
     private readonly source: PackageSource,
+    private readonly ecosystem: Ecosystem = new DenoWorkspace(repoRoot),
   ) {}
 
   async pin(path: string, ref: string): Promise<Entry> {
@@ -29,7 +31,10 @@ export class LibPinner {
     const dir = join(this.repoRoot, path);
     await this.source.switchTo(dir, ref);
 
-    const violations = await new SelfContainmentChecker(this.repoRoot).check(
+    const violations = await new SelfContainmentChecker(
+      this.repoRoot,
+      this.ecosystem,
+    ).check(
       dir,
     );
     if (violations.length > 0) {

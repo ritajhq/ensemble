@@ -20,8 +20,12 @@ export const libCommand = new Command()
     new Command()
       .description("Scaffold a new library at source/libs/<name>.")
       .arguments("<name:string>")
-      .action(async (_, name) => {
-        await runLibNew(name, Host.createPorts().repo);
+      .option(
+        "--ecosystem <ecosystem:string>",
+        "Which of the project's ecosystems the library belongs to (default: the first it declares).",
+      )
+      .action(async ({ ecosystem }, name) => {
+        await runLibNew(name, Host.createPorts(), ecosystem);
         console.log(`Scaffolded source/libs/${name}.`);
       }),
   )
@@ -35,7 +39,7 @@ export const libCommand = new Command()
       .action(async (_, url) => {
         const entry = await runLibInstall(
           url,
-          Host.createPorts().repo,
+          Host.createPorts(),
           new Host.GitPackageSource(),
         );
         console.log(
@@ -57,7 +61,7 @@ export const libCommand = new Command()
         const entry = await runLibEject(
           name,
           remote,
-          Host.createPorts().repo,
+          Host.createPorts(),
           new Host.GitPackageSource(),
         );
         console.log(`Ejected ${entry.path} to ${entry.repo}@${entry.ref}.`);
@@ -97,7 +101,7 @@ export const libCommand = new Command()
         const entry = await runLibPin(
           name,
           ref,
-          Host.createPorts().repo,
+          Host.createPorts(),
           new Host.GitPackageSource(),
         );
         console.log(`Pinned ${entry.path} to ${entry.repo}@${entry.ref}.`);

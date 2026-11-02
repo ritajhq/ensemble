@@ -6,14 +6,14 @@ import type { Registry } from "./registry.ts";
 import type { Entry } from "./entry.ts";
 import { SelfContainmentChecker } from "../lib-self-containment.ts";
 import { EnsembleConfigStore } from "../config.ts";
-import { DenoWorkspace } from "../ecosystem/index.ts";
+import { DenoWorkspace, type Ecosystem } from "../ecosystem/index.ts";
 
 /** Reads the name of a freshly cloned lib — the same signal `SelfContainmentChecker` uses to recognize a workspace member, and the only thing that has to live inside the library itself: everything else about it (its declared package name for publishing, its publish targets) is tracked as this project's own tooling config, not the library's. */
 async function readPackageName(
-  workspace: DenoWorkspace,
+  ecosystem: Ecosystem,
   dir: string,
 ): Promise<string> {
-  const lib = await workspace.packageAt(dir);
+  const lib = await ecosystem.packageAt(dir);
   if (!lib) {
     throw new Error(
       `No package found at ${dir} — doesn't look like an installable lib.`,
@@ -40,6 +40,7 @@ export class LibInstaller {
     private readonly repoRoot: string,
     private readonly registry: Registry,
     private readonly source: PackageSource,
+    private readonly ecosystem: Ecosystem = new DenoWorkspace(repoRoot),
   ) {}
 
   async install(urlWithOptionalRef: string): Promise<Entry> {
@@ -52,12 +53,12 @@ export class LibInstaller {
       await this.source.fetch(url, ref, scratchDir);
       const resolvedRef = await this.source.currentRef(scratchDir);
 
-      const packageName = await readPackageName(
-        new DenoWorkspace(this.repoRoot),
-        scratchDir,
-      );
+      const packageName = await readPackageName(this.ecosystem, scratchDir);
 
-      const violations = await new SelfContainmentChecker(this.repoRoot).check(
+      const violations = await new SelfContainmentChecker(
+        this.repoRoot,
+        this.ecosystem,
+      ).check(
         scratchDir,
       );
       if (violations.length > 0) {

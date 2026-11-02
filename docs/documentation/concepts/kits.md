@@ -11,7 +11,7 @@ version of the contract between `ens` and its kits. `ens` refuses a kit
 declaring a protocol it doesn't speak, and `ens kit install`, `pin` and `eject`
 also refuse one declaring none.
 
-There are three kit roles, each speaking a different contract:
+There are four kit roles, each speaking a different contract:
 
 ## Build kits
 
@@ -68,6 +68,31 @@ instances). Support is uneven by design: each kit documents its own drops (e.g.
 `aws` silently drops `ports`/`networks`, but hard-fails on a `storage.volume`
 entry rather than dropping it, since it has no provisioner for storage yet).
 There is no `kubernetes` deploy kit in this repo.
+
+## Ecosystem kits
+
+An ecosystem kit is what lets `ens` manage packages in a language: finding a
+package and what it links to, moving packages to a new version during a release,
+scaffolding a library, and naming the lockfiles a release commit must carry. A
+project lists its ecosystems in `.ensemble/config.yaml`:
+
+```yaml
+ecosystems:
+  - cargo
+```
+
+Each name is a kit at `.ensemble/kits/ecosystem/<name>`, whose `main.ts` calls
+`KitSdk.Ecosystem.run`. `deno` is built in, and is what a project listing none
+uses. One repository can list several; the first is the default for
+`ens lib new`, and `--ecosystem` picks another. Two ecosystems claiming the same
+directory is an error, while one package nested inside another's directory is
+fine.
+
+An ecosystem's root files, such as `Cargo.toml` and `Cargo.lock`, live in
+`source/`. Kits themselves still run on Deno, whatever language the project is
+written in.
+
+Built-in ecosystem kit: `cargo`.
 
 ## Authoring, installing, and sharing kits
 

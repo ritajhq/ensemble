@@ -13,7 +13,7 @@ import {
   PublishUnauthorizedError,
 } from "./publish-authorization.ts";
 import { LibDeclarationLoader } from "./lib-declaration.ts";
-import { DenoWorkspace } from "./ecosystem/index.ts";
+import { Project } from "./ecosystem/index.ts";
 import {
   type CoreLibRelease,
   CoreLibReleaseCascade,
@@ -520,7 +520,7 @@ export class ReleaseCeremony {
     return await new CoreLibReleaseCascade(this.ports).stamp(
       version,
       libs,
-      new DenoWorkspace(this.repoRoot),
+      await Project.load(this.repoRoot, this.ports),
     );
   }
 
