@@ -1,5 +1,0 @@
-version: v1
-
-release:
-  tally-desktop:
-    kit: tauri

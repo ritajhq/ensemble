@@ -1,5 +1,5 @@
 import { join } from "@std/path";
-import { ensureDir, exists, move } from "@std/fs";
+import { copy, ensureDir, exists } from "@std/fs";
 import * as KitManifest from "./kit-manifest.ts";
 import { nameFromUrl, parseUrl } from "./git-url.ts";
 import type { PackageSource } from "./package-source.ts";
@@ -48,7 +48,9 @@ export class KitInstaller {
       }
 
       await ensureDir(join(this.repoRoot, ".ensemble", "kits", manifest.role));
-      await move(scratchDir, destination);
+      // Copied, not renamed: the temp folder is often on another volume. The
+      // `finally` below removes the original.
+      await copy(scratchDir, destination);
 
       const entry: Entry = { repo: url, ref: resolvedRef, path: relativePath };
       await this.registry.register(entry);
