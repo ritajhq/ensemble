@@ -299,6 +299,21 @@ export class EnsembleConfigStore {
   }
 
   /**
+   * Sets `ecosystems:` in .ensemble/config.yaml, keeping the rest. A plain
+   * parse-modify-rewrite, so hand-written comments are not preserved.
+   */
+  async setEcosystems(ecosystems: readonly string[]): Promise<void> {
+    const path = this.configPath;
+    const existingConfig: EnsembleConfig = await exists(path, { isFile: true })
+      ? ((parseYaml(await Deno.readTextFile(path)) ?? {}) as EnsembleConfig)
+      : {};
+    await Deno.writeTextFile(
+      path,
+      stringifyYaml({ ...existingConfig, ecosystems: [...ecosystems] }),
+    );
+  }
+
+  /**
    * Sets build.<app>.integrations.<deployKit>.kit in .ensemble/config.yaml —
    * the app's wiring for that deploy kit, built by the build kit `kit` —
    * creating the file and the entry if need be and preserving the rest. An

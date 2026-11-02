@@ -57,9 +57,12 @@ export class Workspace {
     this.root = join(repoRoot, ".ensemble", "ecosystems", "cargo");
   }
 
+  /** A root that's already there stays, with whatever a project added to it. */
   async initialize(): Promise<void> {
     await ensureDir(this.root);
-    await Deno.writeTextFile(join(this.root, "Cargo.toml"), ROOT_MANIFEST);
+    const manifest = join(this.root, "Cargo.toml");
+    if (await exists(manifest, { isFile: true })) return;
+    await Deno.writeTextFile(manifest, ROOT_MANIFEST);
   }
 
   /** Lists every crate under `source/` as a member, and points each at this root. */

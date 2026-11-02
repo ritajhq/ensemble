@@ -5,6 +5,7 @@ import { EnsembleConfigStore } from "./config.ts";
 import { integrationOf, isReserved } from "./deploy/integration.ts";
 import { Project } from "./ecosystem/index.ts";
 import { KitFailure, KitProcess } from "./kit-process.ts";
+import * as KitManifest from "./vendor/kit-manifest.ts";
 
 const APP_NAME_PATTERN = /^[a-zA-Z0-9](?:[a-zA-Z0-9._\-/]*[a-zA-Z0-9])?$/;
 const KIT_NAME_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
@@ -26,7 +27,8 @@ export interface RunAppCreateOptions {
  * build.<name>.kit (and .target, if given) in .ensemble/config.yaml via
  * EnsembleConfigStore.setAppBuildKit — or, for an integration,
  * build.<name>.integrations.<deploy kit>.kit via setAppIntegration — so it's
- * immediately buildable with `ens build <name>`.
+ * immediately buildable with `ens build <name>`. A kit that needs an ecosystem
+ * says so in its `kit.yml`, and a project without it gets it here.
  */
 export async function runAppCreate(
   options: RunAppCreateOptions,
@@ -90,6 +92,8 @@ export async function runAppCreate(
   }
 
   const project = await Project.load(repoRoot, ports);
+  const ecosystem = await KitManifest.ecosystemOf(kitDir);
+  if (ecosystem !== undefined) await project.adopt(ecosystem, repoRoot, ports);
   const targetArgs = options.target ? ["--target", options.target] : [];
   const code = await new KitProcess(kitDir, ports).run("scaffold.ts", [
     "--dest",

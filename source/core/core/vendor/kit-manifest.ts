@@ -97,6 +97,24 @@ export async function assertRunnable(kitDir: string): Promise<void> {
   assertSupported(protocol, path);
 }
 
+/**
+ * The ecosystem a kit's apps have to belong to, from its optional `ecosystem`
+ * key: a project using the kit declares it, so that those apps are members of
+ * its workspace. A kit with no `kit.yml` may predate one, and needs nothing.
+ */
+export async function ecosystemOf(kitDir: string): Promise<string | undefined> {
+  let text: string;
+  try {
+    text = await Deno.readTextFile(join(kitDir, "kit.yml"));
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) return undefined;
+    throw error;
+  }
+  const ecosystem = (parseYaml(text) as Record<string, unknown> | null)
+    ?.ecosystem;
+  return typeof ecosystem === "string" ? ecosystem : undefined;
+}
+
 /** The entrypoint file(s) a kit with this manifest must have present. Presence-only validation — never full interface/type conformance against the role's port. */
 export function requiredEntrypoints(
   manifest: Pick<Manifest, "publishes">,

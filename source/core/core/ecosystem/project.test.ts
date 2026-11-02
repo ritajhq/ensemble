@@ -1,6 +1,7 @@
 import { join } from "@std/path";
 import { assertEquals, assertRejects, assertThrows } from "@std/assert";
 import { exists } from "@std/fs";
+import { EnsembleConfigStore } from "../config.ts";
 import { Project } from "./project.ts";
 import type { Ports } from "../ports.ts";
 
@@ -185,5 +186,88 @@ Deno.test("Project: a Deno version other than the pinned one is refused", async 
       Error,
       "pins 2.5, but this machine has 2.4.1",
     );
+  });
+});
+
+/** A project with an ecosystem kit at `.ensemble/kits/ecosystem/<name>`, as far as finding one goes. */
+async function withEcosystemKit(
+  config: string,
+  name: string,
+  run: (repoRoot: string, asked: string[]) => Promise<void>,
+): Promise<void> {
+  await withProject(config, async (repoRoot) => {
+    const kit = join(repoRoot, ".ensemble", "kits", "ecosystem", name);
+    await Deno.mkdir(kit, { recursive: true });
+    await Deno.writeTextFile(join(kit, "main.ts"), "");
+    await run(repoRoot, []);
+  });
+}
+
+function recordingPorts(
+  asked: string[],
+): Pick<Ports, "denoExe" | "process"> {
+  return {
+    denoExe: { resolveDenoExecutable: () => Promise.resolve("/bin/deno") },
+    process: {
+      capture: (_command: string, args: readonly string[]) => {
+        asked.push(args[args.findIndex((arg) => arg.endsWith("main.ts")) + 1]);
+        return Promise.resolve("{}");
+      },
+    } as unknown as Ports["process"],
+  };
+}
+
+async function declaredIn(repoRoot: string): Promise<unknown> {
+  const config = await new EnsembleConfigStore(repoRoot).load();
+  return config.ecosystems;
+}
+
+Deno.test("Project.adopt: a project that declared nothing keeps Deno, and sets the new one up", async () => {
+  await withEcosystemKit(
+    "build:\n  x:\n    kit: cargo\n",
+    "cargo",
+    async (repoRoot, asked) => {
+      const ports = recordingPorts(asked);
+      const project = await Project.load(repoRoot, ports);
+
+      await project.adopt("cargo", repoRoot, ports);
+
+      assertEquals(await declaredIn(repoRoot), ["deno", "cargo"]);
+      assertEquals(asked, ["initialize"]);
+      assertEquals(
+        (await new EnsembleConfigStore(repoRoot).load()).build?.x?.kit,
+        "cargo",
+      );
+    },
+  );
+});
+
+Deno.test("Project.adopt: an ecosystem already declared is left alone", async () => {
+  await withEcosystemKit(
+    "ecosystems:\n  - cargo\n",
+    "cargo",
+    async (repoRoot, asked) => {
+      const ports = recordingPorts(asked);
+      const project = await Project.load(repoRoot, ports);
+
+      await project.adopt("cargo", repoRoot, ports);
+
+      assertEquals(await declaredIn(repoRoot), ["cargo"]);
+      assertEquals(asked, []);
+    },
+  );
+});
+
+Deno.test("Project.adopt: an ecosystem with no kit changes nothing", async () => {
+  await withProject("{}\n", async (repoRoot) => {
+    const project = await Project.load(repoRoot, UNUSED_PORTS);
+
+    await assertRejects(
+      () => project.adopt("cobol", repoRoot, UNUSED_PORTS),
+      Error,
+      'Ecosystem "cobol" not found',
+    );
+
+    assertEquals(await declaredIn(repoRoot), undefined);
   });
 });

@@ -25,7 +25,7 @@ export type ToolEnvironment = Pick<typeof Deno.env, "set">;
  */
 export class Project implements Ecosystem {
   private constructor(
-    private readonly ecosystems: ReadonlyMap<string, Ecosystem & Toolchain>,
+    private readonly ecosystems: Map<string, Ecosystem & Toolchain>,
   ) {}
 
   /** Puts the project's pinned tool versions in effect too, so anything acting on the project runs them. */
@@ -92,6 +92,27 @@ export class Project implements Ecosystem {
         environment.set(variable, value);
       }
     }
+  }
+
+  /**
+   * Declares `name` in `.ensemble/config.yaml` and sets it up, unless the
+   * project already has it: what an app whose kit needs an ecosystem takes for
+   * granted. After what's already declared, so the default doesn't change, and
+   * a project that had declared nothing keeps the Deno it meant by that.
+   */
+  async adopt(
+    name: string,
+    repoRoot: string,
+    ports: Pick<Ports, "denoExe" | "process">,
+  ): Promise<void> {
+    if (this.ecosystems.has(name)) return;
+    const ecosystem = await Project.resolve(name, repoRoot, ports);
+    await new EnsembleConfigStore(repoRoot).setEcosystems([
+      ...this.ecosystems.keys(),
+      name,
+    ]);
+    await ecosystem.initialize();
+    this.ecosystems.set(name, ecosystem);
   }
 
   /** One declared ecosystem, for an action that has to choose. The first declared is the project's default. */

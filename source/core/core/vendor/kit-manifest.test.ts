@@ -88,3 +88,21 @@ Deno.test("KitManifest.requiredEntrypoints: any other kit needs only main.ts", (
     "main.ts",
   ]);
 });
+
+Deno.test("KitManifest.ecosystemOf: names the ecosystem a kit declares", async () => {
+  await withKitDir(
+    "role: build\nprotocol: 1\necosystem: cargo\n",
+    async (dir) => {
+      assertEquals(await KitManifest.ecosystemOf(dir), "cargo");
+    },
+  );
+});
+
+Deno.test("KitManifest.ecosystemOf: a kit declaring none, or with no kit.yml, needs none", async () => {
+  await withKitDir("role: build\nprotocol: 1\n", async (dir) => {
+    assertEquals(await KitManifest.ecosystemOf(dir), undefined);
+  });
+  await withKitDir(undefined, async (dir) => {
+    assertEquals(await KitManifest.ecosystemOf(dir), undefined);
+  });
+});

@@ -41,9 +41,8 @@ const CAPABILITIES = `${
  * `tauri.conf.json` at `source/artifacts/<app>` and list that app under its
  * `needs:` in `.ensemble/config.yaml`, which a scaffold has no way to do.
  *
- * Its `Cargo.toml` names no workspace: the cargo ecosystem's sync adds that
- * line in a project that declares it, and a project that doesn't can leave the
- * crate on its own.
+ * Its `Cargo.toml` names no workspace: the cargo ecosystem, which this kit's
+ * `kit.yml` has `ens app create` declare, adds that line when it syncs.
  */
 export class ShellTemplate {
   private readonly title: string;
