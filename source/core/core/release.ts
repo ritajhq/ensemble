@@ -13,7 +13,7 @@ import {
   PublishUnauthorizedError,
 } from "./publish-authorization.ts";
 import { LibDeclarationLoader } from "./lib-declaration.ts";
-import { Workspace } from "./workspace.ts";
+import { DenoWorkspace } from "./ecosystem/index.ts";
 import {
   type CoreLibRelease,
   CoreLibReleaseCascade,
@@ -510,8 +510,8 @@ export class ReleaseCeremony {
    * tag — call this, then commit the result (see
    * `ReleaseService.commitIfChanged`), then create the tag, so the tag's
    * commit actually carries the version bump. Pure local file writes, no
-   * network. Returns every workspace manifest it repinned — outside the
-   * libraries' own directories, so the commit must name them too.
+   * network. Returns every file it changed outside the libraries' own
+   * directories, so the commit must name them too.
    */
   async stampCoreLibs(
     libs: readonly CoreLibRelease[],
@@ -520,7 +520,7 @@ export class ReleaseCeremony {
     return await new CoreLibReleaseCascade(this.ports).stamp(
       version,
       libs,
-      await new Workspace(this.repoRoot).manifests(),
+      new DenoWorkspace(this.repoRoot),
     );
   }
 

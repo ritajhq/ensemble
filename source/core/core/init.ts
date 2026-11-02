@@ -1,5 +1,6 @@
 import { join } from "@std/path";
 import { copy, ensureDir, exists } from "@std/fs";
+import { DenoWorkspace } from "./ecosystem/index.ts";
 import type { ProcessRunner } from "./ports.ts";
 import { formatVersionTag, SelfUpdateService } from "./version.ts";
 
@@ -162,21 +163,7 @@ export async function runInit(
     await ensureDir(join(projectDir, dir));
   }
 
-  await Deno.writeTextFile(
-    join(projectDir, "deno.json"),
-    JSON.stringify(
-      {
-        workspace: [
-          "source/apps/**",
-          "source/core/**",
-          "source/libs/**",
-          ".ensemble/kits/**",
-        ],
-      },
-      null,
-      2,
-    ) + "\n",
-  );
+  await new DenoWorkspace(projectDir).initialize();
 
   await Deno.writeTextFile(
     join(projectDir, "source/artifacts", ".gitignore"),

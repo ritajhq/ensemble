@@ -1,5 +1,4 @@
-import { join } from "@std/path";
-import { exists } from "@std/fs";
+import type { DenoWorkspace } from "./ecosystem/index.ts";
 import type { LibDeclaration } from "./lib-declaration.ts";
 import { LibKit } from "./lib-kit.ts";
 import type { Ports } from "./ports.ts";
@@ -30,17 +29,18 @@ export class CoreLibReleaseCascade {
       new LibKit(kit, ports),
   ) {}
 
-  /** Stamps every discovered core library's manifest with `version`, and repins every one of `workspaceManifests` that imports one of them, ahead of the release commit that gets tagged — see `ReleaseCeremony.stampCoreLibs`. Returns every workspace manifest it repinned, so the release commit can carry them alongside the libraries themselves. */
+  /** Has `workspace` move every discovered core library to `version` and repin whatever depends on one, then runs each library's lib kit stamp, ahead of the release commit that gets tagged — see `ReleaseCeremony.stampCoreLibs`. Returns every file the commit must name beyond the libraries' own directories. */
   async stamp(
     version: string,
     libs: readonly CoreLibRelease[],
-    workspaceManifests: readonly string[],
+    workspace: Pick<DenoWorkspace, "stamp" | "lockfiles">,
   ): Promise<string[]> {
-    await this.stampOwnVersions(version, libs);
-    const repinned = await this.pinWorkspaceDependencies(
+    const repinned = await workspace.stamp(
       version,
-      libs,
-      workspaceManifests,
+      libs.map(({ libRoot, declaration }) => ({
+        name: declaration.package,
+        directory: libRoot,
+      })),
     );
     for (const { libRoot, declaration } of libs) {
       for (const entry of declaration.publish) {
@@ -52,100 +52,7 @@ export class CoreLibReleaseCascade {
         });
       }
     }
-    return repinned;
-  }
-
-  /**
-   * Writes `version` straight into every discovered core library's own
-   * `deno.json`, before any lib kit subprocess runs — including that same
-   * library's own `stamp`. A lib kit invocation always resolves its full
-   * module graph (via `@ensemble/kit-sdk`) just to start up, and that graph
-   * reads every workspace member's on-disk version; if the very first
-   * library's own subprocess ran before this, it would see a workspace
-   * where `pinWorkspaceDependencies` already repinned its dependents to the
-   * new version but its own manifest still carries the old one — the same
-   * kind of mismatch `pinWorkspaceDependencies` exists to prevent, just
-   * pointed at itself. Ordinarily redundant with what the `jsr` lib kit's
-   * own `stamp` does to the same file, but not every lib kit necessarily
-   * stamps a `deno.json` (a hypothetical `npm` kit would stamp its own
-   * `package.json` instead), so this can't replace the per-kit stamp step —
-   * only run ahead of it, for the sake of workspace resolution alone.
-   */
-  private async stampOwnVersions(
-    version: string,
-    libs: readonly CoreLibRelease[],
-  ): Promise<void> {
-    for (const { libRoot, declaration } of libs) {
-      const denoJsonPath = join(libRoot, "deno.json");
-      if (!await exists(denoJsonPath, { isFile: true })) continue;
-
-      const denoJson = JSON.parse(
-        await Deno.readTextFile(denoJsonPath),
-      ) as Record<
-        string,
-        unknown
-      >;
-      denoJson.name = declaration.package;
-      denoJson.version = version;
-      await Deno.writeTextFile(
-        denoJsonPath,
-        `${JSON.stringify(denoJson, null, 2)}\n`,
-      );
-    }
-  }
-
-  /**
-   * Repins every workspace member's `imports` that point at a discovered
-   * core library with a version, to `version` — before any lib kit runs. On
-   * 0.x a caret range never spans a minor, so once a core library's
-   * workspace version moves past what a member still pins (e.g. `^0.13.0`
-   * after the library bumped to `0.14.0`), Deno stops linking it locally
-   * and falls back to whatever that version resolves to on the real
-   * registry: an older release missing what the member uses, or, for a
-   * library not yet published there, nothing at all. That holds for every
-   * member — the core libraries themselves, whose lib kit subprocesses
-   * resolve their siblings just to start up, but equally the apps packed
-   * and the kits run later in the same release. Unversioned imports
-   * (`jsr:@ensemble/core`) always link locally and are left alone. Doing
-   * every repin up front, before the stamp loop runs any subprocess, keeps
-   * the workspace internally consistent throughout.
-   */
-  private async pinWorkspaceDependencies(
-    version: string,
-    libs: readonly CoreLibRelease[],
-    workspaceManifests: readonly string[],
-  ): Promise<string[]> {
-    const packages = libs.map((lib) => lib.declaration.package);
-    const repinned: string[] = [];
-    for (const denoJsonPath of workspaceManifests) {
-      if (!await exists(denoJsonPath, { isFile: true })) continue;
-
-      const denoJson = JSON.parse(await Deno.readTextFile(denoJsonPath)) as {
-        imports?: Record<string, string>;
-      };
-      const imports = denoJson.imports;
-      if (!imports) continue;
-
-      let changed = false;
-      for (const [specifier, target] of Object.entries(imports)) {
-        const dependency = packages.find((pkg) =>
-          target.startsWith(`jsr:${pkg}@`)
-        );
-        if (!dependency) continue;
-        const pinned = `jsr:${dependency}@^${version}`;
-        if (target === pinned) continue;
-        imports[specifier] = pinned;
-        changed = true;
-      }
-      if (!changed) continue;
-
-      await Deno.writeTextFile(
-        denoJsonPath,
-        `${JSON.stringify(denoJson, null, 2)}\n`,
-      );
-      repinned.push(denoJsonPath);
-    }
-    return repinned;
+    return [...repinned, ...await workspace.lockfiles()];
   }
 
   /** Asks every discovered core library's declared lib kits whether this machine may publish it — all at once, each check being a read-only probe of its own destination — handing each outcome to `onChecked` as it arrives, and returning one `Denial` per refused entry: empty when everything is authorized. Runs before `stamp`. */
