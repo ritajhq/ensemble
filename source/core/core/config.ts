@@ -21,8 +21,20 @@ export interface BuildConfig {
  */
 export interface BuildAppConfig extends Partial<BuildConfig> {
   integrations?: Record<string, BuildConfig>;
-  /** Apps whose output this one's build reads (e.g. a desktop shell embedding its web app), built first whenever this one is. */
-  needs?: string[];
+  /** What this one's build reads the output of (e.g. a desktop shell embedding its web app), finished first whenever this one is built. */
+  needs?: BuildNeed[];
+}
+
+/** One `needs:` entry: an app's build output, named bare or as `build:`, or a ship's pack output. */
+export type BuildNeed = string | { build: string } | { pack: string };
+
+/** How one ship is packed when nothing says otherwise: what `ens pack <ship>` and anything needing it use. */
+export interface PackConfig {
+  kit: string;
+  mode?: string;
+  outputName?: string;
+  /** What this pack reads the output of, finished first whenever this one is packed. */
+  needs?: BuildNeed[];
 }
 
 /** A named shell command, so `ens` can announce which hook is running without printing its whole script. */
@@ -81,6 +93,7 @@ export interface EnsembleConfig {
   /** The project's languages: each a kit under `.ensemble/kits/ecosystem/<name>`, or the built-in `deno`, which is also what a project declaring none uses. The first is the default for a new library. */
   ecosystems?: string[];
   build?: Record<string, BuildAppConfig>;
+  pack?: Record<string, PackConfig>;
   deploy?: Record<string, DeployConfig>;
   hooks?: HooksConfig;
   publish?: PublishConfig;

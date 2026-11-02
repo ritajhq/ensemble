@@ -15,7 +15,9 @@ export class PackTools {
         description: "Packs a ship using the given pack kit.",
         inputSchema: {
           ship: z.string().describe("Ship name to pack."),
-          kit: z.string().describe("Pack kit to use."),
+          kit: z.string().optional().describe(
+            "Pack kit to use. Defaults to the one pack.<ship>.kit names in .ensemble/config.yaml.",
+          ),
           mode: z.string().optional().describe(
             "Pack mode, declared by the kit's kit.yml. Defaults to its first declared mode.",
           ),
@@ -45,10 +47,10 @@ export class PackTools {
           }, Host.createPorts());
           if (code !== 0) {
             throw new Error(
-              `Packing "${ship}" via "${kit}" failed with exit code ${code}.`,
+              `Packing "${ship}" failed with exit code ${code}.`,
             );
           }
-          return `Packed "${ship}" via "${kit}".`;
+          return `Packed "${ship}".`;
         }),
     );
   }

@@ -5,8 +5,10 @@ import * as CliUtil from "./util.ts";
 
 export const packCommand = new Command()
   .name("pack")
-  .description("Pack a ship using the given pack kit.")
-  .arguments("<ship:string> <kit:string>")
+  .description(
+    "Pack a ship using the given pack kit, or the one pack.<ship>.kit names in .ensemble/config.yaml.",
+  )
+  .arguments("<ship:string> [kit:string]")
   .option(
     "-m, --mode <mode:string>",
     "Pack mode, declared by the kit's kit.yml. Defaults to its first declared mode.",

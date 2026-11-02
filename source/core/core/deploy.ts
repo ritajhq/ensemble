@@ -9,7 +9,7 @@ import {
 } from "./task-snapshot.ts";
 import { IngressFile, IngressRecorder } from "./ingress-record.ts";
 import { RunPackReleasePacker } from "./release-packer.ts";
-import { runBuild } from "./build.ts";
+import { runBuild } from "./pipeline.ts";
 import type { Ports } from "./ports.ts";
 import type { EnvFiles } from "./env-files.ts";
 import type { Instance } from "./instance.ts";

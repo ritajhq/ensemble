@@ -1,5 +1,5 @@
 import * as Deploy from "./deploy/index.ts";
-import { runPack } from "./pack.ts";
+import { runPack } from "./pipeline.ts";
 import type { Ports } from "./ports.ts";
 import type { PackReporter } from "./pack-reporter.ts";
 import type { BuildReporter } from "./build-reporter.ts";

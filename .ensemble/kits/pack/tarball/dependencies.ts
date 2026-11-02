@@ -5,12 +5,12 @@ import * as KitSdk from "@ensemble/kit-sdk";
 const ctx = KitSdk.Pack.getDependenciesContext();
 const ship = parseYaml(
   await Deno.readTextFile(join(ctx.ship, "ship.yml")),
-) as { apps: string[] };
+) as { apps?: string[] };
 
 console.log(
   JSON.stringify(
     {
-      artifacts: ship.apps.filter((app) => ctx.apps.includes(app)),
+      artifacts: (ship.apps ?? []).filter((app) => ctx.apps.includes(app)),
     } satisfies KitSdk.Pack.Result,
   ),
 );

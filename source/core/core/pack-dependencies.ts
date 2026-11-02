@@ -24,12 +24,13 @@ export async function resolvePackDependencies(
   candidateApps: readonly string[],
   ports: Ports,
   deployKit?: string,
+  whenKitHasNoAnswer: readonly string[] = candidateApps,
 ): Promise<string[]> {
   const repoRoot = await ports.repo.findRepoRoot();
   const kitDir = join(repoRoot, ".ensemble", "kits", "pack", kit);
   const kitEntry = join(kitDir, "dependencies.ts");
   if (!await exists(kitEntry, { isFile: true })) {
-    return [...candidateApps];
+    return [...whenKitHasNoAnswer];
   }
 
   const shipDir = join(repoRoot, "source", "ship", shipName);

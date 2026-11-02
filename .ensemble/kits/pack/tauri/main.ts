@@ -1,5 +1,5 @@
 import { join } from "@std/path";
-import { copy, expandGlob } from "@std/fs";
+import { copy, ensureDir, expandGlob } from "@std/fs";
 import { parse as parseYaml } from "@std/yaml";
 import * as KitSdk from "@ensemble/kit-sdk";
 
@@ -41,11 +41,15 @@ const { code } = await new Deno.Command(deno, {
 }).spawn().status;
 if (code !== 0) Deno.exit(code);
 
+// A folder of its own, since one ship can produce several bundles: it's what
+// `describe.ts` reports to anything needing this pack.
+const output = join(ctx.packages, ctx.outputName);
+await ensureDir(output);
 for (const bundle of ship.bundles) {
   const built = expandGlob(`*.${bundle}`, {
     root: join(bundles, bundle),
   });
   for await (const file of built) {
-    await copy(file.path, join(ctx.packages, file.name), { overwrite: true });
+    await copy(file.path, join(output, file.name), { overwrite: true });
   }
 }

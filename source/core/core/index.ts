@@ -7,7 +7,8 @@ export {
   type RepoLocator,
 } from "./ports.ts";
 export { runAppCreate, type RunAppCreateOptions } from "./app.ts";
-export { runBuild, type RunBuildOptions } from "./build.ts";
+export type { RunBuildOptions } from "./build.ts";
+export { runBuild, runPack } from "./pipeline.ts";
 export type { BuildProgress, BuildReporter } from "./build-reporter.ts";
 export { PlainBuildReporter } from "./plain-build-reporter.ts";
 export { runExec, runSync } from "./exec.ts";
@@ -42,7 +43,7 @@ export {
   SelfContainmentChecker,
   type Violation,
 } from "./lib-self-containment.ts";
-export { runPack, type RunPackOptions } from "./pack.ts";
+export type { RunPackOptions } from "./pack.ts";
 export { resolvePackDependencies } from "./pack-dependencies.ts";
 export type { PackProgress, PackReporter } from "./pack-reporter.ts";
 export { PlainPackReporter } from "./plain-pack-reporter.ts";

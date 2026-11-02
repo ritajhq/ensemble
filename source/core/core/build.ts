@@ -2,7 +2,7 @@ import { join } from "@std/path";
 import { ensureDir, exists } from "@std/fs";
 import { load as loadEnv } from "@std/dotenv";
 import type { Ports } from "./ports.ts";
-import { type BuildAppConfig, EnsembleConfigStore } from "./config.ts";
+import { EnsembleConfigStore } from "./config.ts";
 import type * as Build from "./build-context.ts";
 import type { BuildReporter } from "./build-reporter.ts";
 import { PlainBuildReporter } from "./plain-build-reporter.ts";
@@ -13,8 +13,8 @@ import {
   isReserved,
   sourceDirOf,
 } from "./deploy/integration.ts";
-import { Project } from "./ecosystem/index.ts";
 import { KitProcess } from "./kit-process.ts";
+import type { Need } from "./need-context.ts";
 
 export interface RunBuildOptions {
   mode: Build.Mode;
@@ -22,58 +22,10 @@ export interface RunBuildOptions {
   varOverrides?: Record<string, string>;
   /** Aborting this stops the spawned build kit process — meaningful mainly with `watch: true`, which otherwise runs until killed. Used by `runDeploy`'s development-mode build-watcher orchestration to shut every watcher down once the deploy itself ends. */
   signal?: AbortSignal;
-  /** Apps not to build again, because they're fresh already or something else keeps them so. Each app this run builds successfully is added, so a caller building several shares one set. */
-  built?: Set<string>;
+  /** Steps not to run again, shared by a caller running several so each happens once (see `Pipeline`). */
+  done?: Set<string>;
   /** How to report this build's lifecycle to the terminal — ignored for `watch: true` (a long-lived session has no single "done" moment to resolve toward). Defaults to `PlainBuildReporter`; the CLI passes `Host.AnimatedBuildReporter` instead for an interactive terminal. */
   reporter?: BuildReporter;
-}
-
-/** The order `name`'s `needs:` must be built in, deepest first, without `name` itself. */
-function prerequisitesOf(
-  name: string,
-  build: Record<string, BuildAppConfig>,
-): string[] {
-  const ordered: string[] = [];
-  const visit = (app: string, path: readonly string[]): void => {
-    for (const need of build[app]?.needs ?? []) {
-      if (path.includes(need)) {
-        throw new Error(
-          `Build needs form a cycle: ${[...path, need].join(" -> ")}.`,
-        );
-      }
-      visit(need, [...path, need]);
-      if (!ordered.includes(need)) ordered.push(need);
-    }
-  };
-  visit(name, [name]);
-  return ordered;
-}
-
-/**
- * Builds what `name` names, after whatever it declares it `needs:`: only
- * `name` itself watches, since a needed app has to be there before it starts.
- * The code is the first failure's, or 0.
- */
-export async function runBuild(
-  name: string,
-  options: RunBuildOptions,
-  ports: Ports,
-): Promise<number> {
-  const repoRoot = await ports.repo.findRepoRoot();
-  const config = await new EnsembleConfigStore(repoRoot).loadOrEmpty();
-  // A caller sharing `built` across several builds has synced already.
-  if (!options.built) await (await Project.load(repoRoot, ports)).sync();
-  const built = options.built ?? new Set<string>();
-  for (const need of prerequisitesOf(name, config.build ?? {})) {
-    if (built.has(need)) continue;
-    const code = await buildNamed(need, { ...options, watch: false }, ports);
-    if (code !== 0) return code;
-    built.add(need);
-  }
-  if (built.has(name)) return 0;
-  const code = await buildNamed(name, options, ports);
-  if (code === 0) built.add(name);
-  return code;
 }
 
 /**
@@ -85,9 +37,10 @@ export async function runBuild(
  * by side, a one-shot build one after the other. The code is the first unit's
  * that fails, or 0.
  */
-async function buildNamed(
+export async function buildApp(
   name: string,
   options: RunBuildOptions,
+  needs: readonly Need[],
   ports: Ports,
 ): Promise<number> {
   const repoRoot = await ports.repo.findRepoRoot();
@@ -101,15 +54,15 @@ async function buildNamed(
     : (await integrationKitsOf(repoRoot, name)).map((kit) =>
       integrationOf(name, kit)
     );
-  if (units.length === 0) return await runUnit(name, options, ports);
+  if (units.length === 0) return await runUnit(name, options, needs, ports);
   if (options.watch) {
     const codes = await Promise.all(
-      units.map((unit) => runUnit(unit, options, ports)),
+      units.map((unit) => runUnit(unit, options, needs, ports)),
     );
     return codes.find((code) => code !== 0) ?? 0;
   }
   for (const unit of units) {
-    const code = await runUnit(unit, options, ports);
+    const code = await runUnit(unit, options, needs, ports);
     if (code !== 0) return code;
   }
   return 0;
@@ -119,6 +72,7 @@ async function buildNamed(
 async function runUnit(
   name: string,
   options: RunBuildOptions,
+  needs: readonly Need[],
   ports: Ports,
 ): Promise<number> {
   const repoRoot = await ports.repo.findRepoRoot();
@@ -180,6 +134,7 @@ async function runUnit(
       ...watchArgs,
       ...targetArgs,
       ...optionsArgs,
+      ...(needs.length > 0 ? ["--needs", JSON.stringify(needs)] : []),
     ],
     { env: buildVars, signal: options.signal },
   );

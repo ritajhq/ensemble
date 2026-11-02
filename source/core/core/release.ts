@@ -2,7 +2,7 @@ import { join } from "@std/path";
 import { ensureDir, exists } from "@std/fs";
 import { Delegate, type Emitter } from "@duesabati/evento";
 import * as Deploy from "./deploy/index.ts";
-import { runPack } from "./pack.ts";
+import { runPack } from "./pipeline.ts";
 import type { PackReporter } from "./pack-reporter.ts";
 import type { BuildReporter } from "./build-reporter.ts";
 import { runPublish, runPublishAuthorization } from "./publish.ts";
@@ -557,11 +557,13 @@ export class ReleaseCeremony {
     reporters: { pack?: PackReporter; build?: BuildReporter } = {},
     onPacked?: (ship: ShipRelease) => void | Promise<void>,
   ): Promise<void> {
+    const done = new Set<string>();
     for (const ship of ships) {
       const packCode = await runPack(ship.name, ship.kit, {
         mode: ship.mode,
         outputName: ship.outputName,
         version,
+        done,
         reporter: reporters.pack,
         buildReporter: reporters.build,
       }, this.ports);

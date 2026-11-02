@@ -212,15 +212,21 @@ class Sandbox {
   private async writeConfig(): Promise<void> {
     const real = parseYaml(
       await Deno.readTextFile(join(REPO, ".ensemble/config.yaml")),
-    ) as { ecosystems: string[]; build: Record<string, unknown> };
-    const build = Object.fromEntries(
-      Object.entries(real.build).filter(([app]) => app.startsWith("mock/")),
-    );
+    ) as {
+      ecosystems: string[];
+      build: Record<string, unknown>;
+      pack: Record<string, unknown>;
+    };
+    const mockOnly = (section: Record<string, unknown>) =>
+      Object.fromEntries(
+        Object.entries(section).filter(([name]) => name.startsWith("mock/")),
+      );
     await Deno.writeTextFile(
       this.path(".ensemble/config.yaml"),
       stringifyYaml({
         ecosystems: real.ecosystems,
-        build,
+        build: mockOnly(real.build),
+        pack: mockOnly(real.pack),
         publish: {
           core: [
             {
@@ -244,6 +250,19 @@ class Sandbox {
         },
       }),
     );
+  }
+
+  /** Changes `.ensemble/config.yaml` for one scenario. */
+  async editConfig(
+    change: (config: Record<string, Record<string, unknown>>) => void,
+  ): Promise<void> {
+    const path = this.path(".ensemble/config.yaml");
+    const config = parseYaml(await Deno.readTextFile(path)) as Record<
+      string,
+      Record<string, unknown>
+    >;
+    change(config);
+    await Deno.writeTextFile(path, stringifyYaml(config));
   }
 
   ens(...args: string[]): Promise<Outcome> {
@@ -497,7 +516,7 @@ const SCENARIOS: readonly Scenario[] = [
     name: "pack-cli",
     goal: "ens pack builds the CLI first, then archives it",
     async run(sandbox) {
-      const packed = await sandbox.ens("pack", "mock/cli", "tarball");
+      const packed = await sandbox.ens("pack", "mock/cli");
       if (packed.code !== 0) return failed("ens pack", packed);
       const files = await packaged(sandbox, "mock/cli.tar.gz");
       return files.length > 0 ? {} : { gap: "no mock/cli.tar.gz produced" };
@@ -516,9 +535,9 @@ const SCENARIOS: readonly Scenario[] = [
     name: "pack-desktop",
     goal: "ens pack builds web, then the shell, then a .deb",
     async run(sandbox) {
-      const packed = await sandbox.ens("pack", "mock/desktop", "tauri");
+      const packed = await sandbox.ens("pack", "mock/desktop");
       if (packed.code !== 0) return failed("ens pack", packed);
-      const debs = await packaged(sandbox, "*.deb");
+      const debs = await packaged(sandbox, "mock/desktop/*.deb");
       if (debs.length === 0) return { gap: "no .deb produced" };
       return { note: debs.join(", ") };
     },
@@ -530,13 +549,68 @@ const SCENARIOS: readonly Scenario[] = [
       const packed = await sandbox.ens(
         "pack",
         "mock/desktop",
-        "tauri",
         "--version",
         "0.3.0",
       );
       if (packed.code !== 0) return failed("ens pack", packed);
-      const debs = await packaged(sandbox, "Tally_0.3.0_*.deb");
+      const debs = await packaged(sandbox, "mock/desktop/Tally_0.3.0_*.deb");
       return debs.length > 0 ? {} : { gap: "no Tally_0.3.0 .deb produced" };
+    },
+  },
+  {
+    name: "pack-needs-pack",
+    goal:
+      "a ship needing two other ships packs them first, and reads their output",
+    async run(sandbox) {
+      const packed = await sandbox.ens("pack", "mock/downloads");
+      if (packed.code !== 0) return failed("ens pack", packed);
+      const listed = await sandbox.run("tar", [
+        "tzf",
+        sandbox.path("source/artifacts/packages/mock/downloads.tar.gz"),
+      ]);
+      if (listed.code !== 0) return failed("tar", listed);
+      if (!listed.output.includes("cli.tar.gz")) {
+        return { gap: `no CLI archive in: ${listed.output.slice(0, 120)}` };
+      }
+      return listed.output.includes(".deb")
+        ? {}
+        : { gap: `no .deb in: ${listed.output.slice(0, 120)}` };
+    },
+  },
+  {
+    name: "build-needs-pack",
+    goal: "a Deno app's build can need a Rust app's pack, whose kit it's told",
+    async run(sandbox) {
+      await sandbox.editConfig((config) => {
+        config.build["mock/api"] = {
+          kit: "deno.bundle",
+          needs: [{ pack: "mock/cli" }],
+        };
+      });
+      const built = await sandbox.ens("build", "mock/api");
+      if (built.code !== 0) return failed("ens build", built);
+      const files = await packaged(sandbox, "mock/cli.tar.gz");
+      if (files.length === 0) return { gap: "the needed pack didn't run" };
+      return await exists(sandbox.path("source/artifacts/mock/api/main.js"))
+        ? {}
+        : { gap: "the app itself wasn't built" };
+    },
+  },
+  {
+    name: "needs-cycle",
+    goal: "needs going round in a circle are refused, naming the circle",
+    async run(sandbox) {
+      await sandbox.editConfig((config) => {
+        config.build["mock/cli"] = {
+          kit: "cargo",
+          needs: [{ pack: "mock/downloads" }],
+        };
+      });
+      const packed = await sandbox.ens("pack", "mock/cli");
+      if (packed.code === 0) return { gap: "the cycle was accepted" };
+      return packed.output.includes("cycle")
+        ? {}
+        : { gap: `no mention of a cycle: ${Sandbox.reason(packed)}` };
     },
   },
   {
@@ -649,6 +723,71 @@ const SCENARIOS: readonly Scenario[] = [
         "publish",
         "parts",
         "crates",
+        "0.2.0",
+      );
+      return published.code !== 0 && published.output.includes("source/core/**")
+        ? {}
+        : { gap: `published anyway: ${Sandbox.reason(published)}` };
+    },
+  },
+  {
+    name: "lib-install",
+    goal: "ens lib install brings in a Rust lib, which joins the workspace",
+    async run(sandbox) {
+      const libRepo = join(dirname(sandbox.root), "fees");
+      await ensureDir(join(libRepo, "src"));
+      await Deno.writeTextFile(
+        join(libRepo, "Cargo.toml"),
+        '[package]\nname = "tally-fees"\nversion = "0.1.0"\nedition = "2021"\n',
+      );
+      await Deno.writeTextFile(join(libRepo, "src/lib.rs"), "");
+      await sandbox.run("git", ["init", "-q", "-b", "main"], libRepo);
+      await sandbox.run("git", ["add", "."], libRepo);
+      await sandbox.run("git", ["commit", "-q", "-m", "feat: lib"], libRepo);
+      const installed = await sandbox.ens(
+        "lib",
+        "install",
+        `file://${libRepo}`,
+      );
+      if (installed.code !== 0) return failed("ens lib install", installed);
+      const resolved = await sandbox.ens(
+        "exec",
+        "cargo",
+        "metadata",
+        "--no-deps",
+        "--format-version",
+        "1",
+      );
+      if (resolved.code !== 0) return failed("cargo metadata", resolved);
+      return resolved.output.includes('"name":"tally-fees"')
+        ? {}
+        : { gap: "the installed lib isn't a workspace member" };
+    },
+  },
+  {
+    name: "deno-containment",
+    goal:
+      "ens lib publish refuses a Deno lib depending on Deno core, beside Rust",
+    async run(sandbox) {
+      const created = await sandbox.ens("lib", "new", "nib");
+      if (created.code !== 0) return failed("ens lib new", created);
+      const manifest = sandbox.path("source/libs/nib/deno.json");
+      const parsed = JSON.parse(await Deno.readTextFile(manifest));
+      parsed.imports = { "@tally/press": "jsr:@tally/press" };
+      await Deno.writeTextFile(manifest, json(parsed));
+      await sandbox.editConfig((config) => {
+        const libs = config.publish.libs as {
+          name: string;
+          publish?: unknown;
+        }[];
+        const nib = libs.find((lib) => lib.name === "nib")!;
+        nib.publish = [{ kit: "local" }];
+      });
+      const published = await sandbox.ens(
+        "lib",
+        "publish",
+        "nib",
+        "local",
         "0.2.0",
       );
       return published.code !== 0 && published.output.includes("source/core/**")
@@ -909,7 +1048,7 @@ const SCENARIOS: readonly Scenario[] = [
       if (denoLocked.code !== 0) {
         return { gap: `deno.lock is stale: ${Sandbox.reason(denoLocked)}` };
       }
-      const debs = await packaged(sandbox, "Tally_0.2.0_*.deb");
+      const debs = await packaged(sandbox, "mock/desktop/Tally_0.2.0_*.deb");
       if (debs.length === 0) {
         return { gap: "no Tally_0.2.0 .deb from the release" };
       }

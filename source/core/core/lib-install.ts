@@ -10,11 +10,14 @@ export async function runLibInstall(
 ): Promise<Vendor.Entry> {
   const repoRoot = await ports.repo.findRepoRoot();
   const registry = new Vendor.FileRegistry(repoRoot);
+  const project = await Project.load(repoRoot, ports);
   const installer = new Vendor.LibInstaller(
     repoRoot,
     registry,
     source,
-    await Project.load(repoRoot, ports),
+    project,
   );
-  return await installer.install(urlWithOptionalRef);
+  const entry = await installer.install(urlWithOptionalRef);
+  await project.sync();
+  return entry;
 }
