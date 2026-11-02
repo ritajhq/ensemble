@@ -46,10 +46,15 @@ export class WorkspaceMembers {
   static async load(repoRoot: string): Promise<WorkspaceMembers> {
     const byName = new Map<string, Member>();
     const root = await findWorkspaceRoot(repoRoot);
-    for (const pattern of await readMemberPatterns(root)) {
+    const patterns = await readMemberPatterns(root);
+    // A `!` pattern takes members back out, as it does for Deno itself.
+    const excluded = patterns.filter((pattern) => pattern.startsWith("!"))
+      .map((pattern) => pattern.slice(1));
+    for (const pattern of patterns) {
+      if (pattern.startsWith("!")) continue;
       const configs = expandGlob(join(pattern, "deno.json"), {
         root,
-        exclude: ["**/node_modules/**"],
+        exclude: ["**/node_modules/**", ...excluded],
       });
       for await (const config of configs) {
         const parsed = JSON.parse(await Deno.readTextFile(config.path));

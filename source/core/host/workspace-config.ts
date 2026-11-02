@@ -48,7 +48,9 @@ export class WorkspaceConfig {
   private async watchedPaths(): Promise<string[]> {
     const root = await findWorkspaceRoot(this.repoRoot);
     const rootConfig = join(root, "deno.json");
-    const members = await readMemberPatterns(root);
+    const members = (await readMemberPatterns(root)).filter((pattern) =>
+      !pattern.startsWith("!")
+    );
     const bases = members.map((pattern) => join(root, staticPrefix(pattern)));
     const existing = [];
     for (const path of new Set([rootConfig, ...bases])) {

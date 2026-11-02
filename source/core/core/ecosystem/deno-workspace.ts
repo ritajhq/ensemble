@@ -73,10 +73,15 @@ export class DenoWorkspace implements Ecosystem {
   async manifests(): Promise<string[]> {
     const manifests: string[] = [];
     const root = await this.root();
-    for (const pattern of await this.memberPatterns(root)) {
+    const patterns = await this.memberPatterns(root);
+    // A `!` pattern takes members back out, as it does for Deno itself.
+    const excluded = patterns.filter((pattern) => pattern.startsWith("!"))
+      .map((pattern) => pattern.slice(1));
+    for (const pattern of patterns) {
+      if (pattern.startsWith("!")) continue;
       const configs = expandGlob(join(pattern, "deno.json"), {
         root,
-        exclude: ["**/node_modules/**"],
+        exclude: ["**/node_modules/**", ...excluded],
       });
       for await (const config of configs) manifests.push(config.path);
     }

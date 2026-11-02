@@ -223,3 +223,16 @@ Deno.test("DenoWorkspace.stamp: a workspace at the repository's root leaves its 
     assertEquals(calls, []);
   });
 });
+
+Deno.test("DenoWorkspace.manifests: a negated pattern takes members back out", async () => {
+  await withRepoRoot(async (repoRoot) => {
+    await Deno.writeTextFile(
+      join(repoRoot, "deno.json"),
+      JSON.stringify({ workspace: ["source/apps/**", "!source/apps/mock/**"] }),
+    );
+    const kept = await writeMember(repoRoot, "source/apps/api");
+    await writeMember(repoRoot, "source/apps/mock/source/apps/api");
+
+    assertEquals(await new DenoWorkspace(repoRoot).manifests(), [kept]);
+  });
+});
