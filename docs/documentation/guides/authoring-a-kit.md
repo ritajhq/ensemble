@@ -66,6 +66,14 @@ ens kit contribute my-deploy-target
 
 Pushes the local change and opens a pull request against the kit's own remote.
 
+## When a kit fails
+
+Throw an `Error` whose message says what's wrong and what to do about it: `ens`
+shows that message alone, and the kit exits 1. To see the stack and the kit's
+command line as well, set `ENS_DEBUG=1`, or pass `--verbose` to a command that
+has it. A kit that calls `Deno.exit` with a code of its own has that code
+returned as `ens`'s.
+
 ## Full reference
 
 See the [`ens kit` CLI reference](../reference/cli/kit.md) for every

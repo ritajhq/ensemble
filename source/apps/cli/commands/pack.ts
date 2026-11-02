@@ -42,6 +42,7 @@ export const packCommand = new Command()
       ship,
       kit,
     ) => {
+      if (verbose) Deno.env.set("ENS_DEBUG", "1");
       const code = await runPack(ship, kit, {
         mode,
         outputName,

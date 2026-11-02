@@ -53,5 +53,5 @@ try {
     .parse(Deno.args);
 } catch (error) {
   printCliError(error);
-  Deno.exit(1);
+  Deno.exit(error instanceof Core.KitFailure ? error.code : 1);
 }

@@ -1,7 +1,8 @@
-import type {
-  ProbeResult,
-  ProcessRunner,
-  ProcessRunOptions,
+import {
+  CommandFailure,
+  type ProbeResult,
+  type ProcessRunner,
+  type ProcessRunOptions,
 } from "@ensemble/core";
 
 interface RunResult {
@@ -90,11 +91,7 @@ export class NativeProcessRunner implements ProcessRunner {
   ): Promise<void> {
     const { code } = await spawn(command, args, options, INHERIT_ALL);
     if (code !== 0) {
-      throw new Error(
-        `Command "${
-          commandLine(command, args)
-        }" failed with exit code ${code}.`,
-      );
+      throw new CommandFailure(commandLine(command, args), code);
     }
   }
 
@@ -108,11 +105,7 @@ export class NativeProcessRunner implements ProcessRunner {
       stderr: false,
     });
     if (code !== 0) {
-      throw new Error(
-        `Command "${
-          commandLine(command, args)
-        }" failed with exit code ${code}.`,
-      );
+      throw new CommandFailure(commandLine(command, args), code);
     }
     return stdout;
   }

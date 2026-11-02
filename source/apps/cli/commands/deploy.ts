@@ -135,6 +135,7 @@ export const deployCommand = new Command()
       name,
       kit,
     ) => {
+      if (verbose) Deno.env.set("ENS_DEBUG", "1");
       if (destroy && (eject || plan || watch || emulateExternals)) {
         console.error(
           "error: --destroy can't be used with --eject, --plan, --watch or --emulate-externals.",

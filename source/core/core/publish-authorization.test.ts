@@ -23,8 +23,9 @@ function probingPorts(
       exec: () => Promise.reject(new Error("must not publish")),
       capture: () => Promise.reject(new Error("must not publish")),
       probe: (_command, args) => {
-        const entry = args[5].slice(repoRoot.length + 1);
-        const mode = entry.endsWith("main.ts") ? ` ${args[6]}` : "";
+        const at = args.findIndex((arg) => arg.startsWith(repoRoot));
+        const entry = args[at].slice(repoRoot.length + 1);
+        const mode = entry.endsWith("main.ts") ? ` ${args[at + 1]}` : "";
         probed.push(`${entry}${mode}`);
         return Promise.resolve(verdicts[entry] ?? { code: 0, stderr: "" });
       },

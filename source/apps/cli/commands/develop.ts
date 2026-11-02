@@ -35,6 +35,7 @@ export const developCommand = new Command()
     { collect: true },
   )
   .action(async ({ kit, verbose, envFile, runtime }, name) => {
+    if (verbose) Deno.env.set("ENS_DEBUG", "1");
     await runDeploy(
       name,
       kit,

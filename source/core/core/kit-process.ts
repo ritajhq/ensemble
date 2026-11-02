@@ -1,9 +1,50 @@
-import { dirname, join, relative } from "@std/path";
+import { basename, dirname, join, relative } from "@std/path";
 import * as KitManifest from "./vendor/kit-manifest.ts";
-import type { Ports, ProbeResult, ProcessRunOptions } from "./ports.ts";
+import {
+  CommandFailure,
+  type Ports,
+  type ProbeResult,
+  type ProcessRunOptions,
+} from "./ports.ts";
 
 /** `ProcessRunOptions` without `cwd`: a kit always runs from its own directory, so it resolves its own dependencies. */
 export type KitRunOptions = Omit<ProcessRunOptions, "cwd">;
+
+/** A kit failed: the kit has told the person why on its own stderr, so this says only which one and how. `detail` is for `ENS_DEBUG`. */
+export class KitFailure extends Error {
+  constructor(
+    message: string,
+    readonly code: number,
+    readonly detail?: string,
+  ) {
+    super(message);
+    this.name = "KitFailure";
+  }
+}
+
+/**
+ * Loaded ahead of every kit, so that an error it doesn't catch reads as its
+ * message and not as Deno's account of a crash, whatever the kit is and without
+ * taking the terminal from what it runs, which piping its stderr would. Exits
+ * with the 1 an uncaught error exits with anyway. `ENS_DEBUG` leaves Deno's
+ * own report in place, stack included.
+ */
+const UNCAUGHT_ERROR_REPORT = `
+if (!Deno.env.get("ENS_DEBUG")) {
+  const report = (event, error) => {
+    event.preventDefault();
+    const message = error instanceof Error ? error.message : String(error);
+    const color = Deno.stderr.isTerminal() && !Deno.noColor;
+    console.error(color ? "\\x1b[31merror: " + message + "\\x1b[39m" : "error: " + message);
+    Deno.exit(1);
+  };
+  addEventListener("unhandledrejection", (event) => report(event, event.reason));
+  addEventListener("error", (event) => report(event, event.error));
+}
+`;
+const UNCAUGHT_ERROR_REPORT_URL = `data:text/javascript;base64,${
+  btoa(UNCAUGHT_ERROR_REPORT)
+}`;
 
 /**
  * The one place that knows how a kit's entrypoint gets launched. Every kit
@@ -35,10 +76,21 @@ export class KitProcess {
     options: KitRunOptions = {},
   ): Promise<string> {
     const [command, ...commandArgs] = await this.commandLine(entrypoint, args);
-    return await this.ports.process.capture(command, commandArgs, {
-      ...options,
-      cwd: this.directory,
-    });
+    try {
+      return await this.ports.process.capture(command, commandArgs, {
+        ...options,
+        cwd: this.directory,
+      });
+    } catch (error) {
+      if (!(error instanceof CommandFailure)) throw error;
+      throw new KitFailure(
+        `Kit "${
+          basename(this.directory)
+        }" failed with exit code ${error.code}.`,
+        error.code,
+        error.message,
+      );
+    }
   }
 
   /** Runs `entrypoint` as a check: its exit code is the verdict, its stderr the reason. */
@@ -76,6 +128,8 @@ export class KitProcess {
       "-q",
       "--minimum-dependency-age",
       "0",
+      "--preload",
+      UNCAUGHT_ERROR_REPORT_URL,
       ...await this.configArgs(),
       join(this.directory, entrypoint),
       ...args,

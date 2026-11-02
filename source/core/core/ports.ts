@@ -6,6 +6,14 @@ export interface ProcessRunOptions {
   readonly signal?: AbortSignal;
 }
 
+/** A command a `ProcessRunner` ran exited non-zero. */
+export class CommandFailure extends Error {
+  constructor(command: string, readonly code: number) {
+    super(`Command "${command}" failed with exit code ${code}.`);
+    this.name = "CommandFailure";
+  }
+}
+
 /**
  * What ens's orchestration needs from the machine to run an external
  * command — a build/pack/publish kit's subprocess, a git operation, an `sh

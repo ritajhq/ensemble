@@ -4,7 +4,7 @@ import type { Ports } from "./ports.ts";
 import { EnsembleConfigStore } from "./config.ts";
 import { integrationOf, isReserved } from "./deploy/integration.ts";
 import { Project } from "./ecosystem/index.ts";
-import { KitProcess } from "./kit-process.ts";
+import { KitFailure, KitProcess } from "./kit-process.ts";
 
 const APP_NAME_PATTERN = /^[a-zA-Z0-9](?:[a-zA-Z0-9._\-/]*[a-zA-Z0-9])?$/;
 const KIT_NAME_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
@@ -99,7 +99,10 @@ export async function runAppCreate(
     ...targetArgs,
   ]);
   if (code !== 0) {
-    throw new Error(`Scaffolding "${unit}" with kit "${options.kit}" failed.`);
+    throw new KitFailure(
+      `Scaffolding "${unit}" with kit "${options.kit}" failed.`,
+      code,
+    );
   }
 
   await project.sync();
