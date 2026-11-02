@@ -51,7 +51,10 @@ const optionArgs = new Options(ctx.options).toArgs();
 const denoExe = await resolveDenoExecutable();
 
 const bundle = new RestartableChild(() =>
+  // From the app: deno bundle finds its workspace from where it runs, and this
+  // kit's own directory isn't a member of a project's workspace.
   $`${denoExe} bundle -q ${entry} -o ${outFile} ${modeArgs} ${watchArgs} ${optionArgs}`
+    .cwd(ctx.source)
     .noThrow()
     .spawn()
 );

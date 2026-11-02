@@ -1,4 +1,4 @@
-import { copy, exists, expandGlob } from "jsr:@std/fs@1.0.24";
+import { copy, ensureDir, exists, expandGlob } from "jsr:@std/fs@1.0.24";
 import { dirname, fromFileUrl, join } from "jsr:@std/path@1.1.6";
 import { parseArgs } from "jsr:@std/cli@1.0.32/parse-args";
 
@@ -9,6 +9,21 @@ const CARGO_TARGET_DIR = join(MOCKS, ".cargo-target");
 interface Outcome {
   readonly code: number;
   readonly output: string;
+}
+
+/** `deno`'s arguments for running the working tree's `ens` from anywhere. */
+function ensArgs(...args: string[]): string[] {
+  return [
+    "run",
+    "-A",
+    "-q",
+    "--config",
+    join(REPO, "deno.json"),
+    "--minimum-dependency-age",
+    "0",
+    join(REPO, "source/apps/cli/main.ts"),
+    ...args,
+  ];
 }
 
 /** One throwaway copy of a mock: its own git repository, with `0.1.0` tagged and pushed to a local `origin`. */
@@ -44,17 +59,7 @@ class Sandbox {
   }
 
   ens(...args: string[]): Promise<Outcome> {
-    return this.run(Deno.execPath(), [
-      "run",
-      "-A",
-      "-q",
-      "--config",
-      join(REPO, "deno.json"),
-      "--minimum-dependency-age",
-      "0",
-      join(REPO, "source/apps/cli/main.ts"),
-      ...args,
-    ]);
+    return this.run(Deno.execPath(), ensArgs(...args));
   }
 
   /** Cargo's root files live under `source/`, so that's where it runs from. */
@@ -123,6 +128,10 @@ async function vendorEcosystemKits(root: string): Promise<void> {
   if (!config.includes("- cargo")) return;
   const kit = join(root, ".ensemble", "kits", "ecosystem", "cargo");
   await copy(join(REPO, ".ensemble", "kits", "ecosystem", "cargo"), kit);
+  await linkToWorkingTree(kit);
+}
+
+async function linkToWorkingTree(kit: string): Promise<void> {
   await Deno.remove(join(kit, "deno.lock")).catch(() => {});
   const manifest = JSON.parse(
     await Deno.readTextFile(join(kit, "deno.json")),
@@ -157,23 +166,32 @@ async function packaged(sandbox: Sandbox, pattern: string): Promise<string[]> {
   return files;
 }
 
-/** Runs `ens init` next to the mock, naming the new project `fresh`. */
-function initialize(sandbox: Sandbox): Promise<Outcome> {
-  return sandbox.run(
+/**
+ * Runs `ens init fresh` next to the mock, fetching kits from a scratch copy of
+ * this working tree's, linked to its kit SDK like `vendorEcosystemKits`.
+ */
+async function initialize(
+  sandbox: Sandbox,
+  ...flags: string[]
+): Promise<Outcome> {
+  const parent = dirname(sandbox.root);
+  const repository = join(parent, "kits-repo");
+  const kits = join(repository, ".ensemble", "kits");
+  await copy(join(REPO, ".ensemble", "kits"), kits);
+  await linkToWorkingTree(join(kits, "ecosystem", "cargo"));
+  await sandbox.run("git", ["init", "-q", "-b", "main"], repository);
+  await sandbox.run("git", ["add", "."], repository);
+  await sandbox.run("git", ["commit", "-q", "-m", "feat: kits"], repository);
+  return await sandbox.run(
     Deno.execPath(),
-    [
-      "run",
-      "-A",
-      "-q",
-      "--config",
-      join(REPO, "deno.json"),
-      "--minimum-dependency-age",
-      "0",
-      join(REPO, "source/apps/cli/main.ts"),
+    ensArgs(
       "init",
-    ],
-    dirname(sandbox.root),
-    "fresh\n",
+      "fresh",
+      "--kits-from",
+      `file://${repository}@main`,
+      ...flags,
+    ),
+    parent,
   );
 }
 
@@ -366,14 +384,86 @@ const SCENARIOS: readonly Scenario[] = [
   },
   {
     name: "init",
-    goal: "ens init can start a project without creating Deno's files",
+    goal: "ens init starts a Rust project with no Deno files, ready for a lib",
     async run(sandbox) {
-      const parent = dirname(sandbox.root);
+      const initialized = await initialize(sandbox, "--ecosystem", "cargo");
+      if (initialized.code !== 0) return failed("ens init", initialized);
+      const fresh = join(dirname(sandbox.root), "fresh");
+      for (const file of ["deno.json", "source/deno.json"]) {
+        if (await exists(join(fresh, file))) return { gap: `wrote ${file}` };
+      }
+      const created = await sandbox.run(
+        Deno.execPath(),
+        ensArgs("lib", "new", "fees"),
+        fresh,
+      );
+      if (created.code !== 0) return failed("ens lib new", created);
+      const resolved = await sandbox.run(
+        "cargo",
+        ["metadata", "--no-deps", "--format-version", "1"],
+        join(fresh, "source"),
+      );
+      if (resolved.code !== 0) return failed("cargo metadata", resolved);
+      return resolved.output.includes('"name":"fees"')
+        ? {}
+        : { gap: "the new lib isn't a member of the workspace" };
+    },
+  },
+  {
+    name: "init-deno",
+    goal: "ens init's default Deno project builds an app using a new lib",
+    async run(sandbox) {
       const initialized = await initialize(sandbox);
       if (initialized.code !== 0) return failed("ens init", initialized);
-      return await exists(join(parent, "fresh/deno.json"))
-        ? { gap: "always writes a root deno.json" }
-        : {};
+      const fresh = join(dirname(sandbox.root), "fresh");
+      const ens = (...args: string[]) =>
+        sandbox.run(Deno.execPath(), ensArgs(...args), fresh);
+
+      const app = await ens("app", "create", "deno.bundle", "api");
+      if (app.code !== 0) return failed("ens app create", app);
+      const lib = await ens("lib", "new", "fees");
+      if (lib.code !== 0) return failed("ens lib new", lib);
+      // Deno only links a workspace member by a scoped name.
+      await Deno.writeTextFile(
+        join(fresh, "source/libs/fees/deno.json"),
+        JSON.stringify({ name: "@fresh/fees", exports: "./index.ts" }),
+      );
+      await Deno.writeTextFile(
+        join(fresh, "source/libs/fees/index.ts"),
+        "export const FEE = 7;\n",
+      );
+      const entry = join(fresh, "source/apps/api/main.ts");
+      await Deno.writeTextFile(
+        entry,
+        `import { FEE } from "@fresh/fees";\nconsole.log(FEE);\n`,
+      );
+      const built = await ens("build", "api");
+      if (built.code !== 0) return failed("ens build", built);
+      const ran = await sandbox.run(
+        Deno.execPath(),
+        ["run", "-A", entry],
+        fresh,
+      );
+      if (ran.output.trim() !== "7") {
+        return { gap: `the app printed "${ran.output.trim()}"` };
+      }
+
+      const ship = join(fresh, "source/ship/api");
+      await ensureDir(ship);
+      await Deno.writeTextFile(
+        join(ship, "compile.yml"),
+        "source: api\noutput: api\npermissions:\n  allow-all: true\n",
+      );
+      const packed = await ens("pack", "api", "deno.compile");
+      if (packed.code !== 0) return failed("ens pack", packed);
+      const compiled = await sandbox.run(
+        join(fresh, "source/artifacts/packages/api"),
+        [],
+        fresh,
+      );
+      return compiled.output.trim() === "7"
+        ? {}
+        : { gap: `the compiled app printed "${compiled.output.trim()}"` };
     },
   },
   {

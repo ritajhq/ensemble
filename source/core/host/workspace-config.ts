@@ -1,7 +1,7 @@
 import { basename, dirname, join, SEPARATOR } from "@std/path";
 import { exists } from "@std/fs";
 import { Delegate, type Emitter } from "@duesabati/evento";
-import { readMemberPatterns } from "./workspace-members.ts";
+import { findWorkspaceRoot, readMemberPatterns } from "./workspace-members.ts";
 
 const CONFIG_FILE_NAMES = new Set(["deno.json", "deno.jsonc"]);
 
@@ -44,13 +44,12 @@ export class WorkspaceConfig {
     this.pending = setTimeout(() => this.change.Invoke(), SETTLE_DELAY_MS);
   }
 
-  /** The root `deno.json` plus the static prefix of every `workspace` glob (`source/core/**` → `source/core`). */
+  /** The workspace's root `deno.json` plus the static prefix of every `workspace` glob (`source/core/**` → `source/core`). */
   private async watchedPaths(): Promise<string[]> {
-    const rootConfig = join(this.repoRoot, "deno.json");
-    const members = await readMemberPatterns(this.repoRoot);
-    const bases = members.map((pattern) =>
-      join(this.repoRoot, staticPrefix(pattern))
-    );
+    const root = await findWorkspaceRoot(this.repoRoot);
+    const rootConfig = join(root, "deno.json");
+    const members = await readMemberPatterns(root);
+    const bases = members.map((pattern) => join(root, staticPrefix(pattern)));
     const existing = [];
     for (const path of new Set([rootConfig, ...bases])) {
       if (await exists(path)) existing.push(path);

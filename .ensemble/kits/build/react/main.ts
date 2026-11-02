@@ -344,7 +344,10 @@ const watchArgs = ctx.watch ? ["--watch"] : [];
 const cssWatchArgs = ctx.watch ? ["--watch=always"] : [];
 
 const bundle = new RestartableChild(() =>
+  // From the app: deno bundle finds its workspace from where it runs, and this
+  // kit's own directory isn't a member of a project's workspace.
   $`${denoExe} bundle -q --platform browser ${entry} -o ${jsOut} ${minifyArgs} ${watchArgs}`
+    .cwd(ctx.source)
     .noThrow()
     .spawn()
 );

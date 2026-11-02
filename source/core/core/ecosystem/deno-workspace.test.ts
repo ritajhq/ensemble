@@ -150,9 +150,32 @@ Deno.test("DenoWorkspace.packageAt: a directory with no deno.json holds no packa
 
 Deno.test("DenoWorkspace.lockfiles: only a lockfile that exists", async () => {
   await withRepoRoot(async (repoRoot) => {
+    await Deno.mkdir(join(repoRoot, "source"));
     const workspace = new DenoWorkspace(repoRoot);
     assertEquals(await workspace.lockfiles(), []);
+    const lockfile = join(repoRoot, "source", "deno.lock");
+    await Deno.writeTextFile(lockfile, "{}");
+    assertEquals(await workspace.lockfiles(), [lockfile]);
+  });
+});
+
+Deno.test("DenoWorkspace: a root deno.json keeps the workspace at the repository's root", async () => {
+  await withRepoRoot(async (repoRoot) => {
+    await Deno.writeTextFile(join(repoRoot, "deno.json"), "{}");
     await Deno.writeTextFile(join(repoRoot, "deno.lock"), "{}");
-    assertEquals(await workspace.lockfiles(), [join(repoRoot, "deno.lock")]);
+    assertEquals(await new DenoWorkspace(repoRoot).lockfiles(), [
+      join(repoRoot, "deno.lock"),
+    ]);
+  });
+});
+
+Deno.test("DenoWorkspace.initialize: a new workspace lives in source/, its globs relative to it", async () => {
+  await withRepoRoot(async (repoRoot) => {
+    await Deno.mkdir(join(repoRoot, "source"));
+    const workspace = new DenoWorkspace(repoRoot);
+    await workspace.initialize();
+    const member = await writeMember(repoRoot, "source/apps/api");
+
+    assertEquals(await workspace.manifests(), [member]);
   });
 });

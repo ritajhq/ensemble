@@ -33,20 +33,17 @@ function linkTarget(target: string): string | undefined {
 /**
  * The repo's Deno workspace: its root `deno.json`, either form of `workspace`
  * Deno accepts (a list, or `{ members: [...] }`), and each member's own
- * `deno.json`.
+ * `deno.json`. A new project keeps the root `deno.json` and `deno.lock` in
+ * `source/`, so the repository's root holds nothing specific to Deno; one that
+ * already has them at the repository's root keeps them there.
  */
 export class DenoWorkspace implements Ecosystem {
   constructor(private readonly repoRoot: string) {}
 
-  /** Writes the root `deno.json` a new project's members resolve each other through. */
+  /** Writes the root `deno.json` a new project's members resolve each other through. Kits aren't members: each resolves through its own `deno.json`. */
   async initialize(): Promise<void> {
-    await writeDenoJson(join(this.repoRoot, "deno.json"), {
-      workspace: [
-        "source/apps/**",
-        "source/core/**",
-        "source/libs/**",
-        ".ensemble/kits/**",
-      ],
+    await writeDenoJson(join(this.repoRoot, "source", "deno.json"), {
+      workspace: ["apps/**", "core/**", "libs/**"],
     });
   }
 
@@ -70,9 +67,10 @@ export class DenoWorkspace implements Ecosystem {
   /** Absolute path of every member's `deno.json`, the published core libs among them. */
   async manifests(): Promise<string[]> {
     const manifests: string[] = [];
-    for (const pattern of await this.memberPatterns()) {
+    const root = await this.root();
+    for (const pattern of await this.memberPatterns(root)) {
       const configs = expandGlob(join(pattern, "deno.json"), {
-        root: this.repoRoot,
+        root,
         exclude: ["**/node_modules/**"],
       });
       for await (const config of configs) manifests.push(config.path);
@@ -112,7 +110,7 @@ export class DenoWorkspace implements Ecosystem {
    * against the new versions, which Deno writes straight into `deno.lock`.
    */
   async lockfiles(): Promise<string[]> {
-    const lockfile = join(this.repoRoot, "deno.lock");
+    const lockfile = join(await this.root(), "deno.lock");
     return await exists(lockfile, { isFile: true }) ? [lockfile] : [];
   }
 
@@ -186,8 +184,15 @@ export class DenoWorkspace implements Ecosystem {
     return repinned;
   }
 
-  private async memberPatterns(): Promise<string[]> {
-    const rootConfig = join(this.repoRoot, "deno.json");
+  private async root(): Promise<string> {
+    const legacy = await exists(join(this.repoRoot, "deno.json"), {
+      isFile: true,
+    });
+    return legacy ? this.repoRoot : join(this.repoRoot, "source");
+  }
+
+  private async memberPatterns(root: string): Promise<string[]> {
+    const rootConfig = join(root, "deno.json");
     if (!await exists(rootConfig, { isFile: true })) return [];
     const parsed = JSON.parse(await Deno.readTextFile(rootConfig));
     const workspace = parsed?.workspace;

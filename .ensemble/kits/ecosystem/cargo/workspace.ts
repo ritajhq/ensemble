@@ -8,12 +8,11 @@ type Package = KitSdk.Ecosystem.Package;
 type Link = KitSdk.Ecosystem.Link;
 type StampTarget = KitSdk.Ecosystem.StampTarget;
 
+// No member globs: cargo fails on one that matches nothing yet, or on any
+// directory it matches without a Cargo.toml. `cargo new` lists each crate instead.
 const ROOT_MANIFEST = `[workspace]
 resolver = "2"
-members = [
-  "core/*",
-  "libs/*",
-]
+members = []
 `;
 
 interface Dependency {

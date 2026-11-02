@@ -1,9 +1,15 @@
 import { dirname, join } from "@std/path";
 import { exists, expandGlob } from "@std/fs";
 
-/** The `workspace` globs from the repo's root `deno.json` — either form Deno accepts (a list, or `{ members: [...] }`). */
-export async function readMemberPatterns(repoRoot: string): Promise<string[]> {
-  const rootConfig = join(repoRoot, "deno.json");
+/** Where the workspace's root `deno.json` lives: `source/` in a new project, the repository's root in an older one. */
+export async function findWorkspaceRoot(repoRoot: string): Promise<string> {
+  const legacy = await exists(join(repoRoot, "deno.json"), { isFile: true });
+  return legacy ? repoRoot : join(repoRoot, "source");
+}
+
+/** The `workspace` globs from the workspace's root `deno.json` — either form Deno accepts (a list, or `{ members: [...] }`). */
+export async function readMemberPatterns(root: string): Promise<string[]> {
+  const rootConfig = join(root, "deno.json");
   if (!await exists(rootConfig, { isFile: true })) return [];
   const parsed = JSON.parse(await Deno.readTextFile(rootConfig));
   const workspace = parsed?.workspace;
@@ -39,9 +45,10 @@ export class WorkspaceMembers {
 
   static async load(repoRoot: string): Promise<WorkspaceMembers> {
     const byName = new Map<string, Member>();
-    for (const pattern of await readMemberPatterns(repoRoot)) {
+    const root = await findWorkspaceRoot(repoRoot);
+    for (const pattern of await readMemberPatterns(root)) {
       const configs = expandGlob(join(pattern, "deno.json"), {
-        root: repoRoot,
+        root,
         exclude: ["**/node_modules/**"],
       });
       for await (const config of configs) {
