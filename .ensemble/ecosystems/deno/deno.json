@@ -274,6 +274,7 @@
       "@duesabati/evento": "jsr:@duesabati/evento@1.0.0",
       "@ensemble/kit-sdk": "../../../source/core/kit-sdk/index.ts",
       "@ensemble/kit-sdk/": "../../../source/core/kit-sdk/",
+      "@std/assert": "jsr:@std/assert@1.0.14",
       "@std/fs": "jsr:@std/fs@1.0.24",
       "@std/path": "jsr:@std/path@1.1.6"
     },

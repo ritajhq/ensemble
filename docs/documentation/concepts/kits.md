@@ -93,8 +93,10 @@ needs lives in `.ensemble/ecosystems/<name>`, and each ecosystem keeps it up to
 date through a `sync` operation that `ens` runs ahead of builds:
 
 - `deno`: `settings.json` holds what's shared, such as `compilerOptions`, and is
-  yours to edit. `deno.json` is generated from it and every package's manifest:
-  commit it, and don't edit it. `deno.lock` sits beside them.
+  yours to edit. `ens app create react` adds the `compilerOptions` React needs
+  here, leaving alone any you've set. `deno.json` is generated from it and every
+  package's manifest: commit it, and don't edit it. `deno.lock` sits beside
+  them.
 - `cargo`: the workspace's `Cargo.toml` and `Cargo.lock`, and `target/`. `sync`
   lists every crate under `source/` as a member and adds the `workspace` line
   each crate needs to find this root.

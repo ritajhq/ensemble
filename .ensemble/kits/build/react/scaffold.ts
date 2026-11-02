@@ -1,6 +1,7 @@
 import { join } from "@std/path";
 import { ensureDir } from "@std/fs";
 import * as KitSdk from "@ensemble/kit-sdk";
+import { SharedSettings } from "./shared-settings.ts";
 
 const DENO_JSON = `{
   "compilerOptions": {
@@ -56,6 +57,15 @@ const INDEX_HTML = `<!doctype html>
 `;
 
 const ctx = KitSdk.Scaffold.getContext();
+
+// Deno reads compilerOptions from the project's generated config, not from the
+// app's own deno.json, so this app's only take effect once they're shared.
+const seeded = await new SharedSettings(await KitSdk.findRepoRoot(ctx.dest))
+  .seedCompilerOptions(JSON.parse(DENO_JSON).compilerOptions);
+if (seeded.length > 0) {
+  console.log(`set ${seeded.join(", ")} in the project's shared settings`);
+}
+
 await ensureDir(ctx.dest);
 
 await Deno.writeTextFile(join(ctx.dest, "deno.json"), DENO_JSON);
