@@ -30,7 +30,7 @@ async function readDenoJsonName(dir: string): Promise<string> {
  * Installs a libs library from an external git repository — the inbound
  * counterpart to `LibEjector` (outbound), converging on the same lockfile
  * representation as `KitInstaller`. Kept as its own class rather than
- * reusing `KitInstaller`: a lib has no `role`/`kitSdk`/entrypoint concept to
+ * reusing `KitInstaller`: a lib has no `role`/`protocol`/entrypoint concept to
  * validate, and instead must pass the self-containment check before it's
  * let anywhere near `source/libs/`.
  */

@@ -6,6 +6,11 @@ in the engine — this is the seam that lets a new app type or a new deployment
 target show up as a new kit directory, without ever touching `ens`'s own command
 implementations.
 
+Every kit has a `kit.yml` naming its `role` and the `protocol` it speaks: the
+version of the contract between `ens` and its kits. `ens` refuses a kit
+declaring a protocol it doesn't speak, and `ens kit install`, `pin` and `eject`
+also refuse one declaring none.
+
 There are three kit roles, each speaking a different contract:
 
 ## Build kits

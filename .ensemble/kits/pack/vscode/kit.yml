@@ -1,3 +1,5 @@
+role: pack
+protocol: 1
 modes:
   folder: "Unpacked extension folder, loadable with code --extensionDevelopmentPath."
   vsix: "Installable .vsix package, for code --install-extension."

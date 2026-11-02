@@ -16,6 +16,10 @@ Scaffolds `.ensemble/kits/deploy/my-deploy-target`. `<role>` is one of `build`,
 `pack`, `deploy`, or `lib` (a kit-shaped package a library publishes through —
 see [Managing libraries](managing-libraries.md)).
 
+The scaffolded `kit.yml` names the kit's `role` and the `protocol` it speaks.
+Keep both: `ens kit install`, `pin` and `eject` refuse a kit without them. A
+pack kit that declares `publish:` targets also needs a `publish.ts`.
+
 ## Install a kit someone else wrote
 
 ```sh

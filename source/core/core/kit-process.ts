@@ -1,4 +1,5 @@
 import { join } from "@std/path";
+import * as KitManifest from "./vendor/kit-manifest.ts";
 import type { Ports, ProbeResult, ProcessRunOptions } from "./ports.ts";
 
 /** `ProcessRunOptions` without `cwd`: a kit always runs from its own directory, so it resolves its own dependencies. */
@@ -67,6 +68,7 @@ export class KitProcess {
     entrypoint: string,
     args: readonly string[],
   ): Promise<[string, ...string[]]> {
+    await KitManifest.assertRunnable(this.directory);
     return [
       await this.ports.denoExe.resolveDenoExecutable(),
       "run",

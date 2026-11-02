@@ -24,29 +24,22 @@ async function makeSourceKitRepo(
   return { dir, cleanup: () => Deno.remove(dir, { recursive: true }) };
 }
 
-async function makeProjectRepoRoot(
-  kitSdkVersion: string,
-): Promise<{ dir: string; cleanup: () => Promise<void> }> {
+async function makeProjectRepoRoot(): Promise<
+  { dir: string; cleanup: () => Promise<void> }
+> {
   const dir = await Deno.makeTempDir({
     prefix: "ensemble-kit-installer-project-",
   });
   await Deno.mkdir(join(dir, ".ensemble"), { recursive: true });
-  await Deno.writeTextFile(
-    join(dir, "deno.lock"),
-    JSON.stringify({
-      version: "4",
-      specifiers: { [`jsr:@ensemble/kit-sdk@${kitSdkVersion}`]: kitSdkVersion },
-    }),
-  );
   return { dir, cleanup: () => Deno.remove(dir, { recursive: true }) };
 }
 
 Deno.test("KitInstaller.install: compatible build kit installs and routes by role", async () => {
   const source = await makeSourceKitRepo({
-    "kit.yml": `role: build\nkitSdk: "^0.5.0"\n`,
+    "kit.yml": `role: build\nprotocol: 1\n`,
     "main.ts": `export {};\n`,
   });
-  const project = await makeProjectRepoRoot("0.5.2");
+  const project = await makeProjectRepoRoot();
   try {
     const installer = new KitInstaller(
       project.dir,
@@ -70,10 +63,10 @@ Deno.test("KitInstaller.install: compatible build kit installs and routes by rol
 
 Deno.test("KitInstaller.install: unknown role rejected", async () => {
   const source = await makeSourceKitRepo({
-    "kit.yml": `role: nonsense\nkitSdk: "^0.5.0"\n`,
+    "kit.yml": `role: nonsense\nprotocol: 1\n`,
     "main.ts": `export {};\n`,
   });
-  const project = await makeProjectRepoRoot("0.5.2");
+  const project = await makeProjectRepoRoot();
   try {
     const installer = new KitInstaller(
       project.dir,
@@ -87,24 +80,23 @@ Deno.test("KitInstaller.install: unknown role rejected", async () => {
   }
 });
 
-Deno.test("KitInstaller.install: incompatible kitSdk rejected with both versions named", async () => {
+Deno.test("KitInstaller.install: a protocol this ens doesn't speak rejected", async () => {
   const source = await makeSourceKitRepo({
-    "kit.yml": `role: build\nkitSdk: "^0.5.0"\n`,
+    "kit.yml": `role: build\nprotocol: 99\n`,
     "main.ts": `export {};\n`,
   });
-  const project = await makeProjectRepoRoot("1.0.0");
+  const project = await makeProjectRepoRoot();
   try {
     const installer = new KitInstaller(
       project.dir,
       new FileRegistry(project.dir),
       new GitPackageSource(),
     );
-    const error = await assertRejects(
+    await assertRejects(
       () => installer.install(source.dir),
       Error,
+      "protocol 99",
     );
-    assert(error.message.includes("^0.5.0"));
-    assert(error.message.includes("1.0.0"));
   } finally {
     await source.cleanup();
     await project.cleanup();
@@ -113,11 +105,11 @@ Deno.test("KitInstaller.install: incompatible kitSdk rejected with both versions
 
 Deno.test("KitInstaller.install: missing required entrypoint rejected", async () => {
   const source = await makeSourceKitRepo({
-    "kit.yml": `role: pack\nkitSdk: "^0.5.0"\n`,
+    "kit.yml": `role: pack\nprotocol: 1\npublish:\n  push: "Push it."\n`,
     "main.ts": `export {};\n`,
-    // no publish.ts, which "pack" requires
+    // no publish.ts, which declaring a publish target requires
   });
-  const project = await makeProjectRepoRoot("0.5.2");
+  const project = await makeProjectRepoRoot();
   try {
     const installer = new KitInstaller(
       project.dir,

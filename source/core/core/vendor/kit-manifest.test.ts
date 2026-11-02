@@ -18,21 +18,55 @@ async function withKitDir(
 }
 
 Deno.test("KitManifest.read: valid manifest", async () => {
-  await withKitDir(`role: pack\nkitSdk: "^0.5.0"\n`, async (kitDir) => {
+  await withKitDir(`role: pack\nprotocol: 1\n`, async (kitDir) => {
     const manifest = await KitManifest.read(kitDir);
-    assertEquals(manifest, { role: "pack", kitSdk: "^0.5.0" });
+    assertEquals(manifest, { role: "pack", protocol: 1, publishes: false });
   });
 });
 
 Deno.test("KitManifest.read: unknown role rejected", async () => {
-  await withKitDir(`role: nonsense\nkitSdk: "^0.5.0"\n`, async (kitDir) => {
+  await withKitDir(`role: nonsense\nprotocol: 1\n`, async (kitDir) => {
     await assertRejects(() => KitManifest.read(kitDir), Error, "invalid");
   });
 });
 
-Deno.test("KitManifest.read: missing kitSdk rejected", async () => {
+Deno.test("KitManifest.read: missing protocol rejected", async () => {
   await withKitDir(`role: build\n`, async (kitDir) => {
-    await assertRejects(() => KitManifest.read(kitDir), Error, "kitSdk");
+    await assertRejects(() => KitManifest.read(kitDir), Error, "protocol");
+  });
+});
+
+Deno.test("KitManifest.read: a protocol this ens doesn't speak rejected", async () => {
+  await withKitDir(`role: build\nprotocol: 99\n`, async (kitDir) => {
+    await assertRejects(() => KitManifest.read(kitDir), Error, "protocol 99");
+  });
+});
+
+Deno.test("KitManifest.read: declared publish targets are noted", async () => {
+  await withKitDir(
+    `role: pack\nprotocol: 1\npublish:\n  push: "Push it."\n`,
+    async (kitDir) => {
+      assertEquals((await KitManifest.read(kitDir)).publishes, true);
+    },
+  );
+});
+
+Deno.test("KitManifest.assertRunnable: a kit declaring no protocol, or with no manifest, still runs", async () => {
+  await withKitDir(`modes:\n  image: image\n`, async (kitDir) => {
+    await KitManifest.assertRunnable(kitDir);
+  });
+  await withKitDir(undefined, async (kitDir) => {
+    await KitManifest.assertRunnable(kitDir);
+  });
+});
+
+Deno.test("KitManifest.assertRunnable: a protocol this ens doesn't speak is refused", async () => {
+  await withKitDir(`protocol: 99\n`, async (kitDir) => {
+    await assertRejects(
+      () => KitManifest.assertRunnable(kitDir),
+      Error,
+      "protocol 99",
+    );
   });
 });
 
@@ -42,15 +76,15 @@ Deno.test("KitManifest.read: missing manifest file rejected", async () => {
   });
 });
 
-Deno.test("KitManifest.requiredEntrypoints: pack requires main.ts and publish.ts", () => {
-  assertEquals(KitManifest.requiredEntrypoints("pack"), [
+Deno.test("KitManifest.requiredEntrypoints: a kit that publishes needs publish.ts too", () => {
+  assertEquals(KitManifest.requiredEntrypoints({ publishes: true }), [
     "main.ts",
     "publish.ts",
   ]);
 });
 
-Deno.test("KitManifest.requiredEntrypoints: build/deploy/lib require only main.ts", () => {
-  assertEquals(KitManifest.requiredEntrypoints("build"), ["main.ts"]);
-  assertEquals(KitManifest.requiredEntrypoints("deploy"), ["main.ts"]);
-  assertEquals(KitManifest.requiredEntrypoints("lib"), ["main.ts"]);
+Deno.test("KitManifest.requiredEntrypoints: any other kit needs only main.ts", () => {
+  assertEquals(KitManifest.requiredEntrypoints({ publishes: false }), [
+    "main.ts",
+  ]);
 });

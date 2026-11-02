@@ -67,7 +67,7 @@ async function withRepoRoot(
 Deno.test("KitEjector.eject: a well-formed kit ejects and registers correctly, importing @ensemble/kit-sdk without issue", async () => {
   await withRepoRoot(async (repoRoot) => {
     const path = join(".ensemble", "kits", "build", "widgets");
-    await writeKit(repoRoot, path, `role: build\nkitSdk: "*"\n`, {
+    await writeKit(repoRoot, path, `role: build\nprotocol: 1\n`, {
       "main.ts": `import * as KitSdk from "@ensemble/kit-sdk";\n`,
     });
 
@@ -97,9 +97,12 @@ Deno.test("KitEjector.eject: a well-formed kit ejects and registers correctly, i
 Deno.test("KitEjector.eject: rejects a kit missing its required entrypoint, before any git operation", async () => {
   await withRepoRoot(async (repoRoot) => {
     const path = join(".ensemble", "kits", "pack", "widgets");
-    await writeKit(repoRoot, path, `role: pack\nkitSdk: "*"\n`, {
-      "main.ts": `export {};\n`,
-    });
+    await writeKit(
+      repoRoot,
+      path,
+      `role: pack\nprotocol: 1\npublish:\n  push: "Push it."\n`,
+      { "main.ts": `export {};\n` },
+    );
 
     const gateway = new FakePackageSource();
     const ejector = new KitEjector(

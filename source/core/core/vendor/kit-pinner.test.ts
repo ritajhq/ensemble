@@ -50,10 +50,6 @@ async function withInstalledKit(
   }
 
   await Deno.mkdir(join(repoRoot, ".ensemble"), { recursive: true });
-  await Deno.writeTextFile(
-    join(repoRoot, "deno.lock"),
-    JSON.stringify({ specifiers: { "jsr:@ensemble/kit-sdk@0.5.2": "0.5.2" } }),
-  );
 
   const registry = new FileRegistry(repoRoot);
   await registry.register({
@@ -70,7 +66,7 @@ async function withInstalledKit(
 }
 
 Deno.test("KitPinner.pin: moves the checkout to the new ref and updates the lockfile entry", async () => {
-  const fixture = await withInstalledKit(`role: build\nkitSdk: "^0.5.0"\n`, {
+  const fixture = await withInstalledKit(`role: build\nprotocol: 1\n`, {
     "main.ts": `export {};\n`,
   });
   try {
@@ -93,7 +89,7 @@ Deno.test("KitPinner.pin: moves the checkout to the new ref and updates the lock
 });
 
 Deno.test("KitPinner.pin: rejects a path that isn't registered", async () => {
-  const fixture = await withInstalledKit(`role: build\nkitSdk: "^0.5.0"\n`, {
+  const fixture = await withInstalledKit(`role: build\nprotocol: 1\n`, {
     "main.ts": `export {};\n`,
   });
   try {
@@ -113,9 +109,10 @@ Deno.test("KitPinner.pin: rejects a path that isn't registered", async () => {
 });
 
 Deno.test("KitPinner.pin: rejects when the new ref's entrypoint is missing", async () => {
-  const fixture = await withInstalledKit(`role: pack\nkitSdk: "^0.5.0"\n`, {
-    "main.ts": `export {};\n`,
-  });
+  const fixture = await withInstalledKit(
+    `role: pack\nprotocol: 1\npublish:\n  push: "Push it."\n`,
+    { "main.ts": `export {};\n` },
+  );
   try {
     const pinner = new KitPinner(
       fixture.repoRoot,
@@ -132,8 +129,8 @@ Deno.test("KitPinner.pin: rejects when the new ref's entrypoint is missing", asy
   }
 });
 
-Deno.test("KitPinner.pin: rejects when the new ref's kitSdk is incompatible", async () => {
-  const fixture = await withInstalledKit(`role: build\nkitSdk: "^1.0.0"\n`, {
+Deno.test("KitPinner.pin: rejects when the new ref speaks a protocol this ens doesn't", async () => {
+  const fixture = await withInstalledKit(`role: build\nprotocol: 99\n`, {
     "main.ts": `export {};\n`,
   });
   try {
@@ -146,8 +143,7 @@ Deno.test("KitPinner.pin: rejects when the new ref's kitSdk is incompatible", as
       () => pinner.pin(fixture.path, "v2.0.0"),
       Error,
     );
-    assert(error.message.includes("^1.0.0"));
-    assert(error.message.includes("0.5.2"));
+    assert(error.message.includes("protocol 99"));
   } finally {
     await fixture.cleanup();
   }
