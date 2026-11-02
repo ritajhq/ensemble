@@ -1,9 +1,10 @@
 import { join } from "@std/path";
 import { exists } from "@std/fs";
 import type { Deploy } from "@ensemble/core";
-import { Deploy as CoreDeploy } from "@ensemble/core";
+import { Deploy as CoreDeploy, KitProcess } from "@ensemble/core";
 import { resolveDenoExecutable } from "./deno-exe.ts";
 import { KitHost } from "./kit-host.ts";
+import { NativeProcessRunner } from "./process-runner.ts";
 
 /** Plain-data shape of `deploy-kit-rpc-wrapper.ts`'s reconstructed `graph` argument for `present`. */
 interface SerializedDependencyGraph {
@@ -247,7 +248,13 @@ export class SubprocessKitLoader implements Deploy.KitLoader {
       );
     }
 
-    const host = new KitHost(vendoredDir, await resolveDenoExecutable());
+    const host = new KitHost(
+      vendoredDir,
+      new KitProcess(vendoredDir, {
+        denoExe: { resolveDenoExecutable },
+        process: new NativeProcessRunner(),
+      }),
+    );
     this.hosts.push(host);
     const capabilities = await host.call(
       "kit",

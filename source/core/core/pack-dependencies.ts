@@ -2,6 +2,7 @@ import { join } from "@std/path";
 import { exists } from "@std/fs";
 import type * as Pack from "./pack-context.ts";
 import type { Ports } from "./ports.ts";
+import { KitProcess } from "./kit-process.ts";
 
 /**
  * Asks a pack kit which of `candidateApps` a ship's own packaging config
@@ -32,23 +33,15 @@ export async function resolvePackDependencies(
   }
 
   const shipDir = join(repoRoot, "source", "ship", shipName);
-  const denoExe = await ports.denoExe.resolveDenoExecutable();
 
-  const stdout = await ports.process.capture(
-    denoExe,
+  const stdout = await new KitProcess(kitDir, ports).capture(
+    "dependencies.ts",
     [
-      "run",
-      "-A",
-      "-q",
-      "--minimum-dependency-age",
-      "0",
-      kitEntry,
       "--apps",
       JSON.stringify(candidateApps),
       ...(deployKit ? ["--deploy-kit", deployKit] : []),
       shipDir,
     ],
-    { cwd: kitDir },
   );
 
   const result = JSON.parse(stdout) as Pack.Result;

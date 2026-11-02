@@ -3,6 +3,7 @@ import { exists } from "@std/fs";
 import type { Ports } from "./ports.ts";
 import { EnsembleConfigStore } from "./config.ts";
 import { integrationOf, isReserved } from "./deploy/integration.ts";
+import { KitProcess } from "./kit-process.ts";
 
 const APP_NAME_PATTERN = /^[a-zA-Z0-9](?:[a-zA-Z0-9._\-/]*[a-zA-Z0-9])?$/;
 const KIT_NAME_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
@@ -87,28 +88,14 @@ export async function runAppCreate(
     throw new Error(`"${sourceDir}" already exists.`);
   }
 
-  const denoExe = await ports.denoExe.resolveDenoExecutable();
   const targetArgs = options.target ? ["--target", options.target] : [];
-  // --minimum-dependency-age 0: see the identical flag in build.ts — kits
-  // depend on first-party @ensemble/*/@duesabati/* packages that a fresh
-  // release can otherwise trip Deno's default 24h supply-chain guard on.
-  const code = await ports.process.run(
-    denoExe,
-    [
-      "run",
-      "-A",
-      "-q",
-      "--minimum-dependency-age",
-      "0",
-      scaffoldEntry,
-      "--dest",
-      sourceDir,
-      "--name",
-      unit,
-      ...targetArgs,
-    ],
-    { cwd: kitDir },
-  );
+  const code = await new KitProcess(kitDir, ports).run("scaffold.ts", [
+    "--dest",
+    sourceDir,
+    "--name",
+    unit,
+    ...targetArgs,
+  ]);
   if (code !== 0) {
     throw new Error(`Scaffolding "${unit}" with kit "${options.kit}" failed.`);
   }

@@ -9,6 +9,7 @@ import { resolvePackDependencies } from "./pack-dependencies.ts";
 import type { PackReporter } from "./pack-reporter.ts";
 import { PlainPackReporter } from "./plain-pack-reporter.ts";
 import type { BuildReporter } from "./build-reporter.ts";
+import { KitProcess } from "./kit-process.ts";
 
 export interface RunPackOptions {
   /** Defaults to the first mode declared in the kit's kit.yml, or "default" if it has none. */
@@ -90,8 +91,6 @@ export async function runPack(
   const packagesDir = join(artifactsDir, "packages");
   await ensureDir(packagesDir);
 
-  const denoExe = await ports.denoExe.resolveDenoExecutable();
-
   const outputNameArgs = options.outputName
     ? ["--output-name", options.outputName]
     : [];
@@ -134,16 +133,9 @@ export async function runPack(
     ? undefined
     : (options.reporter ?? new PlainPackReporter()).packing(shipName);
 
-  // --minimum-dependency-age 0: see the identical flag in build.ts.
-  const code = await ports.process.run(
-    denoExe,
+  const code = await new KitProcess(kitDir, ports).run(
+    "main.ts",
     [
-      "run",
-      "-A",
-      "-q",
-      "--minimum-dependency-age",
-      "0",
-      kitEntry,
       "--artifacts",
       artifactsDir,
       "--packages",
@@ -162,7 +154,7 @@ export async function runPack(
       ...deployKitArgs,
       shipDir,
     ],
-    { cwd: kitDir, env: packVars },
+    { env: packVars },
   );
 
   if (code === 0) progress?.succeed();

@@ -29,6 +29,7 @@ export {
   LibDeclarationLoader,
   type PublishEntry,
 } from "./lib-declaration.ts";
+export { KitProcess, type KitRunOptions } from "./kit-process.ts";
 export { LibKit } from "./lib-kit.ts";
 export { LibPublisher, runLibPublish } from "./lib-publish.ts";
 export { runLibNew } from "./lib-scaffold.ts";

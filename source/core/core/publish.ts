@@ -8,6 +8,7 @@ import {
   authorizationFrom,
   PublishUnauthorizedError,
 } from "./publish-authorization.ts";
+import { KitProcess } from "./kit-process.ts";
 
 /** Untracked env file holding publish-target credentials (registry passwords, GH_TOKEN, …). Loaded into the publish kit's process environment, never onto its argv. */
 export const PUBLISH_SECRETS_PATH = ".ensemble/release/secrets.env";
@@ -28,9 +29,9 @@ export interface RunPublishOptions {
 
 /** A pack kit's publish entry point, resolved and ready to spawn with the standard publish kit CLI contract — shared by `runPublish` and `runPublishAuthorization` so the check sees exactly what the publish would. */
 interface PublishInvocation {
-  readonly kitDir: string;
+  readonly kit: KitProcess;
   readonly kitEntry: string;
-  readonly denoExe: string;
+  readonly entrypoint: string;
   readonly args: string[];
   readonly env: Record<string, string>;
 }
@@ -63,7 +64,6 @@ async function preparePublish(
   }
 
   const kitEntry = join(kitDir, entrypoint);
-  const denoExe = await ports.denoExe.resolveDenoExecutable();
   const outputName = options.outputName ?? shipName;
   const packageName = options.packageName ?? outputName;
   const version = options.version ?? "latest";
@@ -80,14 +80,7 @@ async function preparePublish(
   });
   const env = { ...credentials, ...varOverrides };
 
-  // --minimum-dependency-age 0: see the identical flag in pack.ts.
   const args = [
-    "run",
-    "-A",
-    "-q",
-    "--minimum-dependency-age",
-    "0",
-    kitEntry,
     "--name",
     shipName,
     "--output-name",
@@ -101,7 +94,13 @@ async function preparePublish(
     "--vars",
     JSON.stringify(varOverrides),
   ];
-  return { kitDir, kitEntry, denoExe, args, env };
+  return {
+    kit: new KitProcess(kitDir, ports),
+    kitEntry,
+    entrypoint,
+    args,
+    env,
+  };
 }
 
 /**
@@ -139,8 +138,8 @@ export async function runPublish(
     options,
     ports,
   );
-  const { kitDir, denoExe, args, env } = invocation;
-  return await ports.process.run(denoExe, args, { cwd: kitDir, env });
+  const { kit: kitProcess, entrypoint, args, env } = invocation;
+  return await kitProcess.run(entrypoint, args, { env });
 }
 
 /**
@@ -169,8 +168,6 @@ export async function runPublishAuthorization(
         `pack kit "${kit}" has no authorize.ts, so it can't verify this machine may publish to "${options.target}".`,
     };
   }
-  const { kitDir, denoExe, args, env } = invocation;
-  return authorizationFrom(
-    await ports.process.probe(denoExe, args, { cwd: kitDir, env }),
-  );
+  const { kit: kitProcess, entrypoint, args, env } = invocation;
+  return authorizationFrom(await kitProcess.probe(entrypoint, args, { env }));
 }

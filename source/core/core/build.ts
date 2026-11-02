@@ -13,6 +13,7 @@ import {
   isReserved,
   sourceDirOf,
 } from "./deploy/integration.ts";
+import { KitProcess } from "./kit-process.ts";
 
 export interface RunBuildOptions {
   mode: Build.Mode;
@@ -105,27 +106,14 @@ async function runUnit(
   const optionsArgs = appConfig.options
     ? ["--options", JSON.stringify(appConfig.options)]
     : [];
-  const denoExe = await ports.denoExe.resolveDenoExecutable();
 
   const progress = options.watch
     ? undefined
     : (options.reporter ?? new PlainBuildReporter()).building(name);
 
-  // --minimum-dependency-age 0: this project's own kits depend on
-  // @ensemble/*/@duesabati/* first-party packages, which Deno's default 24h
-  // minimum dependency age (a supply-chain mitigation aimed at unfamiliar
-  // third-party deps) would otherwise block from resolving right after a
-  // fresh release — scoped to just this invocation, not the user's own
-  // project-wide deno.json policy.
-  const code = await ports.process.run(
-    denoExe,
+  const code = await new KitProcess(kitDir, ports).run(
+    "main.ts",
     [
-      "run",
-      "-A",
-      "-q",
-      "--minimum-dependency-age",
-      "0",
-      kitEntry,
       "--source",
       sourceDir,
       "--name",
@@ -142,7 +130,7 @@ async function runUnit(
       ...targetArgs,
       ...optionsArgs,
     ],
-    { cwd: kitDir, env: buildVars, signal: options.signal },
+    { env: buildVars, signal: options.signal },
   );
 
   if (code === 0) progress?.succeed();
