@@ -1,5 +1,6 @@
 import { assertEquals, assertRejects } from "@std/assert";
-import { Command } from "@cliffy/command";
+import { Command, EnumType } from "@cliffy/command";
+import { Vendor } from "@ensemble/core";
 import { appCommand } from "./app.ts";
 import { buildCommand } from "./build.ts";
 import { configCommand } from "./config.ts";
@@ -69,6 +70,15 @@ function unknownTypes(command: AnyCommand): string[] {
 
 Deno.test("every command resolves the types its arguments and options name", () => {
   assertEquals(TOP_LEVEL_COMMANDS.flatMap(unknownTypes), []);
+});
+
+Deno.test("kit new: takes every role a kit can have", () => {
+  const types = kitCommand.getCommand("new")?.getType("role");
+  const values = types?.handler instanceof EnumType
+    ? types.handler.values()
+    : [];
+  assertEquals(values, [...Vendor.KitManifest.ROLES]);
+  assertEquals(values.includes("ecosystem"), true);
 });
 
 // A value outside the enum only fails this way once its type is found, and it fails before the action runs.

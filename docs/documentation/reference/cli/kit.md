@@ -12,7 +12,7 @@ Scaffold a new kit at `.ensemble/kits/<role>/<name>`.
 ens kit new my-deploy-target deploy
 ```
 
-`<role>` is one of `build`, `pack`, `deploy`, `lib`.
+`<role>` is one of `build`, `pack`, `deploy`, `lib`, `ecosystem`.
 
 ## `ens kit install <url>`
 

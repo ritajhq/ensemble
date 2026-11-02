@@ -6,13 +6,14 @@ import {
   runKitNew,
   runKitPin,
   runKitUpdate,
+  Vendor,
 } from "@ensemble/core";
 import * as Host from "@ensemble/host";
 import { z } from "zod";
 import { ToolResult } from "../tool-result.ts";
 import { ToolRegistration } from "../tool-registration.ts";
 
-const ROLE = z.enum(["build", "pack", "deploy", "lib"]);
+const ROLE = z.enum(Vendor.KitManifest.ROLES);
 const BUMP = z.enum(["patch", "minor", "major"]);
 
 export class KitTools {

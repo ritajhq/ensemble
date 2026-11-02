@@ -7,6 +7,7 @@ import {
   runKitPin,
   runKitUninstall,
   runKitUpdate,
+  Vendor,
 } from "@ensemble/core";
 import * as Host from "@ensemble/host";
 
@@ -17,14 +18,10 @@ export const kitCommand = new Command()
     "new",
     new Command()
       .description("Scaffold a new kit at .ensemble/kits/<role>/<name>.")
-      .type("role", new EnumType(["build", "pack", "deploy", "lib"]))
+      .type("role", new EnumType(Vendor.KitManifest.ROLES))
       .arguments("<name:string> <role:role>")
       .action(async (_, name, role) => {
-        await runKitNew(
-          name,
-          role as "build" | "pack" | "deploy" | "lib",
-          Host.createPorts().repo,
-        );
+        await runKitNew(name, role, Host.createPorts().repo);
         console.log(`Scaffolded .ensemble/kits/${role}/${name}.`);
       }),
   )

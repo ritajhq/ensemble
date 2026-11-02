@@ -1,6 +1,6 @@
 import { exists } from "@std/fs";
 import { join } from "@std/path";
-import { assertEquals, assertRejects } from "@std/assert";
+import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert";
 import { runKitNew } from "./kit-scaffold.ts";
 import type { RepoLocator } from "./ports.ts";
 import * as KitManifest from "./vendor/kit-manifest.ts";
@@ -66,6 +66,35 @@ Deno.test("runKitNew: a pack kit has no publish.ts until it declares a target", 
       "export {};\n",
     );
     assertEquals(await exists(join(kitDir, "publish.ts")), false);
+  });
+});
+
+Deno.test("runKitNew: an ecosystem kit answers ens from the start", async () => {
+  await withProjectRoot(async (repoRoot) => {
+    await runKitNew("widgets", "ecosystem", repoAt(repoRoot));
+
+    const kitDir = join(repoRoot, ".ensemble", "kits", "ecosystem", "widgets");
+    assertEquals(await KitManifest.read(kitDir), {
+      role: "ecosystem",
+      protocol: 1,
+      publishes: false,
+    });
+    const entrypoint = await Deno.readTextFile(join(kitDir, "main.ts"));
+    assertStringIncludes(entrypoint, "KitSdk.Ecosystem.run({");
+    for (
+      const operation of [
+        "initialize",
+        "sync",
+        "packageAt",
+        "stamp",
+        "scaffoldLibrary",
+        "lockfiles",
+        "invocation",
+        "environmentFor",
+      ]
+    ) {
+      assertStringIncludes(entrypoint, `${operation}: `);
+    }
   });
 });
 

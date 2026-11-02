@@ -1,16 +1,10 @@
 import { join } from "@std/path";
 import { parse as parseYaml } from "@std/yaml";
 
-export type Role = "build" | "pack" | "deploy" | "lib" | "ecosystem";
-
 /** Every known kit role, one `.ensemble/kits/<role>` directory each. */
-export const ROLES: readonly Role[] = [
-  "build",
-  "pack",
-  "deploy",
-  "lib",
-  "ecosystem",
-];
+export const ROLES = ["build", "pack", "deploy", "lib", "ecosystem"] as const;
+
+export type Role = typeof ROLES[number];
 
 /**
  * The versions of the contract between `ens` and a kit that this `ens` speaks:
