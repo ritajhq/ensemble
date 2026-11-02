@@ -1,5 +1,6 @@
 import { join } from "@std/path";
 import { ensureDir, exists, expandGlob } from "@std/fs";
+import type { Ports } from "../ports.ts";
 import type { Ecosystem, Link, Package, StampTarget } from "./ecosystem.ts";
 
 interface DenoJson {
@@ -38,7 +39,11 @@ function linkTarget(target: string): string | undefined {
  * already has them at the repository's root keeps them there.
  */
 export class DenoWorkspace implements Ecosystem {
-  constructor(private readonly repoRoot: string) {}
+  /** `ports` are what a release's stamp refreshes the lockfile with. Anything only reading the workspace can leave them out. */
+  constructor(
+    private readonly repoRoot: string,
+    private readonly ports?: Pick<Ports, "denoExe" | "process">,
+  ) {}
 
   /** Writes the root `deno.json` a new project's members resolve each other through. Kits aren't members: each resolves through its own `deno.json`. */
   async initialize(): Promise<void> {
@@ -90,7 +95,9 @@ export class DenoWorkspace implements Ecosystem {
     targets: readonly StampTarget[],
   ): Promise<string[]> {
     await this.stampOwnVersions(version, targets);
-    return await this.repinMembers(version, targets);
+    const repinned = await this.repinMembers(version, targets);
+    await this.refreshLockfile();
+    return repinned;
   }
 
   /** Writes a new member's `deno.json` and a stub `index.ts`. The workspace's globs already cover `directory`, so nothing else needs registering. */
@@ -112,6 +119,23 @@ export class DenoWorkspace implements Ecosystem {
   async lockfiles(): Promise<string[]> {
     const lockfile = join(await this.root(), "deno.lock");
     return await exists(lockfile, { isFile: true }) ? [lockfile] : [];
+  }
+
+  /**
+   * Brings `deno.lock` in line with the repins, so the tagged commit's lockfile
+   * matches its manifests. A workspace in `source/` has to ask for this: at the
+   * repository's root, kits are members, and running one already rewrites it.
+   */
+  private async refreshLockfile(): Promise<void> {
+    if (!this.ports) return;
+    const root = await this.root();
+    if (root === this.repoRoot) return;
+    if (!await exists(join(root, "deno.lock"), { isFile: true })) return;
+    await this.ports.process.exec(
+      await this.ports.denoExe.resolveDenoExecutable(),
+      ["install", "-q", "--minimum-dependency-age", "0"],
+      { cwd: root },
+    );
   }
 
   /**

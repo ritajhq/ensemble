@@ -40,7 +40,7 @@ export class Project implements Ecosystem {
     if (await exists(join(directory, "main.ts"), { isFile: true })) {
       return new Kit(repoRoot, directory, ports);
     }
-    if (name === BUILT_IN) return new DenoWorkspace(repoRoot);
+    if (name === BUILT_IN) return new DenoWorkspace(repoRoot, ports);
     throw new Error(
       `Ecosystem "${name}" not found (expected a kit at ${directory}).`,
     );
