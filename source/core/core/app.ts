@@ -89,6 +89,7 @@ export async function runAppCreate(
     throw new Error(`"${sourceDir}" already exists.`);
   }
 
+  const project = await Project.load(repoRoot, ports);
   const targetArgs = options.target ? ["--target", options.target] : [];
   const code = await new KitProcess(kitDir, ports).run("scaffold.ts", [
     "--dest",
@@ -101,7 +102,7 @@ export async function runAppCreate(
     throw new Error(`Scaffolding "${unit}" with kit "${options.kit}" failed.`);
   }
 
-  await (await Project.load(repoRoot, ports)).sync();
+  await project.sync();
 
   if (options.integration === undefined) {
     await config.setAppBuildKit(name, options.kit, options.target);

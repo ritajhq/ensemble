@@ -13,6 +13,7 @@ import {
   PublishUnauthorizedError,
 } from "./publish-authorization.ts";
 import { LibDeclarationLoader } from "./lib-declaration.ts";
+import { PublishOrder } from "./lib-publish-order.ts";
 import { Project } from "./ecosystem/index.ts";
 import {
   type CoreLibRelease,
@@ -442,7 +443,11 @@ export class ReleaseCeremony {
 
   /** Discovers every core lib declared under `publish.core:` in `.ensemble/config.yaml`, resolved against `source/core/<name>` — the core-lib half of the same discovery step, run alongside `collectShipReleases` (Section 9 of the vendoring build plan: core libraries publish via this cascade, never `ens lib publish`). */
   async collectCoreLibReleases(): Promise<CoreLibRelease[]> {
-    return await new LibDeclarationLoader(this.repoRoot).discoverCoreLibs();
+    const libs = await new LibDeclarationLoader(this.repoRoot)
+      .discoverCoreLibs();
+    if (libs.length === 0) return libs;
+    const project = await Project.load(this.repoRoot, this.ports);
+    return await new PublishOrder(project).of(libs);
   }
 
   /**

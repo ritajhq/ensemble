@@ -105,3 +105,85 @@ Deno.test("Project.sync: Deno's config is current before any ecosystem kit is la
     assertEquals(configExistedForKit, true);
   });
 });
+
+const CARGO_PINNING_PORTS: Pick<Ports, "denoExe" | "process"> = {
+  denoExe: { resolveDenoExecutable: () => Promise.resolve("/bin/deno") },
+  process: {
+    capture: () =>
+      Promise.resolve(
+        JSON.stringify({ result: { RUSTUP_TOOLCHAIN: "1.90.0" } }),
+      ),
+  } as unknown as Ports["process"],
+};
+
+async function writeCargoKit(repoRoot: string): Promise<void> {
+  const kit = join(repoRoot, ".ensemble/kits/ecosystem/cargo");
+  await Deno.mkdir(kit, { recursive: true });
+  await Deno.writeTextFile(join(kit, "main.ts"), "");
+  await Deno.writeTextFile(
+    join(kit, "kit.yml"),
+    "role: ecosystem\nprotocol: 1\n",
+  );
+}
+
+Deno.test("Project: loading puts what a pinned tool needs in the environment", async () => {
+  await withProject(
+    "ecosystems:\n  - cargo\ntools:\n  cargo:\n    rust: 1.90.0\n",
+    async (repoRoot) => {
+      await writeCargoKit(repoRoot);
+      const set: Record<string, string> = {};
+      await Project.load(repoRoot, CARGO_PINNING_PORTS, {
+        set: (variable, value) => set[variable] = value,
+      });
+      assertEquals(set, { RUSTUP_TOOLCHAIN: "1.90.0" });
+    },
+  );
+});
+
+Deno.test("Project: a project pinning nothing leaves the environment alone", async () => {
+  await withProject("ecosystems:\n  - cargo\n", async (repoRoot) => {
+    await writeCargoKit(repoRoot);
+    const set: Record<string, string> = {};
+    await Project.load(repoRoot, CARGO_PINNING_PORTS, {
+      set: (variable, value) => set[variable] = value,
+    });
+    assertEquals(set, {});
+  });
+});
+
+Deno.test("Project: tools for an ecosystem it doesn't declare are refused", async () => {
+  await withProject(
+    "tools:\n  cargo:\n    rust: 1.90.0\n",
+    async (repoRoot) => {
+      await assertRejects(
+        () => Project.load(repoRoot, UNUSED_PORTS),
+        Error,
+        "an ecosystem this project doesn't declare",
+      );
+    },
+  );
+});
+
+Deno.test("Project: a version YAML read as a number is refused, rather than pinning 1.9", async () => {
+  await withProject("tools:\n  deno:\n    deno: 2.10\n", async (repoRoot) => {
+    await assertRejects(
+      () => Project.load(repoRoot, UNUSED_PORTS),
+      Error,
+      "so quote it",
+    );
+  });
+});
+
+Deno.test("Project: a Deno version other than the pinned one is refused", async () => {
+  await withProject('tools:\n  deno:\n    deno: "2.5"\n', async (repoRoot) => {
+    const ports = {
+      denoExe: { resolveDenoExecutable: () => Promise.resolve("/bin/deno") },
+      process: { capture: () => Promise.resolve("deno 2.4.1 (stable)") },
+    } as unknown as Pick<Ports, "denoExe" | "process">;
+    await assertRejects(
+      () => Project.load(repoRoot, ports),
+      Error,
+      "pins 2.5, but this machine has 2.4.1",
+    );
+  });
+});

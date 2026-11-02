@@ -76,6 +76,22 @@ await KitSdk.Lib.run({
 `,
 };
 
+/** Writes each package it's asked to publish to a file, which is all `publish-order` needs of a registry. */
+const RECORDING_KIT = `import { join } from "@std/path";
+import { ensureDir } from "@std/fs";
+import * as KitSdk from "@ensemble/kit-sdk";
+
+await KitSdk.Lib.run({
+  authorize: () => Promise.resolve(),
+  stamp: () => Promise.resolve(),
+  publish: async (context) => {
+    const artifacts = join(await KitSdk.findRepoRoot(), "source/artifacts");
+    await ensureDir(artifacts);
+    await Deno.writeTextFile(join(artifacts, "published.txt"), context.package + "\\n", { append: true });
+  },
+});
+`;
+
 async function writeStandInKits(root: string): Promise<void> {
   for (const [name, source] of Object.entries(STAND_IN_KITS)) {
     const kit = join(root, ".ensemble/kits/lib", name);
@@ -163,17 +179,22 @@ class Sandbox {
     await this.ens("exec", "cargo", "metadata", "--format-version", "1");
   }
 
+  private async writeCrate(
+    path: string,
+    name: string,
+    extra = "",
+  ): Promise<void> {
+    await ensureDir(this.path(path, "src"));
+    await Deno.writeTextFile(
+      this.path(path, "Cargo.toml"),
+      `[package]\nname = "${name}"\nversion = "0.1.0"\nedition = "2021"\nlicense = "MIT"\ndescription = "A mock crate."\n${extra}`,
+    );
+    await Deno.writeTextFile(this.path(path, "src/lib.rs"), "");
+  }
+
   private async writeLibraries(): Promise<void> {
-    const crate = async (path: string, name: string, extra = "") => {
-      await ensureDir(this.path(path, "src"));
-      await Deno.writeTextFile(
-        this.path(path, "Cargo.toml"),
-        `[package]\nname = "${name}"\nversion = "0.1.0"\nedition = "2021"\nlicense = "MIT"\ndescription = "A mock crate."\n${extra}`,
-      );
-      await Deno.writeTextFile(this.path(path, "src/lib.rs"), "");
-    };
-    await crate("source/libs/parts", "tally-parts");
-    await crate(
+    await this.writeCrate("source/libs/parts", "tally-parts");
+    await this.writeCrate(
       "source/core/books",
       "tally-books",
       `\n[dependencies]\ntally-parts = { path = "../../libs/parts", version = "0.1.0" }\n`,
@@ -249,6 +270,41 @@ class Sandbox {
         },
       }),
     );
+  }
+
+  /** Three more core crates chained base <- middle <- top, listed the wrong way round, and a kit noting what it publishes. */
+  async addRecordingCrates(): Promise<void> {
+    const crates = [
+      ["top", 'tally-middle = { path = "../middle", version = "0.1.0" }'],
+      ["middle", 'tally-base = { path = "../base", version = "0.1.0" }'],
+      ["base", ""],
+    ];
+    for (const [name, dependency] of crates) {
+      await this.writeCrate(
+        `source/core/${name}`,
+        `tally-${name}`,
+        dependency ? `\n[dependencies]\n${dependency}\n` : "",
+      );
+    }
+    const kit = this.path(".ensemble/kits/lib/recording");
+    await ensureDir(kit);
+    await copy(
+      this.path(".ensemble/kits/lib/local/deno.json"),
+      join(kit, "deno.json"),
+    );
+    await Deno.writeTextFile(join(kit, "kit.yml"), "role: lib\nprotocol: 1\n");
+    await Deno.writeTextFile(join(kit, "main.ts"), RECORDING_KIT);
+    await this.editConfig((config) => {
+      config.publish.core = crates.map(([name]) => ({
+        name,
+        package: `tally-${name}`,
+        publish: [{ kit: "recording" }],
+      }));
+    });
+    await this.ens("sync");
+    await this.ens("exec", "cargo", "metadata", "--format-version", "1");
+    await this.run("git", ["add", "."]);
+    await this.run("git", ["commit", "-q", "-m", "feat: more core crates"]);
   }
 
   /** Changes `.ensemble/config.yaml` for one scenario. */
@@ -1074,6 +1130,96 @@ const SCENARIOS: readonly Scenario[] = [
       }
       const tags = await sandbox.run("git", ["tag", "--list", "0.2.0"]);
       return tags.output.trim() === "0.2.0" ? {} : { gap: "0.2.0 not tagged" };
+    },
+  },
+  {
+    name: "publish-order",
+    goal:
+      "a release publishes crates in dependency order, however they're listed",
+    async run(sandbox) {
+      await sandbox.addRecordingCrates();
+      const released = await sandbox.ens("release", "next", "minor", "--yes");
+      if (released.code !== 0) return failed("ens release next", released);
+      const published = await sandbox.read("source/artifacts/published.txt");
+      return published.trim().split("\n").join(" ") ===
+          "tally-base tally-middle tally-top"
+        ? {}
+        : { gap: `published in this order: ${published}` };
+    },
+  },
+  {
+    name: "publish-cycle",
+    goal: "crates depending on each other stop a release before anything moves",
+    async run(sandbox) {
+      await sandbox.addRecordingCrates();
+      const base = sandbox.path("source/core/base/Cargo.toml");
+      await Deno.writeTextFile(
+        base,
+        `${await Deno.readTextFile(
+          base,
+        )}\n[dependencies]\ntally-top = { path = "../top", version = "0.1.0" }\n`,
+      );
+      await sandbox.run("git", ["add", "."]);
+      await sandbox.run("git", ["commit", "-q", "-m", "feat: cycle"]);
+      const released = await sandbox.ens("release", "next", "minor", "--yes");
+      if (released.code === 0) return { gap: "released anyway" };
+      if (!released.output.includes("depend on each other")) {
+        return { gap: `failed differently: ${Sandbox.reason(released)}` };
+      }
+      const tags = await sandbox.run("git", ["tag", "--list", "0.2.0"]);
+      return tags.output.trim() === "" ? {} : { gap: "tagged 0.2.0 anyway" };
+    },
+  },
+  {
+    name: "tool-pin",
+    goal: "a Rust version pinned in config.yaml reaches ens exec and every kit",
+    async run(sandbox) {
+      await sandbox.editConfig((config) => {
+        config.tools = { cargo: { rust: "stable" } };
+      });
+      const active = await sandbox.ens(
+        "exec",
+        "rustup",
+        "show",
+        "active-toolchain",
+      );
+      if (active.code !== 0) return failed("ens exec rustup", active);
+      if (!active.output.includes("RUSTUP_TOOLCHAIN")) {
+        return { gap: `ens exec not pinned: ${active.output.slice(0, 120)}` };
+      }
+      const kit = sandbox.path(".ensemble/kits/build/toolchain-echo");
+      await ensureDir(kit);
+      await Deno.writeTextFile(
+        join(kit, "kit.yml"),
+        "role: build\nprotocol: 1\n",
+      );
+      await Deno.writeTextFile(
+        join(kit, "main.ts"),
+        `await Deno.writeTextFile(Deno.args[Deno.args.indexOf("--out") + 1] + ".txt", Deno.env.get("RUSTUP_TOOLCHAIN") ?? "");\n`,
+      );
+      await sandbox.editConfig((config) => {
+        config.build["mock/cli"] = { kit: "toolchain-echo" };
+      });
+      const built = await sandbox.ens("build", "mock/cli");
+      if (built.code !== 0) return failed("ens build", built);
+      const seen = await sandbox.read("source/artifacts/mock/cli.txt");
+      return seen === "stable" ? {} : { gap: `the kit saw "${seen}"` };
+    },
+  },
+  {
+    name: "tool-pin-refused",
+    goal: "a pin this machine can't honour stops a build, but not ens status",
+    async run(sandbox) {
+      await sandbox.editConfig((config) => {
+        config.tools = { deno: { deno: "1.0.0" } };
+      });
+      const built = await sandbox.ens("build", "mock/cli");
+      if (built.code === 0) return { gap: "built anyway" };
+      if (!built.output.includes("pins 1.0.0")) {
+        return { gap: `failed differently: ${Sandbox.reason(built)}` };
+      }
+      const status = await sandbox.ens("status");
+      return status.code === 0 ? {} : failed("ens status", status);
     },
   },
   {

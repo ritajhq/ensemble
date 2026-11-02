@@ -4,6 +4,8 @@ export interface Link {
   readonly specifier: string;
   /** The name of the package it links to. */
   readonly target: string;
+  /** Only its tests need this one, so the target needn't be published first. */
+  readonly devOnly?: boolean;
 }
 
 /** One unit an ecosystem builds and publishes: a Deno workspace member, a Cargo crate. */
@@ -54,4 +56,12 @@ export interface Ecosystem {
     tool: string,
     args: readonly string[],
   ): Promise<Invocation | undefined>;
+}
+
+/** How an ecosystem honours the tool versions a project pins under `tools:` in `.ensemble/config.yaml`. */
+export interface Toolchain {
+  /** What a process's environment needs for it to run these versions. Refuses a tool it doesn't know, or a version this machine can't provide. */
+  environmentFor(
+    versions: Readonly<Record<string, string>>,
+  ): Promise<Record<string, string>>;
 }

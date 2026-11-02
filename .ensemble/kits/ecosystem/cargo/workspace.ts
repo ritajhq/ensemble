@@ -1,7 +1,7 @@
 import { dirname, join, relative, SEPARATOR } from "@std/path";
 import { ensureDir, exists, expandGlob } from "@std/fs";
 import { parse as parseToml } from "@std/toml";
-import type * as KitSdk from "@ensemble/kit-sdk";
+import * as KitSdk from "@ensemble/kit-sdk";
 import { Manifest } from "./manifest.ts";
 
 type Package = KitSdk.Ecosystem.Package;
@@ -29,13 +29,17 @@ interface CargoToml {
 
 function linksIn(
   dependencies: Record<string, Dependency | string> | undefined,
+  devOnly?: boolean,
 ): Link[] {
   const links: Link[] = [];
   for (const [specifier, dependency] of Object.entries(dependencies ?? {})) {
     if (typeof dependency === "string" || dependency.path === undefined) {
       continue;
     }
-    links.push({ specifier, target: dependency.package ?? specifier });
+    const target = dependency.package ?? specifier;
+    links.push(
+      devOnly ? { specifier, target, devOnly } : { specifier, target },
+    );
   }
   return links;
 }
@@ -98,6 +102,36 @@ export class Workspace {
     );
   }
 
+  /**
+   * rustup picks its toolchain from this variable, downloading one it doesn't
+   * have, and it keeps `rust-toolchain.toml` out of the project. A `rustc` not
+   * managed by rustup ignores it, which asking for the version catches.
+   */
+  async environmentFor(
+    versions: Readonly<Record<string, string>>,
+  ): Promise<Record<string, string>> {
+    const pins = new KitSdk.Ecosystem.ToolVersions("cargo", versions, ["rust"]);
+    const rust = pins.of("rust");
+    if (rust === undefined) return {};
+
+    const environment = { RUSTUP_TOOLCHAIN: rust };
+    const { code, stdout } = await new Deno.Command("rustc", {
+      args: ["--version"],
+      env: environment,
+      stdout: "piped",
+      stderr: "inherit",
+    }).output();
+    if (code !== 0) {
+      throw new Error(`Couldn't run rust ${rust}: rustc --version failed.`);
+    }
+    pins.refuseUnlessSatisfied(
+      "rust",
+      new TextDecoder().decode(stdout),
+      "Install rustup, which fetches the pinned version by itself.",
+    );
+    return environment;
+  }
+
   async packageAt(directory: string): Promise<Package | undefined> {
     const path = join(directory, "Cargo.toml");
     if (!await exists(path, { isFile: true })) return undefined;
@@ -109,7 +143,7 @@ export class Workspace {
       directory,
       links: sections.flatMap((section) => [
         ...linksIn(section.dependencies),
-        ...linksIn(section["dev-dependencies"]),
+        ...linksIn(section["dev-dependencies"], true),
         ...linksIn(section["build-dependencies"]),
       ]),
     };

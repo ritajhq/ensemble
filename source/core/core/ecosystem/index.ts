@@ -5,6 +5,8 @@ export type {
   Link,
   Package,
   StampTarget,
+  Toolchain,
 } from "./ecosystem.ts";
 export { Kit } from "./kit.ts";
 export { Project } from "./project.ts";
+export { ToolVersions } from "./tool-versions.ts";

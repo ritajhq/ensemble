@@ -7,7 +7,9 @@ import type {
   Link,
   Package,
   StampTarget,
+  Toolchain,
 } from "./ecosystem.ts";
+import { ToolVersions } from "./tool-versions.ts";
 
 interface DenoJson {
   name?: unknown;
@@ -53,10 +55,14 @@ function linkTarget(target: string): string | undefined {
  * `deno.lock`. A project with a `deno.json` at its repository's root predates
  * this and is left as it is: that file stays its workspace root.
  */
-export class DenoWorkspace implements Ecosystem {
+export class DenoWorkspace implements Ecosystem, Toolchain {
   private readonly directory: string;
 
-  constructor(private readonly repoRoot: string) {
+  constructor(
+    private readonly repoRoot: string,
+    private readonly denoVersion: () => Promise<string> = () =>
+      Promise.resolve(Deno.version.deno),
+  ) {
     this.directory = join(repoRoot, ".ensemble", "ecosystems", "deno");
   }
 
@@ -143,6 +149,20 @@ export class DenoWorkspace implements Ecosystem {
     if (args.length === 0 || await this.isAtRoot()) return { args };
     const [subcommand, ...rest] = args;
     return { args: [subcommand, "--config", this.configPath(), ...rest] };
+  }
+
+  /** `ens` can only check Deno's version, not choose it: its kits run on the `deno` on this machine's PATH. */
+  async environmentFor(
+    versions: Readonly<Record<string, string>>,
+  ): Promise<Record<string, string>> {
+    const pins = new ToolVersions("deno", versions, ["deno"]);
+    if (pins.of("deno") === undefined) return {};
+    pins.refuseUnlessSatisfied(
+      "deno",
+      await this.denoVersion(),
+      `Run "deno upgrade ${pins.of("deno")}".`,
+    );
+    return {};
   }
 
   /** The flags pointing a `deno` command at this workspace's config, which a kit adds to anything it runs against the project's own code. */

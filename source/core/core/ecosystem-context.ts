@@ -12,6 +12,7 @@ export type {
   Package,
   StampTarget,
 } from "./ecosystem/ecosystem.ts";
+export { ToolVersions } from "./ecosystem/tool-versions.ts";
 
 /** An ecosystem kit's entry points, the same operations `ens` asks of any ecosystem. `repoRoot` is the project being acted on, which during `ens init` isn't a git repository yet. */
 export interface Actions {
@@ -34,6 +35,11 @@ export interface Actions {
     tool: string,
     args: readonly string[],
   ): Promise<Invocation | undefined>;
+  /** What a process's environment needs to run the versions the project pinned for this ecosystem. Should refuse what it can't honour, usually through `ToolVersions`. */
+  environmentFor(
+    repoRoot: string,
+    versions: Readonly<Record<string, string>>,
+  ): Promise<Record<string, string>>;
 }
 
 /**
@@ -59,6 +65,7 @@ export async function run(
       actions.scaffoldLibrary(repoRoot, request.directory, request.name),
     lockfiles: () => actions.lockfiles(repoRoot),
     invocation: () => actions.invocation(repoRoot, request.tool, request.args),
+    environmentFor: () => actions.environmentFor(repoRoot, request.versions),
   };
   const handler = handlers[operation];
   if (!handler) {

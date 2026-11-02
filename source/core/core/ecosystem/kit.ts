@@ -5,10 +5,11 @@ import type {
   Invocation,
   Package,
   StampTarget,
+  Toolchain,
 } from "./ecosystem.ts";
 
 /** An ecosystem served by a kit in `.ensemble/kits/ecosystem/<name>`, speaking the contract `KitSdk.Ecosystem.run` implements. */
-export class Kit implements Ecosystem {
+export class Kit implements Ecosystem, Toolchain {
   private readonly process: KitProcess;
 
   constructor(
@@ -48,6 +49,12 @@ export class Kit implements Ecosystem {
     args: readonly string[],
   ): Promise<Invocation | undefined> {
     return this.ask("invocation", { tool, args });
+  }
+
+  environmentFor(
+    versions: Readonly<Record<string, string>>,
+  ): Promise<Record<string, string>> {
+    return this.ask("environmentFor", { versions });
   }
 
   /** The kit's answer is the last line it prints, so a tool it runs may print before it. */

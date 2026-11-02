@@ -8,10 +8,14 @@ import type {
   Invocation,
   Package,
   StampTarget,
+  Toolchain,
 } from "./ecosystem.ts";
 import { Kit } from "./kit.ts";
 
 const BUILT_IN = "deno";
+
+/** Where a pinned tool's settings land: every process `ens` starts from here on inherits them, kits and what they run included. */
+export type ToolEnvironment = Pick<typeof Deno.env, "set">;
 
 /**
  * The ecosystems a project declares under `ecosystems:` in
@@ -21,34 +25,73 @@ const BUILT_IN = "deno";
  */
 export class Project implements Ecosystem {
   private constructor(
-    private readonly ecosystems: ReadonlyMap<string, Ecosystem>,
+    private readonly ecosystems: ReadonlyMap<string, Ecosystem & Toolchain>,
   ) {}
 
+  /** Puts the project's pinned tool versions in effect too, so anything acting on the project runs them. */
   static async load(
     repoRoot: string,
     ports: Pick<Ports, "denoExe" | "process">,
+    environment: ToolEnvironment = Deno.env,
   ): Promise<Project> {
     const config = await new EnsembleConfigStore(repoRoot).loadOrEmpty();
-    const ecosystems = new Map<string, Ecosystem>();
+    const ecosystems = new Map<string, Ecosystem & Toolchain>();
     for (const name of config.ecosystems ?? [BUILT_IN]) {
       ecosystems.set(name, await Project.resolve(name, repoRoot, ports));
     }
-    return new Project(ecosystems);
+    const project = new Project(ecosystems);
+    await project.pinTools(config.tools ?? {}, environment);
+    return project;
   }
 
   private static async resolve(
     name: string,
     repoRoot: string,
     ports: Pick<Ports, "denoExe" | "process">,
-  ): Promise<Ecosystem> {
+  ): Promise<Ecosystem & Toolchain> {
     const directory = join(repoRoot, ".ensemble", "kits", "ecosystem", name);
     if (await exists(join(directory, "main.ts"), { isFile: true })) {
       return new Kit(repoRoot, directory, ports);
     }
-    if (name === BUILT_IN) return new DenoWorkspace(repoRoot);
+    if (name === BUILT_IN) {
+      return new DenoWorkspace(
+        repoRoot,
+        async () =>
+          await ports.process.capture(
+            await ports.denoExe.resolveDenoExecutable(),
+            ["--version"],
+          ),
+      );
+    }
     throw new Error(
       `Ecosystem "${name}" not found (expected a kit at ${directory}).`,
     );
+  }
+
+  private async pinTools(
+    tools: Readonly<Record<string, Record<string, string>>>,
+    environment: ToolEnvironment,
+  ): Promise<void> {
+    for (const [name, versions] of Object.entries(tools)) {
+      const ecosystem = this.ecosystems.get(name);
+      if (!ecosystem) {
+        throw new Error(
+          `tools.${name} in .ensemble/config.yaml pins tools for an ecosystem this project doesn't declare. It declares: ${
+            [...this.ecosystems.keys()].join(", ")
+          }.`,
+        );
+      }
+      for (const [tool, version] of Object.entries(versions)) {
+        if (typeof version === "string") continue;
+        throw new Error(
+          `tools.${name}.${tool} in .ensemble/config.yaml must be a string: YAML reads 1.90 as the number 1.9, so quote it.`,
+        );
+      }
+      const settings = await ecosystem.environmentFor(versions);
+      for (const [variable, value] of Object.entries(settings)) {
+        environment.set(variable, value);
+      }
+    }
   }
 
   /** One declared ecosystem, for an action that has to choose. The first declared is the project's default. */

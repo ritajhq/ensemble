@@ -13,4 +13,6 @@ await KitSdk.Ecosystem.run({
   scaffoldLibrary: (repoRoot, directory, name) =>
     new Workspace(repoRoot).scaffoldLibrary(directory, name),
   lockfiles: (repoRoot) => new Workspace(repoRoot).lockfiles(),
+  environmentFor: (repoRoot, versions) =>
+    new Workspace(repoRoot).environmentFor(versions),
 });

@@ -99,6 +99,33 @@ date through a `sync` operation that `ens` runs ahead of builds:
   lists every crate under `source/` as a member and adds the `workspace` line
   each crate needs to find this root.
 
+To have everyone on one version of a language's tools, pin it under `tools:`, by
+ecosystem and then tool:
+
+```yaml
+tools:
+  cargo:
+    rust: 1.90.0
+  deno:
+    deno: "2.9"
+```
+
+Quote a version with fewer than three parts, since YAML reads `1.90` as the
+number `1.9`. Each ecosystem decides what a pin means through its
+`environmentFor` operation, and refuses a tool it doesn't know:
+
+- `cargo` pins `rust`, by setting `RUSTUP_TOOLCHAIN` for everything `ens`
+  starts. rustup fetches that version if it's missing, and any name rustup
+  accepts works, such as `stable`. A `rustc` not managed by rustup can't switch,
+  so a numbered pin it doesn't match is refused.
+- `deno` pins `deno`, which `ens` can only check: its kits run on whichever
+  `deno` is on the PATH, so a different version is refused, with the command to
+  fix it.
+
+A pin applies to what acts on the project, such as builds, packs, releases and
+`ens exec`. It doesn't reach a tool you run yourself: plain `cargo` in a crate
+uses rustup's own default, as does an editor's rust-analyzer.
+
 Run a language's own tool through [`ens exec`](../reference/cli/exec.md), which
 points it at these files. `cargo` also works directly from inside a crate. Plain
 `deno` can't resolve imports between packages without

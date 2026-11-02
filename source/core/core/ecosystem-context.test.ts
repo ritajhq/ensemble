@@ -2,6 +2,7 @@ import { assertEquals, assertRejects } from "@std/assert";
 import { type Actions, run } from "./ecosystem-context.ts";
 
 const ACTIONS: Actions = {
+  environmentFor: () => Promise.resolve({ TOOL_VERSION: "1" }),
   initialize: () => Promise.resolve(),
   sync: () => Promise.resolve(),
   invocation: () => Promise.resolve(undefined),

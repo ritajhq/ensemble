@@ -92,6 +92,8 @@ export interface DeployConfig {
 export interface EnsembleConfig {
   /** The project's languages: each a kit under `.ensemble/kits/ecosystem/<name>`, or the built-in `deno`, which is also what a project declaring none uses. The first is the default for a new library. */
   ecosystems?: string[];
+  /** The tool versions each ecosystem should run, by ecosystem then tool, e.g. `cargo: { rust: 1.90.0 }`. A tool with no pin runs whatever version the machine has. */
+  tools?: Record<string, Record<string, string>>;
   build?: Record<string, BuildAppConfig>;
   pack?: Record<string, PackConfig>;
   deploy?: Record<string, DeployConfig>;
