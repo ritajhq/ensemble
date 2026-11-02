@@ -1,0 +1,6 @@
+{
+  "imports": {
+    "@atlas/ink": "jsr:@atlas/ink@^0.1.0",
+    "@std/path": "jsr:@std/path@1.1.6"
+  }
+}

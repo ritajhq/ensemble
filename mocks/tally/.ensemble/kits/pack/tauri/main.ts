@@ -12,6 +12,13 @@ const ship = parseYaml(
 
 const shell = join(ctx.workspace, "apps", ship.apps.at(-1)!);
 
+// Cargo's target directory outlives a run, and every version's bundles would
+// otherwise be packaged alongside this one's.
+const targetDir = Deno.env.get("CARGO_TARGET_DIR") ??
+  join(ctx.workspace, "target");
+const bundles = join(targetDir, "release", "bundle");
+await Deno.remove(bundles, { recursive: true }).catch(() => {});
+
 const deno = await KitSdk.resolveDenoExecutable();
 const { code } = await new Deno.Command(deno, {
   args: [
@@ -30,11 +37,9 @@ const { code } = await new Deno.Command(deno, {
 }).spawn().status;
 if (code !== 0) Deno.exit(code);
 
-const targetDir = Deno.env.get("CARGO_TARGET_DIR") ??
-  join(ctx.workspace, "target");
 for (const bundle of ship.bundles) {
   const built = expandGlob(`*.${bundle}`, {
-    root: join(targetDir, "release", "bundle", bundle),
+    root: join(bundles, bundle),
   });
   for await (const file of built) {
     await copy(file.path, join(ctx.packages, file.name), { overwrite: true });

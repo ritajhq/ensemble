@@ -538,6 +538,164 @@ const SCENARIOS: readonly Scenario[] = [
     },
   },
   {
+    name: "mixed-build",
+    mock: "atlas",
+    goal: "a Rust app and a Deno app build and run in one project",
+    async run(sandbox) {
+      const rust = await sandbox.ens("build", "cli");
+      if (rust.code !== 0) return failed("ens build cli", rust);
+      const deno = await sandbox.ens("build", "api");
+      if (deno.code !== 0) return failed("ens build api", deno);
+      const total = await sandbox.run(
+        sandbox.path("source/artifacts/cli/atlas-cli"),
+        [],
+      );
+      if (total.output.trim() !== "3") {
+        return { gap: `the Rust app printed "${total.output.trim()}"` };
+      }
+      const color = await sandbox.run(Deno.execPath(), [
+        "run",
+        "-A",
+        sandbox.path("source/artifacts/api/main.js"),
+      ]);
+      return color.output.trim() === "blue"
+        ? {}
+        : { gap: `the Deno app printed "${color.output.trim()}"` };
+    },
+  },
+  {
+    name: "mixed-release",
+    mock: "atlas",
+    goal: "one release moves both languages' libs, pins and lockfiles together",
+    async run(sandbox) {
+      // A Deno lockfile has to exist for the release to carry it.
+      const built = await sandbox.ens("build", "api");
+      if (built.code !== 0) return failed("ens build api", built);
+      if (!await exists(sandbox.path("source/deno.lock"))) {
+        return { gap: "building wrote no source/deno.lock" };
+      }
+      await sandbox.run("git", ["add", "."]);
+      await sandbox.run("git", ["commit", "-q", "-m", "chore: lock"]);
+
+      const released = await sandbox.ens("release", "next", "minor", "--yes");
+      if (released.code !== 0) return failed("ens release next", released);
+
+      const ledger = await sandbox.read("source/core/ledger/Cargo.toml");
+      if (!ledger.includes('version = "0.2.0"')) {
+        return { gap: "the crate wasn't stamped" };
+      }
+      const cli = await sandbox.read("source/apps/cli/Cargo.toml");
+      if (!cli.includes('version = "0.2.0"')) {
+        return { gap: "the Rust app wasn't repinned" };
+      }
+      const ink = JSON.parse(await sandbox.read("source/core/ink/deno.json"));
+      if (ink.version !== "0.2.0") {
+        return { gap: "the Deno lib wasn't stamped" };
+      }
+      const api = JSON.parse(await sandbox.read("source/apps/api/deno.json"));
+      if (api.imports["@atlas/ink"] !== "jsr:@atlas/ink@^0.2.0") {
+        return { gap: "the Deno app wasn't repinned" };
+      }
+      const locked = await sandbox.run(
+        "cargo",
+        ["metadata", "--locked", "--format-version", "1"],
+        sandbox.path("source"),
+      );
+      if (locked.code !== 0) {
+        return { gap: "Cargo.lock is stale after release" };
+      }
+      const denoLocked = await sandbox.run(
+        Deno.execPath(),
+        ["cache", "--frozen", "apps/api/main.ts"],
+        sandbox.path("source"),
+      );
+      if (denoLocked.code !== 0) {
+        return {
+          gap: `deno.lock is stale after release: ${
+            Sandbox.reason(denoLocked)
+          }`,
+        };
+      }
+      const dirt = await sandbox.run("git", ["status", "--porcelain"]);
+      if (dirt.output.trim() !== "") {
+        return { gap: `left uncommitted: ${dirt.output.trim().slice(0, 120)}` };
+      }
+      const tags = await sandbox.run("git", ["tag", "--list", "0.2.0"]);
+      return tags.output.trim() === "0.2.0" ? {} : { gap: "0.2.0 not tagged" };
+    },
+  },
+  {
+    name: "mixed-lib",
+    mock: "atlas",
+    goal:
+      "ens lib new defaults to the first language and --ecosystem picks another",
+    async run(sandbox) {
+      const first = await sandbox.ens("lib", "new", "nib");
+      if (first.code !== 0) return failed("ens lib new nib", first);
+      if (!await exists(sandbox.path("source/libs/nib/deno.json"))) {
+        return { gap: "the default lib isn't a Deno package" };
+      }
+      const other = await sandbox.ens(
+        "lib",
+        "new",
+        "rates",
+        "--ecosystem",
+        "cargo",
+      );
+      if (other.code !== 0) return failed("ens lib new rates", other);
+      if (!await exists(sandbox.path("source/libs/rates/Cargo.toml"))) {
+        return { gap: "--ecosystem cargo wrote no Cargo.toml" };
+      }
+      const resolved = await sandbox.cargo(
+        "metadata",
+        "--no-deps",
+        "--format-version",
+        "1",
+      );
+      if (resolved.code !== 0) return failed("cargo metadata", resolved);
+      if (!resolved.output.includes('"name":"rates"')) {
+        return { gap: "the Rust lib isn't a workspace member" };
+      }
+      const clash = sandbox.path("source/libs/rates/deno.json");
+      await Deno.writeTextFile(clash, JSON.stringify({ name: "@atlas/rates" }));
+      const refused = await sandbox.ens(
+        "lib",
+        "publish",
+        "rates",
+        "local",
+        "0.2.0",
+      );
+      return refused.output.includes("more than one ecosystem") ? {} : {
+        gap: `two manifests in one lib weren't refused: ${
+          Sandbox.reason(refused)
+        }`,
+      };
+    },
+  },
+  {
+    name: "mixed-init",
+    goal:
+      "ens init starts a project in two languages, with nothing at the root",
+    async run(sandbox) {
+      const initialized = await initialize(
+        sandbox,
+        "--ecosystem",
+        "deno",
+        "--ecosystem",
+        "cargo",
+      );
+      if (initialized.code !== 0) return failed("ens init", initialized);
+      const fresh = join(dirname(sandbox.root), "fresh");
+      for (const file of ["source/deno.json", "source/Cargo.toml"]) {
+        if (!await exists(join(fresh, file))) return { gap: `no ${file}` };
+      }
+      const strays = await strayRootEntries(fresh);
+      return strays.length === 0
+        ? {}
+        : { gap: `left ${strays.join(", ")} at the root` };
+    },
+  },
+  {
     name: "clean-root",
     goal: "no language's files at the root, in a built mock or a new project",
     async run(sandbox) {

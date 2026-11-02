@@ -21,5 +21,8 @@ to do: a `GAP` is something `ens` can't do yet, not a broken test.
 - `quill/`: a Deno workspace declaring no ecosystems, to show projects like it
   keep working. Its `local` lib kit only stamps, so nothing is published.
 
+- `atlas/`: a Rust crate and a Deno package in each of core and apps, declaring
+  both ecosystems, to show one project can mix languages.
+
 Tauri's first build takes several minutes; later ones reuse
 `mocks/.cargo-target/`. It needs Rust, WebKitGTK and GTK installed.

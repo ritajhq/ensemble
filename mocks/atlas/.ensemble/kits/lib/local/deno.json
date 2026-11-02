@@ -1,0 +1,5 @@
+{
+  "imports": {
+    "@ensemble/kit-sdk": "jsr:@ensemble/kit-sdk@^0.62.0"
+  }
+}
