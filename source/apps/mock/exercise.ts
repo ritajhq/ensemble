@@ -514,7 +514,7 @@ async function strayEntries(root: string): Promise<string[]> {
   for await (const found of packageRoots) strays.push(`source/${found.name}`);
   const files = expandGlob("source/**/*", {
     root,
-    exclude: ["source/artifacts/**", "source/ship/**", "**/node_modules/**"],
+    exclude: ["source/artifacts/**", "**/node_modules/**"],
   });
   for await (const found of files) {
     if (WORKSPACE_FILES.has(found.name)) strays.push(found.path);

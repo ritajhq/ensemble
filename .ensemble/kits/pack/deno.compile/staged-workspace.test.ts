@@ -1,6 +1,7 @@
 import { assertEquals, assertRejects } from "@std/assert";
-import { join } from "@std/path";
+import { dirname, join } from "@std/path";
 import {
+  shipLockfile,
   StagedWorkspace,
   WorkspaceMembers,
   WorkspaceRoot,
@@ -81,9 +82,9 @@ Deno.test("staged: links the members at their relative paths and lists only them
 
 Deno.test("staged: the lockfile goes in before and comes back out when it changed", async () => {
   const root = await repo();
-  const lockfile = join(root, "source/ship/cli/deno.lock");
-  await Deno.mkdir(join(root, "source/ship/cli"), { recursive: true });
-  await Deno.writeTextFile(lockfile, "old");
+  const lockfile = join(root, ".ensemble/ecosystems/deno/ships/cli/deno.lock");
+  await Deno.mkdir(dirname(lockfile), { recursive: true });
+  await Deno.writeTextFile(lockfile, '{"version":"old"}');
   const staged = new StagedWorkspace(
     root,
     join(root, ".ensemble/cache/cli"),
@@ -91,26 +92,78 @@ Deno.test("staged: the lockfile goes in before and comes back out when it change
   );
   await staged.stage(["source/apps/cli"]);
   const resolved = join(staged.stagedDirectory, "deno.lock");
-  assertEquals(await Deno.readTextFile(resolved), "old");
+  assertEquals(await Deno.readTextFile(resolved), '{"version":"old"}');
 
-  await Deno.writeTextFile(resolved, "new");
+  await Deno.writeTextFile(resolved, '{"version":"new"}');
   await staged.keepLockfile();
-  assertEquals(await Deno.readTextFile(lockfile), "new");
+  assertEquals(JSON.parse(await Deno.readTextFile(lockfile)), {
+    version: "new",
+  });
 });
 
-Deno.test("staged: a first lockfile is created beside the ship", async () => {
+Deno.test("staged: a first lockfile is created, along with its directory", async () => {
   const root = await repo();
-  const lockfile = join(root, "source/ship/cli/deno.lock");
-  await Deno.mkdir(join(root, "source/ship/cli"), { recursive: true });
+  const lockfile = join(root, ".ensemble/ecosystems/deno/ships/a/b/deno.lock");
   const staged = new StagedWorkspace(
     root,
     join(root, ".ensemble/cache/cli"),
     lockfile,
   );
   await staged.stage(["source/apps/cli"]);
-  await Deno.writeTextFile(join(staged.stagedDirectory, "deno.lock"), "first");
+  await Deno.writeTextFile(
+    join(staged.stagedDirectory, "deno.lock"),
+    '{"version":"first"}',
+  );
   await staged.keepLockfile();
-  assertEquals(await Deno.readTextFile(lockfile), "first");
+  assertEquals(JSON.parse(await Deno.readTextFile(lockfile)), {
+    version: "first",
+  });
+});
+
+Deno.test("staged: only a member's pin moving leaves the kept lockfile alone", async () => {
+  const root = await repo();
+  const lockfile = join(root, ".ensemble/ecosystems/deno/ships/cli/deno.lock");
+  const staged = new StagedWorkspace(
+    root,
+    join(root, ".ensemble/cache/cli"),
+    lockfile,
+  );
+  await staged.stage(["source/apps/cli"]);
+  const resolved = join(staged.stagedDirectory, "deno.lock");
+  const resolvedWith = (pin: string) =>
+    JSON.stringify({
+      version: "5",
+      jsr: { "@std/path@1.1.6": {} },
+      workspace: { dependencies: [pin] },
+    });
+
+  await Deno.writeTextFile(resolved, resolvedWith("jsr:@ensemble/core@0.62"));
+  await staged.keepLockfile();
+  const kept = await Deno.readTextFile(lockfile);
+  assertEquals(JSON.parse(kept).workspace, undefined);
+
+  await Deno.writeTextFile(resolved, resolvedWith("jsr:@ensemble/core@0.63"));
+  const { mtime } = await Deno.stat(lockfile);
+  await staged.keepLockfile();
+  assertEquals((await Deno.stat(lockfile)).mtime, mtime);
+  assertEquals(await Deno.readTextFile(lockfile), kept);
+});
+
+Deno.test("shipLockfile: with the project's Deno files", async () => {
+  const root = await Deno.makeTempDir();
+  assertEquals(
+    await shipLockfile(root, join(root, "source/ship/a/b"), "a/b"),
+    join(root, ".ensemble/ecosystems/deno/ships/a/b/deno.lock"),
+  );
+});
+
+Deno.test("shipLockfile: beside the ship when the root has a deno.json of its own", async () => {
+  const root = await repo();
+  const ship = join(root, "source/ship/cli");
+  assertEquals(
+    await shipLockfile(root, ship, "cli"),
+    join(ship, "deno.lock"),
+  );
 });
 
 Deno.test("root: the nearest ancestor whose config declares a workspace", async () => {
