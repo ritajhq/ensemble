@@ -1,5 +1,6 @@
 import { join } from "@std/path";
 import { ensureDir } from "@std/fs";
+import { BundleIdentifier } from "./bundle-identifier.ts";
 
 /** A 32x32 RGBA square, the one icon Tauri can't compile a Linux shell without. */
 const ICON_PNG =
@@ -48,7 +49,13 @@ export class ShellTemplate {
   private readonly title: string;
   private readonly crate: string;
 
-  constructor(private readonly dest: string, name: string) {
+  /** `remote` and `project` are the project's `origin` and its directory's name, for its bundle identifier. */
+  constructor(
+    private readonly dest: string,
+    name: string,
+    private readonly remote: string | undefined,
+    private readonly project: string,
+  ) {
     this.title = name.split("/").at(-1)!;
     this.crate = this.title.replace(/[^a-zA-Z0-9_-]/g, "-");
   }
@@ -95,15 +102,18 @@ tauri = { version = "2.12.5", features = [] }
 `;
   }
 
+  private identifier(): string {
+    return BundleIdentifier.for(this.remote, this.project, this.crate)
+      .toString();
+  }
+
   private tauriConf(): string {
-    // A bundle identifier takes no underscores, which a crate name can have.
-    const identifier = `com.example.${this.crate.replaceAll("_", "-")}`;
     return `${
       JSON.stringify(
         {
           $schema: "https://schema.tauri.app/config/2",
           productName: this.title,
-          identifier,
+          identifier: this.identifier(),
           build: { frontendDist: "public" },
           app: {
             windows: [{ title: this.title, width: 480, height: 320 }],

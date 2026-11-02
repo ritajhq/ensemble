@@ -3,9 +3,12 @@ import { join } from "@std/path";
 import { parse as parseToml } from "@std/toml";
 import { ShellTemplate } from "./shell-template.ts";
 
-async function scaffolded(name: string): Promise<string> {
+async function scaffolded(
+  name: string,
+  remote?: string,
+): Promise<string> {
   const dest = join(await Deno.makeTempDir(), "app");
-  await new ShellTemplate(dest, name).write();
+  await new ShellTemplate(dest, name, remote, "my_project").write();
   return dest;
 }
 
@@ -28,7 +31,10 @@ Deno.test("write: lays out what the kit and Tauri read", async () => {
 });
 
 Deno.test("write: a nested app's crate is named for its last segment", async () => {
-  const dest = await scaffolded("desktop/my.shell_2");
+  const dest = await scaffolded(
+    "desktop/my.shell_2",
+    "git@github.com:ritajhq/harness.git",
+  );
   const manifest = parseToml(
     await Deno.readTextFile(join(dest, "Cargo.toml")),
   ) as { package: { name: string } };
@@ -37,7 +43,15 @@ Deno.test("write: a nested app's crate is named for its last segment", async () 
     await Deno.readTextFile(join(dest, "tauri.conf.json")),
   );
   assertEquals(conf.productName, "my.shell_2");
-  assertEquals(conf.identifier, "com.example.my-shell-2");
+  assertEquals(conf.identifier, "com.github.ritajhq.my-shell-2");
+});
+
+Deno.test("write: with no remote, the identifier comes from the project's name", async () => {
+  const dest = await scaffolded("desktop/shell");
+  const conf = JSON.parse(
+    await Deno.readTextFile(join(dest, "tauri.conf.json")),
+  );
+  assertEquals(conf.identifier, "local.my-project.shell");
 });
 
 Deno.test("write: the shell's frontend is its own public folder", async () => {
