@@ -112,7 +112,7 @@ curl -fsSL https://raw.githubusercontent.com/ritajhq/ensemble/main/.ensemble/ins
 Once installed, update in place with:
 
 ```sh
-ens version next patch   # or minor / major
+ens version update       # newest release; or `update patch` / `minor` / `major`
 ens version set <version>
 ```
 
