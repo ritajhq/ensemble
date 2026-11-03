@@ -4401,7 +4401,7 @@
       "npm:zod@^3.25.0"
     ],
     "links": {
-      "jsr:@ensemble/core@0.64.0": {
+      "jsr:@ensemble/core@0.64.1": {
         "dependencies": [
           "jsr:@duesabati/evento@1.0.0",
           "jsr:@std/assert@1.0.14",
@@ -4422,22 +4422,22 @@
           "npm:reladraw@0.18.0"
         ]
       },
-      "jsr:@ensemble/host@0.64.0": {
+      "jsr:@ensemble/host@0.64.1": {
         "dependencies": [
           "jsr:@david/dax@0.42.0",
           "jsr:@david/which@0.4.2",
           "jsr:@duesabati/evento@1.0.0",
-          "jsr:@ensemble/core@0.64",
+          "jsr:@ensemble/core@~0.64.1",
           "jsr:@std/assert@1.0.14",
           "jsr:@std/fmt@1.0.10",
           "jsr:@std/fs@1.0.24",
           "jsr:@std/path@1.1.6"
         ]
       },
-      "jsr:@ensemble/kit-sdk@0.64.0": {
+      "jsr:@ensemble/kit-sdk@0.64.1": {
         "dependencies": [
-          "jsr:@ensemble/core@0.64",
-          "jsr:@ensemble/host@0.64"
+          "jsr:@ensemble/core@~0.64.1",
+          "jsr:@ensemble/host@~0.64.1"
         ]
       },
       "jsr:@ensemble/platform@0.50.0": {
