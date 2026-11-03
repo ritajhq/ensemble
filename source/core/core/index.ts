@@ -7,7 +7,11 @@ export {
   type ProcessRunOptions,
   type RepoLocator,
 } from "./ports.ts";
-export { runAppCreate, type RunAppCreateOptions } from "./app.ts";
+export {
+  runAppCreate,
+  type RunAppCreateOptions,
+  runSetBuildKit,
+} from "./app.ts";
 export type { RunBuildOptions } from "./build.ts";
 export { runBuild, runPack } from "./pipeline.ts";
 export type { BuildProgress, BuildReporter } from "./build-reporter.ts";

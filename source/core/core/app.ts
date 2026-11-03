@@ -115,3 +115,24 @@ export async function runAppCreate(
     await config.setAppBuildKit(name, options.kit, options.target);
   } else await config.setAppIntegration(name, options.integration, options.kit);
 }
+
+/**
+ * Associates an existing app with a build kit (`ens config set-build-kit`):
+ * `build.<app>.kit` in .ensemble/config.yaml, and, as `runAppCreate` does, the
+ * ecosystem the kit's `kit.yml` declares, for a project that doesn't have it.
+ */
+export async function runSetBuildKit(
+  app: string,
+  kit: string,
+  ports: Ports,
+): Promise<void> {
+  const repoRoot = await ports.repo.findRepoRoot();
+  const kitDir = join(repoRoot, ".ensemble", "kits", "build", kit);
+  const ecosystem = await KitManifest.ecosystemOf(kitDir);
+  if (ecosystem !== undefined) {
+    const project = await Project.load(repoRoot, ports);
+    await project.adopt(ecosystem, repoRoot, ports);
+    await project.sync();
+  }
+  await new EnsembleConfigStore(repoRoot).setAppBuildKit(app, kit);
+}

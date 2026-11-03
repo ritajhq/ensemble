@@ -17,11 +17,7 @@ export class ConfigTools {
       },
       ({ app, kit }) =>
         ToolResult.from(async () => {
-          const repoRoot = await Host.createPorts().repo.findRepoRoot();
-          await new Core.Config.EnsembleConfigStore(repoRoot).setAppBuildKit(
-            app,
-            kit,
-          );
+          await Core.runSetBuildKit(app, kit, Host.createPorts());
           return `Set build.${app}.kit = ${kit}`;
         }),
     );

@@ -12,9 +12,7 @@ export const configCommand = new Command()
       .description("Associate an app with a build kit.")
       .arguments("<app:string> <kit:string>")
       .action(async (_options, app, kit) => {
-        const repoRoot = await Host.createPorts().repo.findRepoRoot();
-        const config = new Core.Config.EnsembleConfigStore(repoRoot);
-        await config.setAppBuildKit(app, kit);
+        await Core.runSetBuildKit(app, kit, Host.createPorts());
         console.log(`Set build.${app}.kit = ${kit}`);
       }),
   )
