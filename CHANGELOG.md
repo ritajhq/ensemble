@@ -1,3 +1,27 @@
+## [0.64.1] - 2026-11-03
+
+### 🐛 Bug Fixes
+
+- *(kits)* Never let a crate's own lock pin lower a release the cargo workspace already locks
+- *(kits)* Bind a gateway's host listener and the local MiniStack to loopback under ens develop
+- *(core/core)* Leave a failing kit's own message as the only error line, from scaffold, capture and lib kits too
+- *(core/core)* Keep config.yaml's comments and layout when ens sets its ecosystems
+- *(core/core)* Have ens config set-build-kit add the kit's ecosystem to the project as app create does
+
+### 📚 Documentation
+
+- Show ens version update in the README's update-in-place steps
+- Say set-build-kit adds the kit's ecosystem
+
+### 🚜 Refactor
+
+- *(extension/vscode)* Take the kit roles from the one role list, ecosystem included
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.64.0
+- Clear the mechanical deno lint problems outside the vendored ui library
+- *(release)* Bump library versions for 0.64.1
 ## [0.64.0] - 2026-11-02
 
 ### 🚀 Features
