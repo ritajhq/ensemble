@@ -1,3 +1,4 @@
+import * as KitRoles from "@ensemble/core/kit-roles";
 import * as vscode from "vscode";
 import type { DeployOptions } from "./deploy-options.ts";
 import type * as Project from "./project/index.ts";
@@ -5,7 +6,6 @@ import type { Runner } from "./runner.ts";
 import type { TaskOptions } from "./task-options.ts";
 
 const BUMPS = ["patch", "minor", "major"];
-const KIT_ROLES = ["build", "pack", "deploy", "lib"];
 
 const ask = (title: string, prompt: string) =>
   vscode.window.showInputBox({ title, prompt, ignoreFocusOut: true });
@@ -106,7 +106,7 @@ export class Commands {
   private async newKit(): Promise<void> {
     const name = await ask("New kit", "Kit name");
     if (!name) return;
-    const role = await pick("New kit: role", KIT_ROLES);
+    const role = await pick("New kit: role", [...KitRoles.ROLES]);
     if (role) this.runner.run(["kit", "new", name, role]);
   }
 

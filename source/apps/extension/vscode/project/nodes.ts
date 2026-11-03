@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
+import * as KitRoles from "@ensemble/core/kit-roles";
 import type * as Status from "../status.ts";
 
-const ROLES: readonly Status.KitRole[] = ["build", "pack", "deploy", "lib"];
 const LIBRARY_SCOPES = [
   { scope: "core", label: "core", path: "source/core" },
   { scope: "libs", label: "libs", path: "source/libs" },
@@ -154,7 +154,7 @@ class Leaf extends Node {
 
 class KitRoleNode extends Node {
   constructor(
-    private readonly role: Status.KitRole,
+    private readonly role: KitRoles.Role,
     private readonly kits: KitNode[],
   ) {
     super();
@@ -254,7 +254,7 @@ export const Roots = {
     status.workloads.map((workload) => new WorkloadNode(workload, root)),
 
   kits: (status: Status.Document, root: vscode.Uri): Node[] =>
-    ROLES.map((role) =>
+    KitRoles.ROLES.map((role) =>
       new KitRoleNode(
         role,
         status.kits.filter((kit) => kit.role === role).map((kit) =>

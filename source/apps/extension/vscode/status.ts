@@ -1,3 +1,5 @@
+import type * as KitRoles from "@ensemble/core/kit-roles";
+
 /** The `ens status --json` document (see the CLI's `status/json.ts`) — the extension reads it, never re-derives it. */
 export interface Document {
   version: 1;
@@ -20,11 +22,9 @@ export interface App {
   integration?: { kit: string; app: string };
 }
 
-export type KitRole = "build" | "pack" | "deploy" | "lib";
-
 export interface Kit {
   name: string;
-  role: KitRole;
+  role: KitRoles.Role;
   path: string;
   vendored?: Vendoring;
 }

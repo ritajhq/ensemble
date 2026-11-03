@@ -9,6 +9,7 @@
     "./pack-context": "./pack-context.ts",
     "./scaffold-context": "./scaffold-context.ts",
     "./lib-context": "./lib-context.ts",
+    "./kit-roles": "./kit-roles.ts",
     "./deploy": "./deploy/index.ts"
   },
   "imports": {
