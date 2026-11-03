@@ -10,9 +10,15 @@ const BUG_TYPES = [TypeError, ReferenceError, RangeError, EvalError];
  * background task like a companion build watcher). A bug's message means
  * nothing without its stack, so a bug keeps it, as everything does under
  * `ENS_DEBUG` (which `--verbose` turns on), with a failed kit's command line.
+ * A failed kit has already said why on its own stderr, so without debug there
+ * is nothing left to add: `undefined`, and the exit code speaks.
  */
-export function describeCliError(error: unknown, debug: boolean): string {
+export function describeCliError(
+  error: unknown,
+  debug: boolean,
+): string | undefined {
   if (!(error instanceof Error)) return String(error);
+  if (!debug && error instanceof Core.KitFailure) return undefined;
   const isBug = BUG_TYPES.some((type) => error instanceof type);
   if (!debug && !isBug) return error.message;
   const detail = error instanceof Core.KitFailure ? error.detail : undefined;
@@ -22,5 +28,7 @@ export function describeCliError(error: unknown, debug: boolean): string {
 /** The one place every CLI error path renders through: `error: <description>` in red. */
 export function printCliError(error: unknown): void {
   const debug = Boolean(Deno.env.get("ENS_DEBUG"));
-  console.error(red(`error: ${describeCliError(error, debug)}`));
+  const description = describeCliError(error, debug);
+  if (description === undefined) return;
+  console.error(red(`error: ${description}`));
 }

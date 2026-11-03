@@ -8,7 +8,7 @@ import {
   type Authorization,
   authorizationFrom,
 } from "./publish-authorization.ts";
-import { KitProcess } from "./kit-process.ts";
+import { KitFailure, KitProcess } from "./kit-process.ts";
 
 /**
  * Invokes a named lib kit: spawns its `main.ts` with the standard lib kit
@@ -54,9 +54,7 @@ export class LibKit {
   ): Promise<void> {
     const { kit, args, env } = await this.invocation(mode, input);
     const code = await kit.run("main.ts", args, { env });
-    if (code !== 0) {
-      throw new Error(failureMessage);
-    }
+    if (code !== 0) throw new KitFailure(failureMessage, code);
   }
 
   private async invocation(
