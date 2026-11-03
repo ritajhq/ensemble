@@ -2,6 +2,7 @@ import { join } from "@std/path";
 import { exists } from "@std/fs";
 import { parse as parseYaml, stringify as stringifyYaml } from "@std/yaml";
 import { parseIntegration } from "./deploy/integration-name.ts";
+import { EcosystemList } from "./ecosystem-list.ts";
 
 /** How one unit is built: the build kit, its static variant and its own settings — what `build.<app>` holds for an app that builds itself, and `build.<app>.integrations.<deploy kit>` for each of an app's integrations. */
 export interface BuildConfig {
@@ -298,18 +299,33 @@ export class EnsembleConfigStore {
     );
   }
 
+  /** Whether `text` is YAML that parses to `expected`. */
+  private static reads(text: string, expected: unknown): boolean {
+    try {
+      return JSON.stringify(parseYaml(text)) === JSON.stringify(expected);
+    } catch {
+      return false;
+    }
+  }
+
   /**
-   * Sets `ecosystems:` in .ensemble/config.yaml, keeping the rest. A plain
-   * parse-modify-rewrite, so hand-written comments are not preserved.
+   * Sets `ecosystems:` in .ensemble/config.yaml, keeping the rest as written,
+   * comments included. If the entry is written in a way the edit can't follow
+   * (a multi-line flow list, say), the file is rewritten from its parsed
+   * content instead, and its comments are not preserved.
    */
   async setEcosystems(ecosystems: readonly string[]): Promise<void> {
     const path = this.configPath;
-    const existingConfig: EnsembleConfig = await exists(path, { isFile: true })
-      ? ((parseYaml(await Deno.readTextFile(path)) ?? {}) as EnsembleConfig)
-      : {};
+    const text = await exists(path, { isFile: true })
+      ? await Deno.readTextFile(path)
+      : "";
+    const existingConfig = (parseYaml(text) ?? {}) as EnsembleConfig;
+    const edited = new EcosystemList(text).replacedWith(ecosystems);
+    const expected = { ...existingConfig, ecosystems: [...ecosystems] };
+    const followed = EnsembleConfigStore.reads(edited, expected);
     await Deno.writeTextFile(
       path,
-      stringifyYaml({ ...existingConfig, ecosystems: [...ecosystems] }),
+      followed ? edited : stringifyYaml(expected),
     );
   }
 
