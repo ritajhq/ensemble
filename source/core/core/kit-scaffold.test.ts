@@ -133,8 +133,8 @@ Deno.test("runKitNew: rejects an invalid kit name", async () => {
 
 Deno.test("runKitNew: rejects an invalid role", async () => {
   await withProjectRoot(async (repoRoot) => {
-    // deno-lint-ignore no-explicit-any
     await assertRejects(
+      // deno-lint-ignore no-explicit-any
       () => runKitNew("widgets", "nonsense" as any, repoAt(repoRoot)),
       Error,
       "Invalid kit role",

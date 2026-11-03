@@ -1,4 +1,4 @@
-import { dirname, fromFileUrl, join, relative } from "@std/path";
+import { dirname, join, relative } from "@std/path";
 import { ensureDir, exists } from "@std/fs";
 
 const CONFIG_FILES = ["deno.json", "deno.jsonc"] as const;

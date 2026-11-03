@@ -5,7 +5,7 @@ import { DeploymentEnvironment } from "./env-files.ts";
 
 async function withRepo(
   files: Record<string, string>,
-  run: (environment: DeploymentEnvironment) => Promise<void>,
+  run: (environment: DeploymentEnvironment) => void | Promise<void>,
 ): Promise<void> {
   const repoRoot = await Deno.makeTempDir();
   try {
@@ -149,7 +149,7 @@ const WORKLOAD = {
 
 Deno.test("DeploymentEnvironment.assertComplete: names every missing variable and environment-sourced secret at once", async () => {
   await withoutEnv(["DOMAIN", "PGPASSWORD", "GREETING", "CERT"], async () => {
-    await withRepo({}, async (environment) => {
+    await withRepo({}, (environment) => {
       const error = assertThrows(() => environment.assertComplete(WORKLOAD));
       assertEquals(
         (error as Error).message,
@@ -163,7 +163,7 @@ Deno.test("DeploymentEnvironment.assertComplete: passes once everything without 
   await withoutEnv(["DOMAIN", "PGPASSWORD"], async () => {
     Deno.env.set("DOMAIN", "ritaj.app");
     Deno.env.set("PGPASSWORD", "x");
-    await withRepo({}, async (environment) => {
+    await withRepo({}, (environment) => {
       environment.assertComplete(WORKLOAD);
     });
   });
