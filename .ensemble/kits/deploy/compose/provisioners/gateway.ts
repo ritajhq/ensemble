@@ -130,7 +130,9 @@ function ingressNetworks(value: unknown): readonly string[] {
  * only in the former case, deliberately: Caddy's automatic HTTP→HTTPS
  * redirect names Caddy's own 443, which a host-side 8443 mapping can't
  * reflect, so publishing 80 alongside it would only produce redirects to a
- * port nothing is listening on.
+ * port nothing is listening on. A development session binds them to loopback,
+ * as it does a compute's published ports; the shared `LocalProxy` is the one
+ * thing that stays on every interface.
  */
 /**
  * Pushes the rendered Caddyfile into the running gateway through Caddy's
@@ -263,7 +265,13 @@ export function gatewayProvisioner(): KitSdk.Deploy.Provisioner {
             service: {
               image: CADDY_IMAGE,
               ...(ingress.length === 0
-                ? { ports: [`${listener.hostPort}:${listener.containerPort}`] }
+                ? {
+                  ports: [
+                    `${
+                      request.development ? "127.0.0.1:" : ""
+                    }${listener.hostPort}:${listener.containerPort}`,
+                  ],
+                }
                 : {}),
               networks: networkAttachments(ingress, alias ?? PROJECT_ALIAS),
               ...(proxy ? { labels: proxy.labelsFor(routes, tls) } : {}),

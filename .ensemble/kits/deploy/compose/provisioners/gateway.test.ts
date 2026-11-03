@@ -1,5 +1,9 @@
 import { assertEquals } from "@std/assert";
-import { gatewayEntrypoints, proxiedEntrypoints } from "./gateway.ts";
+import {
+  gatewayEntrypoints,
+  gatewayProvisioner,
+  proxiedEntrypoints,
+} from "./gateway.ts";
 
 Deno.test("gatewayEntrypoints: one entry per service and host, collecting every path routed there in declaration order", () => {
   const entrypoints = gatewayEntrypoints([
@@ -48,4 +52,37 @@ Deno.test("proxiedEntrypoints: HTTPS on the proxy's port, a link per host, none 
     ]),
     [{ service: "router", url: "https://platform.lvh.me", paths: ["/*"] }],
   );
+});
+
+async function gatewayPorts(
+  params: Record<string, unknown>,
+  development?: boolean,
+): Promise<string[] | undefined> {
+  const outcome = await gatewayProvisioner().provision!({
+    category: "networking",
+    name: "web",
+    type: "gateway",
+    params: { routes: [], ...params },
+    values: {},
+    secrets: {},
+    ...(development === undefined ? {} : { development }),
+  });
+  return (outcome.fragment.content as { service: { ports?: string[] } })
+    .service.ports;
+}
+
+Deno.test("gatewayProvisioner: a gateway nothing fronts publishes its listener on every interface in a deployment", async () => {
+  assertEquals(await gatewayPorts({ tls: "internal" }), ["8443:443"]);
+  assertEquals(await gatewayPorts({ tls: "none" }, false), ["80:80"]);
+});
+
+Deno.test("gatewayProvisioner: a development session binds the listener to loopback", async () => {
+  assertEquals(await gatewayPorts({ tls: "internal" }, true), [
+    "127.0.0.1:8443:443",
+  ]);
+  assertEquals(await gatewayPorts({ tls: "none" }, true), ["127.0.0.1:80:80"]);
+});
+
+Deno.test("gatewayProvisioner: a gateway on ingress networks publishes nothing, development or not", async () => {
+  assertEquals(await gatewayPorts({ networks: ["edge"] }, true), undefined);
 });

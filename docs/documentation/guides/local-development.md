@@ -63,11 +63,14 @@ when `AWS_ENDPOINT_URL` points at this machine) are the kit's _runtime_:
 `runtime: false` under `deploy.<name>.development` in `.ensemble/config.yaml`,
 leaves it to you.
 
-On `compose`, a compute's `publish` ports bind to loopback under `ens develop`
-(`127.0.0.1:<host>:<container>`), so they answer at `localhost` on this machine
-and to nothing else on its network. A plain `ens deploy` binds them to every
-interface, as a host serving others needs. The local proxy stays on every
-interface, since it's what the hosts a manifest describes resolve to.
+On `compose`, every port published to the host binds to loopback under
+`ens develop` (or any `ens deploy --watch`): a compute's `publish` ports and a
+gateway's own listener (`127.0.0.1:<host>:<container>`), so they answer at
+`localhost` on this machine and to nothing else on its network. The `aws` kit's
+local MiniStack binds its API and CloudFront ports the same way. A plain
+`ens deploy` binds them to every interface, as a host serving others needs. The
+local proxy stays on every interface, since it's what the hosts a manifest
+describes resolve to.
 
 A value only development sets (a frontend's live reload, say) is a manifest
 variable like any other. `ens develop` reads `ci/<name>/dev.env` for it, or the

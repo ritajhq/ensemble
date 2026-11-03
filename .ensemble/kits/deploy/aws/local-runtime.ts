@@ -77,13 +77,28 @@ export class LocalRuntime {
     // replaced rather than restarted.
     await this.remove();
     await this.writeCertificate();
-    await $`docker run -d --name ${this.name} -p ${this.apiPort}:4566 -p ${this.edgePort}:8080 -e MINISTACK_HOST=${LocalRuntime.HOSTNAME_SUFFIX} -e SSL_CERT_FILE=/certs/cert.pem -v ${this.stateDirectory}:/certs:ro ${LocalRuntime.IMAGE}`
+    await $`docker run -d --name ${this.name} ${this.publications} -e MINISTACK_HOST=${LocalRuntime.HOSTNAME_SUFFIX} -e SSL_CERT_FILE=/certs/cert.pem -v ${this.stateDirectory}:/certs:ro ${LocalRuntime.IMAGE}`
       .quiet();
     await $`docker run -d --name ${this.tlsName} --network container:${this.name} -v ${this.stateDirectory}:/certs:ro ${LocalRuntime.PROXY_IMAGE} caddy run --config /certs/Caddyfile --adapter caddyfile`
       .quiet();
     await this.waitUntilHealthy();
     await $`aws s3 mb s3://${this.artifactsBucket}`.quiet().noThrow();
     return `MiniStack is up: http://localhost:${this.apiPort} (AWS APIs), http://<id>.cloudfront.${LocalRuntime.HOSTNAME_SUFFIX}:${this.edgePort} (CloudFront).`;
+  }
+
+  /**
+   * `docker run`'s `-p` flags: MiniStack answers at `localhost` on this
+   * machine and to nothing else on its network, since a development session
+   * is the only thing that starts it and Docker would otherwise publish both
+   * ports on every interface.
+   */
+  get publications(): string[] {
+    return [
+      "-p",
+      `127.0.0.1:${this.apiPort}:4566`,
+      "-p",
+      `127.0.0.1:${this.edgePort}:8080`,
+    ];
   }
 
   private get tlsName(): string {
