@@ -5,7 +5,9 @@ Manage `.ensemble/config.yaml` (shared, git-tracked) and
 
 ## `ens config set-build-kit <app> <kit>`
 
-Associate an app with a build kit in the shared `config.yaml`.
+Associate an app with a build kit in the shared `config.yaml`. A kit that needs
+an ecosystem the project doesn't declare (the `cargo` kit's Cargo workspace,
+say) adds it, as `ens app create` does.
 
 ```sh
 ens config set-build-kit web react
