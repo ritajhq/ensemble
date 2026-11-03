@@ -29,3 +29,52 @@ Deno.test("withPackagesOf: another version of a package is another package", () 
     `${HEADER}${block("itoa", "1.0.18")}\n${block("itoa", "1.0.11")}`,
   );
 });
+
+const REGISTRY = "registry+https://github.com/rust-lang/crates.io-index";
+
+function fetched(name: string, version: string, extra = ""): string {
+  return `[[package]]\nname = "${name}"\nversion = "${version}"\nsource = "${REGISTRY}"\n${extra}`;
+}
+
+Deno.test("withPackagesOf: an older release of what the workspace holds a newer one of is left out", () => {
+  const workspace = new Lockfile(`${HEADER}${fetched("itoa", "1.0.18")}`);
+  const app = new Lockfile(`${HEADER}${fetched("itoa", "1.0.11")}`);
+
+  assertEquals(workspace.withPackagesOf(app).toString(), workspace.toString());
+});
+
+Deno.test("withPackagesOf: what depended on the left-out release depends on the newer one", () => {
+  const workspace = new Lockfile(`${HEADER}${fetched("itoa", "1.0.18")}`);
+  const app = new Lockfile(
+    `${HEADER}${block("b", "0.1.0")}dependencies = [\n "itoa 1.0.11",\n]\n\n${
+      fetched("itoa", "1.0.11")
+    }`,
+  );
+
+  assertEquals(
+    workspace.withPackagesOf(app).toString(),
+    `${HEADER}${fetched("itoa", "1.0.18")}\n${
+      block("b", "0.1.0")
+    }dependencies = [\n "itoa 1.0.18",\n]\n`,
+  );
+});
+
+Deno.test("withPackagesOf: a release that isn't compatible with the workspace's is another package", () => {
+  const workspace = new Lockfile(`${HEADER}${fetched("itoa", "1.0.18")}`);
+  const app = new Lockfile(`${HEADER}${fetched("itoa", "0.4.8")}`);
+
+  assertEquals(
+    workspace.withPackagesOf(app).toString(),
+    `${HEADER}${fetched("itoa", "1.0.18")}\n${fetched("itoa", "0.4.8")}`,
+  );
+});
+
+Deno.test("withPackagesOf: a newer release than the workspace's is kept next to it", () => {
+  const workspace = new Lockfile(`${HEADER}${fetched("itoa", "1.0.11")}`);
+  const app = new Lockfile(`${HEADER}${fetched("itoa", "1.0.18")}`);
+
+  assertEquals(
+    workspace.withPackagesOf(app).toString(),
+    `${HEADER}${fetched("itoa", "1.0.11")}\n${fetched("itoa", "1.0.18")}`,
+  );
+});
