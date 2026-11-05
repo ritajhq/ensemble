@@ -1,0 +1,5 @@
+# The Tauri shell is source (its crate); the web app it embeds is a build, which packing builds first.
+shell: mock/desktop/shell
+frontend: mock/desktop/web
+bundles:
+  - deb

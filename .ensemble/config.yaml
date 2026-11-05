@@ -29,15 +29,12 @@ build:
     kit: cargo
   mock/desktop/web:
     kit: static-page
-  mock/desktop/shell:
-    kit: tauri
-    needs:
-      - mock/desktop/web
 pack:
   mock/cli:
     kit: tarball
   mock/desktop:
     kit: tauri
+    mode: installer
   mock/downloads:
     kit: tarball
     needs:

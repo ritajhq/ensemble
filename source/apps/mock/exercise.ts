@@ -590,12 +590,14 @@ const SCENARIOS: readonly Scenario[] = [
     },
   },
   {
-    name: "shell-alone",
+    name: "pack-binary",
     goal:
-      "ens build the Tauri shell alone, without building its web app by hand first",
+      "ens pack the Tauri app in binary mode: its executable alone, with its web app built first and no bundling",
     async run(sandbox) {
-      const built = await sandbox.ens("build", "mock/desktop/shell");
-      return built.code === 0 ? {} : failed("ens build", built);
+      const packed = await sandbox.ens("pack", "mock/desktop", "--mode", "binary");
+      if (packed.code !== 0) return failed("ens pack", packed);
+      const files = await packaged(sandbox, "mock/desktop");
+      return files.length > 0 ? {} : { gap: "no executable produced" };
     },
   },
   {
