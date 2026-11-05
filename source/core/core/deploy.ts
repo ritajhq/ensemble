@@ -38,6 +38,8 @@ export interface RunDeployOptions {
   pack: boolean;
   /** Before a real apply, stand up a local substitute for each `deploy.external` entry the target's kit knows how to emulate, instead of assuming it already exists elsewhere (`docker network create` for a compose external network). Ignored by `eject`/`plan`. */
   emulateExternals: boolean;
+  /** Told once, when the deployment is up (after an apply, or once a watch session has started): what `ens develop` starts a manifest's `launch:` section from. */
+  onUp?: () => void;
   /** Let a local apply's pack step show the kit's own build-tool output (e.g. `docker buildx build`'s progress log) instead of hiding it behind the pack spinner (ignored for published artifacts, which never pack), and a watch session show the watch command's and init commands' own output instead of only their warnings and errors. */
   verbose: boolean;
   /** How to report a local apply's pack step to the terminal — same semantics as `RunPackOptions.reporter` (ignored for `watch: true` or `verbose: true`). Defaults to `PlainPackReporter`; the CLI passes `Host.AnimatedPackReporter` instead for an interactive terminal. */
@@ -212,6 +214,7 @@ export async function runDeploy(
       workload,
     ),
     new IngressRecorder(IngressFile.for(repoRoot, scope, kit), deploymentName),
+    ...(options.onUp ? [new Deploy.Terminations.UpNotice(options.onUp)] : []),
   );
 
   // What a sync rule names is an app; what the kit deploying runs for it is

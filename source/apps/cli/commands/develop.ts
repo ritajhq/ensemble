@@ -1,5 +1,5 @@
 import { Command } from "@cliffy/command";
-import { DeploymentEnvironment, runDeploy } from "@ensemble/core";
+import { DeploymentEnvironment, Launching, runDeploy } from "@ensemble/core";
 import * as Host from "@ensemble/host";
 
 /**
@@ -36,6 +36,19 @@ export const developCommand = new Command()
   )
   .action(async ({ kit, verbose, envFile, runtime }, name) => {
     if (verbose) Deno.env.set("ENS_DEBUG", "1");
+    const ports = Host.createPorts();
+    const envFiles = envFile
+      ? DeploymentEnvironment.required(envFile)
+      : (kit: string) => DeploymentEnvironment.developConvention(name, kit);
+
+    // A manifest's `launch:` section is started once what it deploys is up, or at once when it deploys nothing.
+    const launch = await Launching.Launch.open(
+      name,
+      typeof envFiles === "function" ? envFiles("launch") : envFiles,
+      ports,
+    );
+    if (launch && !launch.alsoDeploys) return await launch.run();
+
     await runDeploy(
       name,
       kit,
@@ -50,14 +63,14 @@ export const developCommand = new Command()
         pack: true,
         emulateExternals: true,
         verbose,
-        envFiles: envFile
-          ? DeploymentEnvironment.required(envFile)
-          : (kit) => DeploymentEnvironment.developConvention(name, kit),
+        envFiles,
+        onUp: launch ? () => launch.begin() : undefined,
         reporter: new Host.AnimatedPackReporter(),
         buildReporter: new Host.AnimatedBuildReporter(),
       },
-      Host.createPorts(),
+      ports,
       new Host.SubprocessPackKitGateway(),
       new Host.SubprocessKitLoader(),
     );
+    await launch?.end();
   });

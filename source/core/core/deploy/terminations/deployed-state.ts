@@ -34,3 +34,17 @@ export class DeployedStates implements DeployedState {
     }
   }
 }
+
+/** Runs `onUp` the first time the deployment is reported up, whatever it is told about it. */
+export class UpNotice implements DeployedState {
+  private told = false;
+
+  constructor(private readonly onUp: () => void) {}
+
+  record(): Promise<void> {
+    if (this.told) return Promise.resolve();
+    this.told = true;
+    this.onUp();
+    return Promise.resolve();
+  }
+}

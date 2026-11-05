@@ -1,7 +1,7 @@
 /** Tells when something on disk changed, once per burst of changes. */
 export class OutputWatcher {
   private readonly watcher: Deno.FsWatcher;
-  private timer?: number;
+  private timer?: ReturnType<typeof setTimeout>;
   private closed = false;
 
   /** `path` may be a folder or a file; `onChange` runs `quietMs` after the last change in a burst. */

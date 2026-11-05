@@ -2,7 +2,7 @@ import { basename, join, normalize, relative } from "@std/path";
 import { exists } from "@std/fs";
 import * as Deploy from "./deploy/index.ts";
 import type { RepoLocator } from "./ports.ts";
-import { DeploymentEnvironment, type EnvFiles } from "./env-files.ts";
+import { DeploymentEnvironment, type EnvFile, type EnvFiles } from "./env-files.ts";
 import { DeployKitChoice } from "./deploy-kit-choice.ts";
 
 /**
@@ -156,6 +156,49 @@ export interface WorkloadLoadOptions {
   readonly fallbackKit?: string;
 }
 
+/** `ci/<name>/delivery.yml` read and checked against the environment: the manifest alone, with no deploy kit involved. */
+async function readManifest(
+  repoRoot: string,
+  name: string,
+  environment: DeploymentEnvironment,
+): Promise<Deploy.Workload> {
+  const workloadDir = join(repoRoot, "ci", name);
+  const manifestPath = await new Deploy.Manifest.Locator().find(workloadDir);
+  if (!manifestPath) {
+    throw new Error(
+      `Delivery manifest not found in ${workloadDir} (expected ${
+        Deploy.Manifest.Locator.FILE_NAMES.join(" or ")
+      })`,
+    );
+  }
+  const workload = await readContainerFiles(
+    resolveRelationalInitPaths(
+      await new Deploy.Manifest.Loader(
+        new Deploy.Manifest.Parser(),
+      ).loadFile(manifestPath),
+      repoRoot,
+    ),
+    repoRoot,
+  );
+  environment.assertComplete(workload);
+  return workload;
+}
+
+/**
+ * A manifest for `ens develop` to launch from, which may have no deploy kit at all (a manifest that only has a
+ * `launch:` section): the env files loaded, then the manifest.
+ */
+export async function loadLaunchManifest(
+  name: string,
+  repo: RepoLocator,
+  envFiles: readonly EnvFile[],
+): Promise<{ repoRoot: string; workload: Deploy.Workload }> {
+  const repoRoot = await repo.findRepoRoot();
+  const environment = new DeploymentEnvironment(repoRoot);
+  await environment.load(envFiles);
+  return { repoRoot, workload: await readManifest(repoRoot, name, environment) };
+}
+
 /**
  * Everything about a deployment short of loading its kit: the repo, the
  * workload its manifest declares (with the given env files' values put into
@@ -181,25 +224,7 @@ export async function loadWorkload(
       : options.envFiles,
   );
 
-  const workloadDir = join(repoRoot, "ci", name);
-  const manifestPath = await new Deploy.Manifest.Locator().find(workloadDir);
-  if (!manifestPath) {
-    throw new Error(
-      `Delivery manifest not found in ${workloadDir} (expected ${
-        Deploy.Manifest.Locator.FILE_NAMES.join(" or ")
-      })`,
-    );
-  }
-  const workload = await readContainerFiles(
-    resolveRelationalInitPaths(
-      await new Deploy.Manifest.Loader(
-        new Deploy.Manifest.Parser(),
-      ).loadFile(manifestPath),
-      repoRoot,
-    ),
-    repoRoot,
-  );
-  environment.assertComplete(workload);
+  const workload = await readManifest(repoRoot, name, environment);
 
   const kitDir = join(repoRoot, ".ensemble", "kits", "deploy", kit);
   if (!await exists(join(kitDir, "main.ts"), { isFile: true })) {

@@ -18,6 +18,8 @@ export interface RunPackOptions {
   outputName?: string;
   /** Repack on source changes. Only meaningful for kits that declare watch support (e.g. deno.compile) — an unsupporting kit just ignores the flag. */
   watch?: boolean;
+  /** Aborting this stops the spawned pack kit process — meaningful with `watch: true`, which otherwise runs until killed (what a `launch` session keeps a pack current with). */
+  signal?: AbortSignal;
   varOverrides?: Record<string, string>;
   /**
    * Apps to leave out of the automatic pre-build step even if this ship
@@ -161,7 +163,7 @@ export async function packShip(
       ...(needs.length > 0 ? ["--needs", JSON.stringify(needs)] : []),
       shipDir,
     ],
-    { env: packVars },
+    { env: packVars, signal: options.signal },
   );
 
   if (code === 0) progress?.succeed();
