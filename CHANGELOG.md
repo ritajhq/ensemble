@@ -1,3 +1,30 @@
+## [0.65.0] - 2026-11-05
+
+### 🚀 Features
+
+- *(deploy)* Parse a top-level launch section in delivery manifests
+- *(deploy)* Check launch references and derive start order from them
+- *(launching)* Supervise launch entries and restart them when their outputs change
+- *(develop)* Start a manifest's launch section after its deploy, or alone when it deploys nothing
+- *(pack/tauri)* Binary and installer modes from a tauri.yml ship manifest, with a rebuild loop
+
+### 🐛 Bug Fixes
+
+- *(develop)* Declared secrets and variables are not a deploy
+
+### 📚 Documentation
+
+- Describe running a launch section
+
+### 🚜 Refactor
+
+- Remove needs; a pack depends on the builds its kit reports, and the tauri build kit goes with it
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.64.1
+- *(mock)* The Tauri app is packed from a tauri.yml, shell alone as binary mode
+- *(release)* Bump library versions for 0.65.0
 ## [0.64.1] - 2026-11-03
 
 ### 🐛 Bug Fixes
