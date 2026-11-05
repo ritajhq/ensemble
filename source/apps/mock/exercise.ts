@@ -627,59 +627,18 @@ const SCENARIOS: readonly Scenario[] = [
     },
   },
   {
-    name: "pack-needs-pack",
+    name: "needs-refused",
     goal:
-      "a ship needing two other ships packs them first, and reads their output",
-    async run(sandbox) {
-      const packed = await sandbox.ens("pack", "mock/downloads");
-      if (packed.code !== 0) return failed("ens pack", packed);
-      const listed = await sandbox.run("tar", [
-        "tzf",
-        sandbox.path("source/artifacts/packages/mock/downloads.tar.gz"),
-      ]);
-      if (listed.code !== 0) return failed("tar", listed);
-      if (!listed.output.includes("cli.tar.gz")) {
-        return { gap: `no CLI archive in: ${listed.output.slice(0, 120)}` };
-      }
-      return listed.output.includes(".deb")
-        ? {}
-        : { gap: `no .deb in: ${listed.output.slice(0, 120)}` };
-    },
-  },
-  {
-    name: "build-needs-pack",
-    goal: "a Deno app's build can need a Rust app's pack, whose kit it's told",
+      "a config still declaring needs is refused, saying what to do instead",
     async run(sandbox) {
       await sandbox.editConfig((config) => {
-        config.build["mock/api"] = {
-          kit: "deno.bundle",
-          needs: [{ pack: "mock/cli" }],
-        };
-      });
-      const built = await sandbox.ens("build", "mock/api");
-      if (built.code !== 0) return failed("ens build", built);
-      const files = await packaged(sandbox, "mock/cli.tar.gz");
-      if (files.length === 0) return { gap: "the needed pack didn't run" };
-      return await exists(sandbox.path("source/artifacts/mock/api/main.js"))
-        ? {}
-        : { gap: "the app itself wasn't built" };
-    },
-  },
-  {
-    name: "needs-cycle",
-    goal: "needs going round in a circle are refused, naming the circle",
-    async run(sandbox) {
-      await sandbox.editConfig((config) => {
-        config.build["mock/cli"] = {
-          kit: "cargo",
-          needs: [{ pack: "mock/downloads" }],
-        };
+        config.build["mock/cli"] = { kit: "cargo", needs: ["mock/api"] };
       });
       const packed = await sandbox.ens("pack", "mock/cli");
-      if (packed.code === 0) return { gap: "the cycle was accepted" };
-      return packed.output.includes("cycle")
+      if (packed.code === 0) return { gap: "needs was accepted" };
+      return packed.output.includes("no longer supported")
         ? {}
-        : { gap: `no mention of a cycle: ${Sandbox.reason(packed)}` };
+        : { gap: `no explanation: ${Sandbox.reason(packed)}` };
     },
   },
   {

@@ -35,11 +35,6 @@ pack:
   mock/desktop:
     kit: tauri
     mode: installer
-  mock/downloads:
-    kit: tarball
-    needs:
-      - pack: mock/cli
-      - pack: mock/desktop
 deploy:
   platform:
     kit: compose

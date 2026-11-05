@@ -17,7 +17,7 @@ async function entriesFor(path: string): Promise<string[]> {
   const stat = await Deno.stat(path).catch(() => undefined);
   if (!stat) {
     throw new Error(
-      `tarball: nothing to archive at "${path}": a need's output must be a file or folder.`,
+      `tarball: nothing to archive at "${path}": an app's output must be a file or folder.`,
     );
   }
   return stat.isDirectory
@@ -25,10 +25,7 @@ async function entriesFor(path: string): Promise<string[]> {
     : ["-C", dirname(path), basename(path)];
 }
 
-const entries = [
-  ...(ship.apps ?? []).map((app) => join(ctx.artifacts, app)),
-  ...ctx.needs.map((need) => need.output),
-];
+const entries = (ship.apps ?? []).map((app) => join(ctx.artifacts, app));
 const args = (await Promise.all(entries.map(entriesFor))).flat();
 
 const { code } = await new Deno.Command("tar", {

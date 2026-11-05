@@ -22,20 +22,13 @@ export interface BuildConfig {
  */
 export interface BuildAppConfig extends Partial<BuildConfig> {
   integrations?: Record<string, BuildConfig>;
-  /** What this one's build reads the output of (e.g. a desktop shell embedding its web app), finished first whenever this one is built. */
-  needs?: BuildNeed[];
 }
-
-/** One `needs:` entry: an app's build output, named bare or as `build:`, or a ship's pack output. */
-export type BuildNeed = string | { build: string } | { pack: string };
 
 /** How one ship is packed when nothing says otherwise: what `ens pack <ship>` and anything needing it use. */
 export interface PackConfig {
   kit: string;
   mode?: string;
   outputName?: string;
-  /** What this pack reads the output of, finished first whenever this one is packed. */
-  needs?: BuildNeed[];
 }
 
 /** A named shell command, so `ens` can announce which hook is running without printing its whole script. */
@@ -130,7 +123,21 @@ export class EnsembleConfigStore {
       throw new Error(`Ensemble config not found at ${path}`);
     }
     const parsed = parseYaml(await Deno.readTextFile(path));
-    return (parsed ?? {}) as EnsembleConfig;
+    const config = (parsed ?? {}) as EnsembleConfig;
+    EnsembleConfigStore.rejectNeeds(config, path);
+    return config;
+  }
+
+  /** `needs:` is gone: what a pack uses is a build, which its kit reports (`dependencies.ts`), so nothing is declared. */
+  private static rejectNeeds(config: EnsembleConfig, path: string): void {
+    for (const section of ["build", "pack"] as const) {
+      for (const [name, entry] of Object.entries(config[section] ?? {})) {
+        if (!entry || !Object.hasOwn(entry, "needs")) continue;
+        throw new Error(
+          `${path}: ${section}.${name}.needs is no longer supported. A pack depends on builds, which its kit reports itself (a ship's config names them, for example \`frontend:\` in a tauri ship's tauri.yml); remove \`needs\`.`,
+        );
+      }
+    }
   }
 
   /** Loads config.yaml, or {} if it doesn't exist yet — unlike load(), which requires it. */

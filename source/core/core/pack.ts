@@ -9,7 +9,6 @@ import type { PackReporter } from "./pack-reporter.ts";
 import { PlainPackReporter } from "./plain-pack-reporter.ts";
 import type { BuildReporter } from "./build-reporter.ts";
 import { KitProcess } from "./kit-process.ts";
-import type { Need } from "./need-context.ts";
 
 export interface RunPackOptions {
   /** Defaults to the first mode declared in the kit's kit.yml, or "default" if it has none. */
@@ -50,14 +49,12 @@ export interface RunPackOptions {
  * one — see `resolvePackDependencies`) which of the ship's candidate apps it
  * actually depends on, and has `buildApp` build exactly those first, so the
  * kit always finds fresh build output waiting under `artifacts/` rather than
- * requiring it to have been built out of band beforehand. What the ship
- * declares under `needs:` has already finished, and `needs` says where.
+ * requiring it to have been built out of band beforehand.
  */
 export async function packShip(
   shipName: string,
   kit: string,
   options: RunPackOptions,
-  needs: readonly Need[],
   buildApp: (app: string) => Promise<number>,
   ports: Ports,
 ): Promise<number> {
@@ -125,9 +122,6 @@ export async function packShip(
     apps,
     ports,
     options.deployKit,
-    // A ship declaring what it needs has said what it needs: without an answer
-    // from its kit, that's all of it, not every app in the project.
-    needs.length > 0 ? [] : apps,
   );
   for (const app of dependencies) {
     const buildCode = await buildApp(app);
@@ -160,7 +154,6 @@ export async function packShip(
       ...watchArgs,
       ...verboseArgs,
       ...deployKitArgs,
-      ...(needs.length > 0 ? ["--needs", JSON.stringify(needs)] : []),
       shipDir,
     ],
     { env: packVars, signal: options.signal },

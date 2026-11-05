@@ -8,8 +8,7 @@ in each language (`ledger`, `rounding`, `ink`). Its build entries are in
 
 ```sh
 ens build mock/cli
-ens pack mock/desktop
-ens pack mock/downloads # needs the packs of the other two
+ens pack mock/desktop # web app first, then the Tauri shell
 ```
 
 `exercise.ts` runs what a user should be able to do in a project like this:

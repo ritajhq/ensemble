@@ -14,7 +14,6 @@ import {
   sourceDirOf,
 } from "./deploy/integration.ts";
 import { KitProcess } from "./kit-process.ts";
-import type { Need } from "./need-context.ts";
 
 export interface RunBuildOptions {
   mode: Build.Mode;
@@ -40,7 +39,6 @@ export interface RunBuildOptions {
 export async function buildApp(
   name: string,
   options: RunBuildOptions,
-  needs: readonly Need[],
   ports: Ports,
 ): Promise<number> {
   const repoRoot = await ports.repo.findRepoRoot();
@@ -54,15 +52,15 @@ export async function buildApp(
     : (await integrationKitsOf(repoRoot, name)).map((kit) =>
       integrationOf(name, kit)
     );
-  if (units.length === 0) return await runUnit(name, options, needs, ports);
+  if (units.length === 0) return await runUnit(name, options, ports);
   if (options.watch) {
     const codes = await Promise.all(
-      units.map((unit) => runUnit(unit, options, needs, ports)),
+      units.map((unit) => runUnit(unit, options, ports)),
     );
     return codes.find((code) => code !== 0) ?? 0;
   }
   for (const unit of units) {
-    const code = await runUnit(unit, options, needs, ports);
+    const code = await runUnit(unit, options, ports);
     if (code !== 0) return code;
   }
   return 0;
@@ -72,7 +70,6 @@ export async function buildApp(
 async function runUnit(
   name: string,
   options: RunBuildOptions,
-  needs: readonly Need[],
   ports: Ports,
 ): Promise<number> {
   const repoRoot = await ports.repo.findRepoRoot();
@@ -134,7 +131,6 @@ async function runUnit(
       ...watchArgs,
       ...targetArgs,
       ...optionsArgs,
-      ...(needs.length > 0 ? ["--needs", JSON.stringify(needs)] : []),
     ],
     { env: buildVars, signal: options.signal },
   );

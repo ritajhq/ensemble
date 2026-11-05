@@ -1,8 +1,5 @@
 import { parseArgs } from "@std/cli/parse-args";
-import { type Need, parseNeeds } from "./need-context.ts";
 import { requireFlag } from "./util.ts";
-
-export type { Need } from "./need-context.ts";
 
 export type Mode = "development" | "production";
 
@@ -24,8 +21,6 @@ export interface Context {
   target?: string;
   /** Kit-interpreted settings from `config.yaml`'s `build.<name>.options`, passed through untouched. Empty for apps that don't set any. */
   options: Record<string, unknown>;
-  /** What this app's `needs:` declared, finished before this kit started. Empty for most. */
-  needs: Need[];
 }
 
 const REQUIRED_STRING_FLAGS = [
@@ -54,7 +49,7 @@ function parseJsonObject(flag: string, raw: string): Record<string, unknown> {
 /** Parses the standard build kit CLI contract. Call this from a build kit's entry point. */
 export function getContext(args: string[] = Deno.args): Context {
   const flags = parseArgs(args, {
-    string: [...REQUIRED_STRING_FLAGS, "vars", "target", "options", "needs"],
+    string: [...REQUIRED_STRING_FLAGS, "vars", "target", "options"],
     boolean: ["watch"],
     default: { watch: false, vars: "{}", options: "{}" },
   });
@@ -80,6 +75,5 @@ export function getContext(args: string[] = Deno.args): Context {
     vars: parseJsonObject("vars", flags.vars) as Record<string, string>,
     target: flags.target,
     options: parseJsonObject("options", flags.options),
-    needs: parseNeeds(flags.needs),
   };
 }

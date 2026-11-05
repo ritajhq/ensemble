@@ -30,53 +30,34 @@ ens pack web docker -o my-web-image:latest
 ens pack web docker -v TAG=v1.2.3 -v REGISTRY=ghcr.io/me
 ```
 
-## Needs
+## What a pack depends on
 
-A build or a pack whose kit reads the output of another build or pack declares
-it in `.ensemble/config.yaml`, whatever languages they're in:
+A pack depends on builds, never on other packs. Its kit says which builds, through its `dependencies.ts`: the kit reads
+the ship's own config and answers with the apps it uses (the `docker` kit from its Dockerfile's `COPY --from`, the
+`deno.compile` kit from its `compile.yml`'s `source`, the `tauri` kit from its `tauri.yml`'s `frontend`). `ens pack`
+builds those first, each once, and stops at the first failure. A kit with no `dependencies.ts` has every app built
+first.
+
+An earlier `needs:` key in `.ensemble/config.yaml` is gone; a config that still has one is refused.
+
+## The `tauri` kit
+
+The Tauri app is made by the pack, not a build: a build is only a transformation of source, and a Tauri executable is
+something to run or distribute as it is. The ship holds a `tauri.yml`:
 
 ```yaml
-build:
-  desktop/shell:
-    kit: tauri
-    needs:
-      - desktop/web # another app's build output, also written `build: desktop/web`
-      - pack: cli # a ship's pack output
-
-pack:
-  cli:
-    kit: tarball
-  downloads:
-    kit: docker
-    mode: image
-    needs:
-      - pack: desktop
-      - build: website
+shell: desktop # the app under source/apps with Cargo.toml and tauri.conf.json
+frontend: web # the build whose output the app embeds (optional)
+bundles: [deb] # installer mode only
 ```
 
-`ens build` and `ens pack` finish what's needed first, deepest first and each
-once, stop at the first failure, and refuse needs that go round in a circle. A
-ship someone needs must name its kit under `pack:`, which also lets
-`ens pack <ship>` leave the kit out and gives its default `mode` and
-`outputName`. A release passes its version on to the packs a ship needs.
+It has two modes, each complete on its own:
 
-The kit is told where each output is, through `ctx.needs`:
-
-```ts
-const ctx = KitSdk.Pack.getContext(); // or KitSdk.Build.getContext()
-for (const need of ctx.needs) {
-  console.log(need.kind, need.name, need.output);
-}
-```
-
-For a build, `output` is its folder under `source/artifacts/`. For a pack, it's
-whatever that pack kit's `describe.ts` reports, which needn't be a path: the
-`docker` kit reports an image's reference. A pack kit without a `describe.ts`
-gives the `source/artifacts/packages/` folder.
-
-A ship declaring `needs:` is built from them alone, unless its kit has a
-`dependencies.ts` naming apps too. One declaring nothing, whose kit has no
-`dependencies.ts`, has every app built first, as it always has.
+- `binary` (`tauri build --no-bundle`): the executable alone, at `source/artifacts/packages/<name>`. With `--watch` it
+  builds again, in debug, each time the crate's sources change, keeping the last good executable when a build fails.
+  `-v profile=debug` asks for a debug build without watching.
+- `installer` (`tauri build`): compiles and bundles in one pass; the bundles named in `bundles` are copied to
+  `source/artifacts/packages/<name>/`.
 
 ## `deno.compile` and its lockfile
 
