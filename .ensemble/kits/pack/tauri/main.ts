@@ -1,55 +1,44 @@
 import { join } from "@std/path";
 import { copy, ensureDir, expandGlob } from "@std/fs";
-import { parse as parseYaml } from "@std/yaml";
 import * as KitSdk from "@ensemble/kit-sdk";
-
-const TAURI_CLI = "npm:@tauri-apps/cli@2.12.4";
+import { ShipConfig } from "./ship-config.ts";
+import { type Profile, Shell } from "./shell.ts";
+import { BinaryWatch } from "./binary-watch.ts";
 
 const ctx = KitSdk.Pack.getContext();
-const ship = parseYaml(
-  await Deno.readTextFile(join(ctx.ship, "ship.yml")),
-) as { apps: string[]; bundles: string[] };
-
-const shell = join(ctx.workspace, "apps", ship.apps.at(-1)!);
+const config = await ShipConfig.read(ctx.ship);
 const repoRoot = await KitSdk.findRepoRoot(ctx.workspace);
+const shell = new Shell(
+  join(ctx.workspace, "apps", config.shell),
+  repoRoot,
+  config.frontend ? join(ctx.artifacts, config.frontend) : undefined,
+  ctx.version,
+);
 
-// Cargo's target directory outlives a run, and every version's bundles would
-// otherwise be packaged alongside this one's.
-const targetDir = Deno.env.get("CARGO_TARGET_DIR") ??
-  join(repoRoot, ".ensemble", "ecosystems", "cargo", "target");
-const bundles = join(targetDir, "release", "bundle");
-await Deno.remove(bundles, { recursive: true }).catch(() => {});
-
-const deno = await KitSdk.resolveDenoExecutable();
-const { code } = await new Deno.Command(deno, {
-  args: [
-    "run",
-    "-A",
-    "-q",
-    // This tool is the kit's, not the project's: run from inside the project,
-    // it would otherwise write itself into a Deno workspace's lockfile.
-    "--no-config",
-    TAURI_CLI,
-    "bundle",
-    "--bundles",
-    ship.bundles.join(","),
-    ...(ctx.version
-      ? ["--config", JSON.stringify({ version: ctx.version.replace(/^v/, "") })]
-      : []),
-  ],
-  cwd: shell,
-}).spawn().status;
-if (code !== 0) Deno.exit(code);
-
-// A folder of its own, since one ship can produce several bundles: it's what
-// `describe.ts` reports to anything needing this pack.
+/** Written where `describe.ts` says: a file for `binary`, a folder of bundles for `installer`. */
 const output = join(ctx.packages, ctx.outputName);
-await ensureDir(output);
-for (const bundle of ship.bundles) {
-  const built = expandGlob(`*.${bundle}`, {
-    root: join(bundles, bundle),
-  });
-  for await (const file of built) {
-    await copy(file.path, join(output, file.name), { overwrite: true });
+
+/** A debug build is quick to repeat, which is what a developer wants while the app is being watched or `vars.profile` says so. */
+const profile: Profile = ctx.vars.profile === "debug" || ctx.watch ? "debug" : "release";
+
+async function binary(): Promise<void> {
+  if (ctx.watch) {
+    await new BinaryWatch(shell, output).run();
+    return;
+  }
+  await shell.publish(await shell.compile(profile), output);
+}
+
+async function installer(): Promise<void> {
+  if (ctx.watch) throw new Error("tauri: --watch is for binary mode; an installer is not rebuilt on every change.");
+  if (config.bundles.length === 0) throw new Error(`tauri.yml: "bundles" is required for installer mode.`);
+  const bundles = await shell.bundle(config.bundles);
+  await ensureDir(output);
+  for (const bundle of config.bundles) {
+    for await (const file of expandGlob(`*.${bundle}`, { root: join(bundles, bundle) })) {
+      await copy(file.path, join(output, file.name), { overwrite: true });
+    }
   }
 }
+
+await ({ binary, installer } as Record<string, () => Promise<void>>)[ctx.mode]();

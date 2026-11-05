@@ -385,6 +385,7 @@
     "../../kits/pack/tauri/": {
       "@ensemble/kit-sdk": "../../../source/core/kit-sdk/index.ts",
       "@ensemble/kit-sdk/": "../../../source/core/kit-sdk/",
+      "@std/assert": "jsr:@std/assert@1.0.14",
       "@std/fs": "jsr:@std/fs@1.0.24",
       "@std/path": "jsr:@std/path@1.1.6",
       "@std/toml": "jsr:@std/toml@1.0.11",

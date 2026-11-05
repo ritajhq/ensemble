@@ -1,2 +1,7 @@
 role: pack
 protocol: 1
+# `binary` is the app's executable alone, as `cargo` leaves it; `installer` is `tauri build`, which compiles and bundles
+# in one pass (the bundles named in tauri.yml). Neither needs the other.
+modes:
+  binary: binary
+  installer: installer
