@@ -64,7 +64,10 @@ export class Launch {
     await this.running;
   }
 
+  /** Whether the manifest provisions anything. Declared secrets and variables are values for the launch to read, not something to bring up. */
   private static deploysAnything(workload: Workload): boolean {
-    return CATEGORIES.some((category) => Object.keys(workload[category] ?? {}).length > 0);
+    return CATEGORIES
+      .filter((category) => category !== "secrets" && category !== "variables")
+      .some((category) => Object.keys(workload[category] ?? {}).length > 0);
   }
 }
