@@ -1,3 +1,14 @@
+## [0.65.1] - 2026-11-05
+
+### 🐛 Bug Fixes
+
+- *(core/core)* Give the launch supervisor's defaulted collaborators explicit types for JSR
+- *(core/core)* Keep watching a launched file that is replaced by a rename
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.65.0
+- *(release)* Bump library versions for 0.65.1
 ## [0.65.0] - 2026-11-05
 
 ### 🚀 Features
