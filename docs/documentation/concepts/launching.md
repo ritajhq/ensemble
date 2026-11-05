@@ -49,4 +49,20 @@ restarted. Rebuilding is the build or pack kit's own `--watch`; `ens develop` st
 A program that can pick up a change without restarting, such as a UI that reloads from disk, does so through its own dev
 mode, which the manifest does not describe.
 
-> Status: the manifest section is parsed and validated. Starting launch entries is not built yet.
+## Running it
+
+`ens develop <name>` brings up the `deploy:` section first, when there is anything to deploy, and then starts the
+`launch:` section. A manifest with only `launch:` needs no deploy kit.
+
+Before anything starts, every build and pack the entries use is built once. Then the builds are kept current with their
+kits' `--watch`, and so are the packs (a pack kit without a watch is simply packed once). A pack made for a session is
+asked for its quick variant: the pack kit receives the variable `profile=debug`.
+
+A server that stops is started again after a pause that grows to sixteen seconds. A `desktop` app that is closed ends the
+session, and `Ctrl+C` stops everything, last started first.
+
+A restart rule fires when the named build or pack output changes. A rebuild that rewrites the same files at startup can
+cause one extra restart.
+
+Not built yet: references to deploy resources (`${variables.x.value}`) inside a launch entry, and the `mobile` and
+`browser` types.

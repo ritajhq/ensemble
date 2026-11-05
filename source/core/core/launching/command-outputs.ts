@@ -9,6 +9,8 @@ import type { Outputs } from "./session.ts";
  */
 export class CommandOutputs implements Outputs {
   private readonly done = new Set<string>();
+  /** A session is for development, so a pack that has a quick variant and a thorough one is asked for the quick one. */
+  private static readonly VARIABLES = { profile: "debug" };
 
   constructor(private readonly ports: Ports) {}
 
@@ -17,7 +19,7 @@ export class CommandOutputs implements Outputs {
       await this.expect(`build ${app}`, runBuild(app, { mode: "development", watch: false, done: this.done }, this.ports));
     }
     for (const ship of packs) {
-      await this.expect(`pack ${ship}`, runPack(ship, undefined, { watch: false, done: this.done }, this.ports));
+      await this.expect(`pack ${ship}`, runPack(ship, undefined, { watch: false, done: this.done, varOverrides: CommandOutputs.VARIABLES }, this.ports));
     }
   }
 
@@ -26,7 +28,7 @@ export class CommandOutputs implements Outputs {
     await Promise.allSettled([
       ...builds.map((app) => runBuild(app, { mode: "development", watch: true, signal }, this.ports)),
       ...packs.map((ship) =>
-        runPack(ship, undefined, { watch: true, signal, skipBuildingApps: new Set(builds) }, this.ports)
+        runPack(ship, undefined, { watch: true, signal, skipBuildingApps: new Set(builds), varOverrides: CommandOutputs.VARIABLES }, this.ports)
       ),
     ]);
   }
