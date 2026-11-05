@@ -449,3 +449,95 @@ deploy:
     "manifest.deploy.variables.networks.type must be one of: string, list.",
   );
 });
+
+Deno.test("parse: a launch section holds processes and desktop apps, and is not a deploy category", () => {
+  const workload = parser.parse(`
+version: v1
+launch:
+  kernel:
+    type: process
+    command: ["\${build.kernel}/run"]
+    ports: { http: auto }
+    envSecrets: { KERNEL_ACCESS_TOKEN: kernel-access-token }
+    development:
+      restart:
+        - build: kernel
+  desktop:
+    type: desktop
+    package: \${pack.desktop}
+    env:
+      ENSEMBLE_KERNEL_URL: ws://127.0.0.1:\${launch.kernel.http}
+    development:
+      restart:
+        - pack: desktop
+`);
+  assertEquals(workload.launch?.kernel, {
+    type: "process",
+    command: ["${build.kernel}/run"],
+    package: undefined,
+    ports: { http: "auto" },
+    env: {},
+    envSecrets: { KERNEL_ACCESS_TOKEN: "kernel-access-token" },
+    development: { restart: [{ build: "kernel" }] },
+  });
+  assertEquals(workload.launch?.desktop?.package, "${pack.desktop}");
+  assertEquals(workload.launch?.desktop?.development, { restart: [{ pack: "desktop" }] });
+  assertEquals(workload.compute, undefined);
+});
+
+Deno.test("parse: a launch entry needs a known type and what that type runs", () => {
+  const launch = (body: string) => () => parser.parse(`version: v1\nlaunch:\n  one:\n${body}`);
+  assertEquals(
+    assertThrows(launch("    command: [a]"), ManifestError).message,
+    'manifest.launch.one.type is required (expected one of: process, desktop).',
+  );
+  assertEquals(
+    assertThrows(launch("    type: dekstop"), ManifestError).message,
+    'manifest.launch.one.type "dekstop" is not supported (expected one of: process, desktop).',
+  );
+  assertEquals(
+    assertThrows(launch("    type: process"), ManifestError).message,
+    'manifest.launch.one.command is required for a process: the program and its arguments, as a list.',
+  );
+  assertEquals(
+    assertThrows(launch("    type: process\n    command: []"), ManifestError).message,
+    'manifest.launch.one.command must be a non-empty list of strings.',
+  );
+  assertEquals(
+    assertThrows(launch("    type: desktop"), ManifestError).message,
+    'manifest.launch.one.package is required for a desktop app: the pack that holds it, as ${pack.<ship>}.',
+  );
+  assertEquals(
+    assertThrows(launch("    type: desktop\n    package: x\n    command: [a]"), ManifestError).message,
+    'manifest.launch.one.command is for a process; a desktop app is started from its package.',
+  );
+  assertEquals(
+    assertThrows(launch("    type: process\n    command: [a]\n    package: x"), ManifestError).message,
+    'manifest.launch.one.package is for a desktop app; a process is started from its command.',
+  );
+});
+
+Deno.test("parse: a launch entry's keys, ports, environment and restart rules are checked", () => {
+  const launch = (body: string) => () =>
+    parser.parse(`version: v1\nlaunch:\n  one:\n    type: process\n    command: [a]\n${body}`);
+  assertEquals(
+    assertThrows(launch("    comand: x"), ManifestError).message,
+    'manifest.launch.one has an unknown key "comand". Did you mean "command"?',
+  );
+  assertEquals(
+    assertThrows(launch("    ports: { http: fast }"), ManifestError).message,
+    'manifest.launch.one.ports.http must be a port number or "auto".',
+  );
+  assertEquals(
+    assertThrows(launch("    env: { 1-bad: x }"), ManifestError).message,
+    'manifest.launch.one.env has "1-bad", which is not an environment variable name.',
+  );
+  assertEquals(
+    assertThrows(launch("    development:\n      restart:\n        - { build: a, pack: b }"), ManifestError).message,
+    'manifest.launch.one.development.restart[0] must name exactly one of "build" or "pack".',
+  );
+  assertEquals(
+    assertThrows(launch("    development:\n      reload: []"), ManifestError).message,
+    'manifest.launch.one.development has an unknown key "reload".',
+  );
+});

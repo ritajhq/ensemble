@@ -98,9 +98,75 @@
       "description": "Commands the workload declares for a human (or a CI job) to invoke against a deployed stack, e.g. `ens delivery task <workload> <task>`. Declared here so a task can name the deployment's own identity (${deployment.name}, ${deployment.artifact}, ${deployment.root}) instead of hardcoding container, network, or artifact names.",
       "type": "object",
       "additionalProperties": { "$ref": "#/definitions/task" }
+    },
+    "launch": {
+      "description": "What `ens develop` starts on this machine and keeps running: programs and desktop apps, which are not deploy resources. `ens deploy` ignores this section. Values may reference builds (${build.<app>}), packs (${pack.<ship>}), deploy resources and other launch entries (${launch.<name>.<port>}); the references decide what starts first.",
+      "type": "object",
+      "additionalProperties": { "$ref": "#/definitions/launchEntry" }
     }
   },
   "definitions": {
+    "launchEntry": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "description": "What is started: a `process` from its command, or a `desktop` app from its package.",
+          "enum": ["process", "desktop"]
+        },
+        "command": {
+          "description": "`process` only: the program and its arguments.",
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "package": {
+          "description": "`desktop` only: the pack that holds the app, as ${pack.<ship>}.",
+          "type": "string",
+          "minLength": 1
+        },
+        "ports": {
+          "description": "Port name -> a number, or `auto` to have one chosen when the launch starts and kept while it runs. Referenced as ${launch.<name>.<port>}.",
+          "type": "object",
+          "additionalProperties": {
+            "oneOf": [{ "type": "integer", "minimum": 1, "maximum": 65535 }, { "const": "auto" }]
+          }
+        },
+        "env": {
+          "description": "Environment variables of the program started: literals or ${...} references.",
+          "type": "object",
+          "propertyNames": { "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+          "additionalProperties": { "type": ["string", "number", "boolean"] }
+        },
+        "envSecrets": {
+          "description": "Environment variable name -> a declared secret, whose value the program receives as that variable.",
+          "type": "object",
+          "propertyNames": { "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+          "additionalProperties": { "type": "string", "minLength": 1 }
+        },
+        "development": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "restart": {
+              "description": "Outputs the running program reads: it is restarted when one changes. Rebuilding is the build or pack kit's --watch.",
+              "type": "array",
+              "items": {
+                "type": "object",
+                "minProperties": 1,
+                "maxProperties": 1,
+                "properties": {
+                  "build": { "type": "string", "minLength": 1 },
+                  "pack": { "type": "string", "minLength": 1 }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
     "release": {
       "type": "object",
       "required": ["kit"],

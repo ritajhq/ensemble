@@ -10,11 +10,12 @@ import type {
 import { VARIABLE_TYPES } from "../resource.ts";
 import type { PublishSpec, Release } from "../release.ts";
 import type { Task } from "../task.ts";
+import { LAUNCH_TYPES, type LaunchDevelopment, type LaunchEntry, type LaunchType, type LaunchWatch } from "../launch.ts";
 import { ManifestError } from "./errors.ts";
 import { KeySuggester } from "./key-suggester.ts";
 
 const SUPPORTED_VERSIONS = ["v1"];
-const ENVELOPE_KEYS = ["version", "release", "deploy", "tasks"] as const;
+const ENVELOPE_KEYS = ["version", "release", "deploy", "tasks", "launch"] as const;
 const RELEASE_KEYS = ["kit", "mode", "outputName", "publish"] as const;
 const PUBLISH_KEYS = ["target", "name", "options"] as const;
 const SECRET_KEYS = ["source", "description"] as const;
@@ -22,6 +23,10 @@ const VARIABLE_KEYS = ["type", "default", "description"] as const;
 const EXTERNAL_KEYS = ["type", "name"] as const;
 const RESOURCE_COMMON_KEYS = ["type", "class", "capabilities"] as const;
 const TASK_KEYS = ["run", "script", "arguments"] as const;
+const LAUNCH_KEYS = ["type", "command", "package", "ports", "env", "envSecrets", "development"] as const;
+const LAUNCH_DEVELOPMENT_KEYS = ["restart"] as const;
+/** A launch entry's `env` and `envSecrets` names become environment variables of the program started. */
+const ENVIRONMENT_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 /** A task argument's name *is* an environment variable name the task reads, so it has to be a shell-safe identifier. */
 const TASK_ARGUMENT_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
@@ -48,6 +53,7 @@ export class Parser {
     const workload: {
       release?: Record<string, Release>;
       tasks?: Record<string, Task>;
+      launch?: Record<string, LaunchEntry>;
     } & Record<Category, Record<string, unknown> | undefined> = {} as never;
 
     if (envelope.release !== undefined) {
@@ -56,6 +62,10 @@ export class Parser {
 
     if (envelope.tasks !== undefined) {
       workload.tasks = this.parseTasks(envelope.tasks);
+    }
+
+    if (envelope.launch !== undefined) {
+      workload.launch = this.parseLaunch(envelope.launch);
     }
 
     if (envelope.deploy !== undefined) {
@@ -117,6 +127,145 @@ export class Parser {
     }
 
     return parsed;
+  }
+
+  /**
+   * `launch:` — what `ens develop` starts on this machine, keyed by name. Not a deploy category: no contract and no
+   * kit is involved, so `ens deploy` ignores it. Validated here the way tasks are: it is an envelope, and `${...}`
+   * references in its values are checked when the manifest is resolved, not now.
+   */
+  private parseLaunch(value: unknown): Record<string, LaunchEntry> {
+    this.assertPlainObject(value, "manifest.launch");
+    const parsed: Record<string, LaunchEntry> = {};
+    for (const [name, entry] of Object.entries(value)) {
+      parsed[name] = this.parseLaunchEntry(entry, `manifest.launch.${name}`);
+    }
+    return parsed;
+  }
+
+  private parseLaunchEntry(value: unknown, path: string): LaunchEntry {
+    this.assertPlainObject(value, path);
+    const raw = value as Record<string, unknown>;
+    this.rejectUnknownKeys(raw, LAUNCH_KEYS, path);
+
+    const expected = LAUNCH_TYPES.join(", ");
+    if (raw.type === undefined) {
+      throw new ManifestError(`${path}.type is required (expected one of: ${expected}).`);
+    }
+    if (!(LAUNCH_TYPES as readonly unknown[]).includes(raw.type)) {
+      throw new ManifestError(`${path}.type "${raw.type}" is not supported (expected one of: ${expected}).`);
+    }
+    const type = raw.type as LaunchType;
+
+    const entry = {
+      type,
+      command: this.parseLaunchRunnable(type, raw, path),
+      package: type === "desktop" ? raw.package as string : undefined,
+      ports: this.parseLaunchPorts(raw.ports, path),
+      env: this.parseLaunchEnv(raw.env, path),
+      envSecrets: this.parseLaunchEnvSecrets(raw.envSecrets, path),
+      development: this.parseLaunchDevelopment(raw.development, path),
+    };
+    return entry;
+  }
+
+  /** What the type starts: a process its command, a desktop app its package. Returns the command, if the type has one. */
+  private parseLaunchRunnable(
+    type: LaunchType,
+    raw: Record<string, unknown>,
+    path: string,
+  ): readonly string[] | undefined {
+    if (type === "desktop") {
+      if (raw.command !== undefined) {
+        throw new ManifestError(`${path}.command is for a process; a desktop app is started from its package.`);
+      }
+      if (raw.package === undefined) {
+        throw new ManifestError(
+          `${path}.package is required for a desktop app: the pack that holds it, as \${pack.<ship>}.`,
+        );
+      }
+      if (typeof raw.package !== "string" || raw.package.length === 0) {
+        throw new ManifestError(`${path}.package must be a non-empty string.`);
+      }
+      return undefined;
+    }
+    if (raw.package !== undefined) {
+      throw new ManifestError(`${path}.package is for a desktop app; a process is started from its command.`);
+    }
+    if (raw.command === undefined) {
+      throw new ManifestError(
+        `${path}.command is required for a process: the program and its arguments, as a list.`,
+      );
+    }
+    const command = raw.command;
+    if (
+      !Array.isArray(command) || command.length === 0 || command.some((part) => typeof part !== "string" || part === "")
+    ) {
+      throw new ManifestError(`${path}.command must be a non-empty list of strings.`);
+    }
+    return command as string[];
+  }
+
+  private parseLaunchPorts(value: unknown, path: string): Record<string, number | "auto"> {
+    if (value === undefined) return {};
+    this.assertPlainObject(value, `${path}.ports`);
+    for (const [name, port] of Object.entries(value)) {
+      const valid = port === "auto" || (Number.isInteger(port) && (port as number) > 0 && (port as number) < 65536);
+      if (!valid) throw new ManifestError(`${path}.ports.${name} must be a port number or "auto".`);
+    }
+    return { ...value } as Record<string, number | "auto">;
+  }
+
+  private parseLaunchEnv(value: unknown, path: string): Record<string, string | number | boolean> {
+    if (value === undefined) return {};
+    this.assertPlainObject(value, `${path}.env`);
+    for (const [name, setting] of Object.entries(value)) {
+      if (!ENVIRONMENT_NAME.test(name)) {
+        throw new ManifestError(`${path}.env has "${name}", which is not an environment variable name.`);
+      }
+      if (!["string", "number", "boolean"].includes(typeof setting)) {
+        throw new ManifestError(`${path}.env.${name} must be a string, a number or a boolean.`);
+      }
+    }
+    return { ...value } as Record<string, string | number | boolean>;
+  }
+
+  private parseLaunchEnvSecrets(value: unknown, path: string): Record<string, string> {
+    if (value === undefined) return {};
+    this.assertPlainObject(value, `${path}.envSecrets`);
+    for (const [name, secret] of Object.entries(value)) {
+      if (!ENVIRONMENT_NAME.test(name)) {
+        throw new ManifestError(`${path}.envSecrets has "${name}", which is not an environment variable name.`);
+      }
+      if (typeof secret !== "string" || secret === "") {
+        throw new ManifestError(`${path}.envSecrets.${name} must name a declared secret.`);
+      }
+    }
+    return { ...value } as Record<string, string>;
+  }
+
+  private parseLaunchDevelopment(value: unknown, path: string): LaunchDevelopment | undefined {
+    if (value === undefined) return undefined;
+    const block = `${path}.development`;
+    this.assertPlainObject(value, block);
+    this.rejectUnknownKeys(value, LAUNCH_DEVELOPMENT_KEYS, block);
+    if (value.restart === undefined) return { restart: [] };
+    if (!Array.isArray(value.restart)) throw new ManifestError(`${block}.restart must be a list.`);
+    return { restart: value.restart.map((rule, index) => this.parseLaunchWatch(rule, `${block}.restart[${index}]`)) };
+  }
+
+  private parseLaunchWatch(value: unknown, path: string): LaunchWatch {
+    this.assertPlainObject(value, path);
+    const keys = Object.keys(value);
+    const named = keys.filter((key) => key === "build" || key === "pack");
+    if (named.length !== 1 || keys.length !== 1) {
+      throw new ManifestError(`${path} must name exactly one of "build" or "pack".`);
+    }
+    const name = value[named[0]];
+    if (typeof name !== "string" || name === "") {
+      throw new ManifestError(`${path}.${named[0]} must name a ${named[0]}.`);
+    }
+    return named[0] === "build" ? { build: name } : { pack: name };
   }
 
   private parseTask(value: unknown, path: string): Task {

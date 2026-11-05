@@ -27,6 +27,10 @@ version of the same model.
   (see below).
 - `tasks` — map of task name → `{ run | script, arguments? }`, commands the
   workload declares for a human or a CI job to invoke (see below).
+- `launch` — map of name → a program or desktop app `ens develop` starts on this
+  machine: `{ type: process | desktop, command | package, ports?, env?,
+  envSecrets?, development? }`. `ens deploy` ignores it. See
+  [Launching](../concepts/launching.md).
 
 ## Fully-typed resource shapes
 
