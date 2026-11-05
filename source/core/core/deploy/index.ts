@@ -8,6 +8,7 @@ export * from "./workload.ts";
 export * from "./resource.ts";
 export type { Task } from "./task.ts";
 export * from "./launch.ts";
+export * from "./launch-plan.ts";
 export * from "./release.ts";
 export * from "./reference.ts";
 export { ComputeAddress } from "./compute-address.ts";
