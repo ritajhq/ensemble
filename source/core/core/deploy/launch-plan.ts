@@ -116,7 +116,10 @@ export class LaunchPlan {
         throw new LaunchPlanError(`launch entries wait on each other in a cycle: ${loop.join(" -> ")}.`);
       }
       state.set(name, "visiting");
-      for (const dependency of this.used.get(name)!.launches) visit(dependency, [...path, name]);
+      for (const dependency of this.used.get(name)!.launches) {
+        // An entry may mention its own port (to be told which one to listen on); that is not waiting on itself.
+        if (dependency !== name) visit(dependency, [...path, name]);
+      }
       state.set(name, "done");
       placed.push(name);
     };

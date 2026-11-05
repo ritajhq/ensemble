@@ -72,3 +72,8 @@ Deno.test("an entry cannot depend on itself, directly or through another", () =>
   const b = entry({ type: "process", command: ["${launch.a.p}"], ports: { p: 2 } });
   assertThrows(() => new LaunchPlan({ a, b }, KNOWN), LaunchPlanError, "cycle: a -> b -> a");
 });
+
+Deno.test("an entry may mention its own port", () => {
+  const own = entry({ type: "process", command: ["x"], ports: { http: "auto" }, env: { PORT: "${launch.own.http}" } });
+  assertEquals(new LaunchPlan({ own }, KNOWN).order(), ["own"]);
+});
