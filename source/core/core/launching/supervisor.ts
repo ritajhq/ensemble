@@ -54,8 +54,8 @@ export class Supervisor {
 
   constructor(
     private readonly cwd: string,
-    private readonly readiness = new Readiness(),
-    private readonly backoffFor = () => new Backoff(),
+    private readonly readiness: Readiness = new Readiness(),
+    private readonly backoffFor: () => Backoff = () => new Backoff(),
   ) {}
 
   /** Resolves when the session is over: an app was closed, or `stop` was called. */
