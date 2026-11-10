@@ -4,6 +4,6 @@
     "@std/fs": "jsr:@std/fs@1.0.24",
     "@std/path": "jsr:@std/path@1.1.6",
     "@std/toml": "jsr:@std/toml@1.0.11",
-    "@ensemble/kit-sdk": "jsr:@ensemble/kit-sdk@^0.65.1"
+    "@ensemble/kit-sdk": "jsr:@ensemble/kit-sdk@^0.65.2"
   }
 }
