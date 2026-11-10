@@ -40,9 +40,9 @@ adding a new app type never means inventing a new one-off script.
 Describe a workload — its computes, databases, storage, networking, secrets and
 variables — as a single delivery manifest, and a pluggable **deploy kit** brings
 it up (or reconciles it to that declared state). Entries reference each other by
-output (`${databases.database.host}`, `${release.web.image}`), so the kit works
-out the dependency order; the same manifest runs against a local dev stack or a
-real target without forking into per-environment code paths.
+output (`${databases.database.host}`, `${release.web}`), so the kit works out
+the dependency order; the same manifest runs against a local dev stack or a real
+target without forking into per-environment code paths.
 
 ### Release without hand-tagging
 

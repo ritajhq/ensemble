@@ -6,14 +6,21 @@ the installed `ens` will accept.
 
 ## Features
 
-- **Reference completion in delivery manifests.** In `ci/<name>/delivery.yml`
-  (or an extensionless `ci/<name>/delivery`), typing `${` suggests every
-  reference the manifest makes available: `${release.<name>}`, each resource's
-  outputs (`${databases.db.host}`), a compute's ports, `variables`/`external`
-  fields, and `${deployment.*}` inside `tasks:`.
+In `ci/<name>/delivery.yml` (or an extensionless `ci/<name>/delivery`):
 
-More is on the way: structure and value completion, diagnostics, hover and
-go-to-definition, and a dependency-graph view of a manifest.
+- **Reference completion.** Typing `${` suggests every reference the manifest
+  makes available: `${release.<name>}`, each resource's outputs
+  (`${databases.db.host}`), a compute's ports, `variables`/`external` fields,
+  and `${deployment.*}` inside `tasks:`.
+- **Structure completion.** The keys each mapping may hold, required ones first,
+  including a resource's own fields once its `type:` is set, and the values
+  `type:`, `class:`, `version:` and a secret's `source:` may take.
+- **Problems as you type.** Everything `ens deploy` would reject before
+  deploying — unknown keys, missing fields, references to undeclared resources,
+  reference cycles — marked on the line it's about, all at once.
+
+More is on the way: value completion from the project (kits, releases), hover
+and go-to-definition, and a dependency-graph view of a manifest.
 
 ## Requirements
 

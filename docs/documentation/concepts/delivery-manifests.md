@@ -28,7 +28,7 @@ deploy:
     server:
       type: container
       replicas: 2
-      image: ${release.app.image}
+      image: ${release.app}
       env:
         DATABASE_URL: ${databases.db.url}
 
@@ -44,9 +44,8 @@ deploy:
 
 - **`release`** — one entry per ship (`kit`, optional `mode`, optional
   `publish:`), describing how the ship packs and (optionally) publishes. A
-  compute references its image as `${release.<ship>.image}`, resolved to the
-  packed local tag; the registry lives on the `publish:` side, never in the
-  local tag.
+  compute references its image as `${release.<ship>}`, resolved to the packed
+  local tag; the registry lives on the `publish:` side, never in the local tag.
 
 - **`deploy`** — the workload's resources, grouped into **categories**:
   `compute`, `storage`, `databases`, `messaging`, `networking`, `secrets`,

@@ -1,10 +1,11 @@
 import * as Core from "@ensemble/core";
 
 /**
- * The last successfully parsed `Workload` of every open manifest. A manifest
- * is mid-edit most of the time an editor asks about it, and the strict parser
- * rejects a half-typed one — so a failed parse keeps the previous workload
- * rather than leaving the document with nothing to complete from.
+ * The workload every open manifest declares, as far as it reads. A manifest is
+ * mid-edit most of the time an editor asks about it: entries with problems
+ * still count, so references to them complete, and text that isn't YAML at
+ * all keeps the previous workload rather than leaving nothing to complete
+ * from.
  */
 export class Workloads {
   private readonly byUri = new Map<string, Core.Deploy.Workload>();
@@ -13,9 +14,9 @@ export class Workloads {
 
   update(uri: string, text: string): void {
     try {
-      this.byUri.set(uri, this.parser.parse(text));
+      this.byUri.set(uri, this.parser.read(text).workload);
     } catch {
-      // Keep the last good parse.
+      // Not YAML yet: keep the last workload read.
     }
   }
 

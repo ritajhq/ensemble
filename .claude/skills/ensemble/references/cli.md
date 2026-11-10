@@ -85,7 +85,8 @@ a remote, so ask first.
 
 ## Editor and agent servers
 
-`ens lsp --stdio` is the language server (reference completion in
-`delivery.yml`). `ens mcp` is the MCP server. Over MCP, watch commands return a
-session id, so poll it with `ensemble_watch_logs` and end it with
-`ensemble_watch_stop`.
+`ens lsp --stdio` is the language server: completion of keys, closed values and
+`${…}` references in `delivery.yml`, and every problem `ens deploy` would find
+before it needs a kit, marked as you type. `ens mcp` is the MCP server. Over
+MCP, watch commands return a session id, so poll it with `ensemble_watch_logs`
+and end it with `ensemble_watch_stop`.

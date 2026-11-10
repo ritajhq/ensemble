@@ -23,12 +23,33 @@ the same way; the VS Code extension is just the first client.
 
 ## What's supported
 
-| File                  | Feature                                                                                                                                                                                                                                                                   |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ci/*/delivery(.yml)` | **Reference completion** — typing `${` suggests every reference the manifest makes available: `${release.<name>}`, each resource's contract outputs (`${databases.db.host}`), a compute's ports, `variables`/`external` fields, and — under `tasks:` — `${deployment.*}`. |
+In `ci/*/delivery.yml` (or an extensionless `ci/*/delivery`):
 
-While a manifest is mid-edit and doesn't parse, completion keeps working from
-the last version of it that did.
+- **Reference completion.** Typing `${` suggests every reference the manifest
+  makes available: `${release.<name>}`, each resource's contract outputs
+  (`${databases.db.host}`), a compute's ports, `variables`/`external` fields,
+  and — under `tasks:` — `${deployment.*}`.
+- **Structure completion.** At the start of a line, the keys that mapping may
+  hold, less those it already has, required ones first: the envelope's sections,
+  the categories under `deploy:`, the fields of a release, task, launch entry,
+  secret, variable or external, and a resource's own params once its `type:`
+  names a contract. After a key, the values it takes where they're a closed set:
+  a resource's `type:` from its category's contracts, its `class:`, `version:`,
+  a secret's `source:`, a variable's or launch entry's `type:`.
+- **Diagnostics.** Every problem `ens deploy` would find before it needs a
+  deploy kit, all at once, each on the key it's about: unknown or missing keys,
+  a resource's fields against its contract, `${...}` references to anything
+  undeclared, and reference cycles. Until the text is valid YAML, its syntax
+  errors are shown instead.
+
+The keys, types and fields all come from `@ensemble/core`: the lists the parser
+checks against and the contracts the deploy validates with. While a manifest is
+mid-edit and doesn't parse, completion works from as much of it as reads.
+
+Not covered yet: values that depend on the project rather than the manifest
+(`kit:`, a release's name), the fields of a list item such as a `development`
+sync rule, and the launch section's checks that need the project's builds and
+packs.
 
 ## Roadmap
 
@@ -39,14 +60,14 @@ Grouped by the mechanism each feature needs, from cheapest to richest.
 Replaces a JSON schema entirely: one server, one document handler per file kind.
 
 - [x] `${...}` reference completion in `delivery.yml`.
-- [ ] Structure completion — keys under `release:`/`deploy:`/`tasks:`, and a
+- [x] Structure completion — keys under `release:`/`deploy:`/`tasks:`, and a
       resource's params once its `type:` names a contract.
 - [ ] Value completion — `kit:` from the kits under `.ensemble/kits/`, a
       release's `publish.target` from its pack kit's `kit.yml`, a `release:` key
       from the ships under `source/ship/`.
-- [ ] Diagnostics — the parser's and `ReferenceValidator`'s errors, mapped to
-      the offending line and column. Needs a position-preserving YAML parse on
-      the server side; core keeps validating plain values.
+- [x] Diagnostics — the parser's, the contracts' and `ReferenceValidator`'s
+      errors, every one at once, mapped to the offending key. The server reads
+      positions with its own YAML parse; core keeps validating plain values.
 - [ ] Hover and go-to-definition on a reference; renaming a resource updates its
       references.
 - [ ] More files — `.ensemble/config.yaml`, a ship's `compile.yml`,

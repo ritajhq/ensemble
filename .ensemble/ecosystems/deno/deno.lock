@@ -94,6 +94,7 @@
     "npm:vscode-languageserver-textdocument@1.0.12": "1.0.12",
     "npm:vscode-languageserver@9.0.1": "9.0.1",
     "npm:wrangler@4.147.0": "4.147.0",
+    "npm:yaml@2.8.1": "2.8.1",
     "npm:zod@^3.25.0": "3.25.76"
   },
   "jsr": {
@@ -4299,6 +4300,10 @@
     "yallist@3.1.1": {
       "integrity": "sha512-a4UGQaWPH59mOXUYnAG2ewncQS4i4F43Tv3JoAM+s2VDAmS9NsK8GpDMLrCHPksFT7h3K6TOoUNn2pb7RoXx4g=="
     },
+    "yaml@2.8.1": {
+      "integrity": "sha512-lcYcMxX2PO9XMGvAJkJ3OsNMw+/7FKes7/hgerGUYWIoWu5j/+YQqcZr5JnPZWzOsEBgMbSbiSTn/dv/69Mkpw==",
+      "bin": true
+    },
     "yocto-spinner@1.2.2": {
       "integrity": "sha512-DODGl1wJjA/s5pnJFKau9lIYHT81lnhob1i3e1TjxZRxEhWRKl74nTbWE6H5KlkViQQTo/Z29YFdxzTZAMY3ng==",
       "dependencies": [
@@ -4399,6 +4404,7 @@
       "npm:vscode-languageserver-textdocument@1.0.12",
       "npm:vscode-languageserver@9.0.1",
       "npm:wrangler@4.147.0",
+      "npm:yaml@2.8.1",
       "npm:zod@^3.25.0"
     ],
     "links": {
