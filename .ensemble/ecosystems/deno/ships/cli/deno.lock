@@ -39,6 +39,7 @@
     "npm:reladraw@0.18.0": "0.18.0",
     "npm:vscode-languageserver-textdocument@1.0.12": "1.0.12",
     "npm:vscode-languageserver@9.0.1": "9.0.1",
+    "npm:yaml@2.8.1": "2.8.1",
     "npm:zod@^3.25.0": "3.25.76"
   },
   "jsr": {
@@ -729,6 +730,10 @@
     },
     "wrappy@1.0.2": {
       "integrity": "sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ=="
+    },
+    "yaml@2.8.1": {
+      "integrity": "sha512-lcYcMxX2PO9XMGvAJkJ3OsNMw+/7FKes7/hgerGUYWIoWu5j/+YQqcZr5JnPZWzOsEBgMbSbiSTn/dv/69Mkpw==",
+      "bin": true
     },
     "zod-to-json-schema@3.25.2_zod@3.25.76": {
       "integrity": "sha512-O/PgfnpT1xKSDeQYSCfRI5Gy3hPf91mKVDuYLUHZJMiDFptvP41MSnWofm8dnCm0256ZNfZIM7DSzuSMAFnjHA==",
