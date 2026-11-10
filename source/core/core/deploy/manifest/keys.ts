@@ -12,12 +12,25 @@ function required(name: string): Key {
   return { name, required: true };
 }
 
+/** The mappings whose keys are fixed. */
+export type KeyedMapping =
+  | "envelope"
+  | "release"
+  | "publish"
+  | "secret"
+  | "variable"
+  | "external"
+  | "resource"
+  | "task"
+  | "launch"
+  | "launchDevelopment";
+
 /**
  * The keys of every mapping in a manifest whose keys are fixed, rather than
  * names the developer chooses. The parser rejects anything else; an editor
  * suggests these. A resource's own fields aren't here: its contract owns them.
  */
-export const KEYS = {
+export const KEYS: Readonly<Record<KeyedMapping, readonly Key[]>> = {
   envelope: [
     required("version"),
     optional("release"),
@@ -47,7 +60,7 @@ export const KEYS = {
     optional("development"),
   ],
   launchDevelopment: [optional("restart")],
-} as const satisfies Record<string, readonly Key[]>;
+};
 
 /** The `version:` values this `ens` reads. */
 export const SUPPORTED_VERSIONS = ["v1"] as const;

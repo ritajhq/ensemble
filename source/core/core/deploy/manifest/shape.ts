@@ -32,7 +32,9 @@ export class Shape {
   private readonly keyRules: readonly Rule<readonly Key[]>[];
   private readonly valueRules: readonly Rule<readonly string[]>[];
 
-  constructor(private readonly contracts = new ContractCatalog(SEEDED)) {
+  constructor(
+    private readonly contracts: ContractCatalog = new ContractCatalog(SEEDED),
+  ) {
     this.keyRules = [
       { pattern: [], answer: () => KEYS.envelope },
       { pattern: ["release", ANY], answer: () => KEYS.release },
