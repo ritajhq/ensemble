@@ -113,15 +113,66 @@ kit's long-lived watch command instead of a one-shot apply. See the
 ## Variables and secrets
 
 A manifest's `variables` entries, and `secrets` entries with
-`source: environment`, are read straight from `ens`'s own process environment —
-which for a local run is whatever you've exported, and for a real pipeline is
-whatever it loads before invoking `ens`. There is no `ens`-managed `.env`
-convention: if a manifest declares one, export it yourself before running
-`ens develop`/`ens deploy`, or have your shell's own dotenv tooling do it. The
-`compose` kit wires a `source: environment` secret as a native `${VAR}` compose
-env-var interpolation — a real environment variable inside the container, not a
-mounted file — and is the only source it supports today; `source: file` is
-declared in the schema but not yet implemented by either built-in kit.
+`source: environment`, are read from `ens`'s own process environment. `ens`
+selects no environment itself: a real pipeline exports every value before
+invoking `ens deploy`, and locally that's you — or the env files `ens develop`
+loads for you:
+
+| File                                  | Tracked | Holds                                                    |
+| ------------------------------------- | ------- | -------------------------------------------------------- |
+| `ci/<name>/dev.env`                   | yes     | known-good development values every kit shares           |
+| `ci/<name>/<kit>.env`                 | yes     | values only that kit's local target needs (`aws.env`, …) |
+| `.ensemble/deploy/<name>/secrets.env` | no      | development values that mustn't be committed             |
+
+```ini
+# ci/platform/dev.env — keys are the manifest's variable/secret names
+preview_domain=ensemble.lvh.me
+platform_host=platform.ensemble.lvh.me
+auth_host=auth.ensemble.lvh.me
+```
+
+- Env files are flat `KEY=value` lists. A `$NAME` in a value is refused rather
+  than expanded, and the same key in two files is an error.
+- A key is matched to the manifest the way the render looks it up: uppercased,
+  with `-` turned into `_` (`platform-secret-key` → `PLATFORM_SECRET_KEY`).
+- A value already exported in the environment wins over every file.
+- `ens deploy` reads no file unless given `--env-file <path>` (repeatable), so a
+  real pipeline never picks up a committed dev value. `ens develop` and
+  `ens delivery task` default to the three files above, and `--env-file`
+  replaces them.
+- Before rendering, every variable without a `default:` and every
+  environment-sourced secret must have a value, or the deploy fails naming all
+  the missing ones.
+
+The `compose` kit wires a `source: environment` secret as a native `${VAR}`
+compose interpolation — a real environment variable inside the container, not a
+mounted file. `source: file` is declared in the schema but not yet implemented
+by either built-in kit.
+
+## One-off tasks
+
+Work that can only happen _after_ the stack is up — an app's schema migration,
+trusting the gateway's local CA — is declared under `tasks:` in the manifest and
+run by hand. A task is never fired by a deploy, so a failing one can't fail a
+deployment:
+
+```sh
+ens delivery task platform                    # list what the workload declares
+ens delivery task platform trust-local-ca     # run one
+```
+
+A task's `arguments` reach its script as environment variables, resolved from
+the same values the deploy's own fields use, plus `${deployment.name}`,
+`${deployment.artifact}` and `${deployment.root}` — which lets a script address
+the stack through `docker compose -p "$project" -f "$artifact"` instead of
+hardcoding the names compose derives. See
+[`ens delivery task`](../reference/cli/delivery.md#ens-delivery-task) and
+[`tasks` in the manifest schema](../reference/delivery-manifest-schema.md#tasks).
+
+> **Note.** A large database seed loaded through `docker-entrypoint-initdb.d`
+> keeps Postgres on a local-only socket until it finishes, so a migration run
+> too early gets `connection refused` — wait for the database's log to go quiet
+> first. A seed written as bulk `COPY` loads in seconds rather than minutes.
 
 ## Inspecting instead of guessing
 

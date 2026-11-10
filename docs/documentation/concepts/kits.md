@@ -25,10 +25,11 @@ build kit it uses via `ens config set-build-kit`; `ens
 build <app>` runs it as a
 subprocess.
 
-Built-in build kits: `deno.bundle` (a plain TypeScript service) and `react` (a
+Built-in build kits: `deno.bundle` (a plain TypeScript service), `react` (a
 React SPA, with an `ssr` variant via
-`ens app create react <name>
---target ssr`).
+`ens app create react <name> --target ssr`), `static-page` (an app's `public/`
+folder plus its bundled `main.ts`) and `cargo` (a Rust crate, in the `cargo`
+ecosystem).
 
 ## Pack kits
 
@@ -46,7 +47,15 @@ answers whether this machine may publish to the target, and `ens` refuses the
 publish when it says no or is missing. See
 [Publish authorization](../reference/cli/release.md#publish-authorization).
 
-Built-in pack kits: `docker` and `deno.compile`.
+A pack depends on builds, never on other packs: the kit's `dependencies.ts`
+reads the ship's own config and answers with the apps it uses, and `ens pack`
+builds those first. See
+[What a pack depends on](../reference/cli/pack.md#what-a-pack-depends-on).
+
+Built-in pack kits: `docker` (an image; publishes with `push`), `deno.compile`
+(a single binary; publishes to `github`), `tarball` (a `.tar.gz` of the apps a
+ship's `ship.yml` lists), `tauri` (a desktop app or its installer) and `vscode`
+(an extension folder or `.vsix`; publishes to `marketplace`).
 
 ## Deploy kits
 
@@ -63,11 +72,12 @@ for what it's handed, and [Deploying](../guides/deploying.md) for how
 `ens deploy` drives it.
 
 Built-in deploy kits: `compose` (Docker Compose — the fullest reference
-implementation) and `aws` (CloudFormation — ECS task definitions, RDS
-instances). Support is uneven by design: each kit documents its own drops (e.g.
-`aws` silently drops `ports`/`networks`, but hard-fails on a `storage.volume`
-entry rather than dropping it, since it has no provisioner for storage yet).
-There is no `kubernetes` deploy kit in this repo.
+implementation), `aws` (CloudFormation — ECS task definitions, RDS instances,
+Lambda functions, DynamoDB, S3, CloudFront) and `cloudflare` (Workers, KV, R2
+and a gateway, through `wrangler`). Support is uneven by design: each kit
+documents its own drops (e.g. `aws` silently drops `ports`/`networks`, but
+hard-fails on a `storage.volume` entry rather than dropping it, since it has no
+provisioner for storage yet). There is no `kubernetes` deploy kit in this repo.
 
 ## Ecosystem kits
 

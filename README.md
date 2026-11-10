@@ -101,162 +101,46 @@ Linux (x64) only, for now:
 curl -fsSL https://raw.githubusercontent.com/ritajhq/ensemble/main/.ensemble/install.sh | sh
 ```
 
-This installs `ens` to `~/.ensemble/bin` and prints a PATH hint if it isn't
-already on your `PATH`. To install a specific version instead of the latest
-release:
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/ritajhq/ensemble/main/.ensemble/install.sh | sh -s <version>
-```
-
-Once installed, update in place with:
-
-```sh
-ens version update       # newest release; or `update patch` / `minor` / `major`
-ens version set <version>
-```
+This installs `ens` to `~/.ensemble/bin`; `ens version update` keeps it current.
+See [Installation](docs/documentation/getting-started/installation.md) for
+pinning a version.
 
 ## Quickstart
 
-The shortest path from nothing to a running app: scaffold a project, scaffold an
-app, build it, and bring it up locally. If you haven't installed `ens` yet, see
-[Installation](#installation).
-
-### 1. Scaffold a project
-
 ```sh
-ens init
+ens init my-project && cd my-project   # scaffold the layout and fetch the built-in kits
+ens app create react web               # scaffold source/apps/web from the react kit
+ens build web                          # build it into source/artifacts/web
+ens develop web                        # build, pack and run ci/web/delivery.yml locally, watching
 ```
 
-Prompts for a project name, then lays down the `source/` and `.ensemble/`
-folders, fetches the built-in kits, and initializes a git repository.
+`ens develop` needs a delivery manifest — the
+[quickstart](docs/documentation/getting-started/quickstart.md) and
+[local development](docs/documentation/guides/local-development.md) guides walk
+through writing one.
 
-### 2. Scaffold an app
+## Documentation
 
-```sh
-ens app create react web
-```
+Everything lives under [docs/documentation](docs/documentation), which is also
+what the website publishes:
 
-Creates `source/apps/web` from the `react` build kit's hello-world template,
-already configured to use that kit. Swap `react` for `deno.bundle` for a plain
-TypeScript service instead.
+| Section                                               | Read it for                                                                                                                                                                                                                                                                                                                           |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Getting started](docs/documentation/getting-started) | [Installation](docs/documentation/getting-started/installation.md), [Quickstart](docs/documentation/getting-started/quickstart.md)                                                                                                                                                                                                    |
+| [Concepts](docs/documentation/concepts)               | [Workspace layout](docs/documentation/concepts/workspace-layout.md), [Kits](docs/documentation/concepts/kits.md), [Delivery manifests](docs/documentation/concepts/delivery-manifests.md), [Launching](docs/documentation/concepts/launching.md), [Editor support](docs/documentation/concepts/editor-support.md)                     |
+| [Guides](docs/documentation/guides)                   | [Local development](docs/documentation/guides/local-development.md), [Deploying](docs/documentation/guides/deploying.md), [Authoring a kit](docs/documentation/guides/authoring-a-kit.md), [Managing libraries](docs/documentation/guides/managing-libraries.md), [Using with agents](docs/documentation/guides/using-with-agents.md) |
+| [Reference](docs/documentation/reference)             | [CLI](docs/documentation/reference/cli/index.md), [Delivery manifest schema](docs/documentation/reference/delivery-manifest-schema.md)                                                                                                                                                                                                |
 
-### 3. Build it
+## Working with an AI agent
 
-```sh
-ens build web -m development
-```
+`ens status` (or `ens status --json`) names every app, kit, library and workload
+a command can take, and `ens mcp` exposes every command as an MCP tool. For
+Claude Code, this repository carries an `ensemble` skill in
+[.claude/skills/ensemble](.claude/skills/ensemble/SKILL.md) that teaches an
+agent the workspace, the CLI and the conventions of an `ens` project.
 
-Runs the app's configured build kit and writes output to `source/artifacts/web`.
+## Contributing
 
-### 4. Bring it up locally
-
-A running deployment needs a workload manifest, not just a built app — see
-[Local development](#local-development) for the full loop (pack → manifest →
-`ens develop`). If your project already has one (e.g. `ci/web/delivery.yml`):
-
-```sh
-ens develop web
-```
-
-This builds, packs, and deploys the workload locally, watching for source
-changes until you stop it.
-
-Every command's full flag list lives in the
-[CLI reference](docs/documentation/reference/cli/index.md).
-
-## Local development
-
-Bringing a whole workload up on your machine is the same source → build → pack →
-deploy flow as a real deployment, pointed at a local target (the `compose`
-deploy kit). The steps below assume a project whose delivery manifest lives at
-`ci/<name>/delivery.yml` — `portal` is used as the concrete example.
-
-**1. Build every app.** `ens develop` runs the _packed images_, so each app has
-to be built first (output lands in `source/artifacts/<app>`):
-
-```sh
-for app in auth/server auth/client dashboard/api dashboard/web; do
-  ens build "$app" -m development
-done
-```
-
-**2. Pack each ship to a local image.** The compose kit resolves a compute's
-`${release.<ship>.image}` to the locally-packed `<ship>:latest` and refuses to
-start if it isn't in your image store, so pack them up front (including any base
-image a ship's Dockerfile builds `FROM`):
-
-```sh
-for ship in auth/server auth/client dashboard/api dashboard/web; do
-  ens pack "$ship" docker
-done
-```
-
-**3. Supply the manifest's variables and secrets.** A manifest declares the
-per-environment values it needs as `variables` and `secrets`; `ens deploy` reads
-them from its own process env (it selects no environment itself — that's the
-pipeline's job, and locally it's you). For local runs, commit the known-good dev
-values to `ci/<name>/dev.env` — and those only one deploy kit's local target
-needs to `ci/<name>/<kit>.env` (`aws.env` pointing at a local AWS, say) — and
-keep dev values that mustn't be committed in the untracked
-`.ensemble/deploy/<name>/secrets.env`. `ens develop` loads them all (the kit's
-own file for the kit it deploys with), so `ens develop <name>` just works with
-nothing exported:
-
-```ini
-# ci/portal/dev.env — keys are the manifest's variable/secret names
-pguser=portal
-pgdatabase=portal
-pgpassword=devpassword
-# ...every variable/secret the manifest declares
-```
-
-Env files are flat `KEY=value` lists — no `$` interpolation, and the same key in
-two files is an error. Any value already exported in the environment wins over
-them. `ens deploy` reads no file unless given `--env-file <path>` (repeatable), so a
-real pipeline never picks up a committed dev value (`ens develop` and
-`ens delivery task` default to `ci/<name>/dev.env`, `ci/<name>/<kit>.env` and
-`.ensemble/deploy/<name>/secrets.env`, and `--env-file` replaces them): before rendering, every variable without a `default:` and every
-environment-sourced secret must have a value, or the deploy fails naming all the
-missing ones.
-
-**4. Bring the stack up in dev mode.** `ens develop` watches for source changes
-and auto-creates `external` resources (like a shared `edge` network) instead of
-requiring them to already exist:
-
-```sh
-ens develop <name>          # e.g. ens develop portal
-```
-
-That renders a `compose.yaml`, brings up every compute plus the databases,
-storage and gateway the manifest declares, and keeps watching. You reach the
-services through the gateway's hosts (e.g. `https://<name>.localhost:8443`, with
-a self-signed cert under `tls: internal`).
-
-**5. Run any one-off provisioning.** Work that can only happen _after_ the stack
-is up — an app's own schema migration, trusting the gateway's local CA — is
-declared under `tasks` in the manifest and invoked by hand (a task is never
-fired by a deploy, so a failing one can't fail a deployment):
-
-```sh
-ens delivery task <name>                         # list what the workload declares
-ens delivery task <name> auth-migrate            # e.g. portal's auth schema migration
-```
-
-A task's `arguments` reach its script as environment variables, resolved from
-the same manifest values the deploy's own env blocks use, plus
-`${deployment.name}`, `${deployment.artifact}` and `${deployment.root}` for the
-deployment's own identity — which is what lets that script address the stack
-through `docker compose -p "$project" -f "$artifact"` rather than hardcoding the
-container, network, and artifact names compose derives from the deployment. See
-[`tasks` in the manifest schema](docs/documentation/reference/delivery-manifest-schema.md#tasks).
-
-> **Note.** A large database seed loaded through `docker-entrypoint-initdb.d`
-> keeps Postgres on a local-only socket until it finishes, so a migration run
-> too early gets `connection refused` — wait for the DB log to go quiet first. A
-> seed written as bulk `COPY` rather than one-`INSERT`-per-row loads in seconds
-> instead of minutes.
-
-To change an app while the stack runs, just edit its source — `ens develop`
-rebuilds and syncs it into the running container. To tear everything down, stop
-`ens develop`; removing the containers/volumes lives behind `ens destroy`.
+This repository is itself an `ens` project that builds `ens`. See
+[CONTRIBUTING.md](CONTRIBUTING.md) for how to run it from source, check a
+change, and write a commit.

@@ -166,12 +166,13 @@ release locator gets resolved.
 
 ## Choosing a target
 
-Two deploy kits ship with this repo — see
+Three deploy kits ship with this repo — see
 [Kits](../concepts/kits.md#deploy-kits) for what each one drops:
 
 ```sh
-ens deploy web compose   # docker compose — one host
-ens deploy web aws       # CloudFormation — ECS + RDS in your own account
+ens deploy web compose      # docker compose — one host
+ens deploy web aws          # CloudFormation — ECS, RDS, Lambda, … in your own account
+ens deploy web cloudflare   # Workers, KV and R2, through wrangler
 ```
 
 There is no `kubernetes` kit in this repo.

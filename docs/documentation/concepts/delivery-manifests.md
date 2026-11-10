@@ -7,7 +7,7 @@ same manifest and decides that part; the same manifest runs against a local dev
 stack or a real target without forking into per-environment code paths.
 
 The full, authoritative shape is
-[`docs/delivery.schema.json`](../delivery.schema.json) — this page is the
+[`docs/delivery.schema.json`](../../delivery.schema.json) — this page is the
 human-readable tour, not a substitute for it. See
 [the schema reference](../reference/delivery-manifest-schema.md) for how the two
 relate.
@@ -75,16 +75,19 @@ right order without re-deriving it itself.
 their value from `ens`'s own process environment, making per-environment values
 explicit: declared in the manifest, but supplied by the surrounding pipeline (a
 real deploy pipeline loads them from its secrets manager before invoking `ens`;
-locally, you export them yourself). A variable declared `type: list` resolves
-its comma-separated value to a list of its trimmed, non-empty entries (an empty
-value is an empty list), for a param that takes one — a gateway's `networks`,
-say — as a whole `${variables.<name>.value}`. How a secret then reaches the
-workload is up to the deploy kit — `compose` wires it as a native `${VAR}`
-env-var interpolation and only supports `source: environment` today;
-`source: file`, for a secret whose value already lives in a file, is declared in
-the schema but not yet exercised by either built-in kit. Environment selection
-is not an `ens` concept — `ens deploy`'s `--artifacts local|published` and
-`ens develop` are a dev-loop-vs-not toggle, not an environment switch.
+locally, `ens develop` reads them from `ci/<name>/dev.env` and its siblings —
+see
+[Variables and secrets](../guides/local-development.md#variables-and-secrets)).
+A variable declared `type: list` resolves its comma-separated value to a list of
+its trimmed, non-empty entries (an empty value is an empty list), for a param
+that takes one — a gateway's `networks`, say — as a whole
+`${variables.<name>.value}`. How a secret then reaches the workload is up to the
+deploy kit — `compose` wires it as a native `${VAR}` env-var interpolation and
+only supports `source: environment` today; `source: file`, for a secret whose
+value already lives in a file, is declared in the schema but not yet exercised
+by either built-in kit. Environment selection is not an `ens` concept —
+`ens deploy`'s `--artifacts local|published` and `ens develop` are a
+dev-loop-vs-not toggle, not an environment switch.
 
 ## Capabilities and classes
 

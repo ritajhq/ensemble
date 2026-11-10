@@ -7,20 +7,27 @@ top-level home, and nothing crosses those lines implicitly.
 
 ```
 source/
-  apps/<name>/       # app source, one folder per deployable unit
-  core/               # shared code that speaks your project's domain
-  libs/               # generic, cross-project-reusable code
+  apps/<name>/               # app source, one folder per buildable unit
+  core/<name>/               # shared code that speaks your project's domain
+  libs/<name>/               # generic, cross-project-reusable code
   integrations/<kit>/<app>/  # an app wired for one deploy kit's platform (optional)
-  artifacts/<name>/   # build output (gitignored), one folder per app
-  ship/<name>/        # packaging inputs (Dockerfile, etc.) per pack target
+  ship/<name>/               # packaging inputs (Dockerfile, compile.yml, …) per ship
+  envs/build/<app>.env       # default build vars for an app
+  envs/pack/<ship>.env       # default pack vars for a ship
+  artifacts/<name>/          # build output (gitignored), one folder per app
+  artifacts/packages/        # pack output
 .ensemble/
-  kits/build/<kit>/   # build kit implementations
-  kits/pack/<kit>/    # pack kit implementations
-  kits/deploy/<kit>/  # deploy kit implementations
-  config.yaml         # shared, git-tracked: app -> build kit, workload -> deploy kit
-  config.local.yaml   # gitignored, per-developer: personal var defaults
+  kits/<role>/<kit>/         # kits: build, pack, deploy, lib, ecosystem
+  ecosystems/<language>/     # each language's workspace root and lockfile
+  config.yaml                # shared: app → build kit, ship → pack kit, workload → deploy kit, publish, hooks
+  config.local.yaml          # gitignored, per-developer: personal var defaults
+  vendor.lock.yml            # where each vendored kit/library came from
+  deploy/<name>/             # gitignored: render cache, task snapshot, secrets.env
+  release/                   # secrets.env (publish credentials) and release state, gitignored
 ci/<name>/
-  delivery.yml         # the workload's delivery manifest (release + deploy)
+  delivery.yml               # the workload's delivery manifest (release, deploy, launch, tasks)
+  dev.env                    # development values `ens develop` loads
+docs/                        # the project's documentation
 ```
 
 `apps/<name>` and `ship/<name>` both support nesting — a multi-process app made
@@ -121,12 +128,15 @@ versus what's a personal convenience:
   when the command names none (`deploy.<name>.kit`, for a workload only one kit
   can deploy).
 - **`config.local.yaml`** — gitignored, per-developer. Default build/pack vars
-  you don't want to type on every invocation (`ens config
-  set-build-var`,
+  you don't want to type on every invocation (`ens config set-build-var`,
   `ens config set-pack-var`).
+
+Defaults every developer shares belong in `source/envs/build/<app>.env` and
+`source/envs/pack/<ship>.env` instead. `config.local.yaml` wins over those
+files, and a `-v KEY=VALUE` on the command line wins over both.
 
 ## Next
 
-- [Kits](kits.md) — what a kit is and the three roles it can play.
+- [Kits](kits.md) — what a kit is and the roles it can play.
 - [Delivery manifests](delivery-manifests.md) — how a workload is declared and
   brought up.

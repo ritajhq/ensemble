@@ -1,7 +1,7 @@
 # Delivery manifest schema reference
 
 The authoritative, machine-readable shape of `ci/<name>/delivery.yml` is
-[`docs/delivery.schema.json`](../delivery.schema.json) — a JSON Schema kept in
+[`docs/delivery.schema.json`](../../delivery.schema.json) — a JSON Schema kept in
 sync with `manifest/parser.ts`. Point your editor's YAML language server at it
 for inline validation and completion:
 

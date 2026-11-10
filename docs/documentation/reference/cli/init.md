@@ -30,13 +30,13 @@ my-project/
 ├── .ensemble/
 │   ├── .gitignore               # per-developer state: config.local.yaml, release state, rendered deploys
 │   ├── config.yaml              # which kit builds each app and packs each ship (starts as comments)
+│   ├── ecosystems/              # each language's workspace files and lockfile
 │   └── kits/                    # the built-in kits, fetched (see below)
 │       ├── build/
 │       ├── pack/
 │       ├── deploy/
 │       ├── lib/
 │       └── ecosystem/
-│   └── ecosystems/              # each language's workspace files and lockfile
 ├── source/
 │   ├── apps/                    # one folder per app
 │   ├── core/                    # shared code that speaks this project's domain
@@ -62,13 +62,13 @@ in [Workspace layout](../../concepts/workspace-layout.md).
 `.ensemble/kits/` holds a copy of the built-in kits, so the project owns the
 versions it builds, packs and deploys with:
 
-| Role      | Kits                               |
-| --------- | ---------------------------------- |
-| build     | `deno.bundle`, `react`             |
-| pack      | `deno.compile`, `docker`, `vscode` |
-| deploy    | `aws`, `cloudflare`, `compose`     |
-| lib       | `jsr`                              |
-| ecosystem | `cargo`                            |
+| Role      | Kits                                                   |
+| --------- | ------------------------------------------------------ |
+| build     | `cargo`, `deno.bundle`, `react`, `static-page`         |
+| pack      | `deno.compile`, `docker`, `tarball`, `tauri`, `vscode` |
+| deploy    | `aws`, `cloudflare`, `compose`                         |
+| lib       | `jsr`                                                  |
+| ecosystem | `cargo`                                                |
 
 They come from the `ens` release you ran: `ens init` fetches the kits at the git
 tag of its own version, so they match the CLI that created them. A development

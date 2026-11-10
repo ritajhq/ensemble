@@ -20,8 +20,8 @@ const PAGE_DESCRIPTION =
 
 // Where git-sync lands the `docs/` folder it syncs from the ensemble repo (see
 // ci/website/delivery.yml's `variables.repos` and the `docs-content` volume
-// mount) — `documentation/` is the published subset; `docs/agent` and
-// `docs/backlog.md` etc. are internal and deliberately not served here.
+// mount) — `documentation/` is the published subset; generated architecture
+// pages and assets beside it are deliberately not served here.
 const DOCS_ROOT = Deno.env.get("DOCS_DIR") ?? "/data/docs/documentation";
 
 // website/content is the react kit's "ssr" target: a hydration bundle

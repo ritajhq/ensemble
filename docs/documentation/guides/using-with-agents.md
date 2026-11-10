@@ -44,6 +44,17 @@ An agent driving local development should start a watch session, poll
 `ensemble_watch_logs` for progress, and stop it explicitly when done, rather
 than treating the start call as a one-shot command.
 
+## A skill for Claude Code
+
+The ensemble repository carries an `ensemble`
+[Agent Skill](https://github.com/ritajhq/ensemble/tree/main/.claude/skills/ensemble):
+the workspace layout, what each command is for, the delivery manifest, the kit
+contracts, and the rules an agent should follow in an `ens` project (where a
+file belongs, which commands to confirm first, how to run watch commands). Copy
+`.claude/skills/ensemble` into your project's `.claude/skills/` to give Claude
+Code the same grounding. If your project has a `CONTRIBUTING.md`, the skill
+tells the agent to treat it as binding.
+
 ## Why this matters for this project
 
 Ensemble's own pitch is a workspace an agent can navigate without being handed
