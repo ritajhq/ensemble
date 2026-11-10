@@ -10,31 +10,35 @@ import type {
 import { VARIABLE_TYPES } from "../resource.ts";
 import type { PublishSpec, Release } from "../release.ts";
 import type { Task } from "../task.ts";
-import { LAUNCH_TYPES, type LaunchDevelopment, type LaunchEntry, type LaunchType, type LaunchWatch } from "../launch.ts";
+import {
+  LAUNCH_TYPES,
+  type LaunchDevelopment,
+  type LaunchEntry,
+  type LaunchType,
+  type LaunchWatch,
+} from "../launch.ts";
+import { ManifestPath, type Problem } from "../problem.ts";
 import { ManifestError } from "./errors.ts";
 import { KeySuggester } from "./key-suggester.ts";
+import { type Key, KEYS, namesOf, SUPPORTED_VERSIONS } from "./keys.ts";
 
-const SUPPORTED_VERSIONS = ["v1"];
-const ENVELOPE_KEYS = ["version", "release", "deploy", "tasks", "launch"] as const;
-const RELEASE_KEYS = ["kit", "mode", "outputName", "publish"] as const;
-const PUBLISH_KEYS = ["target", "name", "options"] as const;
-const SECRET_KEYS = ["source", "description"] as const;
-const VARIABLE_KEYS = ["type", "default", "description"] as const;
-const EXTERNAL_KEYS = ["type", "name"] as const;
-const RESOURCE_COMMON_KEYS = ["type", "class", "capabilities"] as const;
-const TASK_KEYS = ["run", "script", "arguments"] as const;
-const LAUNCH_KEYS = ["type", "command", "package", "ports", "env", "envSecrets", "development"] as const;
-const LAUNCH_DEVELOPMENT_KEYS = ["restart"] as const;
 /** A launch entry's `env` and `envSecrets` names become environment variables of the program started. */
 const ENVIRONMENT_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 /** A task argument's name *is* an environment variable name the task reads, so it has to be a shell-safe identifier. */
 const TASK_ARGUMENT_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
+/** What reading a manifest found: the workload it declares, and every problem with it. */
+export interface Reading {
+  /** Every entry that is at least a mapping, even one with problems — so later checks and an editor still see what the manifest names. Only trustworthy when `problems` is empty. */
+  readonly workload: Workload;
+  readonly problems: readonly Problem[];
+}
+
 /**
  * Parses manifest text into a `Workload`. Validates the envelope strictly
  * (unknown top-level/category/secret/external/release keys are rejected with
  * a near-miss suggestion) while leaving resource *types* open — per-type
- * field validation is the ContractRegistry's job (Phase 2), not this parser's.
+ * field validation is the ContractRegistry's job, not this parser's.
  * Pure: no filesystem access — see `Loader` for reading a manifest off disk.
  */
 export class Parser {
@@ -42,72 +46,110 @@ export class Parser {
     private readonly keySuggester: KeySuggester = new KeySuggester(),
   ) {}
 
+  /** The workload, or `ManifestError` naming every problem `read` finds. A YAML syntax error is thrown as the YAML parser's own. */
   parse(text: string): Workload {
-    const root = parseYaml(text);
-    this.assertPlainObject(root, "manifest");
-    const envelope = root as Record<string, unknown>;
+    const { workload, problems } = this.read(text);
+    if (problems.length > 0) throw new ManifestError(problems);
+    return workload;
+  }
 
-    this.rejectUnknownKeys(envelope, ENVELOPE_KEYS, "manifest");
-    this.validateVersion(envelope.version);
+  /** Reads the whole manifest, carrying on past each problem to find the rest. A YAML syntax error is thrown as the YAML parser's own: past one, there is no structure to read. */
+  read(text: string): Reading {
+    return new ManifestReading(this.keySuggester).of(parseYaml(text));
+  }
+}
 
-    const workload: {
-      release?: Record<string, Release>;
-      tasks?: Record<string, Task>;
-      launch?: Record<string, LaunchEntry>;
-    } & Record<Category, Record<string, unknown> | undefined> = {} as never;
+/** One read of one manifest: the problems found so far, so every method can report one and carry on. */
+class ManifestReading {
+  private readonly problems: Problem[] = [];
 
-    if (envelope.release !== undefined) {
-      workload.release = this.parseReleases(envelope.release);
+  constructor(private readonly keySuggester: KeySuggester) {}
+
+  of(root: unknown): Reading {
+    const workload = this.workloadOf(root);
+    return { workload, problems: this.problems };
+  }
+
+  private workloadOf(root: unknown): Workload {
+    const manifest = ManifestPath.manifest();
+    if (!this.isMapping(root, manifest)) return {};
+
+    this.rejectUnknownKeys(root, KEYS.envelope, manifest);
+    this.checkVersion(root.version, manifest.child("version"));
+
+    const workload: Record<string, unknown> = {};
+    if (root.release !== undefined) {
+      workload.release = this.releasesOf(
+        root.release,
+        manifest.child("release"),
+      );
     }
-
-    if (envelope.tasks !== undefined) {
-      workload.tasks = this.parseTasks(envelope.tasks);
+    if (root.tasks !== undefined) {
+      workload.tasks = this.tasksOf(root.tasks, manifest.child("tasks"));
     }
-
-    if (envelope.launch !== undefined) {
-      workload.launch = this.parseLaunch(envelope.launch);
+    if (root.launch !== undefined) {
+      workload.launch = this.launchOf(root.launch, manifest.child("launch"));
     }
-
-    if (envelope.deploy !== undefined) {
-      this.assertPlainObject(envelope.deploy, "manifest.deploy");
-      const deploy = envelope.deploy as Record<string, unknown>;
-      this.rejectUnknownKeys(deploy, CATEGORIES, "manifest.deploy");
-
-      for (const category of CATEGORIES) {
-        if (deploy[category] === undefined) continue;
-        workload[category] = this.parseCategory(category, deploy[category]);
-      }
+    if (root.deploy !== undefined) {
+      Object.assign(
+        workload,
+        this.deployOf(root.deploy, manifest.child("deploy")),
+      );
     }
-
     return workload as Workload;
   }
 
-  private parseCategory(
+  private deployOf(
+    value: unknown,
+    path: ManifestPath,
+  ): Partial<Record<Category, Record<string, unknown>>> {
+    if (!this.isMapping(value, path)) return {};
+    this.rejectUnknownNames(value, CATEGORIES, path);
+
+    const deploy: Partial<Record<Category, Record<string, unknown>>> = {};
+    for (const category of CATEGORIES) {
+      if (value[category] === undefined) continue;
+      deploy[category] = this.categoryOf(
+        category,
+        value[category],
+        path.child(category),
+      );
+    }
+    return deploy;
+  }
+
+  private categoryOf(
     category: Category,
     value: unknown,
+    path: ManifestPath,
   ): Record<string, unknown> {
-    this.assertPlainObject(value, `manifest.deploy.${category}`);
-    const entries = value as Record<string, unknown>;
+    if (!this.isMapping(value, path)) return {};
     const parsed: Record<string, unknown> = {};
 
-    for (const [name, entry] of Object.entries(entries)) {
-      const path = `manifest.deploy.${category}.${name}`;
-      switch (category) {
-        case "secrets":
-          parsed[name] = this.parseSecret(entry, path);
-          break;
-        case "variables":
-          parsed[name] = this.parseVariable(entry, path);
-          break;
-        case "external":
-          parsed[name] = this.parseExternal(entry, path);
-          break;
-        default:
-          parsed[name] = this.parseResource(entry, path);
-      }
+    for (const [name, entry] of Object.entries(value)) {
+      const entryPath = path.child(name);
+      const declaration = this.declarationOf(category, entry, entryPath);
+      if (declaration !== undefined) parsed[name] = declaration;
     }
 
     return parsed;
+  }
+
+  private declarationOf(
+    category: Category,
+    entry: unknown,
+    path: ManifestPath,
+  ): unknown {
+    switch (category) {
+      case "secrets":
+        return this.secretOf(entry, path);
+      case "variables":
+        return this.variableOf(entry, path);
+      case "external":
+        return this.externalOf(entry, path);
+      default:
+        return this.resourceOf(entry, path);
+    }
   }
 
   /**
@@ -116,179 +158,37 @@ export class Parser {
    * by a contract, because no contract is involved: a task is nothing but a
    * command and the values it wants resolved.
    */
-  private parseTasks(value: unknown): Record<string, Task> {
-    this.assertPlainObject(value, "manifest.tasks");
+  private tasksOf(value: unknown, path: ManifestPath): Record<string, Task> {
+    if (!this.isMapping(value, path)) return {};
     const parsed: Record<string, Task> = {};
-
-    for (
-      const [name, entry] of Object.entries(value as Record<string, unknown>)
-    ) {
-      parsed[name] = this.parseTask(entry, `manifest.tasks.${name}`);
-    }
-
-    return parsed;
-  }
-
-  /**
-   * `launch:` — what `ens develop` starts on this machine, keyed by name. Not a deploy category: no contract and no
-   * kit is involved, so `ens deploy` ignores it. Validated here the way tasks are: it is an envelope, and `${...}`
-   * references in its values are checked when the manifest is resolved, not now.
-   */
-  private parseLaunch(value: unknown): Record<string, LaunchEntry> {
-    this.assertPlainObject(value, "manifest.launch");
-    const parsed: Record<string, LaunchEntry> = {};
     for (const [name, entry] of Object.entries(value)) {
-      parsed[name] = this.parseLaunchEntry(entry, `manifest.launch.${name}`);
+      const task = this.taskOf(entry, path.child(name));
+      if (task) parsed[name] = task;
     }
     return parsed;
   }
 
-  private parseLaunchEntry(value: unknown, path: string): LaunchEntry {
-    this.assertPlainObject(value, path);
-    const raw = value as Record<string, unknown>;
-    this.rejectUnknownKeys(raw, LAUNCH_KEYS, path);
+  private taskOf(value: unknown, path: ManifestPath): Task | undefined {
+    if (!this.isMapping(value, path)) return undefined;
+    this.rejectUnknownKeys(value, KEYS.task, path);
 
-    const expected = LAUNCH_TYPES.join(", ");
-    if (raw.type === undefined) {
-      throw new ManifestError(`${path}.type is required (expected one of: ${expected}).`);
-    }
-    if (!(LAUNCH_TYPES as readonly unknown[]).includes(raw.type)) {
-      throw new ManifestError(`${path}.type "${raw.type}" is not supported (expected one of: ${expected}).`);
-    }
-    const type = raw.type as LaunchType;
-
-    const entry = {
-      type,
-      command: this.parseLaunchRunnable(type, raw, path),
-      package: type === "desktop" ? raw.package as string : undefined,
-      ports: this.parseLaunchPorts(raw.ports, path),
-      env: this.parseLaunchEnv(raw.env, path),
-      envSecrets: this.parseLaunchEnvSecrets(raw.envSecrets, path),
-      development: this.parseLaunchDevelopment(raw.development, path),
-    };
-    return entry;
-  }
-
-  /** What the type starts: a process its command, a desktop app its package. Returns the command, if the type has one. */
-  private parseLaunchRunnable(
-    type: LaunchType,
-    raw: Record<string, unknown>,
-    path: string,
-  ): readonly string[] | undefined {
-    if (type === "desktop") {
-      if (raw.command !== undefined) {
-        throw new ManifestError(`${path}.command is for a process; a desktop app is started from its package.`);
-      }
-      if (raw.package === undefined) {
-        throw new ManifestError(
-          `${path}.package is required for a desktop app: the pack that holds it, as \${pack.<ship>}.`,
-        );
-      }
-      if (typeof raw.package !== "string" || raw.package.length === 0) {
-        throw new ManifestError(`${path}.package must be a non-empty string.`);
-      }
-      return undefined;
-    }
-    if (raw.package !== undefined) {
-      throw new ManifestError(`${path}.package is for a desktop app; a process is started from its command.`);
-    }
-    if (raw.command === undefined) {
-      throw new ManifestError(
-        `${path}.command is required for a process: the program and its arguments, as a list.`,
-      );
-    }
-    const command = raw.command;
-    if (
-      !Array.isArray(command) || command.length === 0 || command.some((part) => typeof part !== "string" || part === "")
-    ) {
-      throw new ManifestError(`${path}.command must be a non-empty list of strings.`);
-    }
-    return command as string[];
-  }
-
-  private parseLaunchPorts(value: unknown, path: string): Record<string, number | "auto"> {
-    if (value === undefined) return {};
-    this.assertPlainObject(value, `${path}.ports`);
-    for (const [name, port] of Object.entries(value)) {
-      const valid = port === "auto" || (Number.isInteger(port) && (port as number) > 0 && (port as number) < 65536);
-      if (!valid) throw new ManifestError(`${path}.ports.${name} must be a port number or "auto".`);
-    }
-    return { ...value } as Record<string, number | "auto">;
-  }
-
-  private parseLaunchEnv(value: unknown, path: string): Record<string, string | number | boolean> {
-    if (value === undefined) return {};
-    this.assertPlainObject(value, `${path}.env`);
-    for (const [name, setting] of Object.entries(value)) {
-      if (!ENVIRONMENT_NAME.test(name)) {
-        throw new ManifestError(`${path}.env has "${name}", which is not an environment variable name.`);
-      }
-      if (!["string", "number", "boolean"].includes(typeof setting)) {
-        throw new ManifestError(`${path}.env.${name} must be a string, a number or a boolean.`);
-      }
-    }
-    return { ...value } as Record<string, string | number | boolean>;
-  }
-
-  private parseLaunchEnvSecrets(value: unknown, path: string): Record<string, string> {
-    if (value === undefined) return {};
-    this.assertPlainObject(value, `${path}.envSecrets`);
-    for (const [name, secret] of Object.entries(value)) {
-      if (!ENVIRONMENT_NAME.test(name)) {
-        throw new ManifestError(`${path}.envSecrets has "${name}", which is not an environment variable name.`);
-      }
-      if (typeof secret !== "string" || secret === "") {
-        throw new ManifestError(`${path}.envSecrets.${name} must name a declared secret.`);
-      }
-    }
-    return { ...value } as Record<string, string>;
-  }
-
-  private parseLaunchDevelopment(value: unknown, path: string): LaunchDevelopment | undefined {
-    if (value === undefined) return undefined;
-    const block = `${path}.development`;
-    this.assertPlainObject(value, block);
-    this.rejectUnknownKeys(value, LAUNCH_DEVELOPMENT_KEYS, block);
-    if (value.restart === undefined) return { restart: [] };
-    if (!Array.isArray(value.restart)) throw new ManifestError(`${block}.restart must be a list.`);
-    return { restart: value.restart.map((rule, index) => this.parseLaunchWatch(rule, `${block}.restart[${index}]`)) };
-  }
-
-  private parseLaunchWatch(value: unknown, path: string): LaunchWatch {
-    this.assertPlainObject(value, path);
-    const keys = Object.keys(value);
-    const named = keys.filter((key) => key === "build" || key === "pack");
-    if (named.length !== 1 || keys.length !== 1) {
-      throw new ManifestError(`${path} must name exactly one of "build" or "pack".`);
-    }
-    const name = value[named[0]];
-    if (typeof name !== "string" || name === "") {
-      throw new ManifestError(`${path}.${named[0]} must name a ${named[0]}.`);
-    }
-    return named[0] === "build" ? { build: name } : { pack: name };
-  }
-
-  private parseTask(value: unknown, path: string): Task {
-    this.assertPlainObject(value, path);
-    const raw = value as Record<string, unknown>;
-    this.rejectUnknownKeys(raw, TASK_KEYS, path);
-
-    const hasRun = raw.run !== undefined;
-    const hasScript = raw.script !== undefined;
+    const hasRun = value.run !== undefined;
+    const hasScript = value.script !== undefined;
     if (hasRun === hasScript) {
-      throw new ManifestError(
+      this.report(
+        path,
         `${path} must declare exactly one of "run" (a shell one-liner) or "script" (a file under ci/<workload>/tasks/).`,
       );
     }
-    if (hasRun && (typeof raw.run !== "string" || raw.run.length === 0)) {
-      throw new ManifestError(`${path}.run must be a non-empty string.`);
+    if (hasRun && (typeof value.run !== "string" || value.run.length === 0)) {
+      this.report(path.child("run"), `${path}.run must be a non-empty string.`);
     }
-    if (hasScript) this.assertScriptPath(raw.script, path);
+    if (hasScript) this.checkScriptPath(value.script, path);
 
     return {
-      run: raw.run as string | undefined,
-      script: raw.script as string | undefined,
-      arguments: this.parseTaskArguments(raw.arguments, path),
+      run: value.run as string | undefined,
+      script: value.script as string | undefined,
+      arguments: this.taskArgumentsOf(value.arguments, path.child("arguments")),
     };
   }
 
@@ -297,244 +197,523 @@ export class Parser {
    * spawns whatever this names, so absolute paths and any `..` segment are
    * rejected outright rather than resolved and checked later.
    */
-  private assertScriptPath(value: unknown, path: string): void {
+  private checkScriptPath(value: unknown, task: ManifestPath): void {
+    const path = task.child("script");
     if (typeof value !== "string" || value.length === 0) {
-      throw new ManifestError(`${path}.script must be a non-empty string.`);
+      this.report(path, `${path} must be a non-empty string.`);
+      return;
     }
     const segments = value.split("/");
     if (value.startsWith("/") || segments.includes("..")) {
-      throw new ManifestError(
-        `${path}.script must be a path inside the workload's own tasks/ folder (got "${value}").`,
+      this.report(
+        path,
+        `${path} must be a path inside the workload's own tasks/ folder (got "${value}").`,
       );
     }
   }
 
-  private parseTaskArguments(
+  private taskArgumentsOf(
     value: unknown,
-    path: string,
+    path: ManifestPath,
   ): Record<string, string | number | boolean> | undefined {
     if (value === undefined) return undefined;
-    this.assertPlainObject(value, `${path}.arguments`);
+    if (!this.isMapping(value, path)) return undefined;
 
     const parsed: Record<string, string | number | boolean> = {};
-    for (
-      const [name, argument] of Object.entries(
-        value as Record<string, unknown>,
-      )
-    ) {
+    for (const [name, argument] of Object.entries(value)) {
+      const argumentPath = path.child(name);
       if (!TASK_ARGUMENT_NAME.test(name)) {
-        throw new ManifestError(
-          `${path}.arguments.${name}: an argument name becomes an environment variable for the task, so it must be a shell-safe identifier (${TASK_ARGUMENT_NAME}) — a dash, say, would make "$${name}" read as a different variable in a shell.`,
+        this.report(
+          argumentPath,
+          `${argumentPath}: an argument name becomes an environment variable for the task, so it must be a shell-safe identifier (${TASK_ARGUMENT_NAME}) — a dash, say, would make "$${name}" read as a different variable in a shell.`,
         );
+        continue;
       }
       const kind = typeof argument;
       if (kind !== "string" && kind !== "number" && kind !== "boolean") {
-        throw new ManifestError(
-          `${path}.arguments.${name} must be a string, number, or boolean (or a \${...} reference to one).`,
+        this.report(
+          argumentPath,
+          `${argumentPath} must be a string, number, or boolean (or a \${...} reference to one).`,
         );
+        continue;
       }
       parsed[name] = argument as string | number | boolean;
     }
-
     return parsed;
   }
 
-  private parseResource(value: unknown, path: string): ResourceDeclaration {
-    this.assertPlainObject(value, path);
-    const raw = value as Record<string, unknown>;
+  /**
+   * `launch:` — what `ens develop` starts on this machine, keyed by name. Not a deploy category: no contract and no
+   * kit is involved, so `ens deploy` ignores it. Validated here the way tasks are: it is an envelope, and `${...}`
+   * references in its values are checked when the manifest is resolved, not now.
+   */
+  private launchOf(
+    value: unknown,
+    path: ManifestPath,
+  ): Record<string, LaunchEntry> {
+    if (!this.isMapping(value, path)) return {};
+    const parsed: Record<string, LaunchEntry> = {};
+    for (const [name, entry] of Object.entries(value)) {
+      const launch = this.launchEntryOf(entry, path.child(name));
+      if (launch) parsed[name] = launch;
+    }
+    return parsed;
+  }
 
-    if (typeof raw.type !== "string" || raw.type.length === 0) {
-      throw new ManifestError(`${path}.type is required and must be a string.`);
+  private launchEntryOf(
+    value: unknown,
+    path: ManifestPath,
+  ): LaunchEntry | undefined {
+    if (!this.isMapping(value, path)) return undefined;
+    this.rejectUnknownKeys(value, KEYS.launch, path);
+
+    const expected = LAUNCH_TYPES.join(", ");
+    const typePath = path.child("type");
+    if (value.type === undefined) {
+      this.report(
+        typePath,
+        `${typePath} is required (expected one of: ${expected}).`,
+      );
+      return undefined;
     }
-    if (raw.class !== undefined && typeof raw.class !== "string") {
-      throw new ManifestError(`${path}.class must be a string.`);
+    if (!(LAUNCH_TYPES as readonly unknown[]).includes(value.type)) {
+      this.report(
+        typePath,
+        `${typePath} "${value.type}" is not supported (expected one of: ${expected}).`,
+      );
+      return undefined;
     }
-    if (raw.capabilities !== undefined) {
-      this.assertPlainObject(raw.capabilities, `${path}.capabilities`);
+    const type = value.type as LaunchType;
+
+    return {
+      type,
+      command: this.launchCommandOf(type, value, path),
+      package: type === "desktop" ? value.package as string : undefined,
+      ports: this.launchPortsOf(value.ports, path.child("ports")),
+      env: this.launchEnvOf(value.env, path.child("env")),
+      envSecrets: this.launchEnvSecretsOf(
+        value.envSecrets,
+        path.child("envSecrets"),
+      ),
+      development: this.launchDevelopmentOf(
+        value.development,
+        path.child("development"),
+      ),
+    };
+  }
+
+  /** What the type starts: a process its command, a desktop app its package. Returns the command, if the type has one. */
+  private launchCommandOf(
+    type: LaunchType,
+    raw: Record<string, unknown>,
+    path: ManifestPath,
+  ): readonly string[] | undefined {
+    const command = path.child("command");
+    const pack = path.child("package");
+    if (type === "desktop") {
+      if (raw.command !== undefined) {
+        this.report(
+          command,
+          `${command} is for a process; a desktop app is started from its package.`,
+        );
+      }
+      if (raw.package === undefined) {
+        this.report(
+          pack,
+          `${pack} is required for a desktop app: the pack that holds it, as \${pack.<ship>}.`,
+        );
+      } else if (typeof raw.package !== "string" || raw.package.length === 0) {
+        this.report(pack, `${pack} must be a non-empty string.`);
+      }
+      return undefined;
+    }
+    if (raw.package !== undefined) {
+      this.report(
+        pack,
+        `${pack} is for a desktop app; a process is started from its command.`,
+      );
+    }
+    if (raw.command === undefined) {
+      this.report(
+        command,
+        `${command} is required for a process: the program and its arguments, as a list.`,
+      );
+      return undefined;
+    }
+    const parts = raw.command;
+    if (
+      !Array.isArray(parts) || parts.length === 0 ||
+      parts.some((part) => typeof part !== "string" || part === "")
+    ) {
+      this.report(command, `${command} must be a non-empty list of strings.`);
+      return undefined;
+    }
+    return parts as string[];
+  }
+
+  private launchPortsOf(
+    value: unknown,
+    path: ManifestPath,
+  ): Record<string, number | "auto"> {
+    if (value === undefined) return {};
+    if (!this.isMapping(value, path)) return {};
+    const ports: Record<string, number | "auto"> = {};
+    for (const [name, port] of Object.entries(value)) {
+      const valid = port === "auto" ||
+        (Number.isInteger(port) && (port as number) > 0 &&
+          (port as number) < 65536);
+      if (!valid) {
+        const portPath = path.child(name);
+        this.report(portPath, `${portPath} must be a port number or "auto".`);
+        continue;
+      }
+      ports[name] = port as number | "auto";
+    }
+    return ports;
+  }
+
+  private launchEnvOf(
+    value: unknown,
+    path: ManifestPath,
+  ): Record<string, string | number | boolean> {
+    if (value === undefined) return {};
+    if (!this.isMapping(value, path)) return {};
+    const env: Record<string, string | number | boolean> = {};
+    for (const [name, setting] of Object.entries(value)) {
+      const settingPath = path.child(name);
+      if (!ENVIRONMENT_NAME.test(name)) {
+        this.report(
+          settingPath,
+          `${path} has "${name}", which is not an environment variable name.`,
+        );
+        continue;
+      }
+      if (!["string", "number", "boolean"].includes(typeof setting)) {
+        this.report(
+          settingPath,
+          `${settingPath} must be a string, a number or a boolean.`,
+        );
+        continue;
+      }
+      env[name] = setting as string | number | boolean;
+    }
+    return env;
+  }
+
+  private launchEnvSecretsOf(
+    value: unknown,
+    path: ManifestPath,
+  ): Record<string, string> {
+    if (value === undefined) return {};
+    if (!this.isMapping(value, path)) return {};
+    const envSecrets: Record<string, string> = {};
+    for (const [name, secret] of Object.entries(value)) {
+      const secretPath = path.child(name);
+      if (!ENVIRONMENT_NAME.test(name)) {
+        this.report(
+          secretPath,
+          `${path} has "${name}", which is not an environment variable name.`,
+        );
+        continue;
+      }
+      if (typeof secret !== "string" || secret === "") {
+        this.report(secretPath, `${secretPath} must name a declared secret.`);
+        continue;
+      }
+      envSecrets[name] = secret;
+    }
+    return envSecrets;
+  }
+
+  private launchDevelopmentOf(
+    value: unknown,
+    path: ManifestPath,
+  ): LaunchDevelopment | undefined {
+    if (value === undefined) return undefined;
+    if (!this.isMapping(value, path)) return undefined;
+    this.rejectUnknownKeys(value, KEYS.launchDevelopment, path);
+    if (value.restart === undefined) return { restart: [] };
+    const restart = path.child("restart");
+    if (!Array.isArray(value.restart)) {
+      this.report(restart, `${restart} must be a list.`);
+      return { restart: [] };
+    }
+    const rules: LaunchWatch[] = [];
+    value.restart.forEach((rule, index) => {
+      const watch = this.launchWatchOf(rule, restart.child(index));
+      if (watch) rules.push(watch);
+    });
+    return { restart: rules };
+  }
+
+  private launchWatchOf(
+    value: unknown,
+    path: ManifestPath,
+  ): LaunchWatch | undefined {
+    if (!this.isMapping(value, path)) return undefined;
+    const keys = Object.keys(value);
+    const named = keys.filter((key) => key === "build" || key === "pack");
+    if (named.length !== 1 || keys.length !== 1) {
+      this.report(path, `${path} must name exactly one of "build" or "pack".`);
+      return undefined;
+    }
+    const kind = named[0];
+    const name = value[kind];
+    if (typeof name !== "string" || name === "") {
+      this.report(path.child(kind), `${path}.${kind} must name a ${kind}.`);
+      return undefined;
+    }
+    return kind === "build" ? { build: name } : { pack: name };
+  }
+
+  private resourceOf(
+    value: unknown,
+    path: ManifestPath,
+  ): ResourceDeclaration | undefined {
+    if (!this.isMapping(value, path)) return undefined;
+
+    if (typeof value.type !== "string" || value.type.length === 0) {
+      this.report(
+        path.child("type"),
+        `${path}.type is required and must be a string.`,
+      );
+    }
+    if (value.class !== undefined && typeof value.class !== "string") {
+      this.report(path.child("class"), `${path}.class must be a string.`);
+    }
+    if (value.capabilities !== undefined) {
+      this.isMapping(value.capabilities, path.child("capabilities"));
     }
 
+    const common = namesOf(KEYS.resource);
     const params: Record<string, unknown> = {};
-    for (const [key, entryValue] of Object.entries(raw)) {
-      if ((RESOURCE_COMMON_KEYS as readonly string[]).includes(key)) continue;
+    for (const [key, entryValue] of Object.entries(value)) {
+      if (common.includes(key)) continue;
       params[key] = entryValue;
     }
 
     return {
-      type: raw.type,
-      class: raw.class as string | undefined,
-      capabilities: raw.capabilities as
+      type: value.type as string,
+      class: value.class as string | undefined,
+      capabilities: value.capabilities as
         | Record<string, boolean | number>
         | undefined,
       params,
     };
   }
 
-  private parseSecret(value: unknown, path: string): SecretDeclaration {
-    this.assertPlainObject(value, path);
-    const raw = value as Record<string, unknown>;
-    this.rejectUnknownKeys(raw, SECRET_KEYS, path);
+  private secretOf(
+    value: unknown,
+    path: ManifestPath,
+  ): SecretDeclaration | undefined {
+    if (!this.isMapping(value, path)) return undefined;
+    this.rejectUnknownKeys(value, KEYS.secret, path);
 
-    if (raw.source !== "file" && raw.source !== "environment") {
-      throw new ManifestError(
+    if (value.source !== "file" && value.source !== "environment") {
+      this.report(
+        path.child("source"),
         `${path}.source is required and must be "file" or "environment".`,
       );
     }
     return {
-      source: raw.source,
-      ...this.parseDescription(raw.description, path),
+      source: value.source as SecretDeclaration["source"],
+      ...this.descriptionOf(value.description, path),
     };
   }
 
-  private parseVariable(value: unknown, path: string): VariableDeclaration {
-    this.assertPlainObject(value, path);
-    const raw = value as Record<string, unknown>;
-    this.rejectUnknownKeys(raw, VARIABLE_KEYS, path);
+  private variableOf(
+    value: unknown,
+    path: ManifestPath,
+  ): VariableDeclaration | undefined {
+    if (!this.isMapping(value, path)) return undefined;
+    this.rejectUnknownKeys(value, KEYS.variable, path);
 
-    if (raw.default !== undefined && typeof raw.default !== "string") {
-      throw new ManifestError(`${path}.default must be a string.`);
+    if (value.default !== undefined && typeof value.default !== "string") {
+      this.report(path.child("default"), `${path}.default must be a string.`);
     }
-    if (
-      raw.type !== undefined &&
-      !VARIABLE_TYPES.includes(raw.type as VariableType)
-    ) {
-      throw new ManifestError(
+    const typed = value.type === undefined ||
+      VARIABLE_TYPES.includes(value.type as VariableType);
+    if (!typed) {
+      this.report(
+        path.child("type"),
         `${path}.type must be one of: ${VARIABLE_TYPES.join(", ")}.`,
       );
     }
     return {
-      ...(raw.type !== undefined && { type: raw.type as VariableType }),
-      default: raw.default as string | undefined,
-      ...this.parseDescription(raw.description, path),
+      ...(value.type !== undefined && typed &&
+        { type: value.type as VariableType }),
+      default: value.default as string | undefined,
+      ...this.descriptionOf(value.description, path),
     };
   }
 
   /** Spreads to nothing when absent, so a declaration without one keeps its exact shape. */
-  private parseDescription(
+  private descriptionOf(
     value: unknown,
-    path: string,
+    path: ManifestPath,
   ): { description?: string } {
     if (value === undefined) return {};
     if (typeof value !== "string") {
-      throw new ManifestError(`${path}.description must be a string.`);
+      this.report(
+        path.child("description"),
+        `${path}.description must be a string.`,
+      );
+      return {};
     }
     return { description: value };
   }
 
-  private parseExternal(value: unknown, path: string): ExternalDeclaration {
-    this.assertPlainObject(value, path);
-    const raw = value as Record<string, unknown>;
-    this.rejectUnknownKeys(raw, EXTERNAL_KEYS, path);
+  private externalOf(
+    value: unknown,
+    path: ManifestPath,
+  ): ExternalDeclaration | undefined {
+    if (!this.isMapping(value, path)) return undefined;
+    this.rejectUnknownKeys(value, KEYS.external, path);
 
-    if (typeof raw.type !== "string" || raw.type.length === 0) {
-      throw new ManifestError(`${path}.type is required and must be a string.`);
+    if (typeof value.type !== "string" || value.type.length === 0) {
+      this.report(
+        path.child("type"),
+        `${path}.type is required and must be a string.`,
+      );
     }
-    if (typeof raw.name !== "string" || raw.name.length === 0) {
-      throw new ManifestError(`${path}.name is required and must be a string.`);
+    if (typeof value.name !== "string" || value.name.length === 0) {
+      this.report(
+        path.child("name"),
+        `${path}.name is required and must be a string.`,
+      );
     }
-    return { type: raw.type, name: raw.name };
+    return { type: value.type as string, name: value.name as string };
   }
 
-  private parseReleases(value: unknown): Record<string, Release> {
-    this.assertPlainObject(value, "manifest.release");
-    const entries = value as Record<string, unknown>;
+  private releasesOf(
+    value: unknown,
+    path: ManifestPath,
+  ): Record<string, Release> {
+    if (!this.isMapping(value, path)) return {};
     const releases: Record<string, Release> = {};
-
-    for (const [name, entry] of Object.entries(entries)) {
-      const path = `manifest.release.${name}`;
-      this.assertPlainObject(entry, path);
-      const raw = entry as Record<string, unknown>;
-      this.rejectUnknownKeys(raw, RELEASE_KEYS, path);
-
-      if (typeof raw.kit !== "string" || raw.kit.length === 0) {
-        throw new ManifestError(
-          `${path}.kit is required and must be a string.`,
-        );
-      }
-      if (raw.mode !== undefined && typeof raw.mode !== "string") {
-        throw new ManifestError(`${path}.mode must be a string.`);
-      }
-      if (raw.outputName !== undefined && typeof raw.outputName !== "string") {
-        throw new ManifestError(`${path}.outputName must be a string.`);
-      }
-
-      let publish: PublishSpec | undefined;
-      if (raw.publish !== undefined) {
-        publish = this.parsePublish(raw.publish, `${path}.publish`);
-      }
-
-      releases[name] = {
-        kit: raw.kit,
-        mode: raw.mode as string | undefined,
-        outputName: raw.outputName as string | undefined,
-        publish,
-      };
+    for (const [name, entry] of Object.entries(value)) {
+      const release = this.releaseOf(entry, path.child(name));
+      if (release) releases[name] = release;
     }
-
     return releases;
   }
 
-  private parsePublish(value: unknown, path: string): PublishSpec {
-    this.assertPlainObject(value, path);
-    const raw = value as Record<string, unknown>;
-    this.rejectUnknownKeys(raw, PUBLISH_KEYS, path);
+  private releaseOf(value: unknown, path: ManifestPath): Release | undefined {
+    if (!this.isMapping(value, path)) return undefined;
+    this.rejectUnknownKeys(value, KEYS.release, path);
 
-    if (typeof raw.target !== "string" || raw.target.length === 0) {
-      throw new ManifestError(
-        `${path}.target is required and must be a string.`,
+    if (typeof value.kit !== "string" || value.kit.length === 0) {
+      this.report(
+        path.child("kit"),
+        `${path}.kit is required and must be a string.`,
       );
     }
-    if (raw.name !== undefined && typeof raw.name !== "string") {
-      throw new ManifestError(`${path}.name must be a string.`);
+    if (value.mode !== undefined && typeof value.mode !== "string") {
+      this.report(path.child("mode"), `${path}.mode must be a string.`);
     }
-    if (raw.options !== undefined) {
-      this.assertPlainObject(raw.options, `${path}.options`);
+    if (
+      value.outputName !== undefined && typeof value.outputName !== "string"
+    ) {
+      this.report(
+        path.child("outputName"),
+        `${path}.outputName must be a string.`,
+      );
     }
 
     return {
-      target: raw.target,
-      name: raw.name as string | undefined,
-      options: (raw.options as Record<string, string> | undefined) ?? {},
+      kit: value.kit as string,
+      mode: value.mode as string | undefined,
+      outputName: value.outputName as string | undefined,
+      publish: value.publish === undefined
+        ? undefined
+        : this.publishOf(value.publish, path.child("publish")),
     };
   }
 
-  private validateVersion(version: unknown): void {
-    if (version === undefined) {
-      throw new ManifestError(
-        `manifest.version is required (expected one of: ${
-          SUPPORTED_VERSIONS.join(", ")
-        }).`,
+  private publishOf(
+    value: unknown,
+    path: ManifestPath,
+  ): PublishSpec | undefined {
+    if (!this.isMapping(value, path)) return undefined;
+    this.rejectUnknownKeys(value, KEYS.publish, path);
+
+    if (typeof value.target !== "string" || value.target.length === 0) {
+      this.report(
+        path.child("target"),
+        `${path}.target is required and must be a string.`,
       );
     }
-    if (typeof version !== "string" || !SUPPORTED_VERSIONS.includes(version)) {
-      throw new ManifestError(
-        `manifest.version "${
+    if (value.name !== undefined && typeof value.name !== "string") {
+      this.report(path.child("name"), `${path}.name must be a string.`);
+    }
+    const options = value.options === undefined ||
+      this.isMapping(value.options, path.child("options"));
+
+    return {
+      target: value.target as string,
+      name: value.name as string | undefined,
+      options: options
+        ? (value.options as Record<string, string> | undefined) ?? {}
+        : {},
+    };
+  }
+
+  private checkVersion(version: unknown, path: ManifestPath): void {
+    const expected = SUPPORTED_VERSIONS.join(", ");
+    if (version === undefined) {
+      this.report(path, `${path} is required (expected one of: ${expected}).`);
+      return;
+    }
+    if (
+      typeof version !== "string" ||
+      !(SUPPORTED_VERSIONS as readonly string[]).includes(version)
+    ) {
+      this.report(
+        path,
+        `${path} "${
           String(version)
-        }" is not supported (expected one of: ${
-          SUPPORTED_VERSIONS.join(", ")
-        }).`,
+        }" is not supported (expected one of: ${expected}).`,
       );
     }
   }
 
   private rejectUnknownKeys(
     object: Record<string, unknown>,
-    knownKeys: readonly string[],
-    path: string,
+    keys: readonly Key[],
+    path: ManifestPath,
+  ): void {
+    this.rejectUnknownNames(object, namesOf(keys), path);
+  }
+
+  private rejectUnknownNames(
+    object: Record<string, unknown>,
+    known: readonly string[],
+    path: ManifestPath,
   ): void {
     for (const key of Object.keys(object)) {
-      if ((knownKeys as readonly string[]).includes(key)) continue;
-      const suggestion = this.keySuggester.suggestFor(key, knownKeys);
+      if (known.includes(key)) continue;
+      const suggestion = this.keySuggester.suggestFor(key, known);
       const hint = suggestion ? ` Did you mean "${suggestion}"?` : "";
-      throw new ManifestError(`${path} has an unknown key "${key}".${hint}`);
+      this.report(
+        path.child(key),
+        `${path} has an unknown key "${key}".${hint}`,
+      );
     }
   }
 
-  private assertPlainObject(
+  /** Whether `value` is a mapping, reporting that it must be one when it isn't. */
+  private isMapping(
     value: unknown,
-    path: string,
-  ): asserts value is Record<string, unknown> {
-    if (typeof value !== "object" || value === null || Array.isArray(value)) {
-      throw new ManifestError(`${path} must be a mapping.`);
+    path: ManifestPath,
+  ): value is Record<string, unknown> {
+    if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+      return true;
     }
+    this.report(path, `${path} must be a mapping.`);
+    return false;
+  }
+
+  private report(path: ManifestPath, message: string): void {
+    this.problems.push(path.problem(message));
   }
 }

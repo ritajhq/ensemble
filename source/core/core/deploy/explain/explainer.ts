@@ -3,7 +3,7 @@ import type { Target } from "../kit/target.ts";
 import type { ArtifactsSource } from "../artifacts-source.ts";
 import type { Knowability } from "../kit/realization.ts";
 import type { ContractRegistry } from "../contracts/registry.ts";
-import { ReferenceValidator } from "../contracts/reference-validator.ts";
+import { WorkloadValidator } from "../resolve/workload-validator.ts";
 import { DependencyGraphBuilder } from "../resolve/dependency-graph.ts";
 import { ProvisionerSelector } from "../resolve/provisioner-selector.ts";
 import { WorkloadResolver } from "../resolve/workload-resolver.ts";
@@ -66,11 +66,12 @@ export class Explainer {
     private readonly resolver: WorkloadResolver = new WorkloadResolver(
       registry,
     ),
-    private readonly referenceValidator: ReferenceValidator =
-      new ReferenceValidator(registry),
+    private readonly validator: WorkloadValidator = new WorkloadValidator(
+      registry,
+    ),
   ) {}
 
-  /** Throws `ContractError` for any reference that targets an undeclared release/resource/output, `ResourceNotFoundError` if `category.name` isn't declared in the workload. Any other resolution failure (an unknown type, no matching provisioner) propagates as-is — a real deploy would fail for the same reason, regardless of which resource is being explained. */
+  /** Throws `ContractError` naming every contract problem and every reference that targets an undeclared release/resource/output, `ResourceNotFoundError` if `category.name` isn't declared in the workload. Any other resolution failure (an unknown type, no matching provisioner) propagates as-is — a real deploy would fail for the same reason, regardless of which resource is being explained. */
   async explain(
     workload: Workload,
     target: Target,
@@ -78,7 +79,7 @@ export class Explainer {
     category: Category,
     name: string,
   ): Promise<ResourceExplanation> {
-    this.referenceValidator.validate(workload);
+    this.validator.validate(workload);
 
     const key = `${category}.${name}`;
     const resolution = await this.resolver.resolve(workload, target);

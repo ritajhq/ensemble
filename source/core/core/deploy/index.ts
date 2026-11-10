@@ -18,3 +18,5 @@ export * from "./artifacts-source.ts";
 export { RuntimeStart } from "./runtime-start.ts";
 export * from "./kit/index.ts";
 export * from "./integration.ts";
+export { ManifestPath, type PathSegment, type Problem } from "./problem.ts";
+export { ManifestCheck } from "./manifest-check.ts";

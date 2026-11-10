@@ -26,3 +26,4 @@ export {
   type WorkloadResolution,
   WorkloadResolver,
 } from "./workload-resolver.ts";
+export { WorkloadValidator } from "./workload-validator.ts";

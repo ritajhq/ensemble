@@ -3,6 +3,7 @@ import type { ResourceDeclaration } from "../resource.ts";
 import { KeySuggester } from "../manifest/key-suggester.ts";
 import { ReferenceSyntax } from "../reference.ts";
 import { ContractError } from "./errors.ts";
+import type { ManifestPath, Problem } from "../problem.ts";
 
 /** The ordered, portable core class vocabulary (Section 2) — every contract accepts the full vocabulary at the interface layer; a realization decides what each class expands to (Phase 4/5). */
 export const CORE_CLASSES = ["ephemeral", "standard", "critical"] as const;
@@ -65,80 +66,110 @@ export class ResourceContract {
     ];
   }
 
-  /** Validates a resource declaration already matched to this contract by type: every declared param is known and correctly typed, every required param is present, `class` (if set) is in this contract's vocabulary, and every capability (if set) is declared and correctly shaped. Throws `ContractError` naming the first violation. */
-  validate(resource: ResourceDeclaration): void {
-    this.validateParams(resource);
-    this.validateClass(resource);
-    this.validateCapabilities(resource);
+  /** Validates a resource declaration already matched to this contract by type, `at` being where it sits in the manifest. Throws `ContractError` naming every violation `problemsOf` finds. */
+  validate(resource: ResourceDeclaration, at: ManifestPath): void {
+    const problems = this.problemsOf(resource, at);
+    if (problems.length > 0) throw new ContractError(problems);
   }
 
-  private validateParams(resource: ResourceDeclaration): void {
+  /** Every way a resource declaration of this contract's type is invalid: an unknown or mistyped param, a missing required one, a `class` outside this contract's vocabulary, an undeclared or mis-shaped capability. Each problem points at the field it's about, or at the resource for a missing param. */
+  problemsOf(resource: ResourceDeclaration, at: ManifestPath): Problem[] {
+    return [
+      ...this.paramProblems(resource, at),
+      ...this.classProblems(resource, at),
+      ...this.capabilityProblems(resource, at),
+    ];
+  }
+
+  private paramProblems(
+    resource: ResourceDeclaration,
+    at: ManifestPath,
+  ): Problem[] {
     const known = this.params.map((p) => p.name);
+    const problems: Problem[] = [];
 
     for (const key of Object.keys(resource.params)) {
       if (known.includes(key)) continue;
       const suggestion = this.keySuggester.suggestFor(key, known);
       const hint = suggestion ? ` Did you mean "${suggestion}"?` : "";
-      throw new ContractError(`${this.id} has no param "${key}".${hint}`);
+      problems.push(
+        at.child(key).problem(`${this.id} has no param "${key}".${hint}`),
+      );
     }
 
     for (const field of this.params) {
       const value = resource.params[field.name];
       if (value === undefined) {
-        if (field.required) {
-          throw new ContractError(`${this.id} requires param "${field.name}".`);
-        }
+        if (!field.required) continue;
+        problems.push(
+          at.problem(`${this.id} requires param "${field.name}".`),
+        );
         continue;
       }
       // A whole reference's type is only known once it resolves (a `list`
       // variable feeding an array param, say) — the provisioner consuming
       // the resolved value owns that check.
       if (this.syntax.isWhole(value)) continue;
-      if (!this.matchesType(value, field.type)) {
-        throw new ContractError(
+      if (this.matchesType(value, field.type)) continue;
+      problems.push(
+        at.child(field.name).problem(
           `${this.id} param "${field.name}" must be a ${field.type}.`,
-        );
-      }
+        ),
+      );
     }
+
+    return problems;
   }
 
-  private validateClass(resource: ResourceDeclaration): void {
-    if (resource.class === undefined) return;
+  private classProblems(
+    resource: ResourceDeclaration,
+    at: ManifestPath,
+  ): Problem[] {
+    if (resource.class === undefined) return [];
+    const where = at.child("class");
     if (this.classes.length === 0) {
-      throw new ContractError(`${this.id} takes no class.`);
+      return [where.problem(`${this.id} takes no class.`)];
     }
-    if (!this.classes.includes(resource.class)) {
-      throw new ContractError(
+    if (this.classes.includes(resource.class)) return [];
+    return [
+      where.problem(
         `${this.id} does not support class "${resource.class}" (expected one of: ${
           this.classes.join(", ")
         }).`,
-      );
-    }
+      ),
+    ];
   }
 
-  private validateCapabilities(resource: ResourceDeclaration): void {
-    if (resource.capabilities === undefined) return;
+  private capabilityProblems(
+    resource: ResourceDeclaration,
+    at: ManifestPath,
+  ): Problem[] {
+    if (resource.capabilities === undefined) return [];
     const known = this.capabilities.map((c) => c.name);
+    const problems: Problem[] = [];
 
     for (const [name, value] of Object.entries(resource.capabilities)) {
+      const where = at.child("capabilities").child(name);
       const declaration = this.capabilities.find((c) => c.name === name);
       if (!declaration) {
         const suggestion = this.keySuggester.suggestFor(name, known);
         const hint = suggestion ? ` Did you mean "${suggestion}"?` : "";
-        throw new ContractError(
-          `${this.id} has no capability "${name}".${hint}`,
+        problems.push(
+          where.problem(`${this.id} has no capability "${name}".${hint}`),
         );
+        continue;
       }
       const matches = declaration.quantified
         ? typeof value === "number"
         : typeof value === "boolean";
-      if (!matches) {
-        const expected = declaration.quantified ? "number" : "boolean";
-        throw new ContractError(
-          `${this.id} capability "${name}" must be a ${expected}.`,
-        );
-      }
+      if (matches) continue;
+      const expected = declaration.quantified ? "number" : "boolean";
+      problems.push(
+        where.problem(`${this.id} capability "${name}" must be a ${expected}.`),
+      );
     }
+
+    return problems;
   }
 
   private matchesType(value: unknown, type: ScalarType): boolean {

@@ -28,7 +28,7 @@ export interface WorkloadResolution {
   readonly gaps: readonly CapabilityGapReport[];
 }
 
-const RESOLVABLE_CATEGORIES = [
+export const RESOLVABLE_CATEGORIES = [
   "compute",
   "storage",
   "databases",

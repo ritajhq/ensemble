@@ -3,3 +3,6 @@ export { KeySuggester } from "./key-suggester.ts";
 export { Parser } from "./parser.ts";
 export { Loader } from "./loader.ts";
 export { Locator } from "./locator.ts";
+export { type Reading } from "./parser.ts";
+export { type Key, KEYS, SECRET_SOURCES, SUPPORTED_VERSIONS } from "./keys.ts";
+export { Shape } from "./shape.ts";

@@ -2,7 +2,7 @@ import type { Workload } from "../workload.ts";
 import type { Target } from "../kit/target.ts";
 import type { ArtifactsSource } from "../artifacts-source.ts";
 import type { ContractRegistry } from "../contracts/registry.ts";
-import { ReferenceValidator } from "../contracts/reference-validator.ts";
+import { WorkloadValidator } from "../resolve/workload-validator.ts";
 import { DependencyGraphBuilder } from "../resolve/dependency-graph.ts";
 import {
   type CapabilityGapReport,
@@ -85,7 +85,7 @@ export type DeployResult =
  */
 export class DeploymentCoordinator {
   private readonly resolver: WorkloadResolver;
-  private readonly referenceValidator: ReferenceValidator;
+  private readonly validator: WorkloadValidator;
 
   constructor(
     registry: ContractRegistry,
@@ -101,17 +101,17 @@ export class DeploymentCoordinator {
       new DependencyGraphBuilder(),
   ) {
     this.resolver = new WorkloadResolver(registry);
-    this.referenceValidator = new ReferenceValidator(registry);
+    this.validator = new WorkloadValidator(registry);
   }
 
-  /** `name` is the deployment's own name (`ens deploy <name> <kit>`) — passed through to `apply`/watch for a kit to scope its own native invocation by (a compose project name, a CloudFormation stack name). Throws `ContractError` for any reference that targets an undeclared release/resource/output before doing any resolution work, then `CapabilityGapError` (naming every unmet capability) before rendering anything, unless `options.acceptCapabilityGaps` is set. On an apply, if `options.emulateExternals` is set, stands up each `deploy.external` entry the kit knows how to emulate before anything else in this block, throwing `EmulateExternalsNotSupportedError`/`ExternalsEmulationError` on failure. For a published apply, runs the availability preflight right before the terminal step, throwing `ReleaseAvailabilityError` if any declared release isn't actually reachable yet; for a local apply (unless `options.pack` is `false`), packs the referenced releases instead, throwing `ReleasePackError` if any of them fails. When `options.watch` is set, runs the kit's long-lived watch command instead of a one-shot apply, throwing `WatchNotSupportedError` if the kit has none for this target. */
+  /** `name` is the deployment's own name (`ens deploy <name> <kit>`) — passed through to `apply`/watch for a kit to scope its own native invocation by (a compose project name, a CloudFormation stack name). Throws `ContractError` naming every contract problem and every reference that targets an undeclared release/resource/output before doing any resolution work, then `CapabilityGapError` (naming every unmet capability) before rendering anything, unless `options.acceptCapabilityGaps` is set. On an apply, if `options.emulateExternals` is set, stands up each `deploy.external` entry the kit knows how to emulate before anything else in this block, throwing `EmulateExternalsNotSupportedError`/`ExternalsEmulationError` on failure. For a published apply, runs the availability preflight right before the terminal step, throwing `ReleaseAvailabilityError` if any declared release isn't actually reachable yet; for a local apply (unless `options.pack` is `false`), packs the referenced releases instead, throwing `ReleasePackError` if any of them fails. When `options.watch` is set, runs the kit's long-lived watch command instead of a one-shot apply, throwing `WatchNotSupportedError` if the kit has none for this target. */
   async deploy(
     name: string,
     workload: Workload,
     target: Target,
     options: DeployOptions,
   ): Promise<DeployResult> {
-    this.referenceValidator.validate(workload);
+    this.validator.validate(workload);
 
     const { requests, selections, gaps } = await this.resolver.resolve(
       workload,

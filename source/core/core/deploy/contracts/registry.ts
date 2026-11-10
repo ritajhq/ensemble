@@ -25,4 +25,11 @@ export class ContractCatalog implements ContractRegistry {
   contractFor(category: Category, type: string): ResourceContract | undefined {
     return this.byId.get(`${category}.${type}`);
   }
+
+  /** Every contract for a category — the `type:` values a resource in it may take. */
+  contractsIn(category: Category): ResourceContract[] {
+    return [...this.byId.values()].filter((contract) =>
+      contract.category === category
+    );
+  }
 }

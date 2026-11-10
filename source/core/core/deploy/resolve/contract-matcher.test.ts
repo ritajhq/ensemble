@@ -42,5 +42,9 @@ Deno.test("ContractMatcher.match: raises for invalid params (delegates to the co
       matcher.match("databases", "primary", { type: "relational", params: {} }),
     ContractError,
   );
-  assertEquals(error.message, 'databases.relational requires param "engine".');
+  assertEquals(
+    error.message.split("\n")[0],
+    'databases.relational requires param "engine".',
+  );
+  assertEquals(error.problems.length, 5);
 });

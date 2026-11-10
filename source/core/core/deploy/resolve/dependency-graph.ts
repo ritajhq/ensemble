@@ -8,9 +8,12 @@ export interface ResourceId {
   readonly name: string;
 }
 
-/** Raised when a reference points at a resource that isn't declared anywhere in the workload, or when the reference graph has a cycle. */
+/** Raised when a reference points at a resource that isn't declared anywhere in the workload, or when the reference graph has a cycle. `involved` names the resources the message is about: the one holding the reference, or every one left unordered by the cycle. */
 export class DependencyGraphError extends Error {
-  constructor(message: string) {
+  constructor(
+    message: string,
+    readonly involved: readonly ResourceId[] = [],
+  ) {
     super(message);
     this.name = "DependencyGraphError";
   }
@@ -114,6 +117,7 @@ export class DependencyGraphBuilder {
           if (!nodeKeys.has(to)) {
             throw new DependencyGraphError(
               `${from} references undeclared resource "${to}".`,
+              [{ category, name }],
             );
           }
           if (ComputeAddress.names(reference, workload)) return;
@@ -177,8 +181,10 @@ export class DependencyGraphBuilder {
         .sort();
 
       if (ready.length === 0) {
+        const involved = [...remaining.keys()].sort();
         throw new DependencyGraphError(
-          `Cycle detected among: ${[...remaining.keys()].sort().join(", ")}.`,
+          `Cycle detected among: ${involved.join(", ")}.`,
+          involved.map((key) => byKey.get(key)!),
         );
       }
 
