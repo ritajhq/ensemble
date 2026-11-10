@@ -1,3 +1,18 @@
+## [0.65.2] - 2026-11-10
+
+### 🚀 Features
+
+- *(core/core)* Report every manifest problem at once, each at the node it's about
+- *(cli)* Complete delivery.yml structure and mark its problems in ens lsp
+
+### 📚 Documentation
+
+- Consolidate the docs and add an ensemble skill for agents
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.65.1
+- *(release)* Bump library versions for 0.65.2
 ## [0.65.1] - 2026-11-05
 
 ### 🐛 Bug Fixes
