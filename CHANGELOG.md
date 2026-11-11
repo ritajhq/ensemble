@@ -1,3 +1,13 @@
+## [0.67.0] - 2026-11-11
+
+### 💥 Breaking Changes
+
+- *(cli)* Run an operation with ens operations <name> <operation> and drop ens operation
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.66.0
+- *(release)* Bump library versions for 0.67.0
 ## [0.66.0] - 2026-11-11
 
 ### 💥 Breaking Changes
