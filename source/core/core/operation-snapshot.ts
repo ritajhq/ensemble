@@ -57,7 +57,11 @@ export function embedsRenderedReference(raw: unknown): boolean {
 export class OperationSnapshotFile {
   constructor(private readonly path: string) {}
 
-  static for(repoRoot: string, name: string, kit: string): OperationSnapshotFile {
+  static for(
+    repoRoot: string,
+    name: string,
+    kit: string,
+  ): OperationSnapshotFile {
     return new OperationSnapshotFile(
       join(repoRoot, ".ensemble", "deploy", name, `${kit}.operations.json`),
     );
@@ -81,6 +85,10 @@ export class OperationSnapshotFile {
 /** The kit's own files, not what running it leaves behind. */
 const KIT_SKIP = [
   /\.test\.ts$/,
+  // Deno rewrites the kit's lockfile whenever a process of the kit finds it
+  // stale — the watch process, started after the fingerprint is taken, does
+  // after a `kit-sdk` bump — so it would make a fresh snapshot look outdated.
+  /(^|\/)deno\.lock$/,
   /(^|\/)__snapshots__\//,
   /(^|\/)\.bin\//,
   /(^|\/)node_modules\//,
@@ -159,7 +167,8 @@ export class DeploymentFingerprint {
  * value (a target-deferred output) isn't kept — the operation will render to
  * resolve it, and fail there saying why.
  */
-export class OperationSnapshotRecorder implements Deploy.Terminations.DeployedState {
+export class OperationSnapshotRecorder
+  implements Deploy.Terminations.DeployedState {
   constructor(
     private readonly file: OperationSnapshotFile,
     private readonly fingerprint: string,
@@ -172,7 +181,9 @@ export class OperationSnapshotRecorder implements Deploy.Terminations.DeployedSt
     artifactPath: string,
   ): Promise<void> {
     const recorded: Record<string, Record<string, ArgumentValue>> = {};
-    for (const [name, operation] of Object.entries(this.workload.operations ?? {})) {
+    for (
+      const [name, operation] of Object.entries(this.workload.operations ?? {})
+    ) {
       recorded[name] = await this.resolve(operation, ledger);
     }
 

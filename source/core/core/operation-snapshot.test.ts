@@ -62,13 +62,16 @@ Deno.test("DeploymentFingerprint: changes with the kit's files and the operation
 
     await Deno.writeTextFile(join(kitDir, "a1b2c3d4e5f6.ts"), "// wrapper");
     await Deno.writeTextFile(join(kitDir, "main.test.ts"), "// a test");
+    await Deno.writeTextFile(join(kitDir, "deno.lock"), "{}");
     assertEquals(await DeploymentFingerprint.of(context), original);
 
     const differentScript = {
       ...context,
       workload: {
         ...workload,
-        operations: { migrate: { ...workload.operations!.migrate, script: "other.sh" } },
+        operations: {
+          migrate: { ...workload.operations!.migrate, script: "other.sh" },
+        },
       },
     };
     assertEquals(await DeploymentFingerprint.of(differentScript), original);
@@ -77,7 +80,9 @@ Deno.test("DeploymentFingerprint: changes with the kit's files and the operation
       ...context,
       workload: {
         ...workload,
-        operations: { migrate: { script: "migrate.sh", arguments: { a: "b" } } },
+        operations: {
+          migrate: { script: "migrate.sh", arguments: { a: "b" } },
+        },
       },
     };
     assertNotEquals(
@@ -116,7 +121,11 @@ Deno.test("OperationSnapshotRecorder: keeps every operation argument only a rend
       undefined as never,
       undefined as never,
     );
-    const file = OperationSnapshotFile.for(context.repoRoot, "demo", "demo-kit");
+    const file = OperationSnapshotFile.for(
+      context.repoRoot,
+      "demo",
+      "demo-kit",
+    );
 
     await new OperationSnapshotRecorder(file, "fp", renderer, workload).record(
       ledger,
