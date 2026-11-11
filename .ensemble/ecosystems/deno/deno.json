@@ -105,9 +105,6 @@
       "vscode": "npm:@types/vscode@1.105.0",
       "vscode-languageclient": "npm:vscode-languageclient@9.0.1"
     },
-    "../../../source/apps/git-sync/": {
-      "@std/path": "jsr:@std/path@1.1.6"
-    },
     "../../../source/apps/mock/api/": {
       "@std/path": "jsr:@std/path@1.1.6",
       "@tally/ink": "../../../source/apps/mock/ink/index.ts",

@@ -11,6 +11,8 @@ import {
 } from "./fonts.ts";
 import { buildDocsNav, firstPageSlug, readDocsSource } from "./docs/content.ts";
 import { renderMarkdown } from "./docs/render.ts";
+import { Poller } from "./docs/poller.ts";
+import { Repository } from "./docs/repository.ts";
 
 const PAGE_TITLE = "Ensemble — one workspace, one CLI, source to deployment";
 const PAGE_DESCRIPTION =
@@ -18,11 +20,21 @@ const PAGE_DESCRIPTION =
   "from source through build, packaging, and deployment, without the structure " +
   "decaying as the project grows.";
 
-// Where git-sync lands the `docs/` folder it syncs from the ensemble repo (see
-// ci/website/delivery.yml's `variables.repos` and the `docs-content` volume
-// mount) — `documentation/` is the published subset; generated architecture
-// pages and assets beside it are deliberately not served here.
-const DOCS_ROOT = Deno.env.get("DOCS_DIR") ?? "/data/docs/documentation";
+// Where the docs are published to (see `docs/poller.ts`): the `docs/` folder of
+// the ensemble repository. `documentation/` is the published subset; generated
+// architecture pages and assets beside it are deliberately not served here.
+const DOCS_DIR = Deno.env.get("DOCS_DIR") ?? "/data/docs";
+const DOCS_ROOT = join(DOCS_DIR, "documentation");
+
+new Poller(
+  new Repository(
+    Deno.env.get("DOCS_REPOSITORY") ?? "ritajhq/ensemble",
+    Deno.env.get("DOCS_REF") ?? "main",
+    Deno.env.get("DOCS_FOLDER") ?? "docs",
+    DOCS_DIR,
+  ),
+  Number(Deno.env.get("DOCS_POLL_SECONDS") ?? 300) * 1000,
+).Start();
 
 // website/content is the react kit's "ssr" target: a hydration bundle
 // (main.js + index.css) with no page of its own — this server owns the page
@@ -124,7 +136,7 @@ function renderPage(): string {
 async function renderDocsPage(pathname: string): Promise<Response> {
   const nav = await buildDocsNav(DOCS_ROOT);
   if (!nav) {
-    return new Response("Docs aren't synced onto this deployment yet.", {
+    return new Response("Docs aren't published on this deployment yet.", {
       status: 503,
     });
   }

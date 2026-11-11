@@ -4,8 +4,6 @@ ecosystems:
 build:
   cli:
     kit: deno.bundle
-  git-sync:
-    kit: deno.bundle
   platform/server:
     kit: deno.bundle
   platform/web:

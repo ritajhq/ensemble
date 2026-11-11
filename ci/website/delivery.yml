@@ -4,8 +4,6 @@ version: v1
 release:
   website:
     kit: docker
-  git-sync:
-    kit: docker
 
 deploy:
   compute:
@@ -15,12 +13,14 @@ deploy:
       replicas: 1
       ports:
         http: 8000
-      networks:
-        - ${external.edge.name}
+      env:
+        DOCS_DIR: /data/docs
+        DOCS_REPOSITORY: ${variables.docs-repository.value}
+        DOCS_REF: ${variables.docs-ref.value}
+        DOCS_POLL_SECONDS: ${variables.docs-poll-seconds.value}
       mounts:
         - source: ${storage.docs-content.name}
           path: /data
-          readOnly: true
       development:
         sync:
           - app: website/server
@@ -28,40 +28,37 @@ deploy:
           - app: website/content
             path: /app/content
 
-    git-sync:
-      type: container
-      image: ${release.git-sync}
-      replicas: 1
-      ports:
-        http: 8001
+  networking:
+    # What fronts the stack on the edge network.
+    gateway:
+      type: gateway
       networks:
         - ${external.edge.name}
-      env:
-        SYNC_DEST: /data
-        REPOS: ${variables.repos.value}
-      envSecrets:
-        WEBHOOK_SECRET_DOCS: docs-webhook-secret
-      mounts:
-        - source: ${storage.docs-content.name}
-          path: /data
-      development:
-        sync:
-          - app: git-sync
-            path: /app
+      routes:
+        - host: ${variables.domain.value}
+          path: /*
+          target:
+            service: server
+            port: ${compute.server.http}
 
   storage:
+    # The published docs, kept across restarts so the site has them at once.
     docs-content:
       type: volume
 
-  secrets:
-    docs-webhook-secret:
-      source: environment
-      description: Secret the docs repository's GitHub webhook signs its deliveries with (WEBHOOK_SECRET_DOCS)
-
   variables:
-    repos:
-      description: JSON list of the repositories, refs and paths the website builds its content from
-      default: '[{"id":"docs","repo":"ritajhq/ensemble","ref":"main","path":"docs"},{"id":"docs","repo":"ritajhq/ensemble","ref":"main","path":"docs", "trigger":"manual"}]'
+    domain:
+      default: docs.ensemble.lvh.me
+      description: Host the website answers on
+    docs-repository:
+      default: ritajhq/ensemble
+      description: GitHub repository (owner/name) the docs are published from
+    docs-ref:
+      default: main
+      description: Branch or tag of that repository the docs follow
+    docs-poll-seconds:
+      default: "300"
+      description: Seconds between checks of the repository for new commits
 
   external:
     edge:

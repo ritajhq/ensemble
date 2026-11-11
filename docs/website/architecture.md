@@ -6,8 +6,10 @@
 
 | Name | Type | Details | Used by |
 | --- | --- | --- | --- |
-| `docs-webhook-secret` | secret: environment | Secret the docs repository's GitHub webhook signs its deliveries with (WEBHOOK_SECRET_DOCS) | `compute.git-sync` |
-| `repos` | variable: string | JSON list of the repositories, refs and paths the website builds its content from<br>default: [{"id":"docs","repo":"ritajhq/ensemble","ref":"main","path":"docs"},{"id":"docs","repo":"ritajhq/ensemble","ref":"main","path":"docs", "trigger":"manual"}] | `compute.git-sync` |
+| `domain` | variable: string | Host the website answers on<br>default: docs.ensemble.lvh.me | `networking.gateway` |
+| `docs-repository` | variable: string | GitHub repository (owner/name) the docs are published from<br>default: ritajhq/ensemble | `compute.server` |
+| `docs-ref` | variable: string | Branch or tag of that repository the docs follow<br>default: main | `compute.server` |
+| `docs-poll-seconds` | variable: string | Seconds between checks of the repository for new commits<br>default: 300 | `compute.server` |
 
 ## External
 
