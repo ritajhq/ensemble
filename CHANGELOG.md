@@ -1,3 +1,33 @@
+## [0.66.0] - 2026-11-11
+
+### 💥 Breaking Changes
+
+- *(cli)* Rename tasks to operations and promote them to top-level ens operations and ens operation
+
+### 🚀 Features
+
+- *(cli)* Run delivery tasks per kit from ci/<name>/<kit> and add ens delivery tasks with task descriptions
+- *(website)* Poll the docs repository from the website server and drop git-sync
+- *(cli)* Read delivery task scripts from ci/<name>/<kit>/tasks
+
+### 🐛 Bug Fixes
+
+- *(core/core)* Give the manifest keys and shape explicit types for JSR
+
+### 📚 Documentation
+
+- Document ecosystems across releases, libraries and the config file, and how to write an ecosystem kit
+
+### 🎨 Styling
+
+- *(core)* Format the launching code and its docs with deno fmt
+
+### ⚙️ Miscellaneous Tasks
+
+- *(cli)* Lock the yaml package the ens binary now embeds
+- *(changelog)* Update for 0.65.2
+- Move CLAUDE.md into .claude
+- *(release)* Bump library versions for 0.66.0
 ## [0.65.2] - 2026-11-10
 
 ### 🚀 Features
