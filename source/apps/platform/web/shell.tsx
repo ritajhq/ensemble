@@ -41,7 +41,7 @@ export function Shell() {
 
   return (
     <TooltipProvider>
-      <SidebarProvider>
+      <SidebarProvider shortcut="Ctrl+B">
         <Sidebar variant="inset">
           <SidebarHeader>
             <SidebarWorkspaceHeader

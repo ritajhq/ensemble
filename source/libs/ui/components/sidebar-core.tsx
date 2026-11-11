@@ -41,6 +41,12 @@ export const SIDEBAR_WIDTH_MOBILE = "18rem";
  *  Bare (no ⌘/Ctrl) so the browser's history shortcuts stay untouched. */
 export const SIDEBAR_KEYBOARD_SHORTCUT = "[";
 export const SIDEBAR_KEYBOARD_SHORTCUT_RIGHT = "]";
+
+/** A toggle shortcut: its key, and whether Ctrl must be held ("Ctrl+B"). */
+function parseShortcut(shortcut: string): { key: string; ctrl: boolean } {
+  const ctrl = /^ctrl\+./i.test(shortcut);
+  return { key: (ctrl ? shortcut.slice(5) : shortcut).toLowerCase(), ctrl };
+}
 /** Drag-resize clamp for the built-in rail handle (px). */
 export const SIDEBAR_MIN_WIDTH = 160;
 export const SIDEBAR_MAX_WIDTH = 360;
@@ -134,8 +140,9 @@ export interface SidebarProviderProps extends HTMLAttributes<HTMLDivElement> {
   /** Persist the desktop open state to the `sidebar_state` cookie so a server
    *  layout can read it back into `defaultOpen`. Mobile state never persists. */
   persist?: boolean;
-  /** Bare-key toggle shortcut. Defaults to "[" for a left sidebar and "]"
-   *  for a right one; `null` disables it. */
+  /** Toggle shortcut: a bare key ("["), or Ctrl plus a key ("Ctrl+B").
+   *  Defaults to "[" for a left sidebar and "]" for a right one; `null`
+   *  disables it. */
   shortcut?: string | null;
   /** Viewport width (px) below which the sidebar renders as a drawer. */
   mobileBreakpoint?: number;
@@ -251,14 +258,18 @@ const SidebarProvider = forwardRef<HTMLDivElement, SidebarProviderProps>(
     useEffect(() => {
       if (shortcut == null) return;
       const onKeyDown = (event: KeyboardEvent) => {
-        if (event.key.toLowerCase() !== shortcut.toLowerCase()) return;
-        if (event.metaKey || event.ctrlKey || event.altKey) return;
+        const { key, ctrl } = parseShortcut(shortcut);
+        if (event.key.toLowerCase() !== key) return;
+        if (event.metaKey || event.altKey || event.ctrlKey !== ctrl) return;
         const target = event.target as HTMLElement;
+        // A bare key is only a shortcut when not typing; with Ctrl held it is
+        // one anywhere, but in rich text, where it means something else.
         if (
-          target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.tagName === "SELECT" ||
-          target.isContentEditable
+          target.isContentEditable ||
+          (!ctrl &&
+            (target.tagName === "INPUT" ||
+              target.tagName === "TEXTAREA" ||
+              target.tagName === "SELECT"))
         )
           return;
         // Only one mounted provider answers (see mountedProviders). Providers
@@ -861,10 +872,11 @@ function ShortcutKbd({ children }: { children: ReactNode }) {
  *  side's default key even when the provider's binding is disabled. */
 function useShortcutKey(): string {
   const { side, shortcut } = useSidebar();
-  return (
+  const chosen =
     shortcut ??
-    (side === "right" ? SIDEBAR_KEYBOARD_SHORTCUT_RIGHT : SIDEBAR_KEYBOARD_SHORTCUT)
-  );
+    (side === "right" ? SIDEBAR_KEYBOARD_SHORTCUT_RIGHT : SIDEBAR_KEYBOARD_SHORTCUT);
+  const { key, ctrl } = parseShortcut(chosen);
+  return ctrl ? `Ctrl ${key.toUpperCase()}` : chosen;
 }
 
 /** Ghost icon button calling toggleSidebar(). The icon mirrors the
