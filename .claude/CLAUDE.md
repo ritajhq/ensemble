@@ -4,10 +4,10 @@ This repository is an `ens` project that builds `ens` itself.
 
 - Load the `ensemble` skill (`.claude/skills/ensemble`) for the workspace
   layout, the CLI and the rules of an `ens` project.
-- [CONTRIBUTING.md](CONTRIBUTING.md) is binding for any change here: where code
+- [CONTRIBUTING.md](../CONTRIBUTING.md) is binding for any change here: where code
   lives, how to run and check it, code conventions, docs upkeep and the commit
   format.
-- [docs/documentation](docs/documentation) is the user manual and the source of
+- [docs/documentation](../docs/documentation) is the user manual and the source of
   truth for behaviour. A change to behaviour updates its page in the same
   commit.
 
