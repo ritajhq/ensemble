@@ -54,7 +54,7 @@ Placement decisions:
 | package an app (image, binary, archive)           | `source/ship/<name>`, with the pack kit's own config                                              |
 | bind an app to a platform's resources (DynamoDB…) | `ens app create <kit> <app> --integration <deploy kit>`                                           |
 | describe what runs where                          | `ci/<name>/delivery.yml` — see [references/delivery-manifest.md](references/delivery-manifest.md) |
-| run something once after a deploy (a migration)   | a `tasks:` entry in the manifest, with its script in `ci/<name>/<kit>/`                           |
+| run something once after a deploy (a migration)   | a `tasks:` entry in the manifest, with its script in `ci/<name>/<kit>/tasks/`                         |
 | support a new app type, format or target          | a new kit: `ens kit new <name> <role>` — see [references/kits.md](references/kits.md)             |
 
 ## Rules

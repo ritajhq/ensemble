@@ -39,7 +39,7 @@ non-zero makes this command exit non-zero too — that invocation failed; no
 deploy started, so there is nothing to roll back.
 
 The kit is named, and a task's `script` is read from its folder,
-`ci/<name>/<kit>/`, so the same task can do its step differently on each
+`ci/<name>/<kit>/tasks/`, so the same task can do its step differently on each
 platform. A task needs the kit also because its `arguments` may reference
 anything a resource field may (`${databases.database.host}`,
 `${compute.web.http}`), and only a kit can render the workload to resolve those.

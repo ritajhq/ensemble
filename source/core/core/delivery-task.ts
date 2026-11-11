@@ -56,7 +56,7 @@ const DEPLOYMENT_VALUES = ["name", "artifact", "root"] as const;
 
 /**
  * Runs one of a workload's declared tasks (`ens delivery <name> <kit> task`). The kit is the caller's, and
- * names the folder (`ci/<name>/<kit>/`) a task's `script` is read from. See `./deploy/task.ts` for
+ * names the folder (`ci/<name>/<kit>/tasks/`) a task's `script` is read from. See `./deploy/task.ts` for
  * what a task is and why it's invoked rather than fired by a deploy.
  *
  * The front half is `ens deploy explain`'s own — same manifest lookup, same
@@ -493,7 +493,16 @@ async function runProcess(
   },
 ): Promise<void> {
   const argv = task.script
-    ? [join(context.repoRoot, "ci", context.workload, context.kit, task.script)]
+    ? [
+      join(
+        context.repoRoot,
+        "ci",
+        context.workload,
+        context.kit,
+        "tasks",
+        task.script,
+      ),
+    ]
     : ["-c", task.run!, "ens-delivery-task"];
 
   const { success, code } = await new Deno.Command("sh", {

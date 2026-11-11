@@ -344,7 +344,7 @@ Deno.test("parse: a task declares exactly one of run and script", () => {
   );
   assertEquals(
     missing.message,
-    'manifest.tasks.t must declare exactly one of "run" (a shell one-liner) or "script" (a file under ci/<workload>/<kit>/).',
+    'manifest.tasks.t must declare exactly one of "run" (a shell one-liner) or "script" (a file under ci/<workload>/<kit>/tasks/).',
   );
 
   const both = assertThrows(
@@ -356,7 +356,7 @@ Deno.test("parse: a task declares exactly one of run and script", () => {
   );
   assertEquals(
     both.message,
-    'manifest.tasks.t must declare exactly one of "run" (a shell one-liner) or "script" (a file under ci/<workload>/<kit>/).',
+    'manifest.tasks.t must declare exactly one of "run" (a shell one-liner) or "script" (a file under ci/<workload>/<kit>/tasks/).',
   );
 });
 
@@ -371,14 +371,14 @@ Deno.test("parse: a task's run must be a non-empty string", () => {
   );
 });
 
-Deno.test("parse: a task's script must stay inside the workload's own kit folder", () => {
+Deno.test("parse: a task's script must stay inside the workload's own kit tasks/ folder", () => {
   const absolute = assertThrows(
     () => parser.parse(`version: v1\ntasks:\n  t:\n    script: /etc/passwd`),
     ManifestError,
   );
   assertEquals(
     absolute.message,
-    'manifest.tasks.t.script must be a path inside the workload\'s own kit folder (got "/etc/passwd").',
+    'manifest.tasks.t.script must be a path inside the workload\'s own kit tasks/ folder (got "/etc/passwd").',
   );
 
   const traversing = assertThrows(
@@ -387,7 +387,7 @@ Deno.test("parse: a task's script must stay inside the workload's own kit folder
   );
   assertEquals(
     traversing.message,
-    'manifest.tasks.t.script must be a path inside the workload\'s own kit folder (got "../../x.sh").',
+    'manifest.tasks.t.script must be a path inside the workload\'s own kit tasks/ folder (got "../../x.sh").',
   );
 });
 

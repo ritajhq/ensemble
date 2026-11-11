@@ -74,7 +74,7 @@ deploy:
 tasks:
   migrate:
     description: Migrate the schema
-    script: migrate.sh # ci/<name>/<kit>/migrate.sh; or `run:` for a one-liner
+    script: migrate.sh # ci/<name>/<kit>/tasks/migrate.sh; or `run:` for a one-liner
     arguments: # become the script's environment variables
       project: ${deployment.name}
       artifact: ${deployment.artifact}

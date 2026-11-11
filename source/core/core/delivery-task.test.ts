@@ -119,10 +119,12 @@ async function withWorkspace(
   const repoRoot = await Deno.makeTempDir();
   try {
     const workloadDir = join(repoRoot, "ci", "demo");
-    await Deno.mkdir(join(workloadDir, "demo-kit"), { recursive: true });
+    await Deno.mkdir(join(workloadDir, "demo-kit", "tasks"), {
+      recursive: true,
+    });
     await Deno.writeTextFile(join(workloadDir, "delivery.yml"), MANIFEST);
     await Deno.writeTextFile(
-      join(workloadDir, "demo-kit", "record.sh"),
+      join(workloadDir, "demo-kit", "tasks", "record.sh"),
       `#!/bin/sh\nprintf '%s\\n' "$project" "$artifact" "$root" "$web_port" "$greeting" "$literal" "$1" "$2" > "$root/recorded.txt"\n`,
     );
 
