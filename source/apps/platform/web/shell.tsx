@@ -60,21 +60,27 @@ export function Shell() {
             </SidebarFooter>
           )}
         </Sidebar>
-        <SidebarInset>
+        {
+          /* The inset is as tall as the window, less its own 0.5rem margins, so
+            the top bar stays put and only the screen beneath it scrolls. */
+        }
+        <SidebarInset className="h-[calc(100svh-1rem)] overflow-hidden">
           <SidebarInsetTopbar>
             <h1 className="text-title font-medium text-foreground">
               <ScreenTitle />
             </h1>
           </SidebarInsetTopbar>
-          <main
-            aria-busy={navigation.state === "loading" || undefined}
-            className={cn(
-              "mx-auto grid w-full max-w-6xl gap-6 p-4 transition-opacity duration-150 md:p-6",
-              navigation.state === "loading" && "opacity-60",
-            )}
-          >
-            <Outlet />
-          </main>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <div
+              aria-busy={navigation.state === "loading" || undefined}
+              className={cn(
+                "mx-auto grid w-full max-w-6xl gap-6 p-4 transition-opacity duration-150 md:p-6",
+                navigation.state === "loading" && "opacity-60",
+              )}
+            >
+              <Outlet />
+            </div>
+          </div>
         </SidebarInset>
       </SidebarProvider>
     </TooltipProvider>
