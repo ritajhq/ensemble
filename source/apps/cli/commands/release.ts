@@ -53,6 +53,47 @@ async function pushRelease(
   console.log(`  pushed to: ${remote}`);
 }
 
+/**
+ * Pushes the release, saying how to finish it if the push fails: the ships
+ * stay packed, so `ens release resume` only has to push and publish. Returns
+ * whether the push went through.
+ */
+async function pushReleaseOrExplain(
+  release: Core.Release.ReleaseService,
+  tag: string,
+  remote: string,
+): Promise<boolean> {
+  try {
+    await pushRelease(release, tag, remote);
+    return true;
+  } catch (error) {
+    console.error(`Release failed while pushing: ${(error as Error).message}`);
+    console.log(
+      `Tag ${tag} isn't on ${remote} yet. Fix the issue, then run "ens release resume ${tag}" to push and publish. If ${remote} has moved on, run "ens release undo", drop the release commit, bring the branch up to date and release again instead.`,
+    );
+    return false;
+  }
+}
+
+/**
+ * Stops a new release before it changes anything when `remote` would refuse
+ * its push (see `ReleaseService.findRemoteConflict`). A dry run only reports
+ * it. Returns whether the release may go ahead.
+ */
+async function checkRemote(
+  release: Core.Release.ReleaseService,
+  tag: string,
+  remote: string,
+  dryRun: boolean,
+): Promise<boolean> {
+  const conflict = await release.findRemoteConflict(tag, remote);
+  if (!conflict) return true;
+  console.log(
+    dryRun ? `Would be refused: ${conflict}` : `Release refused: ${conflict}`,
+  );
+  return dryRun;
+}
+
 /** Which ships/libraries a ceremony run (or its preview) should include, by name — an explicit override on top of whatever `ReleaseState` already reports as done. */
 interface ReleaseFilter {
   only?: string[];
@@ -443,7 +484,7 @@ async function runReleaseCeremony(
     }
 
     if (!state.pushed) {
-      await pushRelease(release, tag, remote);
+      if (!await pushReleaseOrExplain(release, tag, remote)) return 1;
       await persist({ pushed: true });
     }
 
@@ -493,7 +534,7 @@ async function runReleaseCeremony(
   if (!everythingDone) return 0;
 
   if (!state.pushed) {
-    await pushRelease(release, tag, remote);
+    if (!await pushReleaseOrExplain(release, tag, remote)) return 1;
     await persist({ pushed: true });
   }
   if (!state.hookRan) {
@@ -542,6 +583,9 @@ export const releaseCommand = new Command()
     }
     const preview = await release.next(bump, { dryRun, preRelease, meta });
     printPreview(dryRun ? "Would create" : "Will create", preview);
+    if (!await checkRemote(release, preview.tag, remote, Boolean(dryRun))) {
+      Deno.exit(1);
+    }
     if (dryRun) {
       await printReleaseCeremonyPreview(repoRoot, ports, preview.tag);
       return;
@@ -584,6 +628,9 @@ export const releaseCommand = new Command()
     }
     const preview = await release.set(version, { dryRun, preRelease, meta });
     printPreview(dryRun ? "Would create" : "Will create", preview);
+    if (!await checkRemote(release, preview.tag, remote, Boolean(dryRun))) {
+      Deno.exit(1);
+    }
     if (dryRun) {
       await printReleaseCeremonyPreview(repoRoot, ports, preview.tag);
       return;

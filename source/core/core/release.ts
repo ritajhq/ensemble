@@ -249,6 +249,51 @@ export class ReleaseService {
     await this.git(["commit", "-m", message]);
   }
 
+  /**
+   * Why pushing a new release `tag` to `remote` would be refused, or
+   * `undefined` when nothing stands in its way. The next version is worked out
+   * from local tags only, so a tag that only exists on the remote, or remote
+   * commits this branch doesn't have, would otherwise surface only when the
+   * push fails — after the release commit and the local tag already exist.
+   */
+  async findRemoteConflict(
+    tag: string,
+    remote: string,
+  ): Promise<string | undefined> {
+    const remoteTag = await this.capture([
+      "ls-remote",
+      "--tags",
+      remote,
+      `refs/tags/${tag}`,
+    ]);
+    if (remoteTag.length > 0) {
+      return `Tag ${tag} already exists on ${remote}. Run "git fetch --tags ${remote}" and release again, which picks the next free version.`;
+    }
+
+    const branch = await this.capture(["rev-parse", "--abbrev-ref", "HEAD"]);
+    if (branch === "HEAD") return undefined;
+    const remoteHead = await this.capture([
+      "ls-remote",
+      "--heads",
+      remote,
+      `refs/heads/${branch}`,
+    ]);
+    if (remoteHead.length === 0) return undefined;
+
+    const [commit] = remoteHead.split(/\s+/);
+    const { code } = await this.process.probe(
+      "git",
+      ["merge-base", "--is-ancestor", commit, "HEAD"],
+      { cwd: this.repoRoot },
+    );
+    if (code === 0) return undefined;
+    return `${remote}/${branch} has commits this branch doesn't. Bring it up to date ("git pull --rebase ${remote} ${branch}") and release again.`;
+  }
+
+  private capture(args: string[]): Promise<string> {
+    return this.process.capture("git", args, { cwd: this.repoRoot });
+  }
+
   /** True if `tag` already exists locally — used by `ens release resume` to reject a tag that was never created. */
   async hasTag(tag: string): Promise<boolean> {
     const tags = await this.listSemVerTags();

@@ -68,3 +68,87 @@ Deno.test("ReleaseService.undo: a dry run leaves the tag's ceremony record alone
     await Deno.remove(repoRoot, { recursive: true });
   }
 });
+
+/** A git whose answers are scripted by command line, for checks that read the remote. */
+class ScriptedGit implements ProcessRunner {
+  constructor(
+    private readonly captures: Readonly<Record<string, string>>,
+    private readonly ancestor = true,
+  ) {}
+
+  run(): Promise<number> {
+    return Promise.resolve(0);
+  }
+
+  exec(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  capture(_command: string, args: readonly string[]): Promise<string> {
+    return Promise.resolve(this.captures[args.join(" ")] ?? "");
+  }
+
+  probe(): Promise<ProbeResult> {
+    return Promise.resolve({ code: this.ancestor ? 0 : 1, stderr: "" });
+  }
+}
+
+const ON_MAIN = { "rev-parse --abbrev-ref HEAD": "main" };
+const REMOTE_MAIN = {
+  "ls-remote --heads origin refs/heads/main": "c69a0e9\trefs/heads/main",
+};
+
+Deno.test("ReleaseService.findRemoteConflict: refuses a tag the remote already has", async () => {
+  const git = new ScriptedGit({
+    ...ON_MAIN,
+    "ls-remote --tags origin refs/tags/0.0.2": "c69a0e9\trefs/tags/0.0.2",
+  });
+
+  const conflict = await new ReleaseService("/repo", git).findRemoteConflict(
+    "0.0.2",
+    "origin",
+  );
+
+  assertEquals(
+    conflict?.startsWith("Tag 0.0.2 already exists on origin."),
+    true,
+  );
+});
+
+Deno.test("ReleaseService.findRemoteConflict: refuses when the remote branch has commits this branch doesn't", async () => {
+  const git = new ScriptedGit({ ...ON_MAIN, ...REMOTE_MAIN }, false);
+
+  const conflict = await new ReleaseService("/repo", git).findRemoteConflict(
+    "0.0.2",
+    "origin",
+  );
+
+  assertEquals(
+    conflict?.startsWith("origin/main has commits this branch doesn't."),
+    true,
+  );
+});
+
+Deno.test("ReleaseService.findRemoteConflict: lets a release through when the branch contains the remote's", async () => {
+  const git = new ScriptedGit({ ...ON_MAIN, ...REMOTE_MAIN });
+
+  assertEquals(
+    await new ReleaseService("/repo", git).findRemoteConflict(
+      "0.0.2",
+      "origin",
+    ),
+    undefined,
+  );
+});
+
+Deno.test("ReleaseService.findRemoteConflict: lets a release through on a branch the remote doesn't have yet", async () => {
+  const git = new ScriptedGit(ON_MAIN, false);
+
+  assertEquals(
+    await new ReleaseService("/repo", git).findRemoteConflict(
+      "0.0.2",
+      "origin",
+    ),
+    undefined,
+  );
+});

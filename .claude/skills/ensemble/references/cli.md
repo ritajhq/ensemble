@@ -72,7 +72,13 @@ Common failures:
 | `ens release undo`                          | Deletes the last tag locally, and offers to delete it on the remote.                                                                                 |
 
 `--dry-run` is safe and reports whether authorization would refuse. `-y` answers
-every prompt, so use it only when you've been told to release.
+every prompt, so use it only when you've been told to release. Without `-y`, an
+agent's run waits on the confirmation forever, since it reads no answer.
+
+The next version comes from local tags only, so `next` and `set` refuse up front
+when the remote already has that tag or the branch is behind it: run
+`git fetch --tags`, bring the branch up to date, and release again. A failed
+push is resumable with `resume`.
 
 ## Kits and libraries
 

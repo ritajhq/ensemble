@@ -62,16 +62,22 @@ A non-dry-run goes through these steps, in order:
 
 1. If you have uncommitted changes, you're asked to confirm (the tag won't
    reflect them).
-2. Every publish is checked from this machine (see
+2. The remote is checked: the release is refused, with nothing changed, if it
+   already has the new tag or if its copy of your branch has commits yours
+   doesn't. The version is worked out from the tags in your clone, so either
+   would otherwise only surface when the push fails. Run `git fetch --tags` and
+   bring the branch up to date, then release again. `--dry-run` reports the same
+   refusal.
+3. Every publish is checked from this machine (see
    [Publish authorization](#publish-authorization)). A refusal stops here, with
    nothing changed.
-3. It lists what it will pack and publish and asks you to confirm once.
+4. It lists what it will pack and publish and asks you to confirm once.
    Declining stops here, with nothing changed.
-4. Core-library versions are stamped and committed, and the tag is created
+5. Core-library versions are stamped and committed, and the tag is created
    locally.
-5. Ships are packed, commits and tag are pushed, then ships and core libraries
+6. Ships are packed, commits and tag are pushed, then ships and core libraries
    are published, without asking again.
-6. `hooks.release.after` runs (once per tag) and whatever it commits is pushed.
+7. `hooks.release.after` runs (once per tag) and whatever it commits is pushed.
 
 Core libraries publish in dependency order, worked out from their manifests, so
 `publish.core` can list them in any order. A dependency only tests need doesn't
@@ -94,8 +100,8 @@ The release commit carries all of it: the libraries' manifests, their
 dependents' and every ecosystem's lockfiles. `ens lib publish` stamps the same
 way before it publishes.
 
-A failure during packing or publishing leaves an accurate record of what's left
-(`.ensemble/release/state/<tag>.json`) for `resume` to pick up.
+A failure during packing, pushing or publishing leaves an accurate record of
+what's left (`.ensemble/release/state/<tag>.json`) for `resume` to pick up.
 
 ![The ens release flow](../../../assets/ens-release.svg)
 
@@ -125,6 +131,26 @@ ens release resume v1.4.2 --skip my-lib
 - `--only <names>` — comma-separated ship/library names to include (default:
   everything still left to do).
 - `--skip <names>` — comma-separated ship/library names to exclude.
+
+What it picks up, by where the last run stopped:
+
+- **Packing failed.** The tag is still local-only. Resume packs the ships that
+  weren't packed yet, then pushes and publishes.
+- **Pushing failed.** The ships stay packed. Resume pushes the commits and the
+  tag again, then publishes.
+- **Publishing failed.** The tag is on the remote. Resume publishes only what
+  hasn't been published yet.
+
+Resume doesn't help when the remote moved on between the check in step 2 and the
+push:
+
+- **The branch has commits you don't have.** Integrating them rewrites the
+  release commit the local tag points at. Delete the local tag
+  (`ens release undo`), drop the release commit, bring the branch up to date and
+  release again.
+- **The remote already has a tag with the same name.** It's a different release.
+  Delete the local tag, run `git fetch --tags`, and release again, which picks
+  the next free version.
 
 ## `ens release undo`
 
