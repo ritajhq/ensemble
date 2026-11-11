@@ -78,6 +78,22 @@ Core libraries publish in dependency order, worked out from their manifests, so
 count. Libraries depending on each other stop the release before anything
 changes, naming the cycle.
 
+### Versions across ecosystems
+
+Each library is stamped by the ecosystem it belongs to (see
+[Ecosystem kits](../../concepts/kits.md#ecosystem-kits)), so one release can
+move Deno packages and Rust crates together. For every library it moves, its
+ecosystem also:
+
+- repins every package in the repository that depends on it, so nothing is left
+  pointing at a version the library no longer has (Cargo refuses to resolve such
+  a workspace);
+- brings its lockfile along — `deno.lock`, the cargo workspace's `Cargo.lock`.
+
+The release commit carries all of it: the libraries' manifests, their
+dependents' and every ecosystem's lockfiles. `ens lib publish` stamps the same
+way before it publishes.
+
 A failure during packing or publishing leaves an accurate record of what's left
 (`.ensemble/release/state/<tag>.json`) for `resume` to pick up.
 

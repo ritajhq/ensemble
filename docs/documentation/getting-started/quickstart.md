@@ -48,6 +48,29 @@ ens develop web
 This builds, packs, and deploys the workload locally, watching for source
 changes until you stop it.
 
+## Another language
+
+A project's packages can be in more than one language. Choose the languages when
+you create it — the first is the default for new libraries:
+
+```sh
+ens init my-tool --ecosystem cargo              # a Rust project
+ens init my-app --ecosystem deno --ecosystem cargo
+```
+
+Or let an app bring its language in: `ens app create cargo cli` scaffolds a Rust
+crate at `source/apps/cli` and adds the `cargo` ecosystem to a project that
+doesn't have it. Either way, each package keeps only its own manifest
+(`Cargo.toml`, `deno.json`). The workspace root and lockfile live under
+`.ensemble/ecosystems/<language>`, and you run the language's tools through
+`ens exec`:
+
+```sh
+ens exec cargo test
+```
+
+See [Ecosystem kits](../concepts/kits.md#ecosystem-kits).
+
 ## Where to next
 
 - [Concepts](../concepts/workspace-layout.md) — the mental model behind the

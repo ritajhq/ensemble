@@ -8,10 +8,42 @@ group manages a library's whole lifecycle, mirroring `ens kit` closely.
 ## Scaffold a new library
 
 ```sh
-ens lib new my-utils
+ens lib new my-utils                      # in the project's first ecosystem
+ens lib new money --ecosystem cargo       # a Rust crate instead
 ```
 
-Scaffolds `source/libs/my-utils`.
+Scaffolds `source/libs/<name>` as a package of one of the project's
+[ecosystems](../concepts/kits.md#ecosystem-kits) — a Deno workspace member, a
+Cargo crate — at version `0.0.1`, and makes it part of that ecosystem's
+workspace. Without `--ecosystem`, it's the first one `ecosystems:` lists in
+`.ensemble/config.yaml`.
+
+It also registers the library under `publish.libs` there, named after its
+folder:
+
+```yaml
+publish:
+  libs:
+    - name: my-utils # source/libs/my-utils
+      package: my-utils # the name it publishes under
+```
+
+Nothing about publishing lives in the library's own folder. To make it
+publishable, give the entry the kits it publishes through, and change `package`
+to its full name in that registry:
+
+```yaml
+publish:
+  libs:
+    - name: my-utils
+      package: "@acme/my-utils"
+      publish:
+        - kit: jsr
+```
+
+Other packages in the project use a library through their ecosystem's usual
+workspace link — an import of its package name in Deno, a `path` dependency in
+Cargo — never by reaching into its folder.
 
 ## Install a library someone else published
 
@@ -55,13 +87,16 @@ against its remote.
 ens lib publish my-utils jsr 1.4.0
 ```
 
-Publishes `source/libs/my-utils` through one of its declared publish kits (a
-`lib`-role kit under `.ensemble/kits/lib/<kit>` — `jsr` ships with this repo),
-under the given version — independent of `ens release`, for publishing a library
-on its own schedule rather than tying it to a workload's release ceremony. The
-kit first checks that this machine may publish there (for `jsr`, a full-access
-`JSR_TOKEN` in `.ensemble/release/secrets.env` whose account is a member of the
-package's scope); without that, nothing is stamped or published. See
+Publishes `source/libs/my-utils` through one of the kits its `publish.libs`
+entry declares (a `lib`-role kit under `.ensemble/kits/lib/<kit>` — `jsr` ships
+with this repo, for Deno packages; there's no kit for crates.io yet, so a Rust
+library can't be published this way), under the given version — independent of
+`ens release`, for publishing a library on its own schedule rather than tying it
+to a workload's release ceremony. Its ecosystem first moves it to that version
+and repins whatever in the project depends on it. The kit first checks that this
+machine may publish there (for `jsr`, a full-access `JSR_TOKEN` in
+`.ensemble/release/secrets.env` whose account is a member of the package's
+scope); without that, nothing is stamped or published. See
 [Kits](../concepts/kits.md) for how a `lib`-role kit relates to
 build/pack/deploy kits.
 

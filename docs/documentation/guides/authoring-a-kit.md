@@ -20,7 +20,9 @@ The scaffolded `kit.yml` names the kit's `role` and the `protocol` it speaks.
 Keep both: `ens kit install`, `pin` and `eject` refuse a kit without them. A
 pack kit that declares `publish:` targets also needs a `publish.ts`. A build kit
 whose apps must belong to an ecosystem adds `ecosystem: <name>`, and
-`ens app create` declares that ecosystem in a project that doesn't yet.
+`ens app create` declares that ecosystem in a project that doesn't yet. An
+ecosystem kit has a contract of its own: see
+[Writing an ecosystem kit](writing-an-ecosystem-kit.md).
 
 ## Install a kit someone else wrote
 

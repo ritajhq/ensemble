@@ -1,7 +1,8 @@
 # `ens config`
 
 Manage `.ensemble/config.yaml` (shared, git-tracked) and
-`.ensemble/config.local.yaml` (gitignored, per-developer).
+`.ensemble/config.local.yaml` (gitignored, per-developer). See
+[`.ensemble/config.yaml`](../project-config.md) for every key both files hold.
 
 ## `ens config set-build-kit <app> <kit>`
 

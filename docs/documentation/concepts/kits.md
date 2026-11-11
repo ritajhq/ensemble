@@ -84,7 +84,8 @@ provisioner for storage yet). There is no `kubernetes` deploy kit in this repo.
 An ecosystem kit is what lets `ens` manage packages in a language: finding a
 package and what it links to, moving packages to a new version during a release,
 scaffolding a library, and naming the lockfiles a release commit must carry. A
-project lists its ecosystems in `.ensemble/config.yaml`:
+project lists its ecosystems in `.ensemble/config.yaml` (see
+[its reference](../reference/project-config.md)):
 
 ```yaml
 ecosystems:
@@ -150,7 +151,8 @@ has: that file stays its workspace root, and nothing is generated.
 
 Kits themselves still run on Deno, whatever language the project is written in.
 
-Built-in ecosystem kit: `cargo`.
+Built-in ecosystem kit: `cargo`. To add a language, see
+[Writing an ecosystem kit](../guides/writing-an-ecosystem-kit.md).
 
 ## Authoring, installing, and sharing kits
 

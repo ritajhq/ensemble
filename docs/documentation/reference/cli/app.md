@@ -12,7 +12,10 @@ ens app create react web
 ens app create deno.bundle api
 ```
 
-- `<kit>` — the build kit to scaffold from (e.g. `react`, `deno.bundle`).
+- `<kit>` — the build kit to scaffold from (e.g. `react`, `deno.bundle`). A kit
+  whose apps belong to an ecosystem (the `cargo` kit's are Rust crates) adds
+  that ecosystem to `ecosystems:` in `.ensemble/config.yaml` when the project
+  doesn't list it yet, and the app becomes one of its packages.
 - `<name>` — the app's name under `source/apps/` (supports nesting, e.g.
   `my_app/server`).
 - `--target <target>` — a static build variant to scaffold for, if the kit
