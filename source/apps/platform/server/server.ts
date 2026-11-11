@@ -13,6 +13,8 @@ const CSP = [
   // runtime; scripts stay 'self' only.
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data:",
+  // The web app's fonts are inlined in its stylesheet as data URIs.
+  "font-src 'self' data:",
   "connect-src 'self'",
   "frame-ancestors 'none'",
   "base-uri 'none'",
@@ -20,33 +22,26 @@ const CSP = [
   "form-action 'self' https://github.com",
 ].join("; ");
 
-/** The built web app (`ens build platform/web`), read once at startup. */
+/**
+ * The built web app (`ens build platform/web`), read from `dist` on every
+ * request: `ens develop` syncs a rebuild into the running container without
+ * restarting the server (a restart would end the runs it carries), so a copy
+ * kept from startup would go stale.
+ */
 export class WebApp {
-  private constructor(
-    private readonly index: string,
-    private readonly assets: ReadonlyMap<string, string>,
-  ) {}
+  constructor(private readonly dist: string) {}
 
-  static async load(dist: string): Promise<WebApp> {
-    const assets = new Map<string, string>();
-    for (const name of Object.keys(ASSETS)) {
-      assets.set(name, await Deno.readTextFile(`${dist}/${name}`));
-    }
-    return new WebApp(await Deno.readTextFile(`${dist}/index.html`), assets);
-  }
-
-  asset(name: string): Response {
-    const content = this.assets.get(name);
-    if (content === undefined) {
+  async asset(name: string): Promise<Response> {
+    if (!Object.hasOwn(ASSETS, name)) {
       return new Response("Not found", { status: 404 });
     }
-    return new Response(content, {
+    return new Response(await this.read(name), {
       headers: { "content-type": ASSETS[name], "cache-control": "no-cache" },
     });
   }
 
-  page(): Response {
-    return new Response(this.index, {
+  async page(): Promise<Response> {
+    return new Response(await this.read("index.html"), {
       headers: {
         "content-type": "text/html; charset=utf-8",
         "content-security-policy": CSP,
@@ -54,6 +49,10 @@ export class WebApp {
         "cache-control": "no-store",
       },
     });
+  }
+
+  private async read(name: string): Promise<string> {
+    return await Deno.readTextFile(`${this.dist}/${name}`);
   }
 }
 
@@ -84,8 +83,8 @@ export class Server {
       return new Response("Method not allowed", { status: 405 });
     }
     if (pathname.startsWith("/assets/")) {
-      return this.web.asset(pathname.slice("/assets/".length));
+      return await this.web.asset(pathname.slice("/assets/".length));
     }
-    return this.web.page();
+    return await this.web.page();
   }
 }

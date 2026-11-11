@@ -188,7 +188,7 @@ synchronization.OnFailed.Do((project, error) => {
   });
 });
 
-const server = new Server(endpoints, await WebApp.load(configuration.web));
+const server = new Server(endpoints, new WebApp(configuration.web));
 
 Deno.serve(
   {
