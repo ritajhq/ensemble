@@ -27,6 +27,7 @@ source/
 ci/<name>/
   delivery.yml               # the workload's delivery manifest (release, deploy, launch, tasks)
   dev.env                    # development values `ens develop` loads
+  <kit>/                     # per deploy kit: the scripts of its tasks
 docs/                        # the project's documentation
 ```
 

@@ -19,7 +19,7 @@
 #
 # Declared as the `trust-local-ca` task in ci/platform/delivery.yml, so run it with:
 #
-#   ens delivery task platform trust-local-ca
+#   ens delivery platform compose task trust-local-ca
 set -eu
 
 PROXY=ens-local-proxy

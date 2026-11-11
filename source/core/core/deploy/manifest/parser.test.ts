@@ -297,6 +297,7 @@ Deno.test("parse: tasks keep their run/script and arguments", () => {
 version: v1
 tasks:
   migrate:
+    description: Migrate the schema
     script: migrate.sh
     arguments:
       project: \${deployment.name}
@@ -308,12 +309,32 @@ tasks:
 
   assertEquals(workload.tasks, {
     migrate: {
+      description: "Migrate the schema",
       run: undefined,
       script: "migrate.sh",
       arguments: { project: "${deployment.name}", attempts: 3, verbose: true },
     },
-    greet: { run: "echo hello", script: undefined, arguments: undefined },
+    greet: {
+      description: undefined,
+      run: "echo hello",
+      script: undefined,
+      arguments: undefined,
+    },
   });
+});
+
+Deno.test("parse: a task's description must be a non-empty string", () => {
+  const error = assertThrows(
+    () =>
+      parser.parse(
+        `version: v1\ntasks:\n  t:\n    description: ""\n    run: echo`,
+      ),
+    ManifestError,
+  );
+  assertEquals(
+    error.message,
+    "manifest.tasks.t.description must be a non-empty string.",
+  );
 });
 
 Deno.test("parse: a task declares exactly one of run and script", () => {
@@ -323,7 +344,7 @@ Deno.test("parse: a task declares exactly one of run and script", () => {
   );
   assertEquals(
     missing.message,
-    'manifest.tasks.t must declare exactly one of "run" (a shell one-liner) or "script" (a file under ci/<workload>/tasks/).',
+    'manifest.tasks.t must declare exactly one of "run" (a shell one-liner) or "script" (a file under ci/<workload>/<kit>/).',
   );
 
   const both = assertThrows(
@@ -335,7 +356,7 @@ Deno.test("parse: a task declares exactly one of run and script", () => {
   );
   assertEquals(
     both.message,
-    'manifest.tasks.t must declare exactly one of "run" (a shell one-liner) or "script" (a file under ci/<workload>/tasks/).',
+    'manifest.tasks.t must declare exactly one of "run" (a shell one-liner) or "script" (a file under ci/<workload>/<kit>/).',
   );
 });
 
@@ -350,14 +371,14 @@ Deno.test("parse: a task's run must be a non-empty string", () => {
   );
 });
 
-Deno.test("parse: a task's script must stay inside the workload's own tasks/ folder", () => {
+Deno.test("parse: a task's script must stay inside the workload's own kit folder", () => {
   const absolute = assertThrows(
     () => parser.parse(`version: v1\ntasks:\n  t:\n    script: /etc/passwd`),
     ManifestError,
   );
   assertEquals(
     absolute.message,
-    'manifest.tasks.t.script must be a path inside the workload\'s own tasks/ folder (got "/etc/passwd").',
+    'manifest.tasks.t.script must be a path inside the workload\'s own kit folder (got "/etc/passwd").',
   );
 
   const traversing = assertThrows(
@@ -366,7 +387,7 @@ Deno.test("parse: a task's script must stay inside the workload's own tasks/ fol
   );
   assertEquals(
     traversing.message,
-    'manifest.tasks.t.script must be a path inside the workload\'s own tasks/ folder (got "../../x.sh").',
+    'manifest.tasks.t.script must be a path inside the workload\'s own kit folder (got "../../x.sh").',
   );
 });
 

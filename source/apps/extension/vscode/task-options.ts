@@ -13,7 +13,7 @@ interface Choice {
 /**
  * Asks how to run a workload's task — which deploy kit resolves its
  * arguments, and any input to hand it as `$1..$n` — preselecting the last
- * answers for that task, and returns the `ens delivery task` arguments.
+ * answers for that task, and returns the `ens delivery <name> <kit> task` arguments.
  */
 export class TaskOptions {
   constructor(
@@ -37,10 +37,9 @@ export class TaskOptions {
     await this.memory.update(this.key(workload, task), { kit, input });
     return [
       "delivery",
-      "task",
-      "-k",
-      kit,
       workload,
+      kit,
+      "task",
       task,
       ...this.words(input),
     ];

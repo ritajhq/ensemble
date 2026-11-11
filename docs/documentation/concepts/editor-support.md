@@ -92,7 +92,7 @@ visible and interactive prompts keep working.
       a kit or a delivery manifest changes, and when `ens` itself is updated.
 - [x] **Running a task**: asks for the deploy kit to resolve its `arguments:`
       with and any input to hand it as `$1..$n`, preselecting the last answers
-      for that task, then runs `ens delivery task`.
+      for that task, then runs `ens delivery <name> <kit> task`.
 - [x] **Code lenses** in delivery manifests: Develop and Deploy… above
       `deploy:`; Release… above `release:` — once, not per ship, because
       `ens release` packs and publishes every workload's releases together.

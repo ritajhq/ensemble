@@ -1,9 +1,9 @@
 # Delivery manifest schema reference
 
 The authoritative, machine-readable shape of `ci/<name>/delivery.yml` is
-[`docs/delivery.schema.json`](../../delivery.schema.json) — a JSON Schema kept in
-sync with `manifest/parser.ts`. Point your editor's YAML language server at it
-for inline validation and completion:
+[`docs/delivery.schema.json`](../../delivery.schema.json) — a JSON Schema kept
+in sync with `manifest/parser.ts`. Point your editor's YAML language server at
+it for inline validation and completion:
 
 ```yaml
 # yaml-language-server: $schema=../../docs/delivery.schema.json
@@ -28,9 +28,10 @@ version of the same model.
 - `tasks` — map of task name → `{ run | script, arguments? }`, commands the
   workload declares for a human or a CI job to invoke (see below).
 - `launch` — map of name → a program or desktop app `ens develop` starts on this
-  machine: `{ type: process | desktop, command | package, ports?, env?,
-  envSecrets?, development? }`. `ens deploy` ignores it. See
-  [Launching](../concepts/launching.md).
+  machine:
+  `{ type: process | desktop, command | package, ports?, env?,
+  envSecrets?, development? }`.
+  `ens deploy` ignores it. See [Launching](../concepts/launching.md).
 
 ## Fully-typed resource shapes
 
@@ -150,24 +151,26 @@ whole value instead.
 ## `tasks`
 
 A task is one command the workload declares, run **by invocation** —
-`ens delivery task <workload> <task> [args...]` — never fired by a deploy. A
-task that exits non-zero fails that invocation, its own exit code and nothing
-else: no deploy has started, so there is nothing to roll back. Run the command
-with no task named to list what the workload declares.
+`ens delivery <workload> <kit> task <task> [args...]` — never fired by a deploy.
+A task that exits non-zero fails that invocation, its own exit code and nothing
+else: no deploy has started, so there is nothing to roll back. `ens delivery <workload> <kit> tasks` lists what the
+workload declares, one task per line: its name, a tab, then its `description`.
 
 ```yaml
 tasks:
   migrate:
+    description: Migrate the database schema
     script: migrate.sh
     arguments:
       project: ${deployment.name}
       artifact: ${deployment.artifact}
 ```
 
-Exactly one of `run` (a shell one-liner, handed to `sh -c`) or `script` (a file
-under `ci/<workload>/tasks/`, run with `sh`) drives the task; both reject a `..`
-segment or an absolute path, since `ens` spawns whatever the path names.
-Trailing command-line arguments arrive as `$1..$n`.
+`description` is one sentence saying what the task does; it is optional. Exactly one of `run` (a shell one-liner, handed to `sh -c`) or `script` (a file
+under `ci/<workload>/<kit>/`, run with `sh`, so each deploy kit has its own)
+drives the task; both reject a `..` segment or an absolute path, since `ens`
+spawns whatever the path names. Trailing command-line arguments arrive as
+`$1..$n`.
 
 `arguments` are handed to the task as **environment variables**, so each name
 must be a shell-safe identifier — a dash, say, would make `"$web-port"` read as

@@ -5,10 +5,10 @@
 # break-glass path when a bad config breaks sign-in. Whatever follows the
 # task's name is the CLI's own arguments:
 #
-#   ens delivery task platform khatm users list
-#   ens delivery task platform khatm users create you@example.com --role operator --password-stdin
-#   ens delivery task platform khatm users set-role you@example.com operator
-#   ens delivery task platform khatm status
+#   ens delivery platform compose task khatm users list
+#   ens delivery platform compose task khatm users create you@example.com --role operator --password-stdin
+#   ens delivery platform compose task khatm users set-role you@example.com operator
+#   ens delivery platform compose task khatm status
 set -eu
 
 for var in project artifact; do
@@ -16,7 +16,7 @@ for var in project artifact; do
   if [ -z "$val" ]; then
     echo "khatm: missing required env: $var" >&2
     echo "Run it as a task, which supplies both from the manifest:" >&2
-    echo "  ens delivery task platform khatm <command>" >&2
+    echo "  ens delivery platform compose task khatm <command>" >&2
     exit 1
   fi
 done

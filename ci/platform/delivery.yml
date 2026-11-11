@@ -347,8 +347,9 @@ tasks:
   # The first operator exists from khatm's first start, with no password. Set
   # it, then sign in at the platform's host:
   #
-  #   ens delivery task platform operator-password
+  #   ens delivery platform compose task operator-password
   operator-password:
+    description: Set the first operator's password
     script: operator-password.sh
     arguments:
       project: ${deployment.name}
@@ -359,8 +360,9 @@ tasks:
   # roles, status, and the break-glass path when a bad config breaks sign-in.
   # Whatever follows the task's name is the CLI's arguments:
   #
-  #   ens delivery task platform khatm users list
+  #   ens delivery platform compose task khatm users list
   khatm:
+    description: Run khatm's CLI in the sign-in container (users, roles, status)
     script: khatm.sh
     arguments:
       project: ${deployment.name}
@@ -371,6 +373,7 @@ tasks:
   # Prompts for sudo, and is worth re-running after the proxy's *volume* is
   # wiped: Caddy mints a new root CA then, and the old anchor no longer matches.
   #
-  #   ens delivery task platform trust-local-ca
+  #   ens delivery platform compose task trust-local-ca
   trust-local-ca:
+    description: Trust the local proxy's CA in this machine's OS trust store
     script: trust-local-ca.sh

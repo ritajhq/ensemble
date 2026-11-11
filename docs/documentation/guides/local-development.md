@@ -157,8 +157,8 @@ run by hand. A task is never fired by a deploy, so a failing one can't fail a
 deployment:
 
 ```sh
-ens delivery task platform                    # list what the workload declares
-ens delivery task platform trust-local-ca     # run one
+ens delivery platform compose tasks                   # list what the workload declares
+ens delivery platform compose task trust-local-ca     # run one
 ```
 
 A task's `arguments` reach its script as environment variables, resolved from
@@ -166,7 +166,8 @@ the same values the deploy's own fields use, plus `${deployment.name}`,
 `${deployment.artifact}` and `${deployment.root}` — which lets a script address
 the stack through `docker compose -p "$project" -f "$artifact"` instead of
 hardcoding the names compose derives. See
-[`ens delivery task`](../reference/cli/delivery.md#ens-delivery-task) and
+[`ens delivery <name> <kit> task`](../reference/cli/delivery.md#ens-delivery-name-kit-task)
+and
 [`tasks` in the manifest schema](../reference/delivery-manifest-schema.md#tasks).
 
 > **Note.** A large database seed loaded through `docker-entrypoint-initdb.d`

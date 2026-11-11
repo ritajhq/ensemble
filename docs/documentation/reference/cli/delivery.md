@@ -4,20 +4,29 @@ Commands that act on, or print, a delivery as declared by the workload's
 manifest.
 
 ```sh
-ens delivery task <name> [task] [args...] [-k <kit>]
+ens delivery <name> <kit> tasks
+ens delivery <name> <kit> task <task> [args...]
 ens delivery print <name> [-r json|markdown] [-o <path>]
 ```
 
-## `ens delivery task`
+## `ens delivery <name> <kit> tasks`
 
-Runs one of the tasks declared under `tasks:` in `ci/<name>/delivery.yml`. With
-no task named, it lists the ones the workload declares instead of running
-anything:
+Lists the tasks declared under `tasks:` in `ci/<name>/delivery.yml`, one per
+line: the task's name, a tab, then its `description` (empty when it declares
+none). It takes the same `--env-file` as `task`, since the manifest is checked
+against the environment.
 
 ```sh
-ens delivery task portal                 # list
-ens delivery task portal auth-migrate    # run
-ens delivery task portal trust-gateway-ca --force
+ens delivery portal compose tasks
+```
+
+## `ens delivery <name> <kit> task`
+
+Runs one of the tasks declared under `tasks:` in `ci/<name>/delivery.yml`:
+
+```sh
+ens delivery portal compose task auth-migrate
+ens delivery portal compose task trust-gateway-ca --force
 ```
 
 `--instance <slug>` runs the task against that named instance of the workload
@@ -29,11 +38,11 @@ Trailing arguments are handed to the task as `$1..$n`. A task that exits
 non-zero makes this command exit non-zero too — that invocation failed; no
 deploy started, so there is nothing to roll back.
 
-The kit is `-k <kit>`, else the one `deploy.<name>.kit` in
-`.ensemble/config.yaml` names (as for `ens deploy`). A task needs one because
-its `arguments` may reference anything a resource field may
-(`${databases.database.host}`, `${compute.web.http}`), and only a kit can render
-the workload to resolve those.
+The kit is named, and a task's `script` is read from its folder,
+`ci/<name>/<kit>/`, so the same task can do its step differently on each
+platform. A task needs the kit also because its `arguments` may reference
+anything a resource field may (`${databases.database.host}`,
+`${compute.web.http}`), and only a kit can render the workload to resolve those.
 
 ### Where argument values come from
 

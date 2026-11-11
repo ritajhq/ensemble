@@ -89,6 +89,7 @@ export {
   type EnvFiles,
 } from "./env-files.ts";
 export {
+  listDeliveryTasks,
   runDeliveryTask,
   type RunDeliveryTaskOptions,
   TaskArgumentError,

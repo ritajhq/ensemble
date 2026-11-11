@@ -55,9 +55,8 @@ export interface RunDeliveryTaskOptions {
 const DEPLOYMENT_VALUES = ["name", "artifact", "root"] as const;
 
 /**
- * Runs one of a workload's declared tasks (`ens delivery task`); with no task
- * named, lists what the workload declares instead. The kit is the caller's, else the
- * project's configured one for the deployment (`DeployKitChoice`). See `./deploy/task.ts` for
+ * Runs one of a workload's declared tasks (`ens delivery <name> <kit> task`). The kit is the caller's, and
+ * names the folder (`ci/<name>/<kit>/`) a task's `script` is read from. See `./deploy/task.ts` for
  * what a task is and why it's invoked rather than fired by a deploy.
  *
  * The front half is `ens deploy explain`'s own — same manifest lookup, same
@@ -80,24 +79,20 @@ const DEPLOYMENT_VALUES = ["name", "artifact", "root"] as const;
  */
 export async function runDeliveryTask(
   name: string,
-  requestedKit: string | undefined,
-  taskName: string | undefined,
+  kit: string,
+  taskName: string,
   taskArgs: readonly string[],
   options: RunDeliveryTaskOptions,
   repo: RepoLocator,
   gateway: Deploy.PackKitGateway,
   kitLoader: Deploy.KitLoader,
 ): Promise<void> {
-  const context = await loadWorkload(name, requestedKit, repo, {
+  const context = await loadWorkload(name, kit, repo, {
     envFiles: options.envFiles,
   });
-  const { repoRoot, workload, kit } = context;
+  const { repoRoot, workload } = context;
 
   const tasks = workload.tasks ?? {};
-  if (taskName === undefined) {
-    presentTasks(name, tasks);
-    return;
-  }
 
   const task = tasks[taskName];
   if (!task) {
@@ -134,7 +129,13 @@ export async function runDeliveryTask(
       kitLoader,
     });
 
-  await runProcess(task, { repoRoot, workload: name, env, args: taskArgs });
+  await runProcess(task, {
+    repoRoot,
+    workload: name,
+    kit,
+    env,
+    args: taskArgs,
+  });
   console.log(`Ran task "${taskName}" for "${name}".`);
 }
 
@@ -399,25 +400,24 @@ function scopeTo(
   };
 }
 
-function presentTasks(
+/**
+ * Prints what a workload declares under `tasks:` (`ens delivery <name> <kit>
+ * tasks`): one line per task, its name, a tab, then its description (empty
+ * when it declares none). A tab rather than padding, so the output splits the
+ * same way for a person and for `cut`.
+ */
+export async function listDeliveryTasks(
   name: string,
-  tasks: Readonly<Record<string, Deploy.Task>>,
-): void {
-  const declared = Object.keys(tasks);
-  if (declared.length === 0) {
-    console.log(`Workload "${name}" declares no tasks.`);
-    return;
+  kit: string,
+  options: Pick<RunDeliveryTaskOptions, "envFiles">,
+  repo: RepoLocator,
+): Promise<void> {
+  const { workload } = await loadWorkload(name, kit, repo, {
+    envFiles: options.envFiles,
+  });
+  for (const [taskName, task] of Object.entries(workload.tasks ?? {})) {
+    console.log(`${taskName}\t${task.description ?? ""}`);
   }
-
-  console.log(`Tasks declared by "${name}":`);
-  for (const taskName of declared) {
-    const task = tasks[taskName];
-    const what = task.script ? `sh ci/${name}/tasks/${task.script}` : task.run!;
-    console.log(`  ${taskName}: ${what}`);
-  }
-  console.log(
-    `\nRun one with: ens delivery task ${name} <task> [args...]`,
-  );
 }
 
 interface ArgumentContext {
@@ -487,12 +487,13 @@ async function runProcess(
   context: {
     readonly repoRoot: string;
     readonly workload: string;
+    readonly kit: string;
     readonly env: Readonly<Record<string, string>>;
     readonly args: readonly string[];
   },
 ): Promise<void> {
   const argv = task.script
-    ? [join(context.repoRoot, "ci", context.workload, "tasks", task.script)]
+    ? [join(context.repoRoot, "ci", context.workload, context.kit, task.script)]
     : ["-c", task.run!, "ens-delivery-task"];
 
   const { success, code } = await new Deno.Command("sh", {

@@ -49,7 +49,12 @@ export const KEYS: Readonly<Record<KeyedMapping, readonly Key[]>> = {
   variable: [optional("type"), optional("default"), optional("description")],
   external: [required("type"), required("name")],
   resource: [required("type"), optional("class"), optional("capabilities")],
-  task: [optional("run"), optional("script"), optional("arguments")],
+  task: [
+    optional("description"),
+    optional("run"),
+    optional("script"),
+    optional("arguments"),
+  ],
   launch: [
     required("type"),
     optional("command"),

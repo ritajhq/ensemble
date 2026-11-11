@@ -177,7 +177,7 @@ class ManifestReading {
     if (hasRun === hasScript) {
       this.report(
         path,
-        `${path} must declare exactly one of "run" (a shell one-liner) or "script" (a file under ci/<workload>/tasks/).`,
+        `${path} must declare exactly one of "run" (a shell one-liner) or "script" (a file under ci/<workload>/<kit>/).`,
       );
     }
     if (hasRun && (typeof value.run !== "string" || value.run.length === 0)) {
@@ -186,14 +186,28 @@ class ManifestReading {
     if (hasScript) this.checkScriptPath(value.script, path);
 
     return {
+      description: this.taskDescriptionOf(value.description, path),
       run: value.run as string | undefined,
       script: value.script as string | undefined,
       arguments: this.taskArgumentsOf(value.arguments, path.child("arguments")),
     };
   }
 
+  private taskDescriptionOf(
+    value: unknown,
+    task: ManifestPath,
+  ): string | undefined {
+    if (value === undefined) return undefined;
+    if (typeof value === "string" && value.length > 0) return value;
+    this.report(
+      task.child("description"),
+      `${task}.description must be a non-empty string.`,
+    );
+    return undefined;
+  }
+
   /**
-   * A task's script is a path *inside* `ci/<workload>/tasks/` — the core
+   * A task's script is a path *inside* `ci/<workload>/<kit>/` — the core
    * spawns whatever this names, so absolute paths and any `..` segment are
    * rejected outright rather than resolved and checked later.
    */
@@ -207,7 +221,7 @@ class ManifestReading {
     if (value.startsWith("/") || segments.includes("..")) {
       this.report(
         path,
-        `${path} must be a path inside the workload's own tasks/ folder (got "${value}").`,
+        `${path} must be a path inside the workload's own kit folder (got "${value}").`,
       );
     }
   }

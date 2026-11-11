@@ -1,6 +1,7 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { basename, join } from "@std/path";
 import {
+  listDeliveryTasks,
   runDeliveryTask,
   TaskArgumentError,
   TaskFailedError,
@@ -72,6 +73,7 @@ deploy:
       replicas: 1
 tasks:
   record:
+    description: Records what it was handed
     script: record.sh
     arguments:
       project: \${deployment.name}
@@ -107,7 +109,7 @@ tasks:
       url: http://web:\${compute.web.http}/health
 `;
 
-/** Writes a throwaway workspace: the manifest, its tasks folder, and the kit `loadDeployContext` will load. */
+/** Writes a throwaway workspace: the manifest, its kit folder, and the kit `loadDeployContext` will load. */
 async function withWorkspace(
   run: (
     repoRoot: string,
@@ -117,10 +119,10 @@ async function withWorkspace(
   const repoRoot = await Deno.makeTempDir();
   try {
     const workloadDir = join(repoRoot, "ci", "demo");
-    await Deno.mkdir(join(workloadDir, "tasks"), { recursive: true });
+    await Deno.mkdir(join(workloadDir, "demo-kit"), { recursive: true });
     await Deno.writeTextFile(join(workloadDir, "delivery.yml"), MANIFEST);
     await Deno.writeTextFile(
-      join(workloadDir, "tasks", "record.sh"),
+      join(workloadDir, "demo-kit", "record.sh"),
       `#!/bin/sh\nprintf '%s\\n' "$project" "$artifact" "$root" "$web_port" "$greeting" "$literal" "$1" "$2" > "$root/recorded.txt"\n`,
     );
 
@@ -139,7 +141,7 @@ async function withWorkspace(
 
 function run1(
   repoRoot: string,
-  task: string | undefined,
+  task: string,
   args: readonly string[] = [],
   kitLoader: KitLoader = new InProcessKitLoader(),
   envFiles: readonly EnvFile[] = [],
@@ -286,9 +288,23 @@ Deno.test("runDeliveryTask: an inline `run` gets the same treatment as a script"
   });
 });
 
-Deno.test("runDeliveryTask: naming no task lists what the workload declares instead of running anything", async () => {
+Deno.test("listDeliveryTasks: prints each task's name, a tab and its description, running nothing", async () => {
   await withWorkspace(async (repoRoot) => {
-    await run1(repoRoot, undefined);
+    const lines: string[] = [];
+    const log = console.log;
+    console.log = (line: string) => lines.push(line);
+    try {
+      await listDeliveryTasks(
+        "demo",
+        "demo-kit",
+        { envFiles: [] },
+        { findRepoRoot: () => Promise.resolve(repoRoot) },
+      );
+    } finally {
+      console.log = log;
+    }
+    assertEquals(lines[0], "record\tRecords what it was handed");
+    assertEquals(lines[1], "inline\t");
     assertEquals(
       await Deno.stat(join(repoRoot, "recorded.txt")).then(
         () => true,
@@ -453,26 +469,5 @@ Deno.test("runDeliveryTask: a snapshot is not used for an argument embedding a r
       await Deno.readTextFile(join(repoRoot, "url.txt")),
       "http://web:8080/health\n",
     );
-  });
-});
-
-Deno.test("runDeliveryTask: with no kit named, the one .ensemble/config.yaml configures for the workload is used", async () => {
-  await withWorkspace(async (repoRoot) => {
-    await Deno.writeTextFile(
-      join(repoRoot, ".ensemble", "config.yaml"),
-      "deploy:\n  demo:\n    kit: demo-kit\n",
-    );
-    await runDeliveryTask(
-      "demo",
-      undefined,
-      "record",
-      [],
-      { artifacts: "local", version: "latest", envFiles: [] },
-      { findRepoRoot: () => Promise.resolve(repoRoot) },
-      noReleasesGateway,
-      new InProcessKitLoader(),
-    );
-    const recorded = await Deno.readTextFile(join(repoRoot, "recorded.txt"));
-    assertEquals(recorded.split("\n")[0], `${basename(repoRoot)}-demo`);
   });
 });

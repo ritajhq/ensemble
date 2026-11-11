@@ -2,6 +2,7 @@ import { Command, EnumType } from "@cliffy/command";
 import {
   DeploymentEnvironment,
   Instance,
+  listDeliveryTasks,
   runDeliveryTask,
 } from "@ensemble/core";
 import * as Delivery from "@ensemble/delivery";
@@ -9,13 +10,14 @@ import * as Host from "@ensemble/host";
 import { resolve } from "@std/path";
 
 /**
- * `ens delivery task <name> [task] [args...]` — runs one of a workload's
- * declared tasks (see `@ensemble/core`'s `deploy/task.ts` for what a task is
- * and why it's invoked rather than fired by a deploy); with no task named, it
- * lists what the workload declares. The kit (`-k`, else the one
- * `deploy.<name>.kit` in .ensemble/config.yaml names, as for `ens deploy`) is
- * needed because resolving a task's arguments means rendering the workload,
- * and only a kit can render it.
+ * `ens delivery <name> <kit> tasks` lists a workload's declared tasks, name and
+ * description; `ens delivery <name> <kit> task <task> [args...]` runs one
+ * of them (see `@ensemble/core`'s `deploy/task.ts` for what a task is
+ * and why it's invoked rather than fired by a deploy). The kit is named, not configured, because
+ * a task's script lives in the kit's own folder (`ci/<name>/<kit>/`) — the
+ * same task can do its operator step differently on each platform — and
+ * because resolving a task's arguments means rendering the workload, which
+ * only that kit can do.
  *
  * A task acts on a deployment you brought up locally, so without `--env-file`
  * it loads the same files `ens develop` does.
@@ -23,68 +25,9 @@ import { resolve } from "@std/path";
  * Nested under `delivery` rather than a bare `ens task`, because what makes a
  * task meaningful is *which* delivery it belongs to: the manifest declaring
  * it, the workload whose values its arguments resolve against, and the stack
- * that workload's deploy brought up.
+ * that workload's deploy brought up. `tasks` and `task` are verbs after the delivery;
+ * `print` stays a subcommand since it needs no kit.
  */
-const taskCommand = new Command()
-  .name("task")
-  .description(
-    "Run one of a workload's tasks declared in ci/<name>/delivery.yml, or list them when no task is named.",
-  )
-  .type("artifacts", new EnumType(["local", "published"]))
-  .arguments("<name:string> [task:string] [args...:string]")
-  .option(
-    "-k, --kit <kit:string>",
-    "Deploy kit to use (default: the one `deploy.<name>.kit` in .ensemble/config.yaml names).",
-  )
-  .option(
-    "--artifacts <artifacts:artifacts>",
-    "Which release locator to resolve.",
-    {
-      default: "published" as const,
-    },
-  )
-  .option(
-    "--version <version:string>",
-    "Released version to resolve ${release.<name>} references to for published artifacts.",
-    { default: "latest" },
-  )
-  .option(
-    "--instance <slug:string>",
-    "Act on this named instance of the workload (see `ens deploy --instance`) rather than its plain deployment.",
-  )
-  .option(
-    "--env-file <path:string>",
-    "Load an env file (repo-root relative or absolute, repeatable) instead of the default ci/<name>/dev.env, ci/<name>/<kit>.env and .ensemble/deploy/<name>/secrets.env.",
-    { collect: true },
-  )
-  .action(
-    async (
-      { artifacts, version, envFile, instance, kit },
-      name: string,
-      task: string | undefined,
-      ...args: string[]
-    ) => {
-      await runDeliveryTask(
-        name,
-        kit,
-        task,
-        args,
-        {
-          artifacts,
-          version,
-          envFiles: envFile
-            ? DeploymentEnvironment.required(envFile)
-            : (resolvedKit) =>
-              DeploymentEnvironment.developConvention(name, resolvedKit),
-          instance: instance ? Instance.parse(instance) : undefined,
-        },
-        Host.createPorts().repo,
-        new Host.SubprocessPackKitGateway(),
-        new Host.SubprocessKitLoader(),
-      );
-    },
-  );
-
 /**
  * `ens delivery print <name>` — prints what `ci/<name>/delivery.yml`
  * declares: for now the architecture of its `deploy` block, every piece (with
@@ -140,10 +83,86 @@ const printCommand = new Command()
     rendering.warnings.forEach((warning) => console.error(warning));
   });
 
+const DELIVERY_DESCRIPTION =
+  "Workload delivery: the non-provisioning operator steps a manifest declares (`ens delivery <name> <kit> tasks|task`), and `print`.";
+
 export const deliveryCommand = new Command()
   .name("delivery")
-  .description(
-    "Workload delivery: the non-provisioning operator steps a manifest declares.",
+  .description(DELIVERY_DESCRIPTION)
+  .type("artifacts", new EnumType(["local", "published"]))
+  .arguments(
+    "<name:string> <kit:string> <verb:string> [task:string] [args...:string]",
   )
-  .command("task", taskCommand)
+  .option(
+    "--artifacts <artifacts:artifacts>",
+    "Which release locator to resolve.",
+    {
+      default: "published" as const,
+    },
+  )
+  .option(
+    "--version <version:string>",
+    "Released version to resolve ${release.<name>} references to for published artifacts.",
+    { default: "latest" },
+  )
+  .option(
+    "--instance <slug:string>",
+    "Act on this named instance of the workload (see `ens deploy --instance`) rather than its plain deployment.",
+  )
+  .option(
+    "--env-file <path:string>",
+    "Load an env file (repo-root relative or absolute, repeatable) instead of the default ci/<name>/dev.env, ci/<name>/<kit>.env and .ensemble/deploy/<name>/secrets.env.",
+    { collect: true },
+  )
+  .action(
+    async (
+      { artifacts, version, envFile, instance },
+      name: string,
+      kit: string,
+      verb: string,
+      task: string | undefined,
+      ...args: string[]
+    ) => {
+      const envFiles = envFile
+        ? DeploymentEnvironment.required(envFile)
+        : (resolvedKit: string) =>
+          DeploymentEnvironment.developConvention(name, resolvedKit);
+      const repo = Host.createPorts().repo;
+
+      const verbs: Record<string, () => Promise<void>> = {
+        tasks: () => listDeliveryTasks(name, kit, { envFiles }, repo),
+        task: () => {
+          if (!task) {
+            throw new Error(
+              `Name a task: ens delivery ${name} ${kit} task <task> [args...]. List them with: ens delivery ${name} ${kit} tasks.`,
+            );
+          }
+          return runDeliveryTask(
+            name,
+            kit,
+            task,
+            args,
+            {
+              artifacts,
+              version,
+              envFiles,
+              instance: instance ? Instance.parse(instance) : undefined,
+            },
+            repo,
+            new Host.SubprocessPackKitGateway(),
+            new Host.SubprocessKitLoader(),
+          );
+        },
+      };
+      const verbAction = verbs[verb];
+      if (!verbAction) {
+        throw new Error(
+          `Unknown delivery verb "${verb}". Expected one of: ${
+            Object.keys(verbs).join(", ")
+          }.`,
+        );
+      }
+      await verbAction();
+    },
+  )
   .command("print", printCommand);

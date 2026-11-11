@@ -70,10 +70,11 @@ deploy:
       type: network
       name: edge
 
-# Run by hand with `ens delivery task`, never by a deploy.
+# Run by hand with `ens delivery <name> <kit> task`, never by a deploy.
 tasks:
   migrate:
-    script: migrate.sh # ci/<name>/tasks/migrate.sh; or `run:` for a one-liner
+    description: Migrate the schema
+    script: migrate.sh # ci/<name>/<kit>/migrate.sh; or `run:` for a one-liner
     arguments: # become the script's environment variables
       project: ${deployment.name}
       artifact: ${deployment.artifact}
