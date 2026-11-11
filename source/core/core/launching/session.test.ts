@@ -10,12 +10,24 @@ class FakeOutputs implements Outputs {
   prepared: string[] = [];
   kept: string[] = [];
   prepare(builds: readonly string[], packs: readonly string[]): Promise<void> {
-    this.prepared.push(...builds.map((b) => `build:${b}`), ...packs.map((p) => `pack:${p}`));
+    this.prepared.push(
+      ...builds.map((b) => `build:${b}`),
+      ...packs.map((p) => `pack:${p}`),
+    );
     return Promise.resolve();
   }
-  keepCurrent(builds: readonly string[], packs: readonly string[], signal: AbortSignal): Promise<void> {
-    this.kept.push(...builds.map((b) => `build:${b}`), ...packs.map((p) => `pack:${p}`));
-    return new Promise((resolve) => signal.addEventListener("abort", () => resolve()));
+  keepCurrent(
+    builds: readonly string[],
+    packs: readonly string[],
+    signal: AbortSignal,
+  ): Promise<void> {
+    this.kept.push(
+      ...builds.map((b) => `build:${b}`),
+      ...packs.map((p) => `pack:${p}`),
+    );
+    return new Promise((resolve) =>
+      signal.addEventListener("abort", () => resolve())
+    );
   }
 }
 
@@ -31,7 +43,11 @@ Deno.test("builds first, starts in reference order, restarts on a build change, 
     },
   };
   const outputs = new FakeOutputs();
-  const supervisor = new Supervisor(dir, new Readiness(1000, 20), () => new Backoff(20, 80));
+  const supervisor = new Supervisor(
+    dir,
+    new Readiness(1000, 20),
+    () => new Backoff(20, 80),
+  );
   const session = new Session(
     entries,
     { builds: new Set(["kernel"]), packs: new Set() },
@@ -43,7 +59,9 @@ Deno.test("builds first, starts in reference order, restarts on a build change, 
   const running = session.run(abort.signal);
 
   const deadline = Date.now() + 3000;
-  while (supervisor.pidOf("server") === undefined && Date.now() < deadline) await new Promise((r) => setTimeout(r, 20));
+  while (supervisor.pidOf("server") === undefined && Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 20));
+  }
   const first = supervisor.pidOf("server")!;
   assertEquals(outputs.prepared, ["build:kernel"]);
   assertEquals(outputs.kept, ["build:kernel"]);
@@ -51,8 +69,14 @@ Deno.test("builds first, starts in reference order, restarts on a build change, 
   await new Promise((r) => setTimeout(r, 200));
   await Deno.writeTextFile(`${dir}/changed`, "x");
   const again = Date.now() + 4000;
-  while (supervisor.pidOf("server") === first && Date.now() < again) await new Promise((r) => setTimeout(r, 20));
-  assert(supervisor.pidOf("server") !== first && supervisor.pidOf("server") !== undefined, "restarted after the change");
+  while (supervisor.pidOf("server") === first && Date.now() < again) {
+    await new Promise((r) => setTimeout(r, 20));
+  }
+  assert(
+    supervisor.pidOf("server") !== first &&
+      supervisor.pidOf("server") !== undefined,
+    "restarted after the change",
+  );
 
   abort.abort();
   await running;

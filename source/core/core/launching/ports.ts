@@ -12,7 +12,10 @@ export class PortAllocator {
     const assigned = new Map<string, number>();
     for (const [name, entry] of Object.entries(entries)) {
       for (const [port, wanted] of Object.entries(entry.ports)) {
-        assigned.set(`${name}.${port}`, wanted === "auto" ? this.free() : wanted);
+        assigned.set(
+          `${name}.${port}`,
+          wanted === "auto" ? this.free() : wanted,
+        );
       }
     }
     return assigned;

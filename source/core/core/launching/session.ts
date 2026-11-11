@@ -11,7 +11,11 @@ export interface Outputs {
   /** Builds and packs each once, so what the entries run exists. */
   prepare(builds: readonly string[], packs: readonly string[]): Promise<void>;
   /** Keeps them current until `signal` aborts (the kits' own `--watch`). Resolves when they have all ended. */
-  keepCurrent(builds: readonly string[], packs: readonly string[], signal: AbortSignal): Promise<void>;
+  keepCurrent(
+    builds: readonly string[],
+    packs: readonly string[],
+    signal: AbortSignal,
+  ): Promise<void>;
 }
 
 /**
@@ -42,14 +46,24 @@ export class Session {
 
     const companions = new AbortController();
     const keeping = this.outputs.keepCurrent(builds, packs, companions.signal);
-    const values = new Values(this.locations, new PortAllocator().assign(this.entries), this.environment);
+    const values = new Values(
+      this.locations,
+      new PortAllocator().assign(this.entries),
+      this.environment,
+    );
     const watchers: OutputWatcher[] = [];
     const onAbort = () => void this.supervisor.stop();
     signal.addEventListener("abort", onAbort, { once: true });
 
     try {
-      await this.supervisor.start(this.plan.order().map((name) => values.runnable(name, this.entries[name])));
-      watchers.push(...this.rules.outputs().map((output) => this.watch(output)));
+      await this.supervisor.start(
+        this.plan.order().map((name) =>
+          values.runnable(name, this.entries[name])
+        ),
+      );
+      watchers.push(
+        ...this.rules.outputs().map((output) => this.watch(output)),
+      );
       if (signal.aborted) onAbort();
       await this.supervisor.whenEnded();
     } finally {
@@ -62,19 +76,27 @@ export class Session {
   }
 
   private watch(output: Output): OutputWatcher {
-    const path = "build" in output ? this.locations.build(output.build) : this.locations.pack(output.pack);
+    const path = "build" in output
+      ? this.locations.build(output.build)
+      : this.locations.pack(output.pack);
     return new OutputWatcher(path, () => void this.restartFor(output));
   }
 
   private async restartFor(output: Output): Promise<void> {
-    for (const name of this.rules.for(output)) await this.supervisor.restart(name);
+    for (const name of this.rules.for(output)) {
+      await this.supervisor.restart(name);
+    }
   }
 
   /** Everything of one kind the entries use or restart for. */
   private used(kind: "builds" | "packs", key: "build" | "pack"): string[] {
     const names = new Set<string>();
-    for (const name of this.plan.order()) this.plan.usedBy(name)[kind].forEach((used) => names.add(used));
-    for (const output of this.rules.outputs()) if (key in output) names.add((output as Record<string, string>)[key]);
+    for (const name of this.plan.order()) {
+      this.plan.usedBy(name)[kind].forEach((used) => names.add(used));
+    }
+    for (const output of this.rules.outputs()) {
+      if (key in output) names.add((output as Record<string, string>)[key]);
+    }
     return [...names];
   }
 }

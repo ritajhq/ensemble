@@ -30,7 +30,12 @@ class Pipeline {
   }
 
   async build(name: string, options: RunBuildOptions): Promise<number> {
-    return await this.once("build", name, options.mode, async () => await buildApp(name, options, this.ports));
+    return await this.once(
+      "build",
+      name,
+      options.mode,
+      async () => await buildApp(name, options, this.ports),
+    );
   }
 
   async pack(
@@ -51,19 +56,24 @@ class Pipeline {
       mode: options.mode ?? fromConfig?.mode,
       outputName: options.outputName ?? fromConfig?.outputName,
     };
-    return await this.once("pack", ship, "production", async () =>
-      await packShip(
-        ship,
-        kit,
-        resolved,
-        (app) =>
-          this.build(app, {
-            mode: "production",
-            watch: false,
-            reporter: options.buildReporter,
-          }),
-        this.ports,
-      ));
+    return await this.once(
+      "pack",
+      ship,
+      "production",
+      async () =>
+        await packShip(
+          ship,
+          kit,
+          resolved,
+          (app) =>
+            this.build(app, {
+              mode: "production",
+              watch: false,
+              reporter: options.buildReporter,
+            }),
+          this.ports,
+        ),
+    );
   }
 
   private async once(
@@ -75,7 +85,9 @@ class Pipeline {
     const key = keyOf(kind, name, mode);
     if (this.done.has(key)) return 0;
     if (this.running.has(key)) {
-      throw new Error(`${kind} ${name} depends on itself, by way of what its pack kit depends on.`);
+      throw new Error(
+        `${kind} ${name} depends on itself, by way of what its pack kit depends on.`,
+      );
     }
     this.running.add(key);
     try {

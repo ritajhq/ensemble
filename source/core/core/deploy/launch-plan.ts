@@ -59,11 +59,19 @@ export class LaunchPlan {
     const packs = new Set<string>();
     const launches = new Set<string>();
 
-    for (const [, kind, target] of text.flatMap((value) => [...value.matchAll(BUILD_OR_PACK)])) {
+    for (
+      const [, kind, target] of text.flatMap((
+        value,
+      ) => [...value.matchAll(BUILD_OR_PACK)])
+    ) {
       this.checkOutput(name, kind as "build" | "pack", target);
       (kind === "build" ? builds : packs).add(target);
     }
-    for (const [, target, port] of text.flatMap((value) => [...value.matchAll(LAUNCH_PORT)])) {
+    for (
+      const [, target, port] of text.flatMap((
+        value,
+      ) => [...value.matchAll(LAUNCH_PORT)])
+    ) {
       this.checkPort(name, target, port);
       launches.add(target);
     }
@@ -81,14 +89,25 @@ export class LaunchPlan {
     ];
   }
 
-  private checkOutput(name: string, kind: "build" | "pack", target: string): void {
+  private checkOutput(
+    name: string,
+    kind: "build" | "pack",
+    target: string,
+  ): void {
     const known = kind === "build" ? this.known.builds : this.known.packs;
     if (known.has(target)) return;
-    throw new LaunchPlanError(`launch.${name} refers to ${kind} ${target}, which the project does not declare.`);
+    throw new LaunchPlanError(
+      `launch.${name} refers to ${kind} ${target}, which the project does not declare.`,
+    );
   }
 
-  private checkRestart(name: string, watch: { build: string } | { pack: string }): void {
-    const [kind, target] = "build" in watch ? ["build", watch.build] as const : ["pack", watch.pack] as const;
+  private checkRestart(
+    name: string,
+    watch: { build: string } | { pack: string },
+  ): void {
+    const [kind, target] = "build" in watch
+      ? ["build", watch.build] as const
+      : ["pack", watch.pack] as const;
     const known = kind === "build" ? this.known.builds : this.known.packs;
     if (known.has(target)) return;
     throw new LaunchPlanError(
@@ -99,10 +118,14 @@ export class LaunchPlan {
   private checkPort(name: string, target: string, port: string): void {
     const other = this.entries[target];
     if (other === undefined) {
-      throw new LaunchPlanError(`launch.${name} refers to launch.${target}, which the manifest does not declare.`);
+      throw new LaunchPlanError(
+        `launch.${name} refers to launch.${target}, which the manifest does not declare.`,
+      );
     }
     if (port in other.ports) return;
-    throw new LaunchPlanError(`launch.${name} refers to launch.${target}.${port}, but launch.${target} has no port named ${port}.`);
+    throw new LaunchPlanError(
+      `launch.${name} refers to launch.${target}.${port}, but launch.${target} has no port named ${port}.`,
+    );
   }
 
   private sort(): string[] {
@@ -113,7 +136,9 @@ export class LaunchPlan {
       if (state.get(name) === "done") return;
       if (state.get(name) === "visiting") {
         const loop = [...path.slice(path.indexOf(name)), name];
-        throw new LaunchPlanError(`launch entries wait on each other in a cycle: ${loop.join(" -> ")}.`);
+        throw new LaunchPlanError(
+          `launch entries wait on each other in a cycle: ${loop.join(" -> ")}.`,
+        );
       }
       state.set(name, "visiting");
       for (const dependency of this.used.get(name)!.launches) {

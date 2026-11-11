@@ -26,16 +26,30 @@ export class Launch {
   ) {}
 
   /** The launch the manifest `name` describes, or undefined when it has no `launch:` section. */
-  static async open(name: string, envFiles: readonly EnvFile[], ports: Ports): Promise<Launch | undefined> {
-    const { repoRoot, workload } = await loadLaunchManifest(name, ports.repo, envFiles);
+  static async open(
+    name: string,
+    envFiles: readonly EnvFile[],
+    ports: Ports,
+  ): Promise<Launch | undefined> {
+    const { repoRoot, workload } = await loadLaunchManifest(
+      name,
+      ports.repo,
+      envFiles,
+    );
     if (!workload.launch) return undefined;
 
     const config = await new EnsembleConfigStore(repoRoot).loadOrEmpty();
     const artifacts = join(repoRoot, "source", "artifacts");
     const session = new Session(
       workload.launch,
-      { builds: new Set(Object.keys(config.build ?? {})), packs: new Set(Object.keys(config.pack ?? {})) },
-      { build: (app) => join(artifacts, app), pack: (ship) => join(artifacts, "packages", ship) },
+      {
+        builds: new Set(Object.keys(config.build ?? {})),
+        packs: new Set(Object.keys(config.pack ?? {})),
+      },
+      {
+        build: (app) => join(artifacts, app),
+        pack: (ship) => join(artifacts, "packages", ship),
+      },
       new CommandOutputs(ports),
       new Supervisor(repoRoot, new Readiness(), () => new Backoff()),
     );

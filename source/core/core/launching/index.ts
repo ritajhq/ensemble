@@ -1,4 +1,4 @@
-export { PortAllocator, type AssignedPorts } from "./ports.ts";
+export { type AssignedPorts, PortAllocator } from "./ports.ts";
 export { type Locations, type Runnable, ValueError, Values } from "./values.ts";
 export { Running } from "./running.ts";
 export { Readiness } from "./readiness.ts";

@@ -4,8 +4,18 @@ import { RestartRules } from "./restart-rules.ts";
 
 const base = { ports: {}, env: {}, envSecrets: {} };
 const entries: Record<string, LaunchEntry> = {
-  kernel: { ...base, type: "process", command: ["k"], development: { restart: [{ build: "kernel" }] } },
-  desktop: { ...base, type: "desktop", package: "p", development: { restart: [{ pack: "desktop" }, { build: "kernel" }] } },
+  kernel: {
+    ...base,
+    type: "process",
+    command: ["k"],
+    development: { restart: [{ build: "kernel" }] },
+  },
+  desktop: {
+    ...base,
+    type: "desktop",
+    package: "p",
+    development: { restart: [{ pack: "desktop" }, { build: "kernel" }] },
+  },
   other: { ...base, type: "process", command: ["o"] },
 };
 
@@ -17,5 +27,7 @@ Deno.test("an output restarts the entries that asked for it, in manifest order",
 });
 
 Deno.test("lists each watched output once", () => {
-  assertEquals(new RestartRules(entries).outputs(), [{ build: "kernel" }, { pack: "desktop" }]);
+  assertEquals(new RestartRules(entries).outputs(), [{ build: "kernel" }, {
+    pack: "desktop",
+  }]);
 });

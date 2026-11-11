@@ -2,7 +2,11 @@ import { basename, join, normalize, relative } from "@std/path";
 import { exists } from "@std/fs";
 import * as Deploy from "./deploy/index.ts";
 import type { RepoLocator } from "./ports.ts";
-import { DeploymentEnvironment, type EnvFile, type EnvFiles } from "./env-files.ts";
+import {
+  DeploymentEnvironment,
+  type EnvFile,
+  type EnvFiles,
+} from "./env-files.ts";
 import { DeployKitChoice } from "./deploy-kit-choice.ts";
 
 /**
@@ -196,7 +200,10 @@ export async function loadLaunchManifest(
   const repoRoot = await repo.findRepoRoot();
   const environment = new DeploymentEnvironment(repoRoot);
   await environment.load(envFiles);
-  return { repoRoot, workload: await readManifest(repoRoot, name, environment) };
+  return {
+    repoRoot,
+    workload: await readManifest(repoRoot, name, environment),
+  };
 }
 
 /**

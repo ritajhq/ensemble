@@ -50,7 +50,9 @@ export class Supervisor {
   private readonly order: string[] = [];
   private ending = false;
   private resolveEnded!: () => void;
-  private readonly sessionEnded = new Promise<void>((resolve) => (this.resolveEnded = resolve));
+  private readonly sessionEnded = new Promise<void>((
+    resolve,
+  ) => (this.resolveEnded = resolve));
 
   constructor(
     private readonly cwd: string,
@@ -126,9 +128,14 @@ export class Supervisor {
     const ports = Object.values(runnable.ports);
     const slot = this.slots.get(runnable.name)!;
     for (const port of ports) {
-      const ready = await this.readiness.ofPort(port, () => slot.running !== undefined && !this.ending);
+      const ready = await this.readiness.ofPort(
+        port,
+        () => slot.running !== undefined && !this.ending,
+      );
       if (!ready && !this.ending) {
-        throw new Error(`launch.${runnable.name} did not start listening on port ${port}.`);
+        throw new Error(
+          `launch.${runnable.name} did not start listening on port ${port}.`,
+        );
       }
     }
   }
@@ -148,7 +155,11 @@ export class Supervisor {
 
   private startAgain(slot: Slot, code: number): void {
     const delay = slot.backoff.next(Date.now() - slot.startedAt);
-    console.warn(`launch: ${slot.runnable.name} exited (${code}); starting it again in ${delay / 1000}s`);
+    console.warn(
+      `launch: ${slot.runnable.name} exited (${code}); starting it again in ${
+        delay / 1000
+      }s`,
+    );
     setTimeout(() => {
       if (this.ending || slot.running) return;
       this.begin(slot.runnable.name);

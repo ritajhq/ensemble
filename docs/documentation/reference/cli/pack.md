@@ -32,18 +32,21 @@ ens pack web docker -v TAG=v1.2.3 -v REGISTRY=ghcr.io/me
 
 ## What a pack depends on
 
-A pack depends on builds, never on other packs. Its kit says which builds, through its `dependencies.ts`: the kit reads
-the ship's own config and answers with the apps it uses (the `docker` kit from its Dockerfile's `COPY --from`, the
-`deno.compile` kit from its `compile.yml`'s `source`, the `tauri` kit from its `tauri.yml`'s `frontend`). `ens pack`
-builds those first, each once, and stops at the first failure. A kit with no `dependencies.ts` has every app built
-first.
+A pack depends on builds, never on other packs. Its kit says which builds,
+through its `dependencies.ts`: the kit reads the ship's own config and answers
+with the apps it uses (the `docker` kit from its Dockerfile's `COPY --from`, the
+`deno.compile` kit from its `compile.yml`'s `source`, the `tauri` kit from its
+`tauri.yml`'s `frontend`). `ens pack` builds those first, each once, and stops
+at the first failure. A kit with no `dependencies.ts` has every app built first.
 
-An earlier `needs:` key in `.ensemble/config.yaml` is gone; a config that still has one is refused.
+An earlier `needs:` key in `.ensemble/config.yaml` is gone; a config that still
+has one is refused.
 
 ## The `tauri` kit
 
-The Tauri app is made by the pack, not a build: a build is only a transformation of source, and a Tauri executable is
-something to run or distribute as it is. The ship holds a `tauri.yml`:
+The Tauri app is made by the pack, not a build: a build is only a transformation
+of source, and a Tauri executable is something to run or distribute as it is.
+The ship holds a `tauri.yml`:
 
 ```yaml
 shell: desktop # the app under source/apps with Cargo.toml and tauri.conf.json
@@ -53,11 +56,12 @@ bundles: [deb] # installer mode only
 
 It has two modes, each complete on its own:
 
-- `binary` (`tauri build --no-bundle`): the executable alone, at `source/artifacts/packages/<name>`. With `--watch` it
-  builds again, in debug, each time the crate's sources change, keeping the last good executable when a build fails.
-  `-v profile=debug` asks for a debug build without watching.
-- `installer` (`tauri build`): compiles and bundles in one pass; the bundles named in `bundles` are copied to
-  `source/artifacts/packages/<name>/`.
+- `binary` (`tauri build --no-bundle`): the executable alone, at
+  `source/artifacts/packages/<name>`. With `--watch` it builds again, in debug,
+  each time the crate's sources change, keeping the last good executable when a
+  build fails. `-v profile=debug` asks for a debug build without watching.
+- `installer` (`tauri build`): compiles and bundles in one pass; the bundles
+  named in `bundles` are copied to `source/artifacts/packages/<name>/`.
 
 ## `deno.compile` and its lockfile
 

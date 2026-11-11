@@ -5,12 +5,18 @@ export type Output = { readonly build: string } | { readonly pack: string };
 
 /** Which launch entries to restart when an output changes, from each entry's `development.restart`. */
 export class RestartRules {
-  constructor(private readonly entries: Readonly<Record<string, LaunchEntry>>) {}
+  constructor(
+    private readonly entries: Readonly<Record<string, LaunchEntry>>,
+  ) {}
 
   /** Entry names, in manifest order, that asked to restart for `output`. */
   for(output: Output): string[] {
     return Object.entries(this.entries)
-      .filter(([, entry]) => (entry.development?.restart ?? []).some((rule) => this.same(rule, output)))
+      .filter(([, entry]) =>
+        (entry.development?.restart ?? []).some((rule) =>
+          this.same(rule, output)
+        )
+      )
       .map(([name]) => name);
   }
 
@@ -18,7 +24,9 @@ export class RestartRules {
   outputs(): Output[] {
     const seen = new Map<string, Output>();
     for (const entry of Object.values(this.entries)) {
-      for (const rule of entry.development?.restart ?? []) seen.set(this.key(rule), rule);
+      for (const rule of entry.development?.restart ?? []) {
+        seen.set(this.key(rule), rule);
+      }
     }
     return [...seen.values()];
   }

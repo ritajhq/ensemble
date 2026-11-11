@@ -37,14 +37,18 @@ export class Values {
   constructor(
     private readonly locations: Locations,
     private readonly ports: AssignedPorts,
-    private readonly environment: (name: string) => string | undefined = (name) => Deno.env.get(name),
+    private readonly environment: (name: string) => string | undefined = (
+      name,
+    ) => Deno.env.get(name),
   ) {}
 
   runnable(name: string, entry: LaunchEntry): Runnable {
     return {
       name,
       type: entry.type,
-      argv: (entry.type === "desktop" ? [entry.package!] : entry.command!).map((value) => this.text(name, value)),
+      argv: (entry.type === "desktop" ? [entry.package!] : entry.command!).map((
+        value,
+      ) => this.text(name, value)),
       env: { ...this.plainEnv(name, entry), ...this.secretEnv(name, entry) },
       ports: this.portsOf(name, entry),
     };
@@ -52,13 +56,17 @@ export class Values {
 
   private plainEnv(name: string, entry: LaunchEntry): Record<string, string> {
     return Object.fromEntries(
-      Object.entries(entry.env).map(([key, value]) => [key, this.text(name, String(value))]),
+      Object.entries(entry.env).map((
+        [key, value],
+      ) => [key, this.text(name, String(value))]),
     );
   }
 
   private secretEnv(name: string, entry: LaunchEntry): Record<string, string> {
     return Object.fromEntries(
-      Object.entries(entry.envSecrets).map(([key, secret]) => [key, this.secret(name, secret)]),
+      Object.entries(entry.envSecrets).map((
+        [key, secret],
+      ) => [key, this.secret(name, secret)]),
     );
   }
 
@@ -66,21 +74,34 @@ export class Values {
     const variable = DeploymentEnvironment.variableOf(secret);
     const value = this.environment(variable);
     if (value !== undefined) return value;
-    throw new ValueError(`launch.${name} needs secret ${secret}: set ${variable} or put it in the deployment's secrets.env.`);
+    throw new ValueError(
+      `launch.${name} needs secret ${secret}: set ${variable} or put it in the deployment's secrets.env.`,
+    );
   }
 
   private portsOf(name: string, entry: LaunchEntry): Record<string, number> {
-    return Object.fromEntries(Object.keys(entry.ports).map((port) => [port, this.ports.get(`${name}.${port}`)!]));
+    return Object.fromEntries(
+      Object.keys(entry.ports).map((
+        port,
+      ) => [port, this.ports.get(`${name}.${port}`)!]),
+    );
   }
 
   private text(name: string, raw: string): string {
-    return raw.replace(REFERENCE, (whole, category: string, target: string, output?: string) => {
-      if (category === "build") return this.locations.build(target);
-      if (category === "pack") return this.locations.pack(target);
-      if (category === "launch") return String(this.ports.get(`${target}.${output}`));
-      throw new ValueError(
-        `launch.${name} uses ${whole}: only builds, packs and launch ports can be used in a launch entry so far.`,
-      );
-    });
+    return raw.replace(
+      REFERENCE,
+      (whole, category: string, target: string, output?: string) => {
+        if (category === "build") return this.locations.build(target);
+        if (category === "pack") return this.locations.pack(target);
+        if (category === "launch") {
+          return String(
+            this.ports.get(`${target}.${output}`),
+          );
+        }
+        throw new ValueError(
+          `launch.${name} uses ${whole}: only builds, packs and launch ports can be used in a launch entry so far.`,
+        );
+      },
+    );
   }
 }

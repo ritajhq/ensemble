@@ -15,7 +15,9 @@ async function withProject(
   apps: readonly string[],
   run: (fixture: Fixture) => Promise<void>,
 ): Promise<void> {
-  const repoRoot = await Deno.makeTempDir({ prefix: "ensemble-pipeline-test-" });
+  const repoRoot = await Deno.makeTempDir({
+    prefix: "ensemble-pipeline-test-",
+  });
   try {
     await Deno.mkdir(join(repoRoot, ".ensemble", "kits", "build", "fake"), {
       recursive: true,
@@ -72,7 +74,9 @@ const OPTIONS = { mode: "development", watch: false } as const;
 
 async function shipsFor(repoRoot: string, ...ships: string[]) {
   for (const ship of ships) {
-    await Deno.mkdir(join(repoRoot, "source", "ship", ship), { recursive: true });
+    await Deno.mkdir(join(repoRoot, "source", "ship", ship), {
+      recursive: true,
+    });
   }
 }
 
@@ -99,7 +103,11 @@ Deno.test("runPack: a pack with no kit given or declared says where to name one"
   await withProject(PROJECT, [], async ({ repoRoot, ports }) => {
     await shipsFor(repoRoot, "unknown");
 
-    await assertRejects(() => runPack("unknown", undefined, {}, ports), Error, "pack.unknown.kit");
+    await assertRejects(
+      () => runPack("unknown", undefined, {}, ports),
+      Error,
+      "pack.unknown.kit",
+    );
   });
 });
 
@@ -117,7 +125,12 @@ Deno.test("runPack: an app something else keeps built is not built again", async
   await withProject(PROJECT, ["a", "b"], async ({ repoRoot, ports, built }) => {
     await shipsFor(repoRoot, "plain");
 
-    await runPack("plain", undefined, { skipBuildingApps: new Set(["a"]) }, ports);
+    await runPack(
+      "plain",
+      undefined,
+      { skipBuildingApps: new Set(["a"]) },
+      ports,
+    );
 
     assertEquals(built, ["b", "plain"]);
   });
@@ -133,7 +146,11 @@ Deno.test("a config that still has needs is refused, with what to do instead", a
 `,
     ["a"],
     async ({ ports, built }) => {
-      await assertRejects(() => runBuild("a", OPTIONS, ports), Error, "build.a.needs is no longer supported");
+      await assertRejects(
+        () => runBuild("a", OPTIONS, ports),
+        Error,
+        "build.a.needs is no longer supported",
+      );
       assertEquals(built, []);
     },
   );
