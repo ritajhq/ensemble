@@ -9,6 +9,8 @@ export const newProject = "/new";
 
 export const projects = "/projects";
 
+export const deployments = "/deployments";
+
 export function project(id: string): string {
   return `/projects/${encodeURIComponent(id)}`;
 }

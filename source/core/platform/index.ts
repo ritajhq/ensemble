@@ -22,6 +22,8 @@ export {
   TERMINATIONS,
 } from "./deployment.ts";
 export { Run, type RunState, type Work } from "./run.ts";
+export { DeploymentScope } from "./deployment-scope.ts";
+export { LiveDeployment, type LiveService } from "./live-deployment.ts";
 export {
   BUMPS,
   InvalidReleaseError,

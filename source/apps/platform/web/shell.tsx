@@ -98,6 +98,7 @@ const PROJECTS_PAGE = 5;
 function Navigation() {
   const { projects } = useLoaderData() as ShellData;
   const overview = useMatch({ path: Paths.overview, end: true });
+  const deployments = useMatch({ path: Paths.deployments, end: true });
   const projectsPage = useMatch({ path: Paths.projects, end: true });
   const openProject = useMatch("/projects/:id")?.params.id;
   const adding = useMatch(Paths.newProject) !== null;
@@ -105,6 +106,7 @@ function Navigation() {
   const [focused, setFocused] = useState(false);
   const [listed, setListed] = useState(PROJECTS_PAGE);
   const OverviewIcon = useIcon("home");
+  const DeploymentsIcon = useIcon("rocket");
   const ProjectsIcon = useIcon("folder");
   const Chevron = useIcon("chevron-right");
   const AddIcon = useIcon("plus");
@@ -126,6 +128,15 @@ function Navigation() {
             render={<Link to={Paths.overview} />}
           >
             Overview
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            icon={DeploymentsIcon}
+            isActive={deployments !== null}
+            render={<Link to={Paths.deployments} />}
+          >
+            Deployments
           </SidebarMenuButton>
         </SidebarMenuItem>
         <SidebarMenuItem

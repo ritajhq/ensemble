@@ -173,6 +173,27 @@ export interface Repository {
   readonly private: boolean;
 }
 
+/** A deployment found running on the machine, whoever deployed it. */
+export interface LiveDeployment {
+  /** What Docker knows it by: its compose project. */
+  readonly name: string;
+  readonly scope: {
+    /** The checkout it was deployed from, on the machine. */
+    readonly checkout: string;
+    readonly manifest: string;
+    readonly instance?: string;
+  };
+  readonly services: readonly {
+    readonly name: string;
+    readonly state: string;
+    readonly health?: string;
+    readonly image: string;
+  }[];
+  readonly hosts: readonly string[];
+  /** The platform's project it was deployed from; none when someone else deployed it. */
+  readonly project?: string;
+}
+
 /** Who is using the platform, as its sign-in vouches for them. */
 export interface Operator {
   readonly subject: string;
@@ -201,6 +222,11 @@ export class Api {
   /** Ends the session; answers where to sign in again. */
   signOut(): Promise<{ signIn: string }> {
     return this.call("POST", "/api/session/sign-out");
+  }
+
+  /** Every deployment running on the machine. */
+  deployments(): Promise<LiveDeployment[]> {
+    return this.call("GET", "/api/deployments");
   }
 
   projects(): Promise<ProjectSummary[]> {

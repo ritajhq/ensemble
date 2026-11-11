@@ -16,6 +16,8 @@ import { Router } from "./router.ts";
 import { RunFeed } from "./run-feed.ts";
 import { Server, WebApp } from "./server.ts";
 import { Session } from "./session.ts";
+import { DeploymentsApi } from "./deployments-api.ts";
+import { LiveDeployments } from "./live-deployments.ts";
 import { Synchronization } from "./synchronization.ts";
 import { Vault } from "./vault.ts";
 
@@ -109,6 +111,7 @@ const api = new Api(
   endpoints,
 );
 new Session(endpoints, configuration.signIn);
+new DeploymentsApi(new LiveDeployments(configuration.workspace), endpoints);
 new PreviewsApi(
   projects,
   catalogs,
