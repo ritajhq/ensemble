@@ -11,7 +11,8 @@ import {
 } from "@ritaj/ui";
 import { describe, type ReleaseAction } from "../api.ts";
 import { useApi } from "../api-provider.tsx";
-import { go, runHash } from "../places.ts";
+import { useNavigate } from "react-router";
+import * as Paths from "../paths.ts";
 import { Notice } from "./notice.tsx";
 import { Panel } from "./panel.tsx";
 
@@ -47,6 +48,7 @@ export function ReleasePanel(
   { project, versions }: { project: string; versions: readonly string[] },
 ) {
   const api = useApi();
+  const navigate = useNavigate();
   const [action, setAction] = useState<ReleaseAction>("next");
   const [argument, setArgument] = useState(ACTIONS.next.first);
   const [busy, setBusy] = useState(false);
@@ -61,7 +63,7 @@ export function ReleasePanel(
         action,
         argument: argument.trim(),
       });
-      go(runHash(run.id));
+      navigate(Paths.run(run.id));
     } catch (e) {
       setError(describe(e));
       setBusy(false);

@@ -173,6 +173,14 @@ export interface Repository {
   readonly private: boolean;
 }
 
+/** Who is using the platform, as its sign-in vouches for them. */
+export interface Operator {
+  readonly subject: string;
+  readonly email?: string;
+  readonly name?: string;
+  readonly role?: string;
+}
+
 /** Thrown when the platform refuses a request, with its own reason. */
 export class Refusal extends Error {
   constructor(message: string, readonly status: number) {
@@ -184,6 +192,16 @@ export class Refusal extends Error {
 /** The platform's JSON API, as the web app calls it. */
 export class Api {
   constructor(private readonly origin: string) {}
+
+  /** Who is signed in. */
+  session(): Promise<Operator> {
+    return this.call("GET", "/api/session");
+  }
+
+  /** Ends the session; answers where to sign in again. */
+  signOut(): Promise<{ signIn: string }> {
+    return this.call("POST", "/api/session/sign-out");
+  }
 
   projects(): Promise<ProjectSummary[]> {
     return this.call("GET", "/api/projects");

@@ -1,3 +1,5 @@
+import type { SignIn } from "./session.ts";
+
 /** What the platform is configured with, read from its environment. */
 export interface Configuration {
   readonly port: number;
@@ -17,6 +19,8 @@ export interface Configuration {
   readonly previewGuard?: URL;
   /** The platform's own session cookie, kept from every deployment. */
   readonly sessionCookie?: string;
+  /** The sign-in operators come through; none, and no one can be signed out (a local run with no guard in front). */
+  readonly signIn?: SignIn;
   /** The `ens` binary deploys and releases run. */
   readonly ens: string;
   /** Seals the secrets environments hold (see `Vault`). */
@@ -55,6 +59,8 @@ export class ConfigurationLoader {
   load(): Configuration {
     const previewGuard = this.env.get("PLATFORM_PREVIEW_GUARD");
     const sessionCookie = this.env.get("PLATFORM_SESSION_COOKIE");
+    const authService = this.env.get("PLATFORM_AUTH_URL");
+    const signInPage = this.env.get("PLATFORM_SIGN_IN_URL");
     const runsImage = this.env.get("PLATFORM_RUNS_IMAGE");
     const stack = this.env.get("PLATFORM_STACK");
     const secretKey = this.env.get("PLATFORM_SECRET_KEY");
@@ -82,6 +88,9 @@ export class ConfigurationLoader {
       own: this.ownRoutes(this.env.get("PLATFORM_ROUTES") ?? ""),
       ...(previewGuard ? { previewGuard: new URL(previewGuard) } : {}),
       ...(sessionCookie ? { sessionCookie } : {}),
+      ...(authService && signInPage
+        ? { signIn: { service: new URL(authService), page: signInPage } }
+        : {}),
       ...(stack ? { stack } : {}),
       ...(runsImage
         ? {

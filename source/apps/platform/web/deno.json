@@ -3,7 +3,9 @@
     "@std/assert": "jsr:@std/assert@1.0.14",
     "react": "npm:react@19.2.8",
     "react-dom": "npm:react-dom@19.2.8",
-    "react-dom/client": "npm:react-dom@19.2.8/client"
+    "react-dom/client": "npm:react-dom@19.2.8/client",
+    "react-router": "npm:react-router@8.5.1",
+    "react-router/dom": "npm:react-router@8.5.1/dom"
   },
   "compilerOptions": {
     "jsx": "react-jsx",

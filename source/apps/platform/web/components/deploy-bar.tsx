@@ -9,7 +9,8 @@ import {
 } from "@ritaj/ui";
 import { describe, type EnvironmentPath, type Termination } from "../api.ts";
 import { useApi } from "../api-provider.tsx";
-import { go, runHash } from "../places.ts";
+import { useNavigate } from "react-router";
+import * as Paths from "../paths.ts";
 import { Notice } from "./notice.tsx";
 
 /** What "the newest release" is asked for as. */
@@ -26,6 +27,7 @@ export function DeployBar(
   },
 ) {
   const api = useApi();
+  const navigate = useNavigate();
   const [kit, setKit] = useState(kits[0] ?? "");
   const [version, setVersion] = useState(LATEST);
   const [busy, setBusy] = useState(false);
@@ -38,7 +40,7 @@ export function DeployBar(
     setError(undefined);
     try {
       const run = await api.deploy(at, { kit, version, termination });
-      go(runHash(run.id));
+      navigate(Paths.run(run.id));
     } catch (e) {
       setError(describe(e));
       setBusy(false);

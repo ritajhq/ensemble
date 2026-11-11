@@ -95,6 +95,10 @@ deploy:
         PLATFORM_ROUTES: ${variables.platform_host.value}=http://${compute.guard.host}:${compute.guard.http},${variables.auth_host.value}=http://${compute.auth.host}:${compute.auth.http}
         PLATFORM_PREVIEW_GUARD: http://${compute.guard-previews.host}:${compute.guard-previews.http}
         PLATFORM_SESSION_COOKIE: __Secure-platform.session_token
+        # Its sign-in: reached directly to end an operator's session, and
+        # where a signed-out operator is sent to sign in again.
+        PLATFORM_AUTH_URL: http://${compute.auth.host}:${compute.auth.http}
+        PLATFORM_SIGN_IN_URL: https://${variables.auth_host.value}/login
         # Where docker finds its registry logins, for every deploy and
         # release pack it runs.
         DOCKER_CONFIG: /docker

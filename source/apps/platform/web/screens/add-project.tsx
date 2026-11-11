@@ -1,5 +1,11 @@
 import { useState } from "react";
 import {
+  useActionData,
+  useLoaderData,
+  useNavigation,
+  useSubmit,
+} from "react-router";
+import {
   Button,
   InputField,
   InputGroup,
@@ -9,11 +15,10 @@ import {
   SelectTrigger,
   useIcon,
 } from "@ritaj/ui";
-import { describe, type Repository } from "../api.ts";
-import { useApi } from "../api-provider.tsx";
+import type { Repository } from "../api.ts";
 import { Notice } from "../components/notice.tsx";
 import { Panel } from "../components/panel.tsx";
-import { useLoad } from "../use-load.ts";
+import type { AddProjectData } from "../routes.tsx";
 
 /** A project id for `repository`: its name, as a short DNS label. */
 function suggestedId(repository: Repository): string {
@@ -22,15 +27,20 @@ function suggestedId(repository: Repository): string {
     .replace(/^-+|-+$/g, "");
 }
 
+/** What adding a project came to, when it didn't go to the new project. */
+export interface AddProjectOutcome {
+  readonly error: string;
+}
+
 /** Adds a repository the GitHub App is installed on as a project; its manifests are read once it's checked out. */
-export function AddProject({ onAdded }: { onAdded(id: string): void }) {
-  const api = useApi();
-  const repositories = useLoad(() => api.repositories(), []);
+export function AddProject() {
+  const repositories = useLoaderData() as AddProjectData;
+  const submit = useSubmit();
+  const outcome = useActionData() as AddProjectOutcome | undefined;
+  const busy = useNavigation().state === "submitting";
   const [repository, setRepository] = useState("");
   const [id, setId] = useState("");
   const [ref, setRef] = useState("main");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | undefined>();
   const AddIcon = useIcon("plus");
 
   function pick(fullName: string) {
@@ -43,21 +53,8 @@ export function AddProject({ onAdded }: { onAdded(id: string): void }) {
     setId(suggestedId(picked));
   }
 
-  async function add() {
-    setBusy(true);
-    setError(undefined);
-    try {
-      const project = await api.addProject({
-        id: id.trim(),
-        repository,
-        ref: ref.trim(),
-      });
-      onAdded(project.id);
-    } catch (e) {
-      setError(describe(e));
-    } finally {
-      setBusy(false);
-    }
+  function add() {
+    submit({ id, repository, ref }, { method: "post" });
   }
 
   return (
@@ -90,9 +87,7 @@ export function AddProject({ onAdded }: { onAdded(id: string): void }) {
           <SelectTrigger
             aria-label="Repository"
             className="w-full max-w-md"
-            placeholder={repositories.loading
-              ? "Loading repositories…"
-              : "Repository"}
+            placeholder="Repository"
           />
           <SelectContent>
             {(repositories.value ?? []).map((found, i) => (
@@ -129,7 +124,7 @@ export function AddProject({ onAdded }: { onAdded(id: string): void }) {
           </Button>
         </div>
       </form>
-      {error && <Notice tone="error">{error}</Notice>}
+      {outcome && <Notice tone="error">{outcome.error}</Notice>}
     </Panel>
   );
 }

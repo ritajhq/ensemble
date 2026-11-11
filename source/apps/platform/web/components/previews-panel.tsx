@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Button, InputField, InputGroup, useIcon } from "@ritaj/ui";
 import { describe, type ProjectPreviews } from "../api.ts";
 import { useApi } from "../api-provider.tsx";
-import { go, runHash } from "../places.ts";
+import { useNavigate } from "react-router";
+import * as Paths from "../paths.ts";
 import { Notice } from "./notice.tsx";
 import { Panel } from "./panel.tsx";
 
@@ -15,6 +16,7 @@ export function PreviewsPanel(
   },
 ) {
   const api = useApi();
+  const navigate = useNavigate();
   const [branch, setBranch] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | undefined>();
@@ -44,7 +46,7 @@ export function PreviewsPanel(
           event.preventDefault();
           act(async () => {
             const [run] = await api.preview(project, branch.trim());
-            if (run) go(runHash(run.id));
+            if (run) navigate(Paths.run(run.id));
           });
         }}
       >

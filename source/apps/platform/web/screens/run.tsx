@@ -1,15 +1,22 @@
 import { useEffect, useRef, useState } from "react";
+import { Link, useParams } from "react-router";
 import { Badge } from "@ritaj/ui";
 import type { Run } from "../api.ts";
 import { useApi } from "../api-provider.tsx";
 import { Notice } from "../components/notice.tsx";
 import { Panel } from "../components/panel.tsx";
 import { RunBadge } from "../components/run-badge.tsx";
-import { projectHash } from "../places.ts";
+import * as Paths from "../paths.ts";
 import { detailsOf, titleOf } from "../run-title.ts";
 
 /** One run: what was deployed where, how it went, and everything it printed, followed live while it runs. */
-export function RunScreen({ id }: { id: string }) {
+export function RunScreen() {
+  const id = useParams().id ?? "";
+  return <RunLog key={id} id={id} />;
+}
+
+/** Keyed by run: another run starts from an empty log. */
+function RunLog({ id }: { id: string }) {
   const api = useApi();
   const [run, setRun] = useState<Run | undefined>();
   const [lines, setLines] = useState<string[]>([]);
@@ -55,9 +62,9 @@ export function RunScreen({ id }: { id: string }) {
       <Panel
         title={titleOf(work)}
         description={
-          <a className="underline" href={projectHash(work.project)}>
+          <Link className="underline" to={Paths.project(work.project)}>
             {work.project}
-          </a>
+          </Link>
         }
       >
         <div className="flex flex-wrap items-center gap-2 text-body">

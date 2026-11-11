@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
+import { Link, useLoaderData, useRevalidator } from "react-router";
 import { Badge, Button, useIcon } from "@ritaj/ui";
 import {
   describe,
   type Manifest,
   type PreviewSettings,
   type Run,
-  type Sync,
 } from "../api.ts";
 import { useApi } from "../api-provider.tsx";
 import { CredentialsPanel } from "../components/credentials-panel.tsx";
@@ -16,52 +16,51 @@ import { PreviewsPanel } from "../components/previews-panel.tsx";
 import { Notice } from "../components/notice.tsx";
 import { Panel } from "../components/panel.tsx";
 import { RunBadge } from "../components/run-badge.tsx";
-import { runHash } from "../places.ts";
+import { SyncBadge } from "../components/sync-badge.tsx";
+import * as Paths from "../paths.ts";
+import type { ProjectData } from "../routes.tsx";
 import { detailsOf, titleOf } from "../run-title.ts";
-import { useLoad } from "../use-load.ts";
 
 /** How often a project is looked at again while it syncs. */
 const SYNCING_POLL_MS = 2_000;
 
-/** How each sync state reads. */
-const SYNC_BADGES: Readonly<
-  Record<Sync["state"], { label: string; color: "blue" | "green" | "red" }>
-> = {
-  syncing: { label: "Syncing", color: "blue" },
-  synced: { label: "Synced", color: "green" },
-  failed: { label: "Sync failed", color: "red" },
-};
-
 /** One project: where it comes from, how its last sync went, and the manifests it offers. */
-export function ProjectScreen({ id }: { id: string }) {
+export function ProjectScreen() {
+  const loaded = useLoaderData() as ProjectData;
+  // Keyed by project: another project starts with none of this one's state.
+  return <ProjectView key={loaded.project.id} {...loaded} />;
+}
+
+function ProjectView(
+  { project: value, versions, runs, previews }: ProjectData,
+) {
   const api = useApi();
-  const project = useLoad(() => api.project(id), [id]);
-  const versions = useLoad(() => api.versions(id), [id]);
-  const runs = useLoad(() => api.runs(id), [id]);
-  const previews = useLoad(() => api.previews(id), [id]);
+  const { revalidate } = useRevalidator();
   const [error, setError] = useState<string | undefined>();
   const SyncIcon = useIcon("rotate-ccw");
+  const id = value.id;
 
-  const syncing = project.value?.sync?.state === "syncing";
+  // Each change reloads the whole screen: what one panel changes often shows
+  // in another (a preview started is also a run).
+  const reload = () => void revalidate();
+
+  const syncing = value.sync?.state === "syncing";
   useEffect(() => {
     if (!syncing) return;
-    const timer = setTimeout(project.reload, SYNCING_POLL_MS);
+    const timer = setTimeout(reload, SYNCING_POLL_MS);
     return () => clearTimeout(timer);
-  }, [syncing, project.value]);
+  }, [syncing, value]);
 
   async function sync() {
     setError(undefined);
     try {
       await api.sync(id);
-      project.reload();
+      reload();
     } catch (e) {
       setError(describe(e));
     }
   }
 
-  if (project.error) return <Notice tone="error">{project.error}</Notice>;
-  const value = project.value;
-  if (!value) return null;
   const { sync: last, catalog } = value;
 
   return (
@@ -82,11 +81,7 @@ export function ProjectScreen({ id }: { id: string }) {
         }
       >
         <div className="flex flex-wrap items-center gap-2 text-body">
-          {last && (
-            <Badge color={SYNC_BADGES[last.state].color}>
-              {SYNC_BADGES[last.state].label}
-            </Badge>
-          )}
+          {last && <SyncBadge state={last.state} />}
           {last && (
             <span className="text-muted-foreground">
               {new Date(last.at).toLocaleString()}
@@ -114,21 +109,14 @@ export function ProjectScreen({ id }: { id: string }) {
         )}
       </Panel>
 
-      <ReleasePanel project={id} versions={versions.value ?? []} />
+      <ReleasePanel project={id} versions={versions} />
       <CredentialsPanel
         project={id}
         names={value.credentials}
-        onChanged={project.reload}
+        onChanged={reload}
       />
-      {previews.value && (
-        <PreviewsPanel
-          project={id}
-          previews={previews.value}
-          onChanged={() => {
-            previews.reload();
-            runs.reload();
-          }}
-        />
+      {previews && (
+        <PreviewsPanel project={id} previews={previews} onChanged={reload} />
       )}
 
       {catalog?.problems.map((problem) => (
@@ -154,18 +142,15 @@ export function ProjectScreen({ id }: { id: string }) {
           project={id}
           manifest={manifest}
           kits={catalog.kits}
-          versions={versions.value ?? []}
-          previewSettings={previews.value?.settings.find((settings) =>
+          versions={versions}
+          previewSettings={previews?.settings.find((settings) =>
             settings.manifest === manifest.name
           )}
-          onChanged={() => {
-            project.reload();
-            previews.reload();
-          }}
+          onChanged={reload}
         />
       ))}
 
-      <RunsPanel runs={runs.value ?? []} />
+      <RunsPanel runs={runs} />
     </>
   );
 }
@@ -183,9 +168,9 @@ function RunsPanel({ runs }: { runs: readonly Run[] }) {
       {runs.length > 0 && (
         <div className="grid gap-1">
           {runs.map((run) => (
-            <a
+            <Link
               key={run.id}
-              href={runHash(run.id)}
+              to={Paths.run(run.id)}
               className="flex flex-wrap items-center gap-2 rounded-md px-2 py-1 text-body hover:bg-accent"
             >
               <RunBadge state={run.state} />
@@ -196,7 +181,7 @@ function RunsPanel({ runs }: { runs: readonly Run[] }) {
               <span className="ml-auto text-caption text-muted-foreground">
                 {new Date(run.queuedAt).toLocaleString()}
               </span>
-            </a>
+            </Link>
           ))}
         </div>
       )}

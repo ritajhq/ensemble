@@ -1,14 +1,13 @@
-import { useApi } from "../api-provider.tsx";
+import { useLoaderData } from "react-router";
 import { GithubPanel } from "../components/github-panel.tsx";
 import { Notice } from "../components/notice.tsx";
 import { Panel } from "../components/panel.tsx";
-import { useLoad } from "../use-load.ts";
+import type { OverviewData } from "../routes.tsx";
 
-/** Shown before any project is picked: the GitHub App the platform acts as, what the platform is for, and what its router routes. */
-export function Welcome() {
-  const api = useApi();
-  const table = useLoad(() => api.routes(), []);
-  const routes = table.value?.routes ?? [];
+/** The platform at a glance: the GitHub App it acts as, what it is for, and what its router routes. */
+export function Overview() {
+  const { table } = useLoaderData() as OverviewData;
+  const { routes } = table;
 
   return (
     <>
@@ -21,8 +20,7 @@ export function Welcome() {
         title="Routes"
         description="Every host the router answers, and the deployment it goes to: what each applied deploy recorded."
       >
-        {table.error && <Notice tone="error">{table.error}</Notice>}
-        {table.value?.conflicts.map((conflict) => (
+        {table.conflicts.map((conflict) => (
           <Notice
             key={conflict.host}
             tone="warning"
@@ -33,7 +31,7 @@ export function Welcome() {
             {conflict.host} is claimed twice
           </Notice>
         ))}
-        {table.value?.rejections.map((rejection) => (
+        {table.rejections.map((rejection) => (
           <Notice
             key={`${rejection.owner} ${rejection.value}`}
             tone="error"
@@ -42,7 +40,7 @@ export function Welcome() {
             "{rejection.value}" can't be routed
           </Notice>
         ))}
-        {routes.length === 0 && !table.loading && (
+        {routes.length === 0 && (
           <p className="text-body text-muted-foreground">Nothing routed yet</p>
         )}
         {routes.length > 0 && (
