@@ -23,6 +23,7 @@ export {
 } from "./deployment.ts";
 export { Run, type RunState, type Work } from "./run.ts";
 export { DeploymentScope } from "./deployment-scope.ts";
+export { Remote } from "./remote.ts";
 export { LiveDeployment, type LiveService } from "./live-deployment.ts";
 export {
   BUMPS,

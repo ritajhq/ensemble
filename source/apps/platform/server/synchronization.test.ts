@@ -20,7 +20,6 @@ class HeldCheckouts {
 }
 
 const project = Platform.Project.create({
-  id: "portal",
   repository: "ritajhq/portal",
   ref: "main",
 });

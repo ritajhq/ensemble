@@ -23,7 +23,9 @@ export class LiveDeployment {
     readonly services: readonly LiveService[],
     /** The hosts it asks the local proxy to answer for it. */
     readonly hosts: readonly string[],
-    /** The platform's project it was deployed from; none when someone else deployed it. */
+    /** The GitHub repository (`owner/name`) its checkout was cloned from; none when that can't be told. */
+    readonly repository?: string,
+    /** The platform's project it belongs to: the one its repository is; none when no project is. */
     readonly project?: string,
   ) {}
 }

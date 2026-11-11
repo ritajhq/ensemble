@@ -92,7 +92,7 @@ Deno.test("Api: adding a project stores it and announces it, defaulting its ref 
     api.OnProjectAdded.Do((project) => added.push(project.id));
 
     const response = await api.handle(
-      post("/api/projects", { id: "portal", repository: "ritajhq/portal" }),
+      post("/api/projects", { repository: "ritajhq/portal" }),
     );
 
     assertEquals(response.status, 201);
@@ -113,15 +113,24 @@ Deno.test("Api: a project that can't be, or exists already, is refused and annou
   await withApi(async (api) => {
     const added: string[] = [];
     api.OnProjectAdded.Do((project) => added.push(project.id));
-    const project = { id: "portal", repository: "ritajhq/portal" };
+    const project = { repository: "ritajhq/portal" };
 
     await api.handle(post("/api/projects", project));
     const duplicate = await api.handle(post("/api/projects", project));
     const invalid = await api.handle(
-      post("/api/projects", { id: "Portal", repository: "x" }),
+      post("/api/projects", { repository: "x" }),
+    );
+
+    const sameName = await api.handle(
+      post("/api/projects", { repository: "elsewhere/portal" }),
+    );
+    const sameRepository = await api.handle(
+      post("/api/projects", { repository: "RitajHQ/Portal" }),
     );
 
     assertEquals(duplicate.status, 409);
+    assertEquals(sameName.status, 409);
+    assertEquals(sameRepository.status, 409);
     assertEquals(invalid.status, 400);
     assertEquals(added, ["portal"]);
   });
@@ -130,7 +139,7 @@ Deno.test("Api: a project that can't be, or exists already, is refused and annou
 Deno.test("Api: a project shows each manifest it offers with that manifest's environments", async () => {
   await withApi(async (api, { catalogs, environments }) => {
     await api.handle(
-      post("/api/projects", { id: "portal", repository: "ritajhq/portal" }),
+      post("/api/projects", { repository: "ritajhq/portal" }),
     );
     const manifest = new Platform.Manifest("web", ["web"], [], ["db"], true);
     await catalogs.save(
@@ -159,7 +168,7 @@ Deno.test("Api: a sync is announced only for a project that exists", async () =>
     const requested: string[] = [];
     api.OnSyncRequested.Do((project) => requested.push(project.id));
     await api.handle(
-      post("/api/projects", { id: "portal", repository: "ritajhq/portal" }),
+      post("/api/projects", { repository: "ritajhq/portal" }),
     );
 
     assertEquals(
@@ -191,7 +200,7 @@ async function withPortal(
 ): Promise<void> {
   await withApi(async (api, { catalogs, environments, values }) => {
     await api.handle(
-      post("/api/projects", { id: "portal", repository: "ritajhq/portal" }),
+      post("/api/projects", { repository: "ritajhq/portal" }),
     );
     const manifest = new Platform.Manifest(
       "web",

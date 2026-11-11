@@ -3,6 +3,7 @@ import {
   useActionData,
   useLoaderData,
   useNavigation,
+  useSearchParams,
   useSubmit,
 } from "react-router";
 import {
@@ -20,9 +21,9 @@ import { Notice } from "../components/notice.tsx";
 import { Panel } from "../components/panel.tsx";
 import type { AddProjectData } from "../routes.tsx";
 
-/** A project id for `repository`: its name, as a short DNS label. */
-function suggestedId(repository: Repository): string {
-  const name = repository.fullName.split("/")[1] ?? "";
+/** The id the platform derives for `repository`: its name, as a short DNS label. */
+function idOf(repository: string): string {
+  const name = repository.split("/")[1] ?? "";
   return name.toLowerCase().replace(/[^a-z0-9-]+/g, "-").slice(0, 20)
     .replace(/^-+|-+$/g, "");
 }
@@ -32,35 +33,48 @@ export interface AddProjectOutcome {
   readonly error: string;
 }
 
-/** Adds a repository the GitHub App is installed on as a project; its manifests are read once it's checked out. */
+/** The repository among those reachable that `fullName` names, GitHub's case aside. */
+function find(
+  repositories: readonly Repository[] | undefined,
+  fullName: string,
+): Repository | undefined {
+  const wanted = fullName.toLowerCase();
+  return repositories?.find((found) => found.fullName.toLowerCase() === wanted);
+}
+
+/**
+ * Adds a repository the GitHub App is installed on as a project; its manifests
+ * are read once it's checked out. `?repository=owner/name` picks one already,
+ * as the deployments screen does for a stack no project claims.
+ */
 export function AddProject() {
   const repositories = useLoaderData() as AddProjectData;
+  const [search] = useSearchParams();
   const submit = useSubmit();
   const outcome = useActionData() as AddProjectOutcome | undefined;
   const busy = useNavigation().state === "submitting";
-  const [repository, setRepository] = useState("");
-  const [id, setId] = useState("");
-  const [ref, setRef] = useState("main");
+  const asked = search.get("repository") ?? "";
+  const preselected = find(repositories.value, asked);
+  const [repository, setRepository] = useState(preselected?.fullName ?? "");
+  const [ref, setRef] = useState(preselected?.defaultBranch ?? "main");
   const AddIcon = useIcon("plus");
+  const id = idOf(repository);
 
   function pick(fullName: string) {
     setRepository(fullName);
-    const picked = repositories.value?.find((found) =>
-      found.fullName === fullName
-    );
+    const picked = find(repositories.value, fullName);
     if (!picked) return;
     setRef(picked.defaultBranch);
-    setId(suggestedId(picked));
   }
 
   function add() {
-    submit({ id, repository, ref }, { method: "post" });
+    submit({ repository, ref }, { method: "post" });
   }
 
   return (
     <Panel
       title="Add a project"
-      description="Pick a repository one of the platform's GitHub Apps is installed on. The id names the project's checkout, and every deployment of it starts with it: keep it short."
+      description="Pick a repository one of the platform's GitHub Apps is installed on. The project is the repository, named after it."
     >
       {repositories.error && (
         <Notice
@@ -74,6 +88,14 @@ export function AddProject() {
         <Notice tone="info">
           No GitHub App of the platform is installed on a repository yet:
           install one from Integrations › GitHub.
+        </Notice>
+      )}
+      {asked && repositories.value && !preselected && (
+        <Notice
+          tone="warning"
+          details="Install one of the platform's GitHub Apps on it from Integrations › GitHub, then come back."
+        >
+          No GitHub App of the platform can reach {asked}.
         </Notice>
       )}
       <form
@@ -100,25 +122,23 @@ export function AddProject() {
         <InputGroup>
           <InputField
             index={0}
-            label="Id"
-            placeholder="portal"
-            value={id}
-            onChange={setId}
-          />
-          <InputField
-            index={1}
             label="Branch"
             placeholder="main"
             value={ref}
             onChange={setRef}
           />
         </InputGroup>
+        {id && (
+          <p className="text-caption text-muted-foreground">
+            Checked out and deployed as <span className="font-mono">{id}</span>.
+          </p>
+        )}
         <div>
           <Button
             type="submit"
             leadingIcon={AddIcon}
             loading={busy}
-            disabled={busy || !id.trim() || !repository}
+            disabled={busy || !id || !ref.trim()}
           >
             {busy ? "Adding…" : "Add"}
           </Button>

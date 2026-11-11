@@ -10,7 +10,6 @@ const tokens = {
 } as unknown as Github.Tokens;
 
 const project = Platform.Project.create({
-  id: "portal",
   repository: "ritajhq/portal",
   ref: "main",
 });
@@ -60,7 +59,6 @@ Deno.test("Checkouts: work on one project's checkout takes turns, even after one
 Deno.test("Checkouts: a failing git never repeats the token it was given", async () => {
   const checkouts = new Checkouts(await Deno.makeTempDir(), tokens);
   const unreachable = Platform.Project.create({
-    id: "nowhere",
     repository: "ritajhq/does-not-exist-anywhere",
     ref: "main",
   });

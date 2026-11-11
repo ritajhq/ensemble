@@ -21,7 +21,17 @@ export class Projects {
 
   async get(id: string): Promise<Platform.Project | undefined> {
     const entry = await this.kv.get<ProjectRecord>(["projects", id]);
-    return entry.value ? Platform.Project.create(entry.value) : undefined;
+    return entry.value ? Platform.Project.restore(entry.value) : undefined;
+  }
+
+  /** The project `repository` is, GitHub's case-insensitive spelling aside. */
+  async ofRepository(
+    repository: string,
+  ): Promise<Platform.Project | undefined> {
+    const wanted = repository.toLowerCase();
+    return (await this.list()).find((project) =>
+      project.repository.toLowerCase() === wanted
+    );
   }
 
   async list(): Promise<Platform.Project[]> {
@@ -29,7 +39,7 @@ export class Projects {
     for await (
       const entry of this.kv.list<ProjectRecord>({ prefix: ["projects"] })
     ) {
-      projects.push(Platform.Project.create(entry.value));
+      projects.push(Platform.Project.restore(entry.value));
     }
     return projects;
   }

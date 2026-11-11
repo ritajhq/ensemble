@@ -188,7 +188,6 @@ export class Screens {
     const form = await request.formData();
     try {
       const project = await this.api.addProject({
-        id: String(form.get("id") ?? "").trim(),
         repository: String(form.get("repository") ?? ""),
         ref: String(form.get("ref") ?? "").trim(),
       });

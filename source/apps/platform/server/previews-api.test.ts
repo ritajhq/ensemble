@@ -35,7 +35,6 @@ async function withPortal(run: (fixture: Fixture) => Promise<void>) {
 
     await projects.add(
       Platform.Project.create({
-        id: "portal",
         repository: "ritajhq/portal",
         ref: "main",
       }),

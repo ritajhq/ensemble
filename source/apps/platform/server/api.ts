@@ -171,7 +171,6 @@ export class Api {
     try {
       const body = await request.json();
       project = Platform.Project.create({
-        id: String(body.id ?? ""),
         repository: String(body.repository ?? ""),
         ref: String(body.ref || "main"),
       });
@@ -179,8 +178,17 @@ export class Api {
       return json({ error: messageOf(error) }, 400);
     }
 
+    const existing = await this.projects.ofRepository(project.repository);
+    if (existing) {
+      return json({
+        error: `${project.repository} is the project "${existing.id}" already.`,
+      }, 409);
+    }
     if (!await this.projects.add(project)) {
-      return json({ error: `A project "${project.id}" exists already.` }, 409);
+      return json({
+        error:
+          `A project "${project.id}" exists already: one project per repository, named after it.`,
+      }, 409);
     }
     this.projectAdded.Invoke(project);
     return json(this.describe(project), 201);

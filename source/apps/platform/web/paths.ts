@@ -7,6 +7,11 @@ export const overview = "/";
 
 export const newProject = "/new";
 
+/** Adding `repository` (`owner/name`) as a project, with it already picked. */
+export function newProjectOf(repository: string): string {
+  return `${newProject}?${new URLSearchParams({ repository })}`;
+}
+
 export const projects = "/projects";
 
 export const deployments = "/deployments";

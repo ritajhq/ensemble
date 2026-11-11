@@ -72,7 +72,6 @@ async function carriedOut(ensemble: FakeEnsemble, work?: Platform.Work) {
   const values = new Kv.Values(kv, await Vault.of(KEY));
   await projects.add(
     Platform.Project.create({
-      id: "portal",
       repository: "ritajhq/portal",
       ref: "main",
     }),
@@ -199,7 +198,6 @@ Deno.test("Runner: a preview runs with its base environment's values and its own
   const settings = new Kv.PreviewSettings(kv);
   await projects.add(
     Platform.Project.create({
-      id: "portal",
       repository: "ritajhq/portal",
       ref: "main",
     }),

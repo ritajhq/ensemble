@@ -105,7 +105,17 @@ it is issued, and commits and tags as its own bot. They share one webhook,
 `https://<platform>/hooks/github`, for every repository they're installed on: a
 push to a project's branch syncs it, and a push to or deletion of any branch
 keeps its previews in step. Projects are added from the repositories any app is
-installed on.
+installed on, one project per repository, named after it: its id is the
+repository's name as a DNS label (`Material_Dispatcher` becomes
+`material-dispatcher`, cut to twenty characters), and a second repository of the
+same name is refused.
+
+The Deployments page lists every compose stack `ens deploy` left on the machine,
+whoever ran it. Each is traced to the GitHub repository its checkout's `origin`
+points at, so a stack deployed from any clone of a project's repository shows
+under that project; one whose repository is no project yet offers to add it, and
+one that can't be traced (no checkout left, or a remote off GitHub) shows as
+unclaimed.
 
 Nothing the platform answers for is open to everyone. Its own UI and API are
 behind an idhn guard that lets only signed-in operators through (GitHub's

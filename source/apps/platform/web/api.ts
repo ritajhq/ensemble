@@ -191,7 +191,9 @@ export interface LiveDeployment {
     readonly image: string;
   }[];
   readonly hosts: readonly string[];
-  /** The platform's project it was deployed from; none when someone else deployed it. */
+  /** The GitHub repository (`owner/name`) its checkout was cloned from; none when that can't be told. */
+  readonly repository?: string;
+  /** The platform's project its repository is; none when no project is. */
   readonly project?: string;
 }
 
@@ -239,7 +241,7 @@ export class Api {
   }
 
   addProject(
-    fields: { id: string; repository: string; ref: string },
+    fields: { repository: string; ref: string },
   ): Promise<ProjectSummary> {
     return this.call("POST", "/api/projects", fields);
   }
