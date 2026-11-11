@@ -76,7 +76,10 @@ it into `source/apps/<app>` and cite that instead; a configured value alone (a
   `deno run -A <archify>/bin/archify.mjs …`.
 - Pin the evidence with `meta.repository` to a pushed commit for web links, or
   `link_mode: "local-only"` when that commit isn't on the remote yet.
-- Keep drafts and receipts in a gitignored folder (`.archify/`). A diagram worth
-  keeping goes under `docs/<name>/`, beside the `architecture.md` that
-  `ens delivery print -r markdown` writes, with its JSON source committed so it
-  can be regenerated.
+- Draft in a gitignored folder (`.archify/`). The kept diagram is
+  `docs/<name>/architecture.html`, rendered from `docs/<name>/architecture.json`
+  (its `meta.output` set to that HTML), beside the `architecture.md` that
+  `ens delivery print -r markdown` writes. Commit the JSON, the HTML and the
+  `architecture.delivery.json` Archify writes next to it; pass
+  `--out-dir .archify/docs-<name>` to `finalize` so its check receipts stay out
+  of `docs/`.
