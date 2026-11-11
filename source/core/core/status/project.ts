@@ -43,7 +43,7 @@ export interface Ship {
   readonly kit: string;
 }
 
-/** An operator command a workload declares under `operations:`, run with `ens operation`. */
+/** An operator command a workload declares under `operations:`, run with `ens operations`. */
 export interface Operation {
   readonly name: string;
   /** What it runs: its inline `run:` script, or `sh scripts/<file>` for a `script:`. */

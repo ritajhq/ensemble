@@ -73,7 +73,9 @@ export class Text extends Core.Status.Builder<string> {
       }
       if (workload.operations.length > 0) {
         this.lines.push(
-          `    operations: ${workload.operations.map((operation) => operation.name).join(", ")}`,
+          `    operations: ${
+            workload.operations.map((operation) => operation.name).join(", ")
+          }`,
         );
       }
     }

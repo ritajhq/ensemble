@@ -8,7 +8,7 @@
  *
  * Declared in the manifest so it travels with the workload instead of living
  * in a loose `ci/<workload>/<kit>/operations/` file whose name nothing else knows, but
- * invoked explicitly (`ens operation <name> <operation>`) rather than
+ * invoked explicitly (`ens operations <name> <operation>`) rather than
  * fired by a deploy. That split is the point: a kit's own init commands are
  * provisioning — the deploy must run them every time to be correct, and the
  * target knows how — while an operator step is a decision, and running

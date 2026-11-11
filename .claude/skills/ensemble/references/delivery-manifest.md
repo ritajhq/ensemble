@@ -70,7 +70,7 @@ deploy:
       type: network
       name: edge
 
-# Run by hand with `ens operation <name>`, never by a deploy.
+# Run by hand with `ens operations <name>`, never by a deploy.
 operations:
   migrate:
     description: Migrate the schema

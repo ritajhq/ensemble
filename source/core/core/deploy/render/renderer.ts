@@ -246,7 +246,7 @@ export class Renderer {
    * structure of either — against an already-completed render. The same
    * resolution every resource param goes through, exposed for the one other
    * caller holding manifest values that aren't a resource's params: an operation's
-   * `arguments` (`../../operation.ts`), which `ens operation` resolves with the
+   * `arguments` (`../../operation.ts`), which `ens operations` resolves with the
    * deployment's own render in hand rather than inventing a second resolver
    * that could drift from this one on what a reference means.
    */

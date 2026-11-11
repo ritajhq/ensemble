@@ -2,28 +2,28 @@
 
 Every top-level `ens` command, as registered in `source/apps/cli/main.ts`:
 
-| Command                   | Purpose                                                    |
-| ------------------------- | ---------------------------------------------------------- |
-| [`exec`](exec.md)         | Run a language's own tool against this project.            |
-| [`sync`](exec.md)         | Refresh each language's generated files.                   |
-| [`init`](init.md)         | Scaffold a new Ensemble project.                           |
-| [`app`](app.md)           | Manage apps under `source/apps/`.                          |
-| [`kit`](kit.md)           | Author, install, and manage kits under `.ensemble/kits/`.  |
-| [`lib`](lib.md)           | Manage libraries under `source/libs/`.                     |
-| [`build`](build.md)       | Build an app using its configured kit.                     |
-| [`pack`](pack.md)         | Pack a ship using the given pack kit.                      |
-| [`publish`](publish.md)   | Publish a previously packed ship.                          |
-| [`deploy`](deploy.md)     | Deploy a workload using the given deploy kit.              |
-| [`delivery`](delivery.md) | Print what a workload's delivery manifest declares.        |
-| [`operations`](operations.md) | List a workload's operations; `ens operation` runs one. |
-| [`destroy`](destroy.md)   | Take a deployed workload down and drop its recorded state. |
-| [`develop`](develop.md)   | Deploy a workload locally for development.                 |
-| [`config`](config.md)     | Manage `.ensemble/config.yaml`.                            |
-| [`release`](release.md)   | Create, resume, or undo a semver release.                  |
-| [`status`](status.md)     | List every app, kit, library, and workload.                |
-| [`mcp`](mcp.md)           | Run an MCP server exposing every command as an agent tool. |
-| [`lsp`](lsp.md)           | Run a language server for editor support.                  |
-| [`version`](version.md)   | Show or change the installed `ens` version.                |
+| Command                       | Purpose                                                    |
+| ----------------------------- | ---------------------------------------------------------- |
+| [`exec`](exec.md)             | Run a language's own tool against this project.            |
+| [`sync`](exec.md)             | Refresh each language's generated files.                   |
+| [`init`](init.md)             | Scaffold a new Ensemble project.                           |
+| [`app`](app.md)               | Manage apps under `source/apps/`.                          |
+| [`kit`](kit.md)               | Author, install, and manage kits under `.ensemble/kits/`.  |
+| [`lib`](lib.md)               | Manage libraries under `source/libs/`.                     |
+| [`build`](build.md)           | Build an app using its configured kit.                     |
+| [`pack`](pack.md)             | Pack a ship using the given pack kit.                      |
+| [`publish`](publish.md)       | Publish a previously packed ship.                          |
+| [`deploy`](deploy.md)         | Deploy a workload using the given deploy kit.              |
+| [`delivery`](delivery.md)     | Print what a workload's delivery manifest declares.        |
+| [`operations`](operations.md) | List a workload's operations, or run one.   |
+| [`destroy`](destroy.md)       | Take a deployed workload down and drop its recorded state. |
+| [`develop`](develop.md)       | Deploy a workload locally for development.                 |
+| [`config`](config.md)         | Manage `.ensemble/config.yaml`.                            |
+| [`release`](release.md)       | Create, resume, or undo a semver release.                  |
+| [`status`](status.md)         | List every app, kit, library, and workload.                |
+| [`mcp`](mcp.md)               | Run an MCP server exposing every command as an agent tool. |
+| [`lsp`](lsp.md)               | Run a language server for editor support.                  |
+| [`version`](version.md)       | Show or change the installed `ens` version.                |
 
 Every command is also available as an MCP tool when running `ens mcp` — see
 [Using Ensemble with an AI agent](../../guides/using-with-agents.md).

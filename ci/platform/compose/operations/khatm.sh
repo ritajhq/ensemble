@@ -5,10 +5,10 @@
 # break-glass path when a bad config breaks sign-in. Whatever follows the
 # operation's name is the CLI's own arguments:
 #
-#   ens operation platform khatm users list
-#   ens operation platform khatm users create you@example.com --role operator --password-stdin
-#   ens operation platform khatm users set-role you@example.com operator
-#   ens operation platform khatm status
+#   ens operations platform khatm users list
+#   ens operations platform khatm users create you@example.com --role operator --password-stdin
+#   ens operations platform khatm users set-role you@example.com operator
+#   ens operations platform khatm status
 set -eu
 
 for var in project artifact; do
@@ -16,7 +16,7 @@ for var in project artifact; do
   if [ -z "$val" ]; then
     echo "khatm: missing required env: $var" >&2
     echo "Run it as an operation, which supplies both from the manifest:" >&2
-    echo "  ens operation platform khatm <command>" >&2
+    echo "  ens operations platform khatm <command>" >&2
     exit 1
   fi
 done

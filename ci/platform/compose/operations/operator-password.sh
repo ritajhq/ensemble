@@ -4,8 +4,8 @@
 # and no password, so nobody can sign in until this has run. The password is
 # read from stdin, or asked for when there is a terminal:
 #
-#   ens operation platform operator-password
-#   printf '%s' "$PASSWORD" | ens operation platform operator-password
+#   ens operations platform operator-password
+#   printf '%s' "$PASSWORD" | ens operations platform operator-password
 set -eu
 
 for var in project artifact email; do
@@ -13,7 +13,7 @@ for var in project artifact email; do
   if [ -z "$val" ]; then
     echo "operator-password: missing required env: $var" >&2
     echo "Run it as an operation, which supplies it from the manifest:" >&2
-    echo "  ens operation platform operator-password" >&2
+    echo "  ens operations platform operator-password" >&2
     exit 1
   fi
 done

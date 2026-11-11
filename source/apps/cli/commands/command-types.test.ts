@@ -5,7 +5,7 @@ import { appCommand } from "./app.ts";
 import { buildCommand } from "./build.ts";
 import { configCommand } from "./config.ts";
 import { deliveryCommand } from "./delivery.ts";
-import { operationCommand, operationsCommand } from "./operations.ts";
+import { operationsCommand } from "./operations.ts";
 import { deployCommand } from "./deploy.ts";
 import { destroyCommand } from "./destroy.ts";
 import { developCommand } from "./develop.ts";
@@ -49,7 +49,6 @@ const TOP_LEVEL_COMMANDS: readonly AnyCommand[] = [
   developCommand,
   deliveryCommand,
   operationsCommand,
-  operationCommand,
   configCommand,
   releaseCommand,
   statusCommand,

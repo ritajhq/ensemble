@@ -55,7 +55,7 @@ export interface RunDeliveryOperationOptions {
 const DEPLOYMENT_VALUES = ["name", "artifact", "root"] as const;
 
 /**
- * Runs one of a workload's declared operations (`ens operation <name>`). The kit is the caller's, and
+ * Runs one of a workload's declared operations (`ens operations <name>`). The kit is the caller's, and
  * names the folder (`ci/<name>/<kit>/operations/`) an operation's `script` is read from. See `./deploy/operation.ts` for
  * what an operation is and why it's invoked rather than fired by a deploy.
  *

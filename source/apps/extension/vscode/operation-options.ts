@@ -13,7 +13,7 @@ interface Choice {
 /**
  * Asks how to run a workload's operation — which deploy kit resolves its
  * arguments, and any input to hand it as `$1..$n` — preselecting the last
- * answers for that operation, and returns the `ens operation <name>` arguments.
+ * answers for that operation, and returns the `ens operations <name>` arguments.
  */
 export class OperationOptions {
   constructor(
@@ -21,14 +21,18 @@ export class OperationOptions {
     private readonly memory: vscode.Memento,
   ) {}
 
-  async ask(workload: string, operation: string): Promise<string[] | undefined> {
+  async ask(
+    workload: string,
+    operation: string,
+  ): Promise<string[] | undefined> {
     const last = this.memory.get<Choice>(this.key(workload, operation));
 
     const kit = await this.pickKit(operation, last?.kit);
     if (!kit) return undefined;
     const input = await vscode.window.showInputBox({
       title: `Run ${operation}: input`,
-      prompt: "Arguments handed to the operation as $1..$n (leave empty for none)",
+      prompt:
+        "Arguments handed to the operation as $1..$n (leave empty for none)",
       value: last?.input ?? "",
       ignoreFocusOut: true,
     });
@@ -36,10 +40,10 @@ export class OperationOptions {
 
     await this.memory.update(this.key(workload, operation), { kit, input });
     return [
-      "delivery",
-      workload,
+      "operations",
+      "-k",
       kit,
-      "operation",
+      workload,
       operation,
       ...this.words(input),
     ];

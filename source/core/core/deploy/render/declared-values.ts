@@ -13,7 +13,7 @@ export class DeclaredValueError extends Error {
  * The values a manifest declares outright rather than a render producing
  * them: `variables` and `external` entries. Resolving them needs only the
  * workload and `ens`'s own environment — no kit, no render — which is what
- * lets `ens operation` resolve them without rendering anything, the same
+ * lets `ens operations` resolve them without rendering anything, the same
  * way `Renderer` does inside a render. Trusts `ReferenceValidator` already
  * confirmed the entry exists and the field is valid.
  */

@@ -29,67 +29,52 @@ function envFilesFor(name: string, envFile: string[] | undefined) {
 }
 
 /**
- * `ens operations <name>` — lists the operations a workload declares, one per
- * line: name, a tab, description. Only the manifest is read, so no deploy kit
- * is loaded.
+ * `ens operations <name>` lists the operations a workload declares, one per
+ * line: name, a tab, description; only the manifest is read, so no deploy kit
+ * is loaded. `ens operations <name> <operation> [args...]` runs one of them
+ * (see `@ensemble/core`'s `deploy/operation.ts` for what an operation is and
+ * why it's invoked rather than fired by a deploy). The kit matters when
+ * running: the operation's script lives in the kit's own folder, so the same
+ * operation can do its step differently on each platform, and resolving its
+ * arguments means rendering the workload, which only that kit can do.
  */
 export const operationsCommand = new Command()
   .name("operations")
   .alias("ops")
   .description(
-    "List the operations a workload declares in ci/<name>/delivery.yml: name, a tab, description.",
-  )
-  .arguments("<name:string>")
-  .option(...KIT_OPTION)
-  .option(...ENV_FILE_OPTION)
-  .action(async ({ kit, envFile }, name: string) => {
-    await listDeliveryOperations(
-      name,
-      kit,
-      { envFiles: envFilesFor(name, envFile) },
-      Host.createPorts().repo,
-    );
-  });
-
-/**
- * `ens operation <name> <operation> [args...]` — runs one of a workload's
- * declared operations (see `@ensemble/core`'s `deploy/operation.ts` for what an
- * operation is and why it's invoked rather than fired by a deploy). The kit
- * matters twice: the operation's script lives in the kit's own folder, so the
- * same operation can do its step differently on each platform, and resolving
- * its arguments means rendering the workload, which only that kit can do.
- */
-export const operationCommand = new Command()
-  .name("operation")
-  .alias("op")
-  .description(
-    "Run one of a workload's operations declared in ci/<name>/delivery.yml.",
+    "List a workload's operations declared in ci/<name>/delivery.yml (name, a tab, description), or run one.",
   )
   .type("artifacts", new EnumType(["local", "published"]))
-  .arguments("<name:string> <operation:string> [args...:string]")
+  .arguments("<name:string> [operation:string] [args...:string]")
   .option(...KIT_OPTION)
   .option(
     "--artifacts <artifacts:artifacts>",
-    "Which release locator to resolve.",
+    "Which release locator to resolve, when running.",
     { default: "published" as const },
   )
   .option(
     "--version <version:string>",
-    "Released version to resolve ${release.<name>} references to for published artifacts.",
+    "Released version to resolve ${release.<name>} references to for published artifacts, when running.",
     { default: "latest" },
   )
   .option(
     "--instance <slug:string>",
-    "Act on this named instance of the workload (see `ens deploy --instance`) rather than its plain deployment.",
+    "Act on this named instance of the workload (see `ens deploy --instance`) rather than its plain deployment, when running.",
   )
   .option(...ENV_FILE_OPTION)
   .action(
     async (
       { kit, artifacts, version, instance, envFile },
       name: string,
-      operation: string,
+      operation: string | undefined,
       ...args: string[]
     ) => {
+      const repo = Host.createPorts().repo;
+      const envFiles = envFilesFor(name, envFile);
+      if (!operation) {
+        await listDeliveryOperations(name, kit, { envFiles }, repo);
+        return;
+      }
       await runDeliveryOperation(
         name,
         kit,
@@ -98,10 +83,10 @@ export const operationCommand = new Command()
         {
           artifacts,
           version,
-          envFiles: envFilesFor(name, envFile),
+          envFiles,
           instance: instance ? Instance.parse(instance) : undefined,
         },
-        Host.createPorts().repo,
+        repo,
         new Host.SubprocessPackKitGateway(),
         new Host.SubprocessKitLoader(),
       );

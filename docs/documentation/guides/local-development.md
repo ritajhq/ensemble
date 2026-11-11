@@ -138,7 +138,7 @@ auth_host=auth.ensemble.lvh.me
 - A value already exported in the environment wins over every file.
 - `ens deploy` reads no file unless given `--env-file <path>` (repeatable), so a
   real pipeline never picks up a committed dev value. `ens develop` and
-  `ens operation` default to the three files above, and `--env-file`
+  `ens operations` default to the three files above, and `--env-file`
   replaces them.
 - Before rendering, every variable without a `default:` and every
   environment-sourced secret must have a value, or the deploy fails naming all
@@ -158,7 +158,7 @@ deployment:
 
 ```sh
 ens operations platform                   # list what the workload declares
-ens operation platform trust-local-ca     # run one
+ens operations platform trust-local-ca     # run one
 ```
 
 An operation's `arguments` reach its script as environment variables, resolved from
@@ -166,7 +166,7 @@ the same values the deploy's own fields use, plus `${deployment.name}`,
 `${deployment.artifact}` and `${deployment.root}` — which lets a script address
 the stack through `docker compose -p "$project" -f "$artifact"` instead of
 hardcoding the names compose derives. See
-[`ens operation <name>`](../reference/cli/operations.md#ens-operation)
+[`ens operations <name>`](../reference/cli/operations.md#running)
 and
 [`operations` in the manifest schema](../reference/delivery-manifest-schema.md#operations).
 

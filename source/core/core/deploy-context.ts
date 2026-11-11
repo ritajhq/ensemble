@@ -210,7 +210,7 @@ export async function loadLaunchManifest(
  * Everything about a deployment short of loading its kit: the repo, the
  * workload its manifest declares (with the given env files' values put into
  * the environment, and every value it needs confirmed present), and where its kit and the kit's config are.
- * For what needs the kit only sometimes (`ens operation`).
+ * For what needs the kit only sometimes (`ens operations`).
  */
 export async function loadWorkload(
   name: string,

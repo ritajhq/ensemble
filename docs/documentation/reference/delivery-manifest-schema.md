@@ -151,7 +151,7 @@ whole value instead.
 ## `operations`
 
 An operation is one command the workload declares, run **by invocation** —
-`ens operation <workload> <operation> [args...]` — never fired by a deploy.
+`ens operations <workload> <operation> [args...]` — never fired by a deploy.
 An operation that exits non-zero fails that invocation, its own exit code and nothing
 else: no deploy has started, so there is nothing to roll back.
 `ens operations <workload>` lists what the workload declares, one operation

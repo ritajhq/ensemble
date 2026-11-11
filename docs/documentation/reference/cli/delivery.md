@@ -1,7 +1,7 @@
 # `ens delivery`
 
 Prints a delivery as declared by the workload's manifest. (Running a workload's
-operations is [`ens operation`](operations.md).)
+operations is [`ens operations`](operations.md).)
 
 ```sh
 ens delivery print <name> [-r json|markdown] [-o <path>]

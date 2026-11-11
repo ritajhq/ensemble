@@ -109,7 +109,7 @@ class OperationsNode extends Node {
   }
 }
 
-/** A workload's `operations:` entry, run with `ens operation`. */
+/** A workload's `operations:` entry, run with `ens operations`. */
 export class OperationNode extends Node {
   constructor(readonly workload: string, readonly operation: Status.Operation) {
     super();

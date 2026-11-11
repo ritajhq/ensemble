@@ -5,7 +5,7 @@ import { appCommand } from "./commands/app.ts";
 import { buildCommand } from "./commands/build.ts";
 import { configCommand } from "./commands/config.ts";
 import { deliveryCommand } from "./commands/delivery.ts";
-import { operationCommand, operationsCommand } from "./commands/operations.ts";
+import { operationsCommand } from "./commands/operations.ts";
 import { deployCommand } from "./commands/deploy.ts";
 import { destroyCommand } from "./commands/destroy.ts";
 import { developCommand } from "./commands/develop.ts";
@@ -46,7 +46,6 @@ try {
     .command("develop", developCommand)
     .command("delivery", deliveryCommand)
     .command("operations", operationsCommand)
-    .command("operation", operationCommand)
     .command("config", configCommand)
     .command("release", releaseCommand)
     .command("status", statusCommand)

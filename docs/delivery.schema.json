@@ -95,7 +95,7 @@
       }
     },
     "operations": {
-      "description": "Commands the workload declares for a human (or a CI job) to invoke against a deployed stack, e.g. `ens operation <workload> <operation>`. Declared here so an operation can name the deployment's own identity (${deployment.name}, ${deployment.artifact}, ${deployment.root}) instead of hardcoding container, network, or artifact names.",
+      "description": "Commands the workload declares for a human (or a CI job) to invoke against a deployed stack, e.g. `ens operations <workload> <operation>`. Declared here so an operation can name the deployment's own identity (${deployment.name}, ${deployment.artifact}, ${deployment.root}) instead of hardcoding container, network, or artifact names.",
       "type": "object",
       "additionalProperties": { "$ref": "#/definitions/operation" }
     },

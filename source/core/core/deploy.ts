@@ -203,7 +203,7 @@ export async function runDeploy(
   );
 
   // Once it's up, what the deployment was rendered from is kept for its
-  // operations, so `ens operation` can resolve their arguments without
+  // operations, so `ens operations` can resolve their arguments without
   // rendering again (see ./operation-snapshot.ts), and where it can be reached
   // from a shared network, for whatever fronts it (see ./ingress-record.ts).
   const deployed = new Deploy.Terminations.DeployedStates(
