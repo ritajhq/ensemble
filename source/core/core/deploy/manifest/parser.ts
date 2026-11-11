@@ -9,7 +9,7 @@ import type {
 } from "../resource.ts";
 import { VARIABLE_TYPES } from "../resource.ts";
 import type { PublishSpec, Release } from "../release.ts";
-import type { Task } from "../task.ts";
+import type { Operation } from "../operation.ts";
 import {
   LAUNCH_TYPES,
   type LaunchDevelopment,
@@ -24,8 +24,8 @@ import { type Key, KEYS, namesOf, SUPPORTED_VERSIONS } from "./keys.ts";
 
 /** A launch entry's `env` and `envSecrets` names become environment variables of the program started. */
 const ENVIRONMENT_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
-/** A task argument's name *is* an environment variable name the task reads, so it has to be a shell-safe identifier. */
-const TASK_ARGUMENT_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+/** An operation argument's name *is* an environment variable name the operation reads, so it has to be a shell-safe identifier. */
+const OPERATION_ARGUMENT_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 /** What reading a manifest found: the workload it declares, and every problem with it. */
 export interface Reading {
@@ -84,8 +84,8 @@ class ManifestReading {
         manifest.child("release"),
       );
     }
-    if (root.tasks !== undefined) {
-      workload.tasks = this.tasksOf(root.tasks, manifest.child("tasks"));
+    if (root.operations !== undefined) {
+      workload.operations = this.operationsOf(root.operations, manifest.child("operations"));
     }
     if (root.launch !== undefined) {
       workload.launch = this.launchOf(root.launch, manifest.child("launch"));
@@ -153,31 +153,31 @@ class ManifestReading {
   }
 
   /**
-   * `tasks:` — named operator commands (`deploy/task.ts`), keyed by task name
+   * `operations:` — named operator commands (`deploy/operation.ts`), keyed by operation name
    * like every category is keyed by resource name. Validated here rather than
-   * by a contract, because no contract is involved: a task is nothing but a
+   * by a contract, because no contract is involved: an operation is nothing but a
    * command and the values it wants resolved.
    */
-  private tasksOf(value: unknown, path: ManifestPath): Record<string, Task> {
+  private operationsOf(value: unknown, path: ManifestPath): Record<string, Operation> {
     if (!this.isMapping(value, path)) return {};
-    const parsed: Record<string, Task> = {};
+    const parsed: Record<string, Operation> = {};
     for (const [name, entry] of Object.entries(value)) {
-      const task = this.taskOf(entry, path.child(name));
-      if (task) parsed[name] = task;
+      const operation = this.operationOf(entry, path.child(name));
+      if (operation) parsed[name] = operation;
     }
     return parsed;
   }
 
-  private taskOf(value: unknown, path: ManifestPath): Task | undefined {
+  private operationOf(value: unknown, path: ManifestPath): Operation | undefined {
     if (!this.isMapping(value, path)) return undefined;
-    this.rejectUnknownKeys(value, KEYS.task, path);
+    this.rejectUnknownKeys(value, KEYS.operation, path);
 
     const hasRun = value.run !== undefined;
     const hasScript = value.script !== undefined;
     if (hasRun === hasScript) {
       this.report(
         path,
-        `${path} must declare exactly one of "run" (a shell one-liner) or "script" (a file under ci/<workload>/<kit>/tasks/).`,
+        `${path} must declare exactly one of "run" (a shell one-liner) or "script" (a file under ci/<workload>/<kit>/operations/).`,
       );
     }
     if (hasRun && (typeof value.run !== "string" || value.run.length === 0)) {
@@ -186,33 +186,33 @@ class ManifestReading {
     if (hasScript) this.checkScriptPath(value.script, path);
 
     return {
-      description: this.taskDescriptionOf(value.description, path),
+      description: this.operationDescriptionOf(value.description, path),
       run: value.run as string | undefined,
       script: value.script as string | undefined,
-      arguments: this.taskArgumentsOf(value.arguments, path.child("arguments")),
+      arguments: this.operationArgumentsOf(value.arguments, path.child("arguments")),
     };
   }
 
-  private taskDescriptionOf(
+  private operationDescriptionOf(
     value: unknown,
-    task: ManifestPath,
+    operation: ManifestPath,
   ): string | undefined {
     if (value === undefined) return undefined;
     if (typeof value === "string" && value.length > 0) return value;
     this.report(
-      task.child("description"),
-      `${task}.description must be a non-empty string.`,
+      operation.child("description"),
+      `${operation}.description must be a non-empty string.`,
     );
     return undefined;
   }
 
   /**
-   * A task's script is a path *inside* `ci/<workload>/<kit>/tasks/` — the core
+   * An operation's script is a path *inside* `ci/<workload>/<kit>/operations/` — the core
    * spawns whatever this names, so absolute paths and any `..` segment are
    * rejected outright rather than resolved and checked later.
    */
-  private checkScriptPath(value: unknown, task: ManifestPath): void {
-    const path = task.child("script");
+  private checkScriptPath(value: unknown, operation: ManifestPath): void {
+    const path = operation.child("script");
     if (typeof value !== "string" || value.length === 0) {
       this.report(path, `${path} must be a non-empty string.`);
       return;
@@ -221,12 +221,12 @@ class ManifestReading {
     if (value.startsWith("/") || segments.includes("..")) {
       this.report(
         path,
-        `${path} must be a path inside the workload's own kit tasks/ folder (got "${value}").`,
+        `${path} must be a path inside the workload's own kit operations/ folder (got "${value}").`,
       );
     }
   }
 
-  private taskArgumentsOf(
+  private operationArgumentsOf(
     value: unknown,
     path: ManifestPath,
   ): Record<string, string | number | boolean> | undefined {
@@ -236,10 +236,10 @@ class ManifestReading {
     const parsed: Record<string, string | number | boolean> = {};
     for (const [name, argument] of Object.entries(value)) {
       const argumentPath = path.child(name);
-      if (!TASK_ARGUMENT_NAME.test(name)) {
+      if (!OPERATION_ARGUMENT_NAME.test(name)) {
         this.report(
           argumentPath,
-          `${argumentPath}: an argument name becomes an environment variable for the task, so it must be a shell-safe identifier (${TASK_ARGUMENT_NAME}) — a dash, say, would make "$${name}" read as a different variable in a shell.`,
+          `${argumentPath}: an argument name becomes an environment variable for the operation, so it must be a shell-safe identifier (${OPERATION_ARGUMENT_NAME}) — a dash, say, would make "$${name}" read as a different variable in a shell.`,
         );
         continue;
       }
@@ -258,7 +258,7 @@ class ManifestReading {
 
   /**
    * `launch:` — what `ens develop` starts on this machine, keyed by name. Not a deploy category: no contract and no
-   * kit is involved, so `ens deploy` ignores it. Validated here the way tasks are: it is an envelope, and `${...}`
+   * kit is involved, so `ens deploy` ignores it. Validated here the way operations are: it is an envelope, and `${...}`
    * references in its values are checked when the manifest is resolved, not now.
    */
   private launchOf(

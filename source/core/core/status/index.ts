@@ -6,7 +6,7 @@ export {
   type Kit,
   type Library,
   type Ship,
-  type Task,
+  type Operation,
   type Vendoring,
   type Workload,
 } from "./project.ts";

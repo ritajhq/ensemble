@@ -18,7 +18,7 @@ function names(path: (string | number)[]): string[] {
 }
 
 Deno.test("Shape.keysAt: the envelope's keys at the root, version required", () => {
-  assertEquals(names([]), ["version", "release", "deploy", "tasks", "launch"]);
+  assertEquals(names([]), ["version", "release", "deploy", "operations", "launch"]);
   assertEquals(shape.keysAt([], root)[0].required, true);
 });
 

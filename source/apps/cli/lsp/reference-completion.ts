@@ -51,14 +51,14 @@ export class ReferenceCompletion {
     );
   }
 
-  /** A task's arguments may also reference the deployment itself. */
+  /** An operation's arguments may also reference the deployment itself. */
   private targetsAt(
     lines: string[],
     line: number,
     workload: Core.Deploy.Workload,
   ): Core.Deploy.Contracts.ReferenceTarget[] {
     const targets = this.targets.ofWorkload(workload);
-    if (this.sectionAt(lines, line) !== "tasks") return targets;
+    if (this.sectionAt(lines, line) !== "operations") return targets;
     return [...targets, ...this.targets.ofDeployment()];
   }
 

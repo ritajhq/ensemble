@@ -4,7 +4,7 @@ import { CATEGORIES } from "./workload.ts";
  * A parsed `${category.name.output}` reference, or its `${release.name}` sugar
  * (which targets the release's primary output — `output` is left undefined for
  * that shorthand, since a release's primary output has no name to state) and
- * the sibling `${deployment.<name>}` form (`../task.ts`: a deployment's own
+ * the sibling `${deployment.<name>}` form (`../operation.ts`: a deployment's own
  * identity, which is not a resource and so is resolved from the invocation
  * context rather than from the render ledger). Domain-agnostic: `category`
  * can be any `Category` or one of those siblings, so a reference targets any

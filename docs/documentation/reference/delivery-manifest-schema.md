@@ -25,7 +25,7 @@ version of the same model.
 - `release` — map of ship name → `{ kit, mode?, outputName?, publish? }`.
 - `deploy` — map of category → map of resource name → a category-specific shape
   (see below).
-- `tasks` — map of task name → `{ run | script, arguments? }`, commands the
+- `operations` — map of operation name → `{ run | script, arguments? }`, commands the
   workload declares for a human or a CI job to invoke (see below).
 - `launch` — map of name → a program or desktop app `ens develop` starts on this
   machine:
@@ -148,17 +148,17 @@ resolve to a plain value on the target. One the target can only express as an
 object, like CloudFormation's `!GetAtt`, fails the render, so use it as the
 whole value instead.
 
-## `tasks`
+## `operations`
 
-A task is one command the workload declares, run **by invocation** —
-`ens delivery <workload> <kit> task <task> [args...]` — never fired by a deploy.
-A task that exits non-zero fails that invocation, its own exit code and nothing
+An operation is one command the workload declares, run **by invocation** —
+`ens operation <workload> <operation> [args...]` — never fired by a deploy.
+An operation that exits non-zero fails that invocation, its own exit code and nothing
 else: no deploy has started, so there is nothing to roll back.
-`ens delivery <workload> <kit> tasks` lists what the workload declares, one task
+`ens operations <workload>` lists what the workload declares, one operation
 per line: its name, a tab, then its `description`.
 
 ```yaml
-tasks:
+operations:
   migrate:
     description: Migrate the database schema
     script: migrate.sh
@@ -167,21 +167,21 @@ tasks:
       artifact: ${deployment.artifact}
 ```
 
-`description` is one sentence saying what the task does; it is optional. Exactly
+`description` is one sentence saying what the operation does; it is optional. Exactly
 one of `run` (a shell one-liner, handed to `sh -c`) or `script` (a file under
-`ci/<workload>/<kit>/tasks/`, run with `sh`, so each deploy kit has its own)
-drives the task; both reject a `..` segment or an absolute path, since `ens`
+`ci/<workload>/<kit>/operations/`, run with `sh`, so each deploy kit has its own)
+drives the operation; both reject a `..` segment or an absolute path, since `ens`
 spawns whatever the path names. Trailing command-line arguments arrive as
 `$1..$n`.
 
-`arguments` are handed to the task as **environment variables**, so each name
+`arguments` are handed to the operation as **environment variables**, so each name
 must be a shell-safe identifier — a dash, say, would make `"$web-port"` read as
 a different variable in a shell. A value is a literal (string, number, boolean)
 or a `${...}` reference, resolved exactly as it would be inside a resource
 field: `${compute.web.http}` is the port that resource declares,
 `${databases.db.host}` the host the provisioner produced, and a value that
 resolves to a list or object is rejected rather than stringified. One namespace
-is a task's own, since it comes from the deploy invocation rather than the
+is an operation's own, since it comes from the deploy invocation rather than the
 manifest:
 
 | Reference                | What it is                                                                                                          |
@@ -190,12 +190,12 @@ manifest:
 | `${deployment.artifact}` | The path the deploy writes its rendered document to.                                                                |
 | `${deployment.root}`     | The repository root.                                                                                                |
 
-That namespace is the reason tasks exist: a script takes `"$artifact"` and
+That namespace is the reason operations exist: a script takes `"$artifact"` and
 `"$project"` straight from its own environment and runs
 `docker compose -f "$artifact" -p "$project" exec -T gateway …`, instead of
 hardcoding the container or network name `docker compose` derives
 (`<project>-gateway-1`, `<project>_default`) and a rename would silently break.
-Secrets need no argument at all: the task process inherits `ens`'s environment,
+Secrets need no argument at all: the operation process inherits `ens`'s environment,
 which already carries your variables and secrets (plus any `--env-file`),
 exactly as a deploy receives them.
 

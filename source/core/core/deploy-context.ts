@@ -145,8 +145,8 @@ export interface DeployContext extends WorkloadContext {
  * cares about (a compose project name, a CloudFormation stack name):
  * `"<repo folder>-<workload>"`, not the bare workload name, so two repos — or
  * two worktrees of one — don't collide on a single host. Exported because
- * more than the deploy needs it: `${deployment.name}` in a task argument
- * (`./task.ts`) hands the same string to a script, which would otherwise
+ * more than the deploy needs it: `${deployment.name}` in an operation argument
+ * (`./operation.ts`) hands the same string to a script, which would otherwise
  * have to re-derive this rule and drift from it.
  */
 export function deploymentNameFor(repoRoot: string, name: string): string {
@@ -210,7 +210,7 @@ export async function loadLaunchManifest(
  * Everything about a deployment short of loading its kit: the repo, the
  * workload its manifest declares (with the given env files' values put into
  * the environment, and every value it needs confirmed present), and where its kit and the kit's config are.
- * For what needs the kit only sometimes (`ens delivery task`).
+ * For what needs the kit only sometimes (`ens operation`).
  */
 export async function loadWorkload(
   name: string,

@@ -94,10 +94,10 @@
         }
       }
     },
-    "tasks": {
-      "description": "Commands the workload declares for a human (or a CI job) to invoke against a deployed stack, e.g. `ens delivery <workload> <kit> task <task>`. Declared here so a task can name the deployment's own identity (${deployment.name}, ${deployment.artifact}, ${deployment.root}) instead of hardcoding container, network, or artifact names.",
+    "operations": {
+      "description": "Commands the workload declares for a human (or a CI job) to invoke against a deployed stack, e.g. `ens operation <workload> <operation>`. Declared here so an operation can name the deployment's own identity (${deployment.name}, ${deployment.artifact}, ${deployment.root}) instead of hardcoding container, network, or artifact names.",
       "type": "object",
-      "additionalProperties": { "$ref": "#/definitions/task" }
+      "additionalProperties": { "$ref": "#/definitions/operation" }
     },
     "launch": {
       "description": "What `ens develop` starts on this machine and keeps running: programs and desktop apps, which are not deploy resources. `ens deploy` ignores this section. Values may reference builds (${build.<app>}), packs (${pack.<ship>}), deploy resources and other launch entries (${launch.<name>.<port>}); the references decide what starts first.",
@@ -564,13 +564,13 @@
         }
       }
     },
-    "task": {
+    "operation": {
       "type": "object",
-      "description": "One command, declared by the workload. Exactly one of run or script drives it: an inline `run` is handed to `sh -c`, a `script` is resolved under ci/<workload>/<kit>/tasks/ and run with `sh`. Trailing command-line arguments arrive as $1..$n. A task is invoked, never fired by a deploy; a task that exits non-zero fails that invocation only.",
+      "description": "One command, declared by the workload. Exactly one of run or script drives it: an inline `run` is handed to `sh -c`, a `script` is resolved under ci/<workload>/<kit>/operations/ and run with `sh`. Trailing command-line arguments arrive as $1..$n. An operation is invoked, never fired by a deploy; an operation that exits non-zero fails that invocation only.",
       "additionalProperties": false,
       "properties": {
         "description": {
-          "description": "What the task does, in a sentence. `ens delivery <workload> <kit> tasks` prints it beside the task's name.",
+          "description": "What the operation does, in a sentence. `ens operations <workload>` prints it beside the operation's name.",
           "type": "string",
           "minLength": 1
         },
@@ -580,12 +580,12 @@
           "minLength": 1
         },
         "script": {
-          "description": "A script file under ci/<workload>/<kit>/tasks/, run with `sh`. Rejects absolute paths and any `..` segment.",
+          "description": "A script file under ci/<workload>/<kit>/operations/, run with `sh`. Rejects absolute paths and any `..` segment.",
           "type": "string",
           "minLength": 1
         },
         "arguments": {
-          "description": "Constants handed to the task as environment variables. A value may be a literal (string, number, boolean) or a ${...} reference resolved exactly as it would be in a resource field — plus the ${deployment.name|artifact|root} namespace, which answers what a render can't.",
+          "description": "Constants handed to the operation as environment variables. A value may be a literal (string, number, boolean) or a ${...} reference resolved exactly as it would be in a resource field — plus the ${deployment.name|artifact|root} namespace, which answers what a render can't.",
           "type": "object",
           "additionalProperties": { "type": ["string", "number", "boolean"] },
           "propertyNames": { "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" }

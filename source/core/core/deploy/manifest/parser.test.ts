@@ -292,10 +292,10 @@ Deno.test("parse: rejects a non-mapping manifest", () => {
   assertEquals(error.message, "manifest must be a mapping.");
 });
 
-Deno.test("parse: tasks keep their run/script and arguments", () => {
+Deno.test("parse: operations keep their run/script and arguments", () => {
   const workload = parser.parse(`
 version: v1
-tasks:
+operations:
   migrate:
     description: Migrate the schema
     script: migrate.sh
@@ -307,7 +307,7 @@ tasks:
     run: echo hello
 `);
 
-  assertEquals(workload.tasks, {
+  assertEquals(workload.operations, {
     migrate: {
       description: "Migrate the schema",
       run: undefined,
@@ -323,122 +323,124 @@ tasks:
   });
 });
 
-Deno.test("parse: a task's description must be a non-empty string", () => {
+Deno.test("parse: an operation's description must be a non-empty string", () => {
   const error = assertThrows(
     () =>
       parser.parse(
-        `version: v1\ntasks:\n  t:\n    description: ""\n    run: echo`,
+        `version: v1\noperations:\n  t:\n    description: ""\n    run: echo`,
       ),
     ManifestError,
   );
   assertEquals(
     error.message,
-    "manifest.tasks.t.description must be a non-empty string.",
+    "manifest.operations.t.description must be a non-empty string.",
   );
 });
 
-Deno.test("parse: a task declares exactly one of run and script", () => {
+Deno.test("parse: an operation declares exactly one of run and script", () => {
   const missing = assertThrows(
-    () => parser.parse(`version: v1\ntasks:\n  t:\n    arguments: {}`),
+    () => parser.parse(`version: v1\noperations:\n  t:\n    arguments: {}`),
     ManifestError,
   );
   assertEquals(
     missing.message,
-    'manifest.tasks.t must declare exactly one of "run" (a shell one-liner) or "script" (a file under ci/<workload>/<kit>/tasks/).',
+    'manifest.operations.t must declare exactly one of "run" (a shell one-liner) or "script" (a file under ci/<workload>/<kit>/operations/).',
   );
 
   const both = assertThrows(
     () =>
       parser.parse(
-        `version: v1\ntasks:\n  t:\n    run: echo hi\n    script: t.sh`,
+        `version: v1\noperations:\n  t:\n    run: echo hi\n    script: t.sh`,
       ),
     ManifestError,
   );
   assertEquals(
     both.message,
-    'manifest.tasks.t must declare exactly one of "run" (a shell one-liner) or "script" (a file under ci/<workload>/<kit>/tasks/).',
+    'manifest.operations.t must declare exactly one of "run" (a shell one-liner) or "script" (a file under ci/<workload>/<kit>/operations/).',
   );
 });
 
-Deno.test("parse: a task's run must be a non-empty string", () => {
+Deno.test("parse: an operation's run must be a non-empty string", () => {
   const error = assertThrows(
-    () => parser.parse(`version: v1\ntasks:\n  t:\n    run: ""`),
+    () => parser.parse(`version: v1\noperations:\n  t:\n    run: ""`),
     ManifestError,
   );
   assertEquals(
     error.message,
-    "manifest.tasks.t.run must be a non-empty string.",
+    "manifest.operations.t.run must be a non-empty string.",
   );
 });
 
-Deno.test("parse: a task's script must stay inside the workload's own kit tasks/ folder", () => {
+Deno.test("parse: an operation's script must stay inside the workload's own kit operations/ folder", () => {
   const absolute = assertThrows(
-    () => parser.parse(`version: v1\ntasks:\n  t:\n    script: /etc/passwd`),
+    () =>
+      parser.parse(`version: v1\noperations:\n  t:\n    script: /etc/passwd`),
     ManifestError,
   );
   assertEquals(
     absolute.message,
-    'manifest.tasks.t.script must be a path inside the workload\'s own kit tasks/ folder (got "/etc/passwd").',
+    'manifest.operations.t.script must be a path inside the workload\'s own kit operations/ folder (got "/etc/passwd").',
   );
 
   const traversing = assertThrows(
-    () => parser.parse(`version: v1\ntasks:\n  t:\n    script: ../../x.sh`),
+    () =>
+      parser.parse(`version: v1\noperations:\n  t:\n    script: ../../x.sh`),
     ManifestError,
   );
   assertEquals(
     traversing.message,
-    'manifest.tasks.t.script must be a path inside the workload\'s own kit tasks/ folder (got "../../x.sh").',
+    'manifest.operations.t.script must be a path inside the workload\'s own kit operations/ folder (got "../../x.sh").',
   );
 });
 
-Deno.test("parse: a task argument name has to be shell-safe, because it becomes an environment variable", () => {
+Deno.test("parse: an operation argument name has to be shell-safe, because it becomes an environment variable", () => {
   const error = assertThrows(
     () =>
       parser.parse(
-        `version: v1\ntasks:\n  t:\n    run: x\n    arguments:\n      web-port: 1`,
+        `version: v1\noperations:\n  t:\n    run: x\n    arguments:\n      web-port: 1`,
       ),
     ManifestError,
   );
   assertEquals(
     error.message,
-    'manifest.tasks.t.arguments.web-port: an argument name becomes an environment variable for the task, so it must be a shell-safe identifier (/^[A-Za-z_][A-Za-z0-9_]*$/) — a dash, say, would make "$web-port" read as a different variable in a shell.',
+    'manifest.operations.t.arguments.web-port: an argument name becomes an environment variable for the operation, so it must be a shell-safe identifier (/^[A-Za-z_][A-Za-z0-9_]*$/) — a dash, say, would make "$web-port" read as a different variable in a shell.',
   );
 });
 
-Deno.test("parse: a task argument must be a single value", () => {
+Deno.test("parse: an operation argument must be a single value", () => {
   const error = assertThrows(
     () =>
       parser.parse(
-        `version: v1\ntasks:\n  t:\n    run: x\n    arguments:\n      files: [a, b]`,
+        `version: v1\noperations:\n  t:\n    run: x\n    arguments:\n      files: [a, b]`,
       ),
     ManifestError,
   );
   assertEquals(
     error.message,
-    "manifest.tasks.t.arguments.files must be a string, number, or boolean (or a ${...} reference to one).",
+    "manifest.operations.t.arguments.files must be a string, number, or boolean (or a ${...} reference to one).",
   );
 });
 
-Deno.test("parse: a task rejects an unknown key with a near-miss suggestion", () => {
+Deno.test("parse: an operation rejects an unknown key with a near-miss suggestion", () => {
   const error = assertThrows(
     () =>
       parser.parse(
-        `version: v1\ntasks:\n  t:\n    run: x\n    scrip: t.sh`,
+        `version: v1\noperations:\n  t:\n    run: x\n    scrip: t.sh`,
       ),
     ManifestError,
   );
   assertEquals(
     error.message,
-    'manifest.tasks.t has an unknown key "scrip". Did you mean "script"?',
+    'manifest.operations.t has an unknown key "scrip". Did you mean "script"?',
   );
 });
 
-Deno.test("parse: tasks must be a mapping", () => {
+Deno.test("parse: operations must be a mapping", () => {
   const error = assertThrows(
-    () => parser.parse(`version: v1\ntasks: not-a-mapping`),
+    () => parser.parse(`version: v1\noperations: not-a-mapping`),
     ManifestError,
   );
-  assertEquals(error.message, "manifest.tasks must be a mapping.");
+  assertEquals(error.message, "manifest.operations must be a mapping.");
 });
 
 Deno.test("parse: a variable may be typed as a list", () => {
@@ -614,13 +616,13 @@ deploy:
 
 Deno.test("Parser.parse: throws every problem at once, one per line", () => {
   const error = assertThrows(
-    () => parser.parse(`version: v1\nrelese: {}\ntaks: {}`),
+    () => parser.parse(`version: v1\nrelese: {}\noperatons: {}`),
     ManifestError,
   );
   assertEquals(error.problems.length, 2);
   assertEquals(
     error.message,
     'manifest has an unknown key "relese". Did you mean "release"?\n' +
-      'manifest has an unknown key "taks". Did you mean "tasks"?',
+      'manifest has an unknown key "operatons". Did you mean "operations"?',
   );
 });

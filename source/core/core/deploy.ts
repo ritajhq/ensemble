@@ -4,9 +4,9 @@ import { deploymentNameFor, loadDeployContext } from "./deploy-context.ts";
 import { EnsembleConfigStore } from "./config.ts";
 import {
   DeploymentFingerprint,
-  TaskSnapshotFile,
-  TaskSnapshotRecorder,
-} from "./task-snapshot.ts";
+  OperationSnapshotFile,
+  OperationSnapshotRecorder,
+} from "./operation-snapshot.ts";
 import { IngressFile, IngressRecorder } from "./ingress-record.ts";
 import { RunPackReleasePacker } from "./release-packer.ts";
 import { runBuild } from "./pipeline.ts";
@@ -178,7 +178,7 @@ export async function runDeploy(
   // worktrees of the same one — from colliding on the same host.
   // `name` finds the manifest; everything the deployment itself owns is
   // scoped by instance, so concurrent instances of one manifest never share
-  // a project name, rendered artifact, cache or task snapshot.
+  // a project name, rendered artifact, cache or operation snapshot.
   const scope = options.instance ? options.instance.scope(name) : name;
   const deploymentName = deploymentNameFor(repoRoot, scope);
 
@@ -203,12 +203,12 @@ export async function runDeploy(
   );
 
   // Once it's up, what the deployment was rendered from is kept for its
-  // tasks, so `ens delivery task` can resolve their arguments without
-  // rendering again (see ./task-snapshot.ts), and where it can be reached
+  // operations, so `ens operation` can resolve their arguments without
+  // rendering again (see ./operation-snapshot.ts), and where it can be reached
   // from a shared network, for whatever fronts it (see ./ingress-record.ts).
   const deployed = new Deploy.Terminations.DeployedStates(
-    new TaskSnapshotRecorder(
-      TaskSnapshotFile.for(repoRoot, scope, kit),
+    new OperationSnapshotRecorder(
+      OperationSnapshotFile.for(repoRoot, scope, kit),
       await DeploymentFingerprint.of(context),
       renderer,
       workload,

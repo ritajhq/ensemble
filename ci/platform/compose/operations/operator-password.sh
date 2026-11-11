@@ -4,16 +4,16 @@
 # and no password, so nobody can sign in until this has run. The password is
 # read from stdin, or asked for when there is a terminal:
 #
-#   ens delivery platform compose task operator-password
-#   printf '%s' "$PASSWORD" | ens delivery platform compose task operator-password
+#   ens operation platform operator-password
+#   printf '%s' "$PASSWORD" | ens operation platform operator-password
 set -eu
 
 for var in project artifact email; do
   eval "val=\${$var:-}"
   if [ -z "$val" ]; then
     echo "operator-password: missing required env: $var" >&2
-    echo "Run it as a task, which supplies it from the manifest:" >&2
-    echo "  ens delivery platform compose task operator-password" >&2
+    echo "Run it as an operation, which supplies it from the manifest:" >&2
+    echo "  ens operation platform operator-password" >&2
     exit 1
   fi
 done

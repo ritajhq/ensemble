@@ -51,7 +51,7 @@ export class Shape {
         pattern: ["deploy", ANY, ANY, "capabilities"],
         answer: (path, root) => this.capabilityKeys(path, root),
       },
-      { pattern: ["tasks", ANY], answer: () => KEYS.task },
+      { pattern: ["operations", ANY], answer: () => KEYS.operation },
       { pattern: ["launch", ANY], answer: () => KEYS.launch },
       {
         pattern: ["launch", ANY, "development"],

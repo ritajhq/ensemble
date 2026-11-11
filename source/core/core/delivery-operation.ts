@@ -10,97 +10,97 @@ import {
   DeploymentFingerprint,
   embedsRenderedReference,
   isRenderedArgument,
-  type TaskSnapshot,
-  TaskSnapshotFile,
-} from "./task-snapshot.ts";
+  type OperationSnapshot,
+  OperationSnapshotFile,
+} from "./operation-snapshot.ts";
 import type { Instance } from "./instance.ts";
 import type { RepoLocator } from "./ports.ts";
 import type { EnvFiles } from "./env-files.ts";
 
-/** Thrown when a task name is asked for that the workload doesn't declare — an ordinary typo, named against the tasks that *are* declared. */
-export class UnknownTaskError extends Error {
+/** Thrown when an operation name is asked for that the workload doesn't declare — an ordinary typo, named against the operations that *are* declared. */
+export class UnknownOperationError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = "UnknownTaskError";
+    this.name = "UnknownOperationError";
   }
 }
 
-/** Thrown when a task's own `arguments` can't produce a value a process can be handed — an unresolvable `${deployment.*}` name, or a reference that resolves to something other than a single value. */
-export class TaskArgumentError extends Error {
+/** Thrown when an operation's own `arguments` can't produce a value a process can be handed — an unresolvable `${deployment.*}` name, or a reference that resolves to something other than a single value. */
+export class OperationArgumentError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = "TaskArgumentError";
+    this.name = "OperationArgumentError";
   }
 }
 
-/** Thrown when the task process itself exits non-zero. Deliberately its own error class: a failing task is not a failing deployment (nothing else was touched), it's a failing *command*, and `ens` reports it as such and exits non-zero. */
-export class TaskFailedError extends Error {
+/** Thrown when the operation process itself exits non-zero. Deliberately its own error class: a failing operation is not a failing deployment (nothing else was touched), it's a failing *command*, and `ens` reports it as such and exits non-zero. */
+export class OperationFailedError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = "TaskFailedError";
+    this.name = "OperationFailedError";
   }
 }
 
-export interface RunDeliveryTaskOptions {
+export interface RunDeliveryOperationOptions {
   readonly artifacts: Deploy.ArtifactsSource;
-  /** Only meaningful if a task argument references `${release.<name>}` for published artifacts — same convention as `ens deploy --version`. */
+  /** Only meaningful if an operation argument references `${release.<name>}` for published artifacts — same convention as `ens deploy --version`. */
   readonly version: string;
   /** Same as `RunDeployOptions.envFiles`. */
   readonly envFiles: EnvFiles;
-  /** The instance of the workload whose deployment the task acts on (`ens deploy --instance`); absent is its plain deployment. */
+  /** The instance of the workload whose deployment the operation acts on (`ens deploy --instance`); absent is its plain deployment. */
   readonly instance?: Instance;
 }
 
-/** What `${deployment.<name>}` may name (`./deploy/task.ts` documents the set from the manifest's side). */
+/** What `${deployment.<name>}` may name (`./deploy/operation.ts` documents the set from the manifest's side). */
 const DEPLOYMENT_VALUES = ["name", "artifact", "root"] as const;
 
 /**
- * Runs one of a workload's declared tasks (`ens delivery <name> <kit> task`). The kit is the caller's, and
- * names the folder (`ci/<name>/<kit>/tasks/`) a task's `script` is read from. See `./deploy/task.ts` for
- * what a task is and why it's invoked rather than fired by a deploy.
+ * Runs one of a workload's declared operations (`ens operation <name>`). The kit is the caller's, and
+ * names the folder (`ci/<name>/<kit>/operations/`) an operation's `script` is read from. See `./deploy/operation.ts` for
+ * what an operation is and why it's invoked rather than fired by a deploy.
  *
  * The front half is `ens deploy explain`'s own — same manifest lookup, same
- * release locator, same render — because a task argument may reference
+ * release locator, same render — because an operation argument may reference
  * anything a resource field may, and most of those are only knowable from a
  * completed render (`${databases.database.host}` is a provisioner's output,
  * not a declaration). To that the runner adds the one namespace a render
  * *can't* answer, because it isn't about resources at all: the deployment's
  * own identity (`${deployment.name}`, `${deployment.artifact}`,
  * `${deployment.root}`). That namespace is the point of the whole feature —
- * a task greps what ens generated instead of hardcoding it — so it is resolved
+ * an operation greps what ens generated instead of hardcoding it — so it is resolved
  * here, where the deployment name, the artifact path the deploy writes to and
  * the workspace root are all in scope together.
  *
- * The task process inherits `ens`'s own environment, which `loadWorkload`
+ * The operation process inherits `ens`'s own environment, which `loadWorkload`
  * has already filled from any `--env-file`, so a
- * `secrets`/`variables` value reaches a task exactly as it reaches a deploy
+ * `secrets`/`variables` value reaches an operation exactly as it reaches a deploy
  * and no secret has to travel through the manifest (G4) or through the
  * argument grammar.
  */
-export async function runDeliveryTask(
+export async function runDeliveryOperation(
   name: string,
-  kit: string,
-  taskName: string,
-  taskArgs: readonly string[],
-  options: RunDeliveryTaskOptions,
+  requestedKit: string | undefined,
+  operationName: string,
+  operationArgs: readonly string[],
+  options: RunDeliveryOperationOptions,
   repo: RepoLocator,
   gateway: Deploy.PackKitGateway,
   kitLoader: Deploy.KitLoader,
 ): Promise<void> {
-  const context = await loadWorkload(name, kit, repo, {
+  const context = await loadWorkload(name, requestedKit, repo, {
     envFiles: options.envFiles,
   });
-  const { repoRoot, workload } = context;
+  const { repoRoot, workload, kit } = context;
 
-  const tasks = workload.tasks ?? {};
+  const operations = workload.operations ?? {};
 
-  const task = tasks[taskName];
-  if (!task) {
-    const declared = Object.keys(tasks);
-    throw new UnknownTaskError(
+  const operation = operations[operationName];
+  if (!operation) {
+    const declared = Object.keys(operations);
+    throw new UnknownOperationError(
       declared.length === 0
-        ? `Workload "${name}" declares no tasks.`
-        : `No task named "${taskName}" in workload "${name}". Declared: ${
+        ? `Workload "${name}" declares no operations.`
+        : `No operation named "${operationName}" in workload "${name}". Declared: ${
           declared.join(", ")
         }.`,
     );
@@ -118,56 +118,56 @@ export async function runDeliveryTask(
     name,
     scope,
     kit,
-    taskName,
-    task,
+    operationName,
+    operation,
   );
   const env = snapshot
-    ? argumentsFromSnapshot(task, taskName, snapshot, deployment, workload)
-    : await argumentsFromRender(task, context, deployment, scope, {
+    ? argumentsFromSnapshot(operation, operationName, snapshot, deployment, workload)
+    : await argumentsFromRender(operation, context, deployment, scope, {
       options,
       gateway,
       kitLoader,
     });
 
-  await runProcess(task, {
+  await runProcess(operation, {
     repoRoot,
     workload: name,
     kit,
     env,
-    args: taskArgs,
+    args: operationArgs,
   });
-  console.log(`Ran task "${taskName}" for "${name}".`);
+  console.log(`Ran operation "${operationName}" for "${name}".`);
 }
 
 /**
- * The snapshot the last deploy left for this task (`./task-snapshot.ts`),
+ * The snapshot the last deploy left for this operation (`./operation-snapshot.ts`),
  * when it still applies: the manifest, the kit and its config say what they
- * said at that deploy, and it holds every argument of this task only a render
+ * said at that deploy, and it holds every argument of this operation only a render
  * can answer. The deploy may have used other artifacts or another version
  * than this invocation asks for — the snapshot is what's running, which is
- * what a task acts on. A snapshot gone stale is said so, once.
+ * what an operation acts on. A snapshot gone stale is said so, once.
  */
 async function deployedSnapshot(
   context: WorkloadContext,
   name: string,
   scope: string,
   kit: string,
-  taskName: string,
-  task: Deploy.Task,
-): Promise<TaskSnapshot | undefined> {
-  const snapshot = await TaskSnapshotFile.for(context.repoRoot, scope, kit)
+  operationName: string,
+  operation: Deploy.Operation,
+): Promise<OperationSnapshot | undefined> {
+  const snapshot = await OperationSnapshotFile.for(context.repoRoot, scope, kit)
     .read();
   if (!snapshot) return undefined;
 
   if (snapshot.fingerprint !== await DeploymentFingerprint.of(context)) {
     console.warn(
-      `note: ci/${name}/delivery.yml or the "${kit}" kit changed since "${scope}" was last deployed with it — resolving the task's arguments from the manifest as it is now, which may not be what's running.`,
+      `note: ci/${name}/delivery.yml or the "${kit}" kit changed since "${scope}" was last deployed with it — resolving the operation's arguments from the manifest as it is now, which may not be what's running.`,
     );
     return undefined;
   }
 
-  const recorded = snapshot.arguments[taskName] ?? {};
-  const complete = Object.entries(task.arguments ?? {}).every((
+  const recorded = snapshot.arguments[operationName] ?? {};
+  const complete = Object.entries(operation.arguments ?? {}).every((
     [argument, raw],
   ) =>
     (!isRenderedArgument(raw) || argument in recorded) &&
@@ -178,19 +178,19 @@ async function deployedSnapshot(
 
 /** Every argument resolved without a kit: rendered ones from the snapshot, the rest as the manifest and the environment say. */
 function argumentsFromSnapshot(
-  task: Deploy.Task,
-  taskName: string,
-  snapshot: TaskSnapshot,
+  operation: Deploy.Operation,
+  operationName: string,
+  snapshot: OperationSnapshot,
   deployment: Readonly<Record<string, string>>,
   workload: Deploy.Workload,
 ): Record<string, string> {
   const context: SnapshotContext = {
-    recorded: snapshot.arguments[taskName] ?? {},
+    recorded: snapshot.arguments[operationName] ?? {},
     deployment: { ...deployment, artifact: snapshot.artifact },
     workload,
   };
   return Object.fromEntries(
-    Object.entries(task.arguments ?? {}).map(([argument, raw]) => [
+    Object.entries(operation.arguments ?? {}).map(([argument, raw]) => [
       argument,
       String(snapshotArgument(argument, raw, context)),
     ]),
@@ -246,16 +246,16 @@ function snapshotReference(
 /**
  * Every argument resolved by rendering. Only `${deployment.artifact}` needs
  * the whole workload rendered (it names the file that render is presented
- * as); any other task renders just the resources its arguments reference,
- * and what those depend on — for most tasks a database, or nothing at all.
+ * as); any other operation renders just the resources its arguments reference,
+ * and what those depend on — for most operations a database, or nothing at all.
  */
 async function argumentsFromRender(
-  task: Deploy.Task,
+  operation: Deploy.Operation,
   context: WorkloadContext,
   deployment: Record<string, string>,
   scope: string,
   deps: {
-    readonly options: RunDeliveryTaskOptions;
+    readonly options: RunDeliveryOperationOptions;
     readonly gateway: Deploy.PackKitGateway;
     readonly kitLoader: Deploy.KitLoader;
   },
@@ -266,7 +266,7 @@ async function argumentsFromRender(
   ]);
   const target: Deploy.Target = { kit: loaded.kit, runtime: loaded.runtime };
 
-  const references = argumentReferences(task);
+  const references = argumentReferences(operation);
   const needsArtifact = references.some((reference) =>
     reference.category === "deployment" && reference.name === "artifact"
   );
@@ -316,7 +316,7 @@ async function argumentsFromRender(
   }
 
   const env: Record<string, string> = {};
-  for (const [argument, raw] of Object.entries(task.arguments ?? {})) {
+  for (const [argument, raw] of Object.entries(operation.arguments ?? {})) {
     env[argument] = String(
       await resolveArgument(raw, {
         deployment,
@@ -329,10 +329,10 @@ async function argumentsFromRender(
   return env;
 }
 
-/** Every reference among a task's arguments; a literal argument references nothing. */
-function argumentReferences(task: Deploy.Task): Deploy.Reference[] {
+/** Every reference among an operation's arguments; a literal argument references nothing. */
+function argumentReferences(operation: Deploy.Operation): Deploy.Reference[] {
   const syntax = new Deploy.ReferenceSyntax();
-  return Object.values(task.arguments ?? {}).flatMap((raw) => {
+  return Object.values(operation.arguments ?? {}).flatMap((raw) => {
     const reference = syntax.parse(raw);
     if (reference) return [reference];
     return syntax.embedded(raw).map((embedded) => embedded.reference);
@@ -352,7 +352,7 @@ const PROVISIONED_CATEGORIES = [
  * `workload` narrowed to what rendering `references` needs: the releases and
  * provisioned resources they name, and everything those depend on. Data
  * categories (`secrets`, `variables`, `external`) are kept whole, since a
- * provisioner may read them and rendering them costs nothing; tasks are
+ * provisioner may read them and rendering them costs nothing; operations are
  * dropped, since nothing renders them.
  */
 function scopeTo(
@@ -387,7 +387,7 @@ function scopeTo(
       ),
     );
 
-  const { tasks: _tasks, ...scoped } = workload;
+  const { operations: _operations, ...scoped } = workload;
   return {
     ...scoped,
     release: only("release", workload.release),
@@ -401,22 +401,21 @@ function scopeTo(
 }
 
 /**
- * Prints what a workload declares under `tasks:` (`ens delivery <name> <kit>
- * tasks`): one line per task, its name, a tab, then its description (empty
+ * Prints what a workload declares under `operations:` (`ens operations <name>`): one line per operation, its name, a tab, then its description (empty
  * when it declares none). A tab rather than padding, so the output splits the
  * same way for a person and for `cut`.
  */
-export async function listDeliveryTasks(
+export async function listDeliveryOperations(
   name: string,
-  kit: string,
-  options: Pick<RunDeliveryTaskOptions, "envFiles">,
+  kit: string | undefined,
+  options: Pick<RunDeliveryOperationOptions, "envFiles">,
   repo: RepoLocator,
 ): Promise<void> {
   const { workload } = await loadWorkload(name, kit, repo, {
     envFiles: options.envFiles,
   });
-  for (const [taskName, task] of Object.entries(workload.tasks ?? {})) {
-    console.log(`${taskName}\t${task.description ?? ""}`);
+  for (const [operationName, operation] of Object.entries(workload.operations ?? {})) {
+    console.log(`${operationName}\t${operation.description ?? ""}`);
   }
 }
 
@@ -430,9 +429,9 @@ interface ArgumentContext {
 /**
  * One declared argument as the string a process will actually receive.
  * `${deployment.<name>}` is answered here; everything else goes to the
- * renderer's own resolution, so a task argument means exactly what the same
+ * renderer's own resolution, so an operation argument means exactly what the same
  * reference would mean inside a resource. Numbers and booleans are stringified
- * because that is what an environment variable *is* — the task reads text.
+ * because that is what an environment variable *is* — the operation reads text.
  */
 async function resolveArgument(
   raw: string | number | boolean,
@@ -449,16 +448,16 @@ async function resolveArgument(
     context.workload,
   );
   if (typeof value === "object" && value !== null) {
-    throw new TaskArgumentError(
+    throw new OperationArgumentError(
       `"${raw}" resolved to ${
         Array.isArray(value) ? "a list" : "an object"
-      }, and a task argument must be a single value — most often a reference to a target-deferred output, whose value only exists as the target's own wiring once the deploy has run.`,
+      }, and an operation argument must be a single value — most often a reference to a target-deferred output, whose value only exists as the target's own wiring once the deploy has run.`,
     );
   }
   return value;
 }
 
-/** What `${deployment.<name>}` says, or a `TaskArgumentError` naming what it may say. */
+/** What `${deployment.<name>}` says, or a `OperationArgumentError` naming what it may say. */
 function deploymentValue(
   reference: Deploy.Reference,
   raw: string | number | boolean,
@@ -466,7 +465,7 @@ function deploymentValue(
 ): string {
   const value = deployment[reference.name];
   if (value === undefined) {
-    throw new TaskArgumentError(
+    throw new OperationArgumentError(
       `"${raw}" — the deployment namespace has only ${
         DEPLOYMENT_VALUES.map((known) => `\${deployment.${known}}`).join(", ")
       }.`,
@@ -476,14 +475,14 @@ function deploymentValue(
 }
 
 /**
- * Spawns the task with `ens`'s own stdio inherited, so a task that prompts
+ * Spawns the operation with `ens`'s own stdio inherited, so an operation that prompts
  * (a migration asking for confirmation, `sudo` asking for a password) works,
  * and with the resolved arguments layered onto the environment. Trailing
  * command-line arguments land as `$1..$n`: `sh` needs a `$0` for that, hence
  * the placeholder name.
  */
 async function runProcess(
-  task: Deploy.Task,
+  operation: Deploy.Operation,
   context: {
     readonly repoRoot: string;
     readonly workload: string;
@@ -492,18 +491,18 @@ async function runProcess(
     readonly args: readonly string[];
   },
 ): Promise<void> {
-  const argv = task.script
+  const argv = operation.script
     ? [
       join(
         context.repoRoot,
         "ci",
         context.workload,
         context.kit,
-        "tasks",
-        task.script,
+        "operations",
+        operation.script,
       ),
     ]
-    : ["-c", task.run!, "ens-delivery-task"];
+    : ["-c", operation.run!, "ens-delivery-operation"];
 
   const { success, code } = await new Deno.Command("sh", {
     args: [...argv, ...context.args],
@@ -511,6 +510,6 @@ async function runProcess(
   }).spawn().status;
 
   if (!success) {
-    throw new TaskFailedError(`The task exited with code ${code}.`);
+    throw new OperationFailedError(`The operation exited with code ${code}.`);
   }
 }

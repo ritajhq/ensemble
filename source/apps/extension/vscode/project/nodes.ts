@@ -80,22 +80,22 @@ export class WorkloadNode extends Node {
     const resources = Object.entries(this.workload.resources).map((
       [category, names],
     ) => new Leaf(category, names.join(", "), "symbol-field", "resources"));
-    // `tasks` is newer than `ens status --json` itself; an older `ens` simply has none to list.
-    const tasks = (this.workload.tasks ?? []).length === 0
+    // `operations` is newer than `ens status --json` itself; an older `ens` simply has none to list.
+    const operations = (this.workload.operations ?? []).length === 0
       ? []
-      : [new TasksNode(this.workload)];
-    return [...ships, ...resources, ...tasks];
+      : [new OperationsNode(this.workload)];
+    return [...ships, ...resources, ...operations];
   }
 }
 
-class TasksNode extends Node {
+class OperationsNode extends Node {
   constructor(private readonly workload: Status.Workload) {
     super();
   }
 
   item(): vscode.TreeItem {
     const item = new vscode.TreeItem(
-      "tasks",
+      "operations",
       vscode.TreeItemCollapsibleState.Expanded,
     );
     item.iconPath = new vscode.ThemeIcon("checklist");
@@ -103,31 +103,31 @@ class TasksNode extends Node {
   }
 
   override children(): Node[] {
-    return this.workload.tasks.map((task) =>
-      new TaskNode(this.workload.name, task)
+    return this.workload.operations.map((operation) =>
+      new OperationNode(this.workload.name, operation)
     );
   }
 }
 
-/** A workload's `tasks:` entry, run with `ens delivery task`. */
-export class TaskNode extends Node {
-  constructor(readonly workload: string, readonly task: Status.Task) {
+/** A workload's `operations:` entry, run with `ens operation`. */
+export class OperationNode extends Node {
+  constructor(readonly workload: string, readonly operation: Status.Operation) {
     super();
   }
 
   item(): vscode.TreeItem {
-    const item = new vscode.TreeItem(this.task.name);
-    item.description = this.task.command;
+    const item = new vscode.TreeItem(this.operation.name);
+    item.description = this.operation.command;
     item.tooltip = new vscode.MarkdownString(
-      `\`${this.task.command}\`` +
-        (this.task.arguments.length > 0
+      `\`${this.operation.command}\`` +
+        (this.operation.arguments.length > 0
           ? `\n\nArguments: ${
-            this.task.arguments.map((a) => `\`${a}\``).join(", ")
+            this.operation.arguments.map((a) => `\`${a}\``).join(", ")
           }`
           : ""),
     );
     item.iconPath = new vscode.ThemeIcon("terminal");
-    item.contextValue = "task";
+    item.contextValue = "operation";
     return item;
   }
 }

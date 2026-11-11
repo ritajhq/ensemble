@@ -11,7 +11,7 @@ In `ci/<name>/delivery.yml` (or an extensionless `ci/<name>/delivery`):
 - **Reference completion.** Typing `${` suggests every reference the manifest
   makes available: `${release.<name>}`, each resource's outputs
   (`${databases.db.host}`), a compute's ports, `variables`/`external` fields,
-  and `${deployment.*}` inside `tasks:`.
+  and `${deployment.*}` inside `operations:`.
 - **Structure completion.** The keys each mapping may hold, required ones first,
   including a resource's own fields once its `type:` is set, and the values
   `type:`, `class:`, `version:` and a secret's `source:` may take.

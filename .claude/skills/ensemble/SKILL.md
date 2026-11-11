@@ -16,7 +16,7 @@ knows the running order and who goes on when, while the kits are the performers.
 
 1. **Get names from `ens status --json`**, never by guessing or grepping. It
    lists every app (with its build kit), kit by role, library, and workload
-   (with its ships, resources and tasks). Every command's argument is one of
+   (with its ships, resources and operations). Every command's argument is one of
    these names.
 2. **Ask the CLI for flags:** `ens <command> --help`. The summary in
    [references/cli.md](references/cli.md) covers each command's purpose and the
@@ -39,7 +39,7 @@ source/artifacts/                build and pack output — generated, gitignored
 .ensemble/config.local.yaml      personal var defaults, gitignored
 .ensemble/kits/<role>/<kit>/     kits: build, pack, deploy, lib, ecosystem
 .ensemble/ecosystems/<language>/ each language's workspace root and lockfile
-ci/<name>/delivery.yml           a workload: release, deploy, launch, tasks
+ci/<name>/delivery.yml           a workload: release, deploy, launch, operations
 ci/<name>/dev.env                development values `ens develop` loads
 docs/                            the project's documentation
 ```
@@ -54,7 +54,7 @@ Placement decisions:
 | package an app (image, binary, archive)           | `source/ship/<name>`, with the pack kit's own config                                              |
 | bind an app to a platform's resources (DynamoDB…) | `ens app create <kit> <app> --integration <deploy kit>`                                           |
 | describe what runs where                          | `ci/<name>/delivery.yml` — see [references/delivery-manifest.md](references/delivery-manifest.md) |
-| run something once after a deploy (a migration)   | a `tasks:` entry in the manifest, with its script in `ci/<name>/<kit>/tasks/`                         |
+| run something once after a deploy (a migration)   | an `operations:` entry in the manifest, with its script in `ci/<name>/<kit>/operations/`                         |
 | support a new app type, format or target          | a new kit: `ens kit new <name> <role>` — see [references/kits.md](references/kits.md)             |
 
 ## Rules
@@ -116,7 +116,7 @@ ens app create deno.bundle api         # new app, registered with its build kit
 ens build api                          # → source/artifacts/api
 ens pack api docker                    # ship source/ship/api → local image api:latest
 ens develop shop                       # build + pack + deploy ci/shop/delivery.yml locally, watching
-ens delivery shop compose tasks        # list the workload's one-off tasks
+ens operations shop                    # list the workload's one-off operations
 ens deploy shop aws --plan             # what a real deploy would change
 ens release next minor --dry-run       # what a release would tag, pack and publish
 ```
@@ -127,7 +127,7 @@ ens release next minor --dry-run       # what a release would tag, pack and publ
   traps.
 - [references/delivery-manifest.md](references/delivery-manifest.md): the
   manifest's sections, reference grammar, resource kinds, variables, secrets,
-  tasks and launch.
+  operations and launch.
 - [references/kits.md](references/kits.md): the five kit roles and their
   contracts, for writing or changing a kit.
 - The full manual, when the project has one: `docs/documentation/` (in the

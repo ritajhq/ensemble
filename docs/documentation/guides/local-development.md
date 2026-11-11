@@ -138,7 +138,7 @@ auth_host=auth.ensemble.lvh.me
 - A value already exported in the environment wins over every file.
 - `ens deploy` reads no file unless given `--env-file <path>` (repeatable), so a
   real pipeline never picks up a committed dev value. `ens develop` and
-  `ens delivery task` default to the three files above, and `--env-file`
+  `ens operation` default to the three files above, and `--env-file`
   replaces them.
 - Before rendering, every variable without a `default:` and every
   environment-sourced secret must have a value, or the deploy fails naming all
@@ -149,26 +149,26 @@ compose interpolation — a real environment variable inside the container, not 
 mounted file. `source: file` is declared in the schema but not yet implemented
 by either built-in kit.
 
-## One-off tasks
+## One-off operations
 
 Work that can only happen _after_ the stack is up — an app's schema migration,
-trusting the gateway's local CA — is declared under `tasks:` in the manifest and
-run by hand. A task is never fired by a deploy, so a failing one can't fail a
+trusting the gateway's local CA — is declared under `operations:` in the manifest and
+run by hand. An operation is never fired by a deploy, so a failing one can't fail a
 deployment:
 
 ```sh
-ens delivery platform compose tasks                   # list what the workload declares
-ens delivery platform compose task trust-local-ca     # run one
+ens operations platform                   # list what the workload declares
+ens operation platform trust-local-ca     # run one
 ```
 
-A task's `arguments` reach its script as environment variables, resolved from
+An operation's `arguments` reach its script as environment variables, resolved from
 the same values the deploy's own fields use, plus `${deployment.name}`,
 `${deployment.artifact}` and `${deployment.root}` — which lets a script address
 the stack through `docker compose -p "$project" -f "$artifact"` instead of
 hardcoding the names compose derives. See
-[`ens delivery <name> <kit> task`](../reference/cli/delivery.md#ens-delivery-name-kit-task)
+[`ens operation <name>`](../reference/cli/operations.md#ens-operation)
 and
-[`tasks` in the manifest schema](../reference/delivery-manifest-schema.md#tasks).
+[`operations` in the manifest schema](../reference/delivery-manifest-schema.md#operations).
 
 > **Note.** A large database seed loaded through `docker-entrypoint-initdb.d`
 > keeps Postgres on a local-only socket until it finishes, so a migration run

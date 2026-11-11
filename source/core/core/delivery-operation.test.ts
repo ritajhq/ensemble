@@ -1,12 +1,12 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { basename, join } from "@std/path";
 import {
-  listDeliveryTasks,
-  runDeliveryTask,
-  TaskArgumentError,
-  TaskFailedError,
-  UnknownTaskError,
-} from "./delivery-task.ts";
+  listDeliveryOperations,
+  runDeliveryOperation,
+  OperationArgumentError,
+  OperationFailedError,
+  UnknownOperationError,
+} from "./delivery-operation.ts";
 import type { PackKitGateway } from "./deploy/kit/pack-kit-gateway.ts";
 import { InProcessKitLoader } from "./deploy/kit/loader.ts";
 import type { KitLoader } from "./deploy/kit/loader.ts";
@@ -15,9 +15,9 @@ import { DeploymentEnvironment, type EnvFile } from "./env-files.ts";
 import { Instance } from "./instance.ts";
 import {
   DeploymentFingerprint,
-  type TaskSnapshot,
-  TaskSnapshotFile,
-} from "./task-snapshot.ts";
+  type OperationSnapshot,
+  OperationSnapshotFile,
+} from "./operation-snapshot.ts";
 import type { RepoLocator } from "./ports.ts";
 
 /** These workloads declare no releases, so the release locator resolver never asks the gateway anything. */
@@ -71,7 +71,7 @@ deploy:
       type: container
       image: worker:latest
       replicas: 1
-tasks:
+operations:
   record:
     description: Records what it was handed
     script: record.sh
@@ -119,12 +119,12 @@ async function withWorkspace(
   const repoRoot = await Deno.makeTempDir();
   try {
     const workloadDir = join(repoRoot, "ci", "demo");
-    await Deno.mkdir(join(workloadDir, "demo-kit", "tasks"), {
+    await Deno.mkdir(join(workloadDir, "demo-kit", "operations"), {
       recursive: true,
     });
     await Deno.writeTextFile(join(workloadDir, "delivery.yml"), MANIFEST);
     await Deno.writeTextFile(
-      join(workloadDir, "demo-kit", "tasks", "record.sh"),
+      join(workloadDir, "demo-kit", "operations", "record.sh"),
       `#!/bin/sh\nprintf '%s\\n' "$project" "$artifact" "$root" "$web_port" "$greeting" "$literal" "$1" "$2" > "$root/recorded.txt"\n`,
     );
 
@@ -143,15 +143,15 @@ async function withWorkspace(
 
 function run1(
   repoRoot: string,
-  task: string,
+  operation: string,
   args: readonly string[] = [],
   kitLoader: KitLoader = new InProcessKitLoader(),
   envFiles: readonly EnvFile[] = [],
 ): Promise<void> {
-  return runDeliveryTask(
+  return runDeliveryOperation(
     "demo",
     "demo-kit",
-    task,
+    operation,
     args,
     { artifacts: "local", version: "latest", envFiles },
     { findRepoRoot: () => Promise.resolve(repoRoot) },
@@ -168,20 +168,20 @@ const noKitLoader: KitLoader = {
 /** Writes the snapshot a deploy of the workspace would leave, as the deploy of `fingerprint` (the current one unless given). */
 async function writeSnapshot(
   repoRoot: string,
-  snapshot: Omit<TaskSnapshot, "version" | "fingerprint">,
+  snapshot: Omit<OperationSnapshot, "version" | "fingerprint">,
   fingerprint?: string,
 ): Promise<void> {
   const context = await loadWorkload("demo", "demo-kit", {
     findRepoRoot: () => Promise.resolve(repoRoot),
   }, { envFiles: [] });
-  await TaskSnapshotFile.for(repoRoot, "demo", "demo-kit").write({
+  await OperationSnapshotFile.for(repoRoot, "demo", "demo-kit").write({
     version: 1,
     fingerprint: fingerprint ?? await DeploymentFingerprint.of(context),
     ...snapshot,
   });
 }
 
-Deno.test("runDeliveryTask: hands a script every declared argument as an environment variable, the deployment's own identity included", async () => {
+Deno.test("runDeliveryOperation: hands a script every declared argument as an environment variable, the deployment's own identity included", async () => {
   await withWorkspace(async (repoRoot) => {
     await run1(repoRoot, "record", ["first", "second"]);
 
@@ -207,9 +207,9 @@ Deno.test("runDeliveryTask: hands a script every declared argument as an environ
   });
 });
 
-Deno.test("runDeliveryTask: an instance's task sees that instance's deployment name and artifact, not the plain deployment's", async () => {
+Deno.test("runDeliveryOperation: an instance's operation sees that instance's deployment name and artifact, not the plain deployment's", async () => {
   await withWorkspace(async (repoRoot) => {
-    await runDeliveryTask(
+    await runDeliveryOperation(
       "demo",
       "demo-kit",
       "record",
@@ -261,7 +261,7 @@ async function recordedGreeting(
   return recorded.split("\n")[4];
 }
 
-Deno.test("runDeliveryTask: an --env-file supplies values beneath the environment", async () => {
+Deno.test("runDeliveryOperation: an --env-file supplies values beneath the environment", async () => {
   await withWorkspace(async (repoRoot) => {
     assertEquals(
       await recordedGreeting(
@@ -273,13 +273,13 @@ Deno.test("runDeliveryTask: an --env-file supplies values beneath the environmen
   });
 });
 
-Deno.test("runDeliveryTask: without an --env-file, ci/<name>/dev.env is never read", async () => {
+Deno.test("runDeliveryOperation: without an --env-file, ci/<name>/dev.env is never read", async () => {
   await withWorkspace(async (repoRoot) => {
     assertEquals(await recordedGreeting(repoRoot, []), "hi");
   });
 });
 
-Deno.test("runDeliveryTask: an inline `run` gets the same treatment as a script", async () => {
+Deno.test("runDeliveryOperation: an inline `run` gets the same treatment as a script", async () => {
   await withWorkspace(async (repoRoot) => {
     await run1(repoRoot, "inline");
 
@@ -290,13 +290,13 @@ Deno.test("runDeliveryTask: an inline `run` gets the same treatment as a script"
   });
 });
 
-Deno.test("listDeliveryTasks: prints each task's name, a tab and its description, running nothing", async () => {
+Deno.test("listDeliveryOperations: prints each operation's name, a tab and its description, running nothing", async () => {
   await withWorkspace(async (repoRoot) => {
     const lines: string[] = [];
     const log = console.log;
     console.log = (line: string) => lines.push(line);
     try {
-      await listDeliveryTasks(
+      await listDeliveryOperations(
         "demo",
         "demo-kit",
         { envFiles: [] },
@@ -317,31 +317,31 @@ Deno.test("listDeliveryTasks: prints each task's name, a tab and its description
   });
 });
 
-Deno.test("runDeliveryTask: an undeclared task name fails naming the ones that are declared", async () => {
+Deno.test("runDeliveryOperation: an undeclared operation name fails naming the ones that are declared", async () => {
   await withWorkspace(async (repoRoot) => {
     await assertRejects(
       () => run1(repoRoot, "nope"),
-      UnknownTaskError,
+      UnknownOperationError,
       "Declared: record, inline, web-port, failing, bad-deployment-value, embedded, embedded-rendered.",
     );
   });
 });
 
-Deno.test("runDeliveryTask: a task process that exits non-zero fails its own invocation, with the exit code", async () => {
+Deno.test("runDeliveryOperation: an operation process that exits non-zero fails its own invocation, with the exit code", async () => {
   await withWorkspace(async (repoRoot) => {
     await assertRejects(
       () => run1(repoRoot, "failing"),
-      TaskFailedError,
+      OperationFailedError,
       "exited with code 3",
     );
   });
 });
 
-Deno.test("runDeliveryTask: an unknown ${deployment.*} name fails naming the whole set", async () => {
+Deno.test("runDeliveryOperation: an unknown ${deployment.*} name fails naming the whole set", async () => {
   await withWorkspace(async (repoRoot) => {
     await assertRejects(
       () => run1(repoRoot, "bad-deployment-value"),
-      TaskArgumentError,
+      OperationArgumentError,
       "the deployment namespace has only ${deployment.name}, ${deployment.artifact}, ${deployment.root}.",
     );
   });
@@ -359,7 +359,7 @@ async function provisionedDuring(run: () => Promise<void>): Promise<string[]> {
   return provisioned;
 }
 
-Deno.test("runDeliveryTask: renders only the resources a task's arguments reference", async () => {
+Deno.test("runDeliveryOperation: renders only the resources an operation's arguments reference", async () => {
   await withWorkspace(async (repoRoot) => {
     assertEquals(
       await provisionedDuring(() => run1(repoRoot, "web-port")),
@@ -368,7 +368,7 @@ Deno.test("runDeliveryTask: renders only the resources a task's arguments refere
   });
 });
 
-Deno.test("runDeliveryTask: a task referencing no resource renders nothing", async () => {
+Deno.test("runDeliveryOperation: an operation referencing no resource renders nothing", async () => {
   await withWorkspace(async (repoRoot) => {
     assertEquals(
       await provisionedDuring(() => run1(repoRoot, "inline")),
@@ -377,7 +377,7 @@ Deno.test("runDeliveryTask: a task referencing no resource renders nothing", asy
   });
 });
 
-Deno.test("runDeliveryTask: a task referencing the artifact renders the whole workload, the artifact being that render", async () => {
+Deno.test("runDeliveryOperation: an operation referencing the artifact renders the whole workload, the artifact being that render", async () => {
   await withWorkspace(async (repoRoot) => {
     assertEquals(
       (await provisionedDuring(() => run1(repoRoot, "record"))).sort(),
@@ -386,7 +386,7 @@ Deno.test("runDeliveryTask: a task referencing the artifact renders the whole wo
   });
 });
 
-Deno.test("runDeliveryTask: with the last deploy's snapshot, resolves what only a render could from it, without loading the kit", async () => {
+Deno.test("runDeliveryOperation: with the last deploy's snapshot, resolves what only a render could from it, without loading the kit", async () => {
   await withWorkspace(async (repoRoot) => {
     await writeSnapshot(repoRoot, {
       artifact: "/deployed/compose.yaml",
@@ -412,7 +412,7 @@ Deno.test("runDeliveryTask: with the last deploy's snapshot, resolves what only 
   });
 });
 
-Deno.test("runDeliveryTask: a snapshot from before the manifest or kit changed is not used", async () => {
+Deno.test("runDeliveryOperation: a snapshot from before the manifest or kit changed is not used", async () => {
   await withWorkspace(async (repoRoot) => {
     await writeSnapshot(repoRoot, {
       artifact: "/deployed/compose.yaml",
@@ -427,7 +427,7 @@ Deno.test("runDeliveryTask: a snapshot from before the manifest or kit changed i
   });
 });
 
-Deno.test("runDeliveryTask: a snapshot missing one of a task's rendered arguments is not used", async () => {
+Deno.test("runDeliveryOperation: a snapshot missing one of an operation's rendered arguments is not used", async () => {
   await withWorkspace(async (repoRoot) => {
     await writeSnapshot(repoRoot, {
       artifact: "/deployed/compose.yaml",
@@ -442,7 +442,7 @@ Deno.test("runDeliveryTask: a snapshot missing one of a task's rendered argument
   });
 });
 
-Deno.test("runDeliveryTask: with a snapshot, references embedded in a larger string are interpolated, not passed through as text", async () => {
+Deno.test("runDeliveryOperation: with a snapshot, references embedded in a larger string are interpolated, not passed through as text", async () => {
   await withWorkspace(async (repoRoot) => {
     await writeSnapshot(repoRoot, {
       artifact: "/deployed/compose.yaml",
@@ -458,7 +458,7 @@ Deno.test("runDeliveryTask: with a snapshot, references embedded in a larger str
   });
 });
 
-Deno.test("runDeliveryTask: a snapshot is not used for an argument embedding a reference only a render can answer", async () => {
+Deno.test("runDeliveryOperation: a snapshot is not used for an argument embedding a reference only a render can answer", async () => {
   await withWorkspace(async (repoRoot) => {
     await writeSnapshot(repoRoot, {
       artifact: "/deployed/compose.yaml",

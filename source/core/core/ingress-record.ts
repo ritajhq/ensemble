@@ -21,7 +21,7 @@ export interface IngressRecord {
 
 /**
  * Where a workload's ingress record for one kit is kept:
- * `.ensemble/deploy/<workload>/<kit>.ingress.json`, beside its task snapshot,
+ * `.ensemble/deploy/<workload>/<kit>.ingress.json`, beside its operation snapshot,
  * and like it never committed — the alias depends on the checkout and the
  * instance, not on the manifest. A missing or unreadable file is no record.
  */

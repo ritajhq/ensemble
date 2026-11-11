@@ -3,20 +3,20 @@
 # trusted by filesystem access, no guard, every use audited as `socket`. It is
 # how users are looked after (sets a password, gives a role) and the
 # break-glass path when a bad config breaks sign-in. Whatever follows the
-# task's name is the CLI's own arguments:
+# operation's name is the CLI's own arguments:
 #
-#   ens delivery platform compose task khatm users list
-#   ens delivery platform compose task khatm users create you@example.com --role operator --password-stdin
-#   ens delivery platform compose task khatm users set-role you@example.com operator
-#   ens delivery platform compose task khatm status
+#   ens operation platform khatm users list
+#   ens operation platform khatm users create you@example.com --role operator --password-stdin
+#   ens operation platform khatm users set-role you@example.com operator
+#   ens operation platform khatm status
 set -eu
 
 for var in project artifact; do
   eval "val=\${$var:-}"
   if [ -z "$val" ]; then
     echo "khatm: missing required env: $var" >&2
-    echo "Run it as a task, which supplies both from the manifest:" >&2
-    echo "  ens delivery platform compose task khatm <command>" >&2
+    echo "Run it as an operation, which supplies both from the manifest:" >&2
+    echo "  ens operation platform khatm <command>" >&2
     exit 1
   fi
 done

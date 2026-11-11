@@ -43,7 +43,7 @@ Deno.test("IngressRecorder: a deployment joining no network leaves an empty reco
   assertEquals(record?.ingresses, []);
 });
 
-Deno.test("IngressFile: kept beside the task snapshot, per workload scope and kit", async () => {
+Deno.test("IngressFile: kept beside the operation snapshot, per workload scope and kit", async () => {
   const { dir } = await recorded([GATEWAY]);
   const stat = await Deno.stat(
     join(dir, ".ensemble", "deploy", "web--feat-x", "compose.ingress.json"),

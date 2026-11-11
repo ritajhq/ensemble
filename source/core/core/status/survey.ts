@@ -12,7 +12,7 @@ import {
   type App,
   type Kit,
   type Library,
-  type Task,
+  type Operation,
   type Vendoring,
   type Workload,
 } from "./project.ts";
@@ -135,7 +135,7 @@ export class Survey {
           [name, release],
         ) => ({ name, kit: release.kit })),
         resources: this.resourcesOf(workload),
-        tasks: this.tasksOf(workload),
+        operations: this.operationsOf(workload),
       });
     }
     return workloads.sort(byName);
@@ -150,12 +150,12 @@ export class Survey {
     return resources;
   }
 
-  private tasksOf(workload: Deploy.Workload): Task[] {
-    return Object.entries(workload.tasks ?? {})
-      .map(([name, task]) => ({
+  private operationsOf(workload: Deploy.Workload): Operation[] {
+    return Object.entries(workload.operations ?? {})
+      .map(([name, operation]) => ({
         name,
-        command: task.run ?? `sh scripts/${task.script}`,
-        arguments: Object.keys(task.arguments ?? {}),
+        command: operation.run ?? `sh scripts/${operation.script}`,
+        arguments: Object.keys(operation.arguments ?? {}),
       }))
       .sort(byName);
   }

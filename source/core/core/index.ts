@@ -89,13 +89,13 @@ export {
   type EnvFiles,
 } from "./env-files.ts";
 export {
-  listDeliveryTasks,
-  runDeliveryTask,
-  type RunDeliveryTaskOptions,
-  TaskArgumentError,
-  TaskFailedError,
-  UnknownTaskError,
-} from "./delivery-task.ts";
+  listDeliveryOperations,
+  runDeliveryOperation,
+  type RunDeliveryOperationOptions,
+  OperationArgumentError,
+  OperationFailedError,
+  UnknownOperationError,
+} from "./delivery-operation.ts";
 export * as Status from "./status/index.ts";
 export { RunPackReleasePacker } from "./release-packer.ts";
 

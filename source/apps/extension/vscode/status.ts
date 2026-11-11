@@ -43,7 +43,7 @@ export interface Ship {
   kit: string;
 }
 
-export interface Task {
+export interface Operation {
   name: string;
   command: string;
   arguments: string[];
@@ -54,5 +54,5 @@ export interface Workload {
   manifest: string;
   ships: Ship[];
   resources: Record<string, string[]>;
-  tasks: Task[];
+  operations: Operation[];
 }

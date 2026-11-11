@@ -22,12 +22,12 @@ source/
   config.yaml                # shared: app → build kit, ship → pack kit, workload → deploy kit, publish, hooks
   config.local.yaml          # gitignored, per-developer: personal var defaults
   vendor.lock.yml            # where each vendored kit/library came from
-  deploy/<name>/             # gitignored: render cache, task snapshot, secrets.env
+  deploy/<name>/             # gitignored: render cache, operation snapshot, secrets.env
   release/                   # secrets.env (publish credentials) and release state, gitignored
 ci/<name>/
-  delivery.yml               # the workload's delivery manifest (release, deploy, launch, tasks)
+  delivery.yml               # the workload's delivery manifest (release, deploy, launch, operations)
   dev.env                    # development values `ens develop` loads
-  <kit>/tasks/               # per deploy kit: the scripts of its tasks
+  <kit>/operations/               # per deploy kit: the scripts of its operations
 docs/                        # the project's documentation
 ```
 

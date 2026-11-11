@@ -33,7 +33,7 @@ Exactly one of these runs per invocation (the default is `apply`):
 
 `--instance <slug>` deploys the manifest as a named instance beside its plain
 deployment — a branch's preview, say. The instance gets its own deployment name
-(`<repo>-<name>--<slug>`), rendered artifact, render cache and task snapshot, so
+(`<repo>-<name>--<slug>`), rendered artifact, render cache and operation snapshot, so
 any number of them run side by side. The slug is a DNS label. A gateway on an
 ingress network answers there to that deployment name unless its manifest sets
 `alias`, so instances sharing a network never answer for each other. Each deploy

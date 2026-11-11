@@ -15,7 +15,7 @@ const DECLARATION_FIELDS: Partial<Record<Category, readonly string[]>> = {
   variables: ["value"],
 };
 
-/** A deployment's own identity, which only a task's arguments can reference (see `../task.ts`). */
+/** A deployment's own identity, which only an operation's arguments can reference (see `../operation.ts`). */
 const DEPLOYMENT_FIELDS = ["name", "artifact", "root"] as const;
 
 /**
@@ -40,7 +40,7 @@ export class ReferenceTargets {
     return [...releases, ...resources];
   }
 
-  /** The `${deployment.*}` targets, which a task's arguments may reference on top of `ofWorkload`'s. */
+  /** The `${deployment.*}` targets, which an operation's arguments may reference on top of `ofWorkload`'s. */
   ofDeployment(): ReferenceTarget[] {
     return DEPLOYMENT_FIELDS.map((name) => ({
       reference: { category: "deployment", name },

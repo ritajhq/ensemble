@@ -17,7 +17,7 @@ Deno.test("StructureCompletion: the envelope's keys at the root, less those alre
   assertEquals(labelsAt("version: v1\n|"), [
     "release",
     "deploy",
-    "tasks",
+    "operations",
     "launch",
   ]);
 });

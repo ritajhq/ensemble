@@ -1,7 +1,7 @@
 # `ens destroy`
 
 Take a deployed workload down using the given deploy kit, and drop the state
-`ens deploy` kept for it (rendered artifact, render cache, task snapshot).
+`ens deploy` kept for it (rendered artifact, render cache, operation snapshot).
 
 ```sh
 ens destroy <name> [kit]

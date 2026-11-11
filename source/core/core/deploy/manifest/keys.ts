@@ -21,7 +21,7 @@ export type KeyedMapping =
   | "variable"
   | "external"
   | "resource"
-  | "task"
+  | "operation"
   | "launch"
   | "launchDevelopment";
 
@@ -35,7 +35,7 @@ export const KEYS: Readonly<Record<KeyedMapping, readonly Key[]>> = {
     required("version"),
     optional("release"),
     optional("deploy"),
-    optional("tasks"),
+    optional("operations"),
     optional("launch"),
   ],
   release: [
@@ -49,7 +49,7 @@ export const KEYS: Readonly<Record<KeyedMapping, readonly Key[]>> = {
   variable: [optional("type"), optional("default"), optional("description")],
   external: [required("type"), required("name")],
   resource: [required("type"), optional("class"), optional("capabilities")],
-  task: [
+  operation: [
     optional("description"),
     optional("run"),
     optional("script"),

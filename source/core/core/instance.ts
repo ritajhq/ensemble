@@ -3,7 +3,7 @@
  * preview of a branch beside the main stack, say. The manifest (and so
  * everything declared in it) is shared; what an instance owns is only its
  * identity: the scope its deployment name, rendered artifact, render cache
- * and task snapshot live under, so none of them collide with another
+ * and operation snapshot live under, so none of them collide with another
  * instance's or with the un-instanced deployment's.
  *
  * Which hostname an instance answers on is deliberately *not* decided here:

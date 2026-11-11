@@ -14,7 +14,8 @@ Every top-level `ens` command, as registered in `source/apps/cli/main.ts`:
 | [`pack`](pack.md)         | Pack a ship using the given pack kit.                      |
 | [`publish`](publish.md)   | Publish a previously packed ship.                          |
 | [`deploy`](deploy.md)     | Deploy a workload using the given deploy kit.              |
-| [`delivery`](delivery.md) | Run a task declared by a deployed workload.                |
+| [`delivery`](delivery.md) | Print what a workload's delivery manifest declares.        |
+| [`operations`](operations.md) | List a workload's operations; `ens operation` runs one. |
 | [`destroy`](destroy.md)   | Take a deployed workload down and drop its recorded state. |
 | [`develop`](develop.md)   | Deploy a workload locally for development.                 |
 | [`config`](config.md)     | Manage `.ensemble/config.yaml`.                            |

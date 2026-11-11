@@ -3,7 +3,7 @@ import * as vscode from "vscode";
 import type { DeployOptions } from "./deploy-options.ts";
 import type * as Project from "./project/index.ts";
 import type { Runner } from "./runner.ts";
-import type { TaskOptions } from "./task-options.ts";
+import type { OperationOptions } from "./operation-options.ts";
 
 const BUMPS = ["patch", "minor", "major"];
 
@@ -17,14 +17,14 @@ export class Commands {
   constructor(
     private readonly runner: Runner,
     private readonly deployOptions: DeployOptions,
-    private readonly taskOptions: TaskOptions,
+    private readonly operationOptions: OperationOptions,
     private readonly source: Project.Source,
   ) {}
 
   register(): vscode.Disposable[] {
     const handlers: Record<string, (...args: never[]) => unknown> = {
       "ensemble.refresh": () => this.source.refresh(),
-      "ensemble.task.run": (node: Project.TaskNode) => this.runTask(node),
+      "ensemble.operation.run": (node: Project.OperationNode) => this.runOperation(node),
       "ensemble.build": (node: Project.AppNode) =>
         this.runner.run(["build", node.app.name]),
       "ensemble.develop": (target: Project.WorkloadNode | string) =>
@@ -76,8 +76,8 @@ export class Commands {
     if (args) this.runner.run(args);
   }
 
-  private async runTask(node: Project.TaskNode): Promise<void> {
-    const args = await this.taskOptions.ask(node.workload, node.task.name);
+  private async runOperation(node: Project.OperationNode): Promise<void> {
+    const args = await this.operationOptions.ask(node.workload, node.operation.name);
     if (args) this.runner.run(args);
   }
 

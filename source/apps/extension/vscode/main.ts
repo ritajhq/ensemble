@@ -7,7 +7,7 @@ import { DeployOptions } from "./deploy-options.ts";
 import { LanguageService } from "./language-service.ts";
 import * as Project from "./project/index.ts";
 import { Runner } from "./runner.ts";
-import { TaskOptions } from "./task-options.ts";
+import { OperationOptions } from "./operation-options.ts";
 import { VersionIndicator } from "./version-indicator.ts";
 
 const DELIVERY_MANIFESTS: vscode.DocumentSelector = [{
@@ -42,10 +42,10 @@ export async function activate(
       );
     }
     const deployOptions = new DeployOptions(cli, context.workspaceState);
-    const taskOptions = new TaskOptions(cli, context.workspaceState);
+    const operationOptions = new OperationOptions(cli, context.workspaceState);
     context.subscriptions.push(
       source,
-      ...new Commands(runner, deployOptions, taskOptions, source).register(),
+      ...new Commands(runner, deployOptions, operationOptions, source).register(),
     );
   }
   context.subscriptions.push(

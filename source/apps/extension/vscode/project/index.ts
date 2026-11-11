@@ -3,7 +3,7 @@ export {
   KitNode,
   LibraryNode,
   Roots,
-  TaskNode,
+  OperationNode,
   WorkloadNode,
 } from "./nodes.ts";
 export { Source } from "./source.ts";

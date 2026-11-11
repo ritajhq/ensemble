@@ -159,8 +159,8 @@
         "icon": "$(trash)"
       },
       {
-        "command": "ensemble.task.run",
-        "title": "Run Task\u2026",
+        "command": "ensemble.operation.run",
+        "title": "Run Operation\u2026",
         "category": "Ensemble",
         "icon": "$(run)"
       }
@@ -301,8 +301,8 @@
           "group": "inline"
         },
         {
-          "command": "ensemble.task.run",
-          "when": "view == ensemble.workloads && viewItem == task",
+          "command": "ensemble.operation.run",
+          "when": "view == ensemble.workloads && viewItem == operation",
           "group": "inline"
         },
         {
@@ -423,7 +423,7 @@
           "when": "false"
         },
         {
-          "command": "ensemble.task.run",
+          "command": "ensemble.operation.run",
           "when": "false"
         }
       ]

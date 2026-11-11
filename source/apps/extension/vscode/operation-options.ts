@@ -4,49 +4,49 @@ import type { Cli } from "./cli.ts";
 /** Whitespace-separated words, where '…' or "…" keeps spaces inside one word — how a shell would split the line. */
 const WORDS = /"([^"]*)"|'([^']*)'|(\S+)/g;
 
-/** One task invocation's answers, remembered per task so the next run starts from them. */
+/** One operation invocation's answers, remembered per operation so the next run starts from them. */
 interface Choice {
   kit: string;
   input: string;
 }
 
 /**
- * Asks how to run a workload's task — which deploy kit resolves its
+ * Asks how to run a workload's operation — which deploy kit resolves its
  * arguments, and any input to hand it as `$1..$n` — preselecting the last
- * answers for that task, and returns the `ens delivery <name> <kit> task` arguments.
+ * answers for that operation, and returns the `ens operation <name>` arguments.
  */
-export class TaskOptions {
+export class OperationOptions {
   constructor(
     private readonly cli: Cli,
     private readonly memory: vscode.Memento,
   ) {}
 
-  async ask(workload: string, task: string): Promise<string[] | undefined> {
-    const last = this.memory.get<Choice>(this.key(workload, task));
+  async ask(workload: string, operation: string): Promise<string[] | undefined> {
+    const last = this.memory.get<Choice>(this.key(workload, operation));
 
-    const kit = await this.pickKit(task, last?.kit);
+    const kit = await this.pickKit(operation, last?.kit);
     if (!kit) return undefined;
     const input = await vscode.window.showInputBox({
-      title: `Run ${task}: input`,
-      prompt: "Arguments handed to the task as $1..$n (leave empty for none)",
+      title: `Run ${operation}: input`,
+      prompt: "Arguments handed to the operation as $1..$n (leave empty for none)",
       value: last?.input ?? "",
       ignoreFocusOut: true,
     });
     if (input === undefined) return undefined;
 
-    await this.memory.update(this.key(workload, task), { kit, input });
+    await this.memory.update(this.key(workload, operation), { kit, input });
     return [
       "delivery",
       workload,
       kit,
-      "task",
-      task,
+      "operation",
+      operation,
       ...this.words(input),
     ];
   }
 
   private async pickKit(
-    task: string,
+    operation: string,
     last?: string,
   ): Promise<string | undefined> {
     const status = await this.cli.status();
@@ -60,7 +60,7 @@ export class TaskOptions {
       label === last ? { label, description: "last used" } : { label }
     );
     const chosen = await vscode.window.showQuickPick(items, {
-      title: `Run ${task}: deploy kit to resolve its arguments with`,
+      title: `Run ${operation}: deploy kit to resolve its arguments with`,
       ignoreFocusOut: true,
     });
     return chosen?.label;
@@ -72,7 +72,7 @@ export class TaskOptions {
     );
   }
 
-  private key(workload: string, task: string): string {
-    return `ensemble.task.${workload}.${task}`;
+  private key(workload: string, operation: string): string {
+    return `ensemble.operation.${workload}.${operation}`;
   }
 }

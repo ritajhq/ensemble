@@ -19,7 +19,7 @@ export class DestroyError extends Error {}
 
 /**
  * Takes a deployment down: the kit's own `destroyCommand`, then the state
- * `ens deploy` kept for it (rendered artifact, render cache, task snapshot),
+ * `ens deploy` kept for it (rendered artifact, render cache, operation snapshot),
  * which describes something that no longer exists. The workload's
  * `secrets.env` is not state and stays.
  *

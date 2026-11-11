@@ -71,9 +71,9 @@ export class Text extends Core.Status.Builder<string> {
       for (const [category, names] of Object.entries(workload.resources)) {
         this.lines.push(`    ${category}: ${names.join(", ")}`);
       }
-      if (workload.tasks.length > 0) {
+      if (workload.operations.length > 0) {
         this.lines.push(
-          `    tasks: ${workload.tasks.map((task) => task.name).join(", ")}`,
+          `    operations: ${workload.operations.map((operation) => operation.name).join(", ")}`,
         );
       }
     }

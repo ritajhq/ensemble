@@ -70,11 +70,11 @@ deploy:
       type: network
       name: edge
 
-# Run by hand with `ens delivery <name> <kit> task`, never by a deploy.
-tasks:
+# Run by hand with `ens operation <name>`, never by a deploy.
+operations:
   migrate:
     description: Migrate the schema
-    script: migrate.sh # ci/<name>/<kit>/tasks/migrate.sh; or `run:` for a one-liner
+    script: migrate.sh # ci/<name>/<kit>/operations/migrate.sh; or `run:` for a one-liner
     arguments: # become the script's environment variables
       project: ${deployment.name}
       artifact: ${deployment.artifact}
@@ -106,7 +106,7 @@ to write.
 | `${storage.<name>.name}` / `.url` / `.bucket`                 | a volume's name; an object-storage bucket's URL and name                                |
 | `${variables.<name>.value}`                                   | the value from the environment, or `default:`                                           |
 | `${external.<name>.name}`                                     | something `ens` doesn't create, by its existing name                                    |
-| `${deployment.name\|artifact\|root}`                          | only in `tasks`: the deployment's own identity                                          |
+| `${deployment.name\|artifact\|root}`                          | only in `operations`: the deployment's own identity                                          |
 | `${build.<app>}`, `${pack.<ship>}`, `${launch.<name>.<port>}` | only in `launch`, which can't reference deploy resources yet                            |
 
 A reference can be the whole value or sit inside a string

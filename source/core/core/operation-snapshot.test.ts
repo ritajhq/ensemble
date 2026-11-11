@@ -4,9 +4,9 @@ import * as Deploy from "./deploy/index.ts";
 import type { WorkloadContext } from "./deploy-context.ts";
 import {
   DeploymentFingerprint,
-  TaskSnapshotFile,
-  TaskSnapshotRecorder,
-} from "./task-snapshot.ts";
+  OperationSnapshotFile,
+  OperationSnapshotRecorder,
+} from "./operation-snapshot.ts";
 
 const workload: Deploy.Workload = {
   variables: { greeting: { default: "hi" } },
@@ -19,7 +19,7 @@ const workload: Deploy.Workload = {
   databases: {
     db: { type: "relational", params: {} },
   } as never,
-  tasks: {
+  operations: {
     migrate: {
       script: "migrate.sh",
       arguments: {
@@ -55,7 +55,7 @@ async function withKit(
   }
 }
 
-Deno.test("DeploymentFingerprint: changes with the kit's files and the tasks' arguments, not with what running a kit leaves behind or how a task runs", async () => {
+Deno.test("DeploymentFingerprint: changes with the kit's files and the operations' arguments, not with what running a kit leaves behind or how an operation runs", async () => {
   await withKit(async (context, kitDir) => {
     const original = await DeploymentFingerprint.of(context);
     assertEquals(await DeploymentFingerprint.of(context), original);
@@ -68,7 +68,7 @@ Deno.test("DeploymentFingerprint: changes with the kit's files and the tasks' ar
       ...context,
       workload: {
         ...workload,
-        tasks: { migrate: { ...workload.tasks!.migrate, script: "other.sh" } },
+        operations: { migrate: { ...workload.operations!.migrate, script: "other.sh" } },
       },
     };
     assertEquals(await DeploymentFingerprint.of(differentScript), original);
@@ -77,7 +77,7 @@ Deno.test("DeploymentFingerprint: changes with the kit's files and the tasks' ar
       ...context,
       workload: {
         ...workload,
-        tasks: { migrate: { script: "migrate.sh", arguments: { a: "b" } } },
+        operations: { migrate: { script: "migrate.sh", arguments: { a: "b" } } },
       },
     };
     assertNotEquals(
@@ -97,7 +97,7 @@ Deno.test("DeploymentFingerprint: changes with the kit's files and the tasks' ar
   });
 });
 
-Deno.test("TaskSnapshotRecorder: keeps every task argument only a render answers, and nothing the manifest or the environment does", async () => {
+Deno.test("OperationSnapshotRecorder: keeps every operation argument only a render answers, and nothing the manifest or the environment does", async () => {
   await withKit(async (context) => {
     const ledger = new Deploy.Render.OutputsLedger();
     ledger.record("compute", "web", "container", {}, {
@@ -116,9 +116,9 @@ Deno.test("TaskSnapshotRecorder: keeps every task argument only a render answers
       undefined as never,
       undefined as never,
     );
-    const file = TaskSnapshotFile.for(context.repoRoot, "demo", "demo-kit");
+    const file = OperationSnapshotFile.for(context.repoRoot, "demo", "demo-kit");
 
-    await new TaskSnapshotRecorder(file, "fp", renderer, workload).record(
+    await new OperationSnapshotRecorder(file, "fp", renderer, workload).record(
       ledger,
       "/deployed/compose.yaml",
     );

@@ -28,10 +28,10 @@ In `ci/*/delivery.yml` (or an extensionless `ci/*/delivery`):
 - **Reference completion.** Typing `${` suggests every reference the manifest
   makes available: `${release.<name>}`, each resource's contract outputs
   (`${databases.db.host}`), a compute's ports, `variables`/`external` fields,
-  and — under `tasks:` — `${deployment.*}`.
+  and — under `operations:` — `${deployment.*}`.
 - **Structure completion.** At the start of a line, the keys that mapping may
   hold, less those it already has, required ones first: the envelope's sections,
-  the categories under `deploy:`, the fields of a release, task, launch entry,
+  the categories under `deploy:`, the fields of a release, operation, launch entry,
   secret, variable or external, and a resource's own params once its `type:`
   names a contract. After a key, the values it takes where they're a closed set:
   a resource's `type:` from its category's contracts, its `class:`, `version:`,
@@ -60,7 +60,7 @@ Grouped by the mechanism each feature needs, from cheapest to richest.
 Replaces a JSON schema entirely: one server, one document handler per file kind.
 
 - [x] `${...}` reference completion in `delivery.yml`.
-- [x] Structure completion — keys under `release:`/`deploy:`/`tasks:`, and a
+- [x] Structure completion — keys under `release:`/`deploy:`/`operations:`, and a
       resource's params once its `type:` names a contract.
 - [ ] Value completion — `kit:` from the kits under `.ensemble/kits/`, a
       release's `publish.target` from its pack kit's `kit.yml`, a `release:` key
@@ -86,13 +86,13 @@ visible and interactive prompts keep working.
 - [x] **Sidebar** (Ensemble logo in the activity bar): one collapsible pane per
       section of `ens status --json`, loaded once and shared — **Apps** (build),
       **Workloads** (develop, deploy, release; each workload's ships, resources
-      and tasks, and running a task with input), **Kits** and **Libraries**
+      and operations, and running an operation with input), **Kits** and **Libraries**
       (new, install, update, pin, contribute, eject, uninstall; libraries also
       publish). Refreshes when `.ensemble/config.yaml`, the vendoring lockfile,
       a kit or a delivery manifest changes, and when `ens` itself is updated.
-- [x] **Running a task**: asks for the deploy kit to resolve its `arguments:`
+- [x] **Running an operation**: asks for the deploy kit to resolve its `arguments:`
       with and any input to hand it as `$1..$n`, preselecting the last answers
-      for that task, then runs `ens delivery <name> <kit> task`.
+      for that operation, then runs `ens operation <name>`.
 - [x] **Code lenses** in delivery manifests: Develop and Deploy… above
       `deploy:`; Release… above `release:` — once, not per ship, because
       `ens release` packs and publishes every workload's releases together.

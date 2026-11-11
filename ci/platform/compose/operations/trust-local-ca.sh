@@ -17,9 +17,9 @@
 # keeps its own: import the printed .crt via Settings > Privacy & Security >
 # Certificates > View Certificates > Authorities > Import (trust for websites).
 #
-# Declared as the `trust-local-ca` task in ci/platform/delivery.yml, so run it with:
+# Declared as the `trust-local-ca` operation in ci/platform/delivery.yml, so run it with:
 #
-#   ens delivery platform compose task trust-local-ca
+#   ens operation platform trust-local-ca
 set -eu
 
 PROXY=ens-local-proxy

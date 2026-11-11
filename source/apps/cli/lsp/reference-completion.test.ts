@@ -15,7 +15,7 @@ deploy:
       type: container
       image: \${rel
       replicas: 1
-tasks:
+operations:
   migrate:
     run: echo
     arguments:
@@ -48,7 +48,7 @@ Deno.test("ReferenceCompletion: offers workload targets inside an open reference
   );
 });
 
-Deno.test("ReferenceCompletion: adds deployment targets under tasks, and swallows an auto-closed brace", () => {
+Deno.test("ReferenceCompletion: adds deployment targets under operations, and swallows an auto-closed brace", () => {
   const items = completion.complete(MANIFEST, at("${}", 2), workload);
   const labels = items.map((item) => item.label);
   const edit = items[0].textEdit;

@@ -97,7 +97,7 @@ deploy:
   databases:
     db:
       type: relational
-tasks:
+operations:
   migrate:
     script: migrate.sh
     arguments:
@@ -158,7 +158,7 @@ Deno.test("Survey: summarises workloads with a manifest, skipping directories wi
     manifest: "ci/shop/delivery",
     ships: [{ name: "web", kit: "docker" }],
     resources: { databases: ["db"] },
-    tasks: [{
+    operations: [{
       name: "migrate",
       command: "sh scripts/migrate.sh",
       arguments: ["PGHOST"],
