@@ -4,8 +4,9 @@ import * as KitSdk from "@ensemble/kit-sdk";
 import {
   findRepoRoot,
   resolveDenoExecutable,
-  RestartableChild,
+  type Spawned,
   terminateChildrenOnSignal,
+  WatchedBundle,
   WorkspaceConfig,
 } from "@ensemble/kit-sdk";
 
@@ -46,25 +47,29 @@ const entry = join(ctx.source, "main.ts");
 const outFile = join(ctx.out, "main.js");
 
 const modeArgs = ctx.mode === "production" ? ["--minify"] : [];
-const watchArgs = ctx.watch ? ["--watch"] : [];
 const optionArgs = new Options(ctx.options).toArgs();
 const denoExe = await resolveDenoExecutable();
 const configArgs = await KitSdk.denoConfigArgs(
   await findRepoRoot(ctx.workspace),
 );
 
-const bundle = new RestartableChild(() =>
-  $`${denoExe} bundle -q ${configArgs} ${entry} -o ${outFile} ${modeArgs} ${watchArgs} ${optionArgs}`
+const buildOnce = (): Spawned =>
+  $`${denoExe} bundle -q ${configArgs} ${entry} -o ${outFile} ${modeArgs} ${optionArgs}`
     .noThrow()
-    .spawn()
-);
+    .spawn();
+
+// Watching, the kit rebuilds on its own (WatchedBundle) rather than through
+// deno bundle --watch, whose long-lived process can wedge without a word.
+const bundle = ctx.watch
+  ? new WatchedBundle(entry, buildOnce, denoExe, configArgs).watch()
+  : buildOnce();
 terminateChildrenOnSignal([bundle]);
 
-// deno bundle --watch reads the workspace members and import maps only at
-// startup — restart it so a new member or import-map entry becomes resolvable.
-if (ctx.watch) {
+// A new workspace member or import-map entry changes what resolves, though no
+// file of the graph changed: build again for it.
+if (bundle instanceof WatchedBundle) {
   const config = new WorkspaceConfig(await findRepoRoot(ctx.workspace));
-  config.OnChange.Do(() => bundle.restart());
+  config.OnChange.Do(() => bundle.rebuild());
   config.watch();
 }
 

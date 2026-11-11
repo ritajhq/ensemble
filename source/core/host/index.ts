@@ -11,6 +11,7 @@ export {
   terminateChildrenOnSignal,
 } from "./terminate-children-on-signal.ts";
 export { RestartableChild } from "./restartable-child.ts";
+export { WatchedBundle } from "./watched-bundle.ts";
 export { WorkspaceConfig } from "./workspace-config.ts";
 export { denoConfigArgs, WorkspaceMembers } from "./workspace-members.ts";
 export { AnimatedBuildReporter } from "./animated-build-reporter.ts";

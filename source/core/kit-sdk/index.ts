@@ -16,6 +16,7 @@ export {
   RestartableChild,
   type Spawned,
   terminateChildrenOnSignal,
+  WatchedBundle,
   WorkspaceConfig,
   WorkspaceMembers,
 } from "@ensemble/host";

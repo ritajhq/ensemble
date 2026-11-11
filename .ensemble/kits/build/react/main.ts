@@ -15,7 +15,9 @@ import {
   findRepoRoot,
   resolveDenoExecutable,
   RestartableChild,
+  type Spawned,
   terminateChildrenOnSignal,
+  WatchedBundle,
   WorkspaceConfig,
 } from "@ensemble/kit-sdk";
 
@@ -347,18 +349,22 @@ if (ctx.watch) {
 }
 
 const minifyArgs = ctx.mode === "production" ? ["--minify"] : [];
-const watchArgs = ctx.watch ? ["--watch"] : [];
 // Tailwind's own `--watch` stops as soon as stdin closes, which is always
 // the case for a spawned subprocess — `=always` keeps it watching regardless.
 const cssWatchArgs = ctx.watch ? ["--watch=always"] : [];
 
 const configArgs = await KitSdk.denoConfigArgs(repoRoot);
 
-const bundle = new RestartableChild(() =>
-  $`${denoExe} bundle -q ${configArgs} --platform browser ${entry} -o ${jsOut} ${minifyArgs} ${watchArgs}`
+const buildOnce = (): Spawned =>
+  $`${denoExe} bundle -q ${configArgs} --platform browser ${entry} -o ${jsOut} ${minifyArgs}`
     .noThrow()
-    .spawn()
-);
+    .spawn();
+
+// Watching, the kit rebuilds on its own (WatchedBundle) rather than through
+// deno bundle --watch, whose long-lived process can wedge without a word.
+const bundle = ctx.watch
+  ? new WatchedBundle(entry, buildOnce, denoExe, configArgs).watch()
+  : buildOnce();
 // --silent: Tailwind's own version banner and "Done in Xms" line are noise
 // on every successful (re)build — it still writes real errors to stderr
 // even with this on, so a broken build is never silenced.
@@ -369,15 +375,16 @@ const css = new RestartableChild(() =>
 );
 // Neither of these is reliably reachable by a plain kill/Ctrl+C of just this
 // kit's own process — see terminateChildrenOnSignal's own doc comment — so
-// without this, --watch/--watch=always above (deliberately immune to their
-// own usual stop conditions) leave both running as orphans indefinitely.
+// without this, the watched bundle and --watch=always above (deliberately
+// immune to their own usual stop conditions) leave both running as orphans
+// indefinitely.
 terminateChildrenOnSignal([bundle, css]);
 
-if (ctx.watch) {
-  // deno bundle --watch reads the workspace members and import maps only at
-  // startup — restart it so a new member or import-map entry becomes resolvable.
+if (bundle instanceof WatchedBundle) {
+  // A new workspace member or import-map entry changes what resolves, though
+  // no file of the graph changed: build again for it.
   const config = new WorkspaceConfig(repoRoot);
-  config.OnChange.Do(() => bundle.restart());
+  config.OnChange.Do(() => bundle.rebuild());
   config.watch();
 }
 
