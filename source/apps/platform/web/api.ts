@@ -148,6 +148,7 @@ export interface RoutingTable {
 
 /** The platform's GitHub App, once it was set up. */
 export interface GithubApp {
+  readonly id: number;
   readonly slug: string;
   /** The account it belongs to. */
   readonly owner: string;
@@ -365,7 +366,8 @@ export class Api {
   }
 
   /** The platform's GitHub App, or none before it was set up. */
-  github(): Promise<{ app: GithubApp | null }> {
+  /** The platform's GitHub Apps: one per account it reaches repositories under. */
+  github(): Promise<{ apps: GithubApp[] }> {
     return this.call("GET", "/api/github");
   }
 

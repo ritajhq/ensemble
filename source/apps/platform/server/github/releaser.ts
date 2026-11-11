@@ -1,5 +1,4 @@
-import type { Apps } from "./apps.ts";
-import { NoAppError, type Tokens } from "./tokens.ts";
+import type { Tokens } from "./tokens.ts";
 
 /**
  * Who a release of one repository commits, tags and pushes as — the app's
@@ -31,14 +30,12 @@ export class Releaser {
   }
 }
 
-/** The releaser for each repository: the app's bot, with a token for that repository's installation. */
+/** The releaser for each repository: the bot of the app that reaches it, with a token for that repository's installation. */
 export class Releasers {
-  constructor(private readonly apps: Apps, private readonly tokens: Tokens) {}
+  constructor(private readonly tokens: Tokens) {}
 
   async of(repository: string): Promise<Releaser> {
-    const app = await this.apps.get();
-    if (!app) throw new NoAppError();
-    const { name, email } = app.bot;
+    const { name, email } = (await this.tokens.appFor(repository)).bot;
     return new Releaser(name, email, await this.tokens.for(repository));
   }
 }

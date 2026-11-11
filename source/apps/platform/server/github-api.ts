@@ -13,10 +13,10 @@ const OWNERS: Readonly<
 };
 
 /**
- * The platform's GitHub App, as the API shows and sets it up — whether there
- * is one, beginning its creation on GitHub and finishing it when GitHub sends
- * its operator back, the repositories it can reach — and the app's webhook,
- * `POST /hooks/github`, for every repository it's installed on. A branch
+ * The platform's GitHub Apps, as the API shows and sets them up — those there
+ * are, beginning another's creation on GitHub and finishing it when GitHub
+ * sends its operator back, the repositories they can reach — and the apps'
+ * webhook, `POST /hooks/github`, for every repository they're installed on. A branch
  * pushed or deleted in a project's repository is announced for each project
  * of that repository (`OnBranchPushed`, `OnBranchDeleted`), for whoever was
  * wired to it to act on.
@@ -57,25 +57,21 @@ export class GithubApi {
     return this.branchDeleted;
   }
 
-  /** The app, if there is one: never its secrets. */
+  /** Every app, never its secrets. */
   private async show(): Promise<Response> {
-    const app = await this.apps.get();
+    const apps = await this.apps.list();
     return json({
-      app: app
-        ? {
-          slug: app.slug,
-          owner: app.owner,
-          htmlUrl: app.htmlUrl,
-          installUrl: app.installUrl,
-        }
-        : null,
+      apps: apps.map((app) => ({
+        id: app.id,
+        slug: app.slug,
+        owner: app.owner,
+        htmlUrl: app.htmlUrl,
+        installUrl: app.installUrl,
+      })),
     });
   }
 
   private async begin(request: Request): Promise<Response> {
-    if (await this.apps.get()) {
-      return json({ error: "The platform has its GitHub App already." }, 409);
-    }
     const body = await request.json().catch(() => ({}));
     const owner = OWNERS[String(body.owner ?? "")];
     if (!owner) {

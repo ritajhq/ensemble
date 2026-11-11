@@ -14,6 +14,7 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarInset,
   SidebarInsetTopbar,
@@ -51,6 +52,7 @@ export function Shell() {
           </SidebarHeader>
           <SidebarContent>
             <Navigation />
+            <Integrations />
           </SidebarContent>
           {operator && (
             <SidebarFooter>
@@ -199,6 +201,28 @@ function Navigation() {
               </SidebarMenuSubItem>
             )}
           </SidebarMenuSub>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    </SidebarGroup>
+  );
+}
+
+/** What the platform connects to outside: GitHub, for now. */
+function Integrations() {
+  const github = useMatch({ path: Paths.github, end: true });
+  const GithubIcon = useIcon("link");
+  return (
+    <SidebarGroup>
+      <SidebarGroupLabel>Integrations</SidebarGroupLabel>
+      <SidebarMenu className={ROW_SPACING}>
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            icon={GithubIcon}
+            isActive={github !== null}
+            render={<Link to={Paths.github} />}
+          >
+            GitHub
+          </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>
     </SidebarGroup>

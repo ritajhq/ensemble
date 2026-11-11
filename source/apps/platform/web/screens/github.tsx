@@ -9,11 +9,17 @@ import {
   SelectTrigger,
   useIcon,
 } from "@ritaj/ui";
-import { describe, type GithubOwner, type GithubSetup } from "../api.ts";
+import { useLoaderData } from "react-router";
+import {
+  describe,
+  type GithubApp,
+  type GithubOwner,
+  type GithubSetup,
+} from "../api.ts";
 import { useApi } from "../api-provider.tsx";
-import { useLoad } from "../use-load.ts";
-import { Notice } from "./notice.tsx";
-import { Panel } from "./panel.tsx";
+import { Notice } from "../components/notice.tsx";
+import { Panel } from "../components/panel.tsx";
+import type { GithubData } from "../routes.tsx";
 
 /** Who an app can be created under, as the setup offers it. */
 const OWNERS: readonly { value: GithubOwner; label: string }[] = [
@@ -21,9 +27,11 @@ const OWNERS: readonly { value: GithubOwner; label: string }[] = [
   { value: "user", label: "My account" },
 ];
 
-/** A name for the app no other platform's has taken: GitHub App names are unique across GitHub. */
-function suggestedName(): string {
-  return `ensemble-${location.hostname.replace(/\./g, "-")}`.slice(0, 34);
+/** A name for the app no other app has taken — GitHub App names are unique across GitHub — so each account's app gets its own: named after the organization, and this platform's host. */
+function suggestedName(organization: string): string {
+  const host = location.hostname.replace(/\./g, "-");
+  const parts = ["ensemble", organization.trim(), host].filter(Boolean);
+  return parts.join("-").slice(0, 34).replace(/-+$/, "");
 }
 
 /**
@@ -44,13 +52,64 @@ function postToGithub(setup: GithubSetup): void {
   form.submit();
 }
 
-/** The platform's GitHub App: setting it up the first time, then where it's installed on more repositories. */
-export function GithubPanel() {
+/** The platform's GitHub Apps — one per account it reaches repositories under — and setting up another. */
+export function Github() {
+  const { apps } = useLoaderData() as GithubData;
+  return (
+    <>
+      {apps.length > 0 && <Apps apps={apps} />}
+      <NewApp first={apps.length === 0} />
+    </>
+  );
+}
+
+/** The apps there are, each with where to install it on more repositories. */
+function Apps({ apps }: { apps: readonly GithubApp[] }) {
+  const InstallIcon = useIcon("arrow-right");
+  return (
+    <Panel
+      title="GitHub Apps"
+      description="The platform reaches GitHub as these apps: each releases and deploys the repositories it's installed on, and hears of every push to them. A private app installs on its owner's repositories alone."
+    >
+      <div className="grid gap-2">
+        {apps.map((app) => (
+          <div
+            key={app.id}
+            className="flex flex-wrap items-center gap-2 text-body"
+          >
+            <a
+              className="font-medium underline"
+              href={app.htmlUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {app.slug}
+            </a>
+            <span className="text-muted-foreground">owned by {app.owner}</span>
+            <Button
+              className="ml-auto"
+              variant="secondary"
+              trailingIcon={InstallIcon}
+              onClick={() => open(app.installUrl, "_blank", "noreferrer")}
+            >
+              Install on repositories
+            </Button>
+          </div>
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
+/** Creates another app, under the operator's account or an organization, on GitHub. */
+function NewApp({ first }: { first: boolean }) {
   const api = useApi();
-  const github = useLoad(() => api.github(), []);
   const [owner, setOwner] = useState<GithubOwner>("organization");
   const [organization, setOrganization] = useState("");
-  const [name, setName] = useState(suggestedName);
+  // Left empty, the app takes the suggested name: it follows the organization.
+  const [name, setName] = useState("");
+  const appName = name.trim() ||
+    suggestedName(owner === "organization" ? organization : "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const GithubIcon = useIcon("arrow-right");
@@ -63,7 +122,7 @@ export function GithubPanel() {
         await api.beginGithubSetup({
           owner,
           organization: organization.trim(),
-          name: name.trim(),
+          name: appName,
         }),
       );
     } catch (e) {
@@ -72,53 +131,12 @@ export function GithubPanel() {
     }
   }
 
-  if (github.loading && !github.value) return null;
-  if (github.error) {
-    return (
-      <Panel title="GitHub">
-        <Notice tone="error">{github.error}</Notice>
-      </Panel>
-    );
-  }
-
-  const app = github.value?.app;
-  if (app) {
-    return (
-      <Panel
-        title="GitHub"
-        description={
-          <>
-            The platform reaches GitHub as{" "}
-            <a
-              className="underline"
-              href={app.htmlUrl}
-              target="_blank"
-              rel="noreferrer"
-            >
-              {app.slug}
-            </a>
-            , owned by{" "}
-            {app.owner}: it releases and deploys the repositories it's installed
-            on, and hears of every push to them.
-          </>
-        }
-        action={
-          <Button
-            variant="secondary"
-            trailingIcon={GithubIcon}
-            onClick={() => open(app.installUrl, "_blank", "noreferrer")}
-          >
-            Install on more repositories
-          </Button>
-        }
-      />
-    );
-  }
-
   return (
     <Panel
-      title="Connect GitHub"
-      description="The platform reaches GitHub as a GitHub App of its own: create it under an account, then install it on the repositories to release and deploy. GitHub asks you to confirm both."
+      title={first ? "Connect GitHub" : "Add a GitHub App"}
+      description={first
+        ? "The platform reaches GitHub as a GitHub App of its own: create it under an account, then install it on the repositories to release and deploy. GitHub asks you to confirm both."
+        : "For repositories under another account — an organization of yours — create an app owned by it. GitHub App names are unique across GitHub."}
     >
       <form
         className="grid gap-3"
@@ -154,7 +172,7 @@ export function GithubPanel() {
             <InputField
               index={1}
               label="App name"
-              placeholder={suggestedName()}
+              placeholder={appName}
               value={name}
               onChange={setName}
             />
@@ -165,7 +183,7 @@ export function GithubPanel() {
             type="submit"
             trailingIcon={GithubIcon}
             loading={busy}
-            disabled={busy || !name.trim() ||
+            disabled={busy ||
               (owner === "organization" && !organization.trim())}
           >
             Continue on GitHub

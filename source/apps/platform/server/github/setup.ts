@@ -140,7 +140,7 @@ export class Setup {
         active: true,
       },
       redirect_url: `${this.platformUrl}/api/github/created`,
-      setup_url: `${this.platformUrl}/`,
+      setup_url: `${this.platformUrl}/integrations/github`,
       setup_on_update: true,
       public: false,
       default_permissions: { contents: "write", metadata: "read" },

@@ -16,6 +16,9 @@ export interface Delivery {
 
 const BRANCH_REF = "refs/heads/";
 
+/** Which app GitHub sends a delivery for: its id. */
+const TARGET_APP = "x-github-hook-installation-target-id";
+
 interface Payload {
   ref?: string;
   ref_type?: string;
@@ -45,18 +48,18 @@ const READINGS: Readonly<
 };
 
 /**
- * The app's one webhook, for every repository it's installed on: a delivery
- * is authenticated with the app's webhook secret, then read for the one thing
- * the platform acts on — which branch of which repository was pushed or
- * deleted. Anything else (installation events, tags, pings) is acknowledged
- * and ignored.
+ * The apps' one webhook, for every repository any of them is installed on: a
+ * delivery is authenticated with the webhook secret of the app GitHub sent it
+ * for, then read for the one thing the platform acts on — which branch of
+ * which repository was pushed or deleted. Anything else (installation events,
+ * tags, pings) is acknowledged and ignored.
  */
 export class Webhook {
   constructor(private readonly apps: Apps) {}
 
   async interpret(request: Request): Promise<Delivery> {
-    const app = await this.apps.get();
-    if (!app) return reply("No GitHub App set up", 404);
+    const app = await this.appOf(request);
+    if (!app) return reply("No such GitHub App set up", 404);
 
     const body = new Uint8Array(await request.arrayBuffer());
     if (!await app.signed(body, request.headers.get("x-hub-signature-256"))) {
@@ -72,6 +75,13 @@ export class Webhook {
     const event = reading(payload, repository);
     if (!event) return reply("Ignored ref", 202);
     return { response: new Response("Accepted", { status: 202 }), event };
+  }
+
+  /** The app a delivery names in GitHub's header: no app's secret is tried on another's delivery. */
+  private async appOf(request: Request) {
+    const id = Number(request.headers.get(TARGET_APP));
+    if (!Number.isInteger(id) || id <= 0) return undefined;
+    return await this.apps.find(id);
   }
 }
 

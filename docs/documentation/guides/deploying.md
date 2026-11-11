@@ -33,11 +33,11 @@ Exactly one of these runs per invocation (the default is `apply`):
 
 `--instance <slug>` deploys the manifest as a named instance beside its plain
 deployment — a branch's preview, say. The instance gets its own deployment name
-(`<repo>-<name>--<slug>`), rendered artifact, render cache and operation snapshot, so
-any number of them run side by side. The slug is a DNS label. A gateway on an
-ingress network answers there to that deployment name unless its manifest sets
-`alias`, so instances sharing a network never answer for each other. Each deploy
-records where it can be reached
+(`<repo>-<name>--<slug>`), rendered artifact, render cache and operation
+snapshot, so any number of them run side by side. The slug is a DNS label. A
+gateway on an ingress network answers there to that deployment name unless its
+manifest sets `alias`, so instances sharing a network never answer for each
+other. Each deploy records where it can be reached
 (`.ensemble/deploy/<name>--<slug>/<kit>.ingress.json`: networks, alias, port and
 hosts) for whatever fronts it. The hostnames an instance answers on are ordinary
 per-environment values the pipeline puts in the environment — ens doesn't derive
@@ -95,15 +95,17 @@ export AUTH_SECRET=$(openssl rand -base64 32)
 ens deploy platform compose --artifacts local --emulate-externals
 ```
 
-The platform reaches GitHub as a GitHub App of its own. The first time it's
-opened, its home page creates one — under your account or an organization, with
-GitHub asking you to confirm — and then sends you to install it on the
-repositories to release and deploy. The app clones, fetches and pushes releases
-with short-lived tokens it is issued, commits and tags as its own bot, and has
-one webhook, `https://<platform>/hooks/github`, for every repository it's
-installed on: a push to a project's branch syncs it, and a push to or deletion
-of any branch keeps its previews in step. Projects are added from the
-repositories the app is installed on.
+The platform reaches GitHub as GitHub Apps of its own. Its Integrations › GitHub
+page creates one — under your account or an organization, with GitHub asking you
+to confirm — and then sends you to install it on the repositories to release and
+deploy. The apps are private, so each can only be installed on its owner's
+repositories: to reach another account's, add another app owned by it from the
+same page. Each app clones, fetches and pushes releases with short-lived tokens
+it is issued, and commits and tags as its own bot. They share one webhook,
+`https://<platform>/hooks/github`, for every repository they're installed on: a
+push to a project's branch syncs it, and a push to or deletion of any branch
+keeps its previews in step. Projects are added from the repositories any app is
+installed on.
 
 Nothing the platform answers for is open to everyone. Its own UI and API are
 behind an idhn guard that lets only signed-in operators through (GitHub's

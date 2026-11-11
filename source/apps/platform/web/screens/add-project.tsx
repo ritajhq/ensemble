@@ -60,20 +60,20 @@ export function AddProject() {
   return (
     <Panel
       title="Add a project"
-      description="Pick a repository the platform's GitHub App is installed on. The id names the project's checkout, and every deployment of it starts with it: keep it short."
+      description="Pick a repository one of the platform's GitHub Apps is installed on. The id names the project's checkout, and every deployment of it starts with it: keep it short."
     >
       {repositories.error && (
         <Notice
           tone="warning"
-          details="Set up the GitHub App on the platform's home page, and install it on the repository."
+          details="Set up a GitHub App under Integrations › GitHub, and install it on the repository."
         >
           {repositories.error}
         </Notice>
       )}
       {repositories.value?.length === 0 && (
         <Notice tone="info">
-          The GitHub App isn't installed on any repository yet: install it from
-          the platform's home page.
+          No GitHub App of the platform is installed on a repository yet:
+          install one from Integrations › GitHub.
         </Notice>
       )}
       <form

@@ -29,23 +29,26 @@ async function signed(
     body,
     headers: {
       "x-github-event": event,
+      "x-github-hook-installation-target-id": "1",
       "x-hub-signature-256": `sha256=${hex}`,
     },
   });
 }
 
-/** The app's store, holding an app whose webhook secret is `SECRET`. */
+/** The apps' store, holding app 1, whose webhook secret is `SECRET`. */
 const apps = {
-  get: () =>
-    Promise.resolve(App.of({
-      id: 1,
-      slug: "ensemble-platform",
-      owner: "ritajhq",
-      htmlUrl: "https://github.com/apps/ensemble-platform",
-      botId: 2,
-      privateKey: "",
-      webhookSecret: SECRET,
-    })),
+  find: (id: number) =>
+    Promise.resolve(
+      id !== 1 ? undefined : App.of({
+        id: 1,
+        slug: "ensemble-platform",
+        owner: "ritajhq",
+        htmlUrl: "https://github.com/apps/ensemble-platform",
+        botId: 2,
+        privateKey: "",
+        webhookSecret: SECRET,
+      }),
+    ),
 } as unknown as Apps;
 
 const webhook = new Webhook(apps);
@@ -94,7 +97,7 @@ Deno.test("Webhook refuses a bad signature, and names the repository a delivery 
   assertEquals(elsewhere.event?.repository, "someone/else");
 });
 
-Deno.test("Webhook ignores tags and other events, and answers nothing without an app", async () => {
+Deno.test("Webhook ignores tags and other events, and answers nothing for an app it doesn't have", async () => {
   const tag = await webhook.interpret(
     await signed("push", { ref: "refs/tags/v1", repository }),
   );
@@ -103,7 +106,7 @@ Deno.test("Webhook ignores tags and other events, and answers nothing without an
   assertEquals(other.event, undefined);
 
   const none = new Webhook(
-    { get: () => Promise.resolve(undefined) } as unknown as Apps,
+    { find: () => Promise.resolve(undefined) } as unknown as Apps,
   );
   const unset = await none.interpret(
     await signed("push", { ref: "refs/heads/x", repository }),

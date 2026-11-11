@@ -91,7 +91,7 @@ const runner = new Runner(
       )
       : new ChildProcess(),
   ),
-  new Github.Releasers(githubApps, tokens),
+  new Github.Releasers(tokens),
   configuration.previewDomain,
   configuration.stack,
 );

@@ -4,7 +4,13 @@ import { App } from "./app.ts";
 /** How long a setup begun on GitHub may take to come back. */
 const SETUP_LIFETIME_MS = 60 * 60 * 1000;
 
-/** What is kept of the app: its secrets sealed, the rest as GitHub gave it. */
+/** Where each app is kept, by its id. */
+const APPS = ["github-apps"];
+
+/** Where the one app was kept before the platform could have several: moved under `APPS` when first read. */
+const SINGLE_APP = ["github-app"];
+
+/** What is kept of an app: its secrets sealed, the rest as GitHub gave it. */
 interface AppRecord {
   readonly id: number;
   readonly slug: string;
@@ -16,24 +22,28 @@ interface AppRecord {
 }
 
 /**
- * Where the platform keeps its GitHub App — one at most — with its private
- * key and webhook secret sealed, and the setups begun on GitHub that haven't
- * come back yet.
+ * Where the platform keeps its GitHub Apps — one per account it was set up
+ * under, since a private app can only be installed on its owner's
+ * repositories — with their private keys and webhook secrets sealed, and the
+ * setups begun on GitHub that haven't come back yet.
  */
 export class Apps {
   constructor(private readonly kv: Deno.Kv, private readonly vault: Vault) {}
 
-  async get(): Promise<App | undefined> {
-    const { value } = await this.kv.get<AppRecord>(["github-app"]);
-    if (!value) return undefined;
-    return App.of({
-      ...value,
-      privateKey: await this.vault.open(value.privateKey, CONTEXT.privateKey),
-      webhookSecret: await this.vault.open(
-        value.webhookSecret,
-        CONTEXT.webhookSecret,
-      ),
-    });
+  /** Every app, in the order of their ids: the first set up first. */
+  async list(): Promise<App[]> {
+    await this.moveSingleApp();
+    const apps: App[] = [];
+    for await (const { value } of this.kv.list<AppRecord>({ prefix: APPS })) {
+      apps.push(await this.opened(value));
+    }
+    return apps;
+  }
+
+  async find(id: number): Promise<App | undefined> {
+    await this.moveSingleApp();
+    const { value } = await this.kv.get<AppRecord>([...APPS, id]);
+    return value ? await this.opened(value) : undefined;
   }
 
   async save(app: App): Promise<void> {
@@ -46,7 +56,7 @@ export class Apps {
         CONTEXT.webhookSecret,
       ),
     };
-    await this.kv.set(["github-app"], record);
+    await this.kv.set([...APPS, app.id], record);
   }
 
   /** Remembers a setup sent to GitHub under `state`, for an hour. */
@@ -65,6 +75,28 @@ export class Apps {
       key,
     ).commit();
     return ok;
+  }
+
+  /** The app kept before the platform could have several, moved where the others are; its secrets stay sealed as they were. */
+  private async moveSingleApp(): Promise<void> {
+    const single = await this.kv.get<AppRecord>(SINGLE_APP);
+    if (!single.value) return;
+    await this.kv.atomic()
+      .check(single)
+      .set([...APPS, single.value.id], single.value)
+      .delete(SINGLE_APP)
+      .commit();
+  }
+
+  private async opened(record: AppRecord): Promise<App> {
+    return App.of({
+      ...record,
+      privateKey: await this.vault.open(record.privateKey, CONTEXT.privateKey),
+      webhookSecret: await this.vault.open(
+        record.webhookSecret,
+        CONTEXT.webhookSecret,
+      ),
+    });
   }
 }
 

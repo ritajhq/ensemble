@@ -8,6 +8,7 @@ import {
 import {
   type Api,
   describe,
+  type GithubApp,
   type LiveDeployment,
   type Operator,
   type Project,
@@ -21,6 +22,7 @@ import * as Paths from "./paths.ts";
 import { Shell } from "./shell.tsx";
 import { ScreenError } from "./screens/screen-error.tsx";
 import { Deployments } from "./screens/deployments.tsx";
+import { Github } from "./screens/github.tsx";
 import { Overview } from "./screens/overview.tsx";
 import { Projects } from "./screens/projects.tsx";
 import { AddProject, type AddProjectOutcome } from "./screens/add-project.tsx";
@@ -45,6 +47,11 @@ export interface OverviewData {
 /** What the deployments screen loads: everything running on the machine. */
 export interface DeploymentsData {
   readonly deployments: readonly LiveDeployment[];
+}
+
+/** What the GitHub integration loads: the platform's apps. */
+export interface GithubData {
+  readonly apps: readonly GithubApp[];
 }
 
 /** What adding a project loads: the repositories the GitHub App can reach, or why it can't. */
@@ -97,6 +104,14 @@ export class Screens {
               deployments: await this.api.deployments(),
             }),
             handle: { title: () => "Deployments" } satisfies ScreenHandle,
+          },
+          {
+            path: "integrations/github",
+            Component: Github,
+            loader: async (): Promise<GithubData> => ({
+              apps: (await this.api.github()).apps,
+            }),
+            handle: { title: () => "GitHub" } satisfies ScreenHandle,
           },
           {
             path: "projects",

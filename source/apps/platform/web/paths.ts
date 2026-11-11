@@ -11,6 +11,8 @@ export const projects = "/projects";
 
 export const deployments = "/deployments";
 
+export const github = "/integrations/github";
+
 export function project(id: string): string {
   return `/projects/${encodeURIComponent(id)}`;
 }
