@@ -70,8 +70,8 @@ export function App() {
         <Sidebar variant="inset">
           <SidebarHeader>
             <SidebarWorkspaceHeader
-              name="ensemble"
-              tile={<Logo className="size-5 shrink-0" />}
+              name={<span className="font-serif text-[18px]">Ensemble</span>}
+              tile={<Logo className="-ml-0.5 size-6 shrink-0" />}
             />
           </SidebarHeader>
           <SidebarContent>

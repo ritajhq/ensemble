@@ -1,9 +1,13 @@
 @import "tailwindcss";
 /* Fluid's tokens, surfaces, type scale and keyframes (see libs/ui/styles.css). */
 @import "@ritaj/ui/styles";
+@import "./fonts.css";
 @source "../../../libs/ui";
 
 @theme inline {
+  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Geist Serif", ui-serif, Georgia, serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
