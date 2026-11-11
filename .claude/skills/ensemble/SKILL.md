@@ -1,6 +1,6 @@
 ---
 name: ensemble
-description: How to work in an Ensemble (`ens`) project — a repository with `.ensemble/config.yaml`, `source/apps`, `source/ship` and `ci/<name>/delivery.yml`. Use whenever you add or change an app, library, ship, kit or delivery manifest, decide where a file belongs, or run `ens` to build, pack, deploy, develop, release or inspect anything; also when working on the ensemble repository itself.
+description: How to work in an Ensemble (`ens`) project — a repository with `.ensemble/config.yaml`, `source/apps`, `source/ship` and `ci/<name>/delivery.yml`. Use whenever you add or change an app, library, ship, kit or delivery manifest, decide where a file belongs, or run `ens` to build, pack, deploy, develop, release or inspect anything; when drawing or explaining a workload's architecture; also when working on the ensemble repository itself.
 ---
 
 # Working in an Ensemble project
@@ -16,8 +16,8 @@ knows the running order and who goes on when, while the kits are the performers.
 
 1. **Get names from `ens status --json`**, never by guessing or grepping. It
    lists every app (with its build kit), kit by role, library, and workload
-   (with its ships, resources and operations). Every command's argument is one of
-   these names.
+   (with its ships, resources and operations). Every command's argument is one
+   of these names.
 2. **Ask the CLI for flags:** `ens <command> --help`. The summary in
    [references/cli.md](references/cli.md) covers each command's purpose and the
    traps.
@@ -54,7 +54,7 @@ Placement decisions:
 | package an app (image, binary, archive)           | `source/ship/<name>`, with the pack kit's own config                                              |
 | bind an app to a platform's resources (DynamoDB…) | `ens app create <kit> <app> --integration <deploy kit>`                                           |
 | describe what runs where                          | `ci/<name>/delivery.yml` — see [references/delivery-manifest.md](references/delivery-manifest.md) |
-| run something once after a deploy (a migration)   | an `operations:` entry in the manifest, with its script in `ci/<name>/<kit>/operations/`                         |
+| run something once after a deploy (a migration)   | an `operations:` entry in the manifest, with its script in `ci/<name>/<kit>/operations/`          |
 | support a new app type, format or target          | a new kit: `ens kit new <name> <role>` — see [references/kits.md](references/kits.md)             |
 
 ## Rules
@@ -130,6 +130,9 @@ ens release next minor --dry-run       # what a release would tag, pack and publ
   operations and launch.
 - [references/kits.md](references/kits.md): the five kit roles and their
   contracts, for writing or changing a kit.
+- [references/diagrams.md](references/diagrams.md): drawing a workload's
+  architecture from `ens delivery print` and the manifest's comments, for a
+  diagram that explains it rather than lists it.
 - The full manual, when the project has one: `docs/documentation/` (in the
   ensemble repository) or
   <https://github.com/ritajhq/ensemble/tree/main/docs/documentation>.
