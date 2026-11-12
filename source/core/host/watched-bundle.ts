@@ -44,6 +44,8 @@ export class WatchedBundle implements Spawned {
   private stop!: (result: { code: number }) => void;
   private ended = false;
   private building = false;
+  /** The last build failed: the output on disk is the last good one, kept until a build succeeds again. */
+  private failing = false;
   private queued = false;
   private current?: Spawned;
   private pending?: ReturnType<typeof setTimeout>;
@@ -128,9 +130,37 @@ export class WatchedBundle implements Spawned {
         // Finished in the meantime.
       }
     }, BUILD_TIMEOUT_MS);
-    await child;
+    const { code } = await child;
     clearTimeout(timer);
     this.current = undefined;
+    if (this.ended) return;
+    this.report(code);
+  }
+
+  /**
+   * Says when the output stops following the sources, and when it catches up
+   * again: `deno bundle -q` is silent on success, so after a failure nothing
+   * else would tell a recovered build from a stuck one. To stderr, the stream
+   * a watch session always shows.
+   */
+  private report(code: number): void {
+    if (code !== 0) {
+      if (!this.failing) {
+        console.error(
+          `${this.label}: build failed; the last good build stays in place, and the next save builds again.`,
+        );
+      }
+      this.failing = true;
+      return;
+    }
+    if (this.failing) console.error(`${this.label}: rebuilt.`);
+    this.failing = false;
+  }
+
+  /** The app the entry belongs to, as `ens` names it: `website/content` for `source/apps/website/content/main.tsx`. */
+  private get label(): string {
+    const app = dirname(this.entry);
+    return `${basename(dirname(app))}/${basename(app)}`;
   }
 
   /** Watches the files of the entry's graph as it now stands. */

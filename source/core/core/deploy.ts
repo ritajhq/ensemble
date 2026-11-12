@@ -71,7 +71,7 @@ class CompanionBuildWatchers {
     readonly signal: AbortSignal,
     private readonly controller: AbortController,
     private readonly onTermination: () => void,
-    private readonly watchers: readonly Promise<number>[],
+    private readonly watchers: readonly Promise<void>[],
     private readonly failureBox: { failure?: unknown },
   ) {}
 
@@ -88,21 +88,12 @@ class CompanionBuildWatchers {
 
     console.log(`Building & watching: ${[...apps].join(", ")}`);
     const watchers = [...apps].map((app) =>
-      runBuild(app, {
-        mode: "development",
-        watch: true,
-        signal: controller.signal,
-      }, ports).catch((error) => {
-        // Attached right here rather than left to `stop()`'s later
-        // `Promise.allSettled` — a startup failure (e.g. no build config for
-        // the app) rejects almost immediately, well before `stop()` runs,
-        // and an unhandled rejection that old would otherwise crash the
-        // process with a raw stack trace instead of the one clean message
-        // `runDeploy` reports once the whole session has wound down.
+      new BuildWatcher(app, ports, controller.signal, (error) => {
+        // Kept for `runDeploy` to report once the whole session has wound
+        // down — one clean message rather than a raw unhandled rejection.
         failureBox.failure ??= error;
         controller.abort();
-        return 1;
-      })
+      }).keep()
     );
 
     return new CompanionBuildWatchers(
@@ -124,6 +115,82 @@ class CompanionBuildWatchers {
       Deno.removeSignalListener(signo, this.onTermination);
     }
     await Promise.allSettled(this.watchers);
+  }
+}
+
+/** How long a build watcher waits before starting again after its kit exited; it doubles on each exit in a row, up to the cap. */
+const WATCHER_RESTART_DELAY_MS = 1_000;
+const WATCHER_RESTART_DELAY_CAP_MS = 30_000;
+
+/** A watcher that ran at least this long before exiting starts its delay over: the exit was news, not a crash loop. */
+const WATCHER_STABLE_RUN_MS = 60_000;
+
+/**
+ * One app's `ens build --watch`, kept running for the whole session.
+ *
+ * A build kit is meant to outlive any broken edit, but if its process does
+ * exit (a crash, a check it runs only at start that a mid-edit tree fails),
+ * that app would otherwise stop rebuilding without a word while the rest of
+ * the session carries on. So an exit is said and the watcher started again,
+ * after a delay that grows while it keeps exiting.
+ *
+ * Only a failure to start at all ends the session (no build config for the
+ * app, say): no amount of restarting fixes that.
+ */
+class BuildWatcher {
+  constructor(
+    private readonly app: string,
+    private readonly ports: Ports,
+    private readonly signal: AbortSignal,
+    private readonly onUnstartable: (error: unknown) => void,
+  ) {}
+
+  async keep(): Promise<void> {
+    let delay = WATCHER_RESTART_DELAY_MS;
+    let started = false;
+    while (!this.signal.aborted) {
+      const since = Date.now();
+      let outcome: string;
+      try {
+        const code = await runBuild(this.app, {
+          mode: "development",
+          watch: true,
+          signal: this.signal,
+        }, this.ports);
+        outcome = `exited with code ${code}`;
+      } catch (error) {
+        if (!started) {
+          this.onUnstartable(error);
+          return;
+        }
+        outcome = `failed: ${error instanceof Error ? error.message : error}`;
+      }
+      started = true;
+      if (this.signal.aborted) return;
+
+      if (Date.now() - since >= WATCHER_STABLE_RUN_MS) {
+        delay = WATCHER_RESTART_DELAY_MS;
+      }
+      console.error(
+        `${this.app}: its build watcher ${outcome}; starting it again in ${
+          delay / 1000
+        }s.`,
+      );
+      await this.pause(delay);
+      delay = Math.min(delay * 2, WATCHER_RESTART_DELAY_CAP_MS);
+    }
+  }
+
+  /** Waits `ms`, or less if the session ends first. */
+  private pause(ms: number): Promise<void> {
+    return new Promise((resolve) => {
+      const timer = setTimeout(done, ms);
+      this.signal.addEventListener("abort", done, { once: true });
+      function done() {
+        clearTimeout(timer);
+        resolve();
+      }
+    });
   }
 }
 

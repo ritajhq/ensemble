@@ -32,6 +32,13 @@ sync into which container paths, and whether a sync also needs a restart
 app's build output on every change, and on an `object-storage` bucket re-upload
 its `contents` under the rule's `path`.
 
+A broken edit doesn't end the session. A build that fails leaves the last good
+output in place, says so once, and builds again on the next save; when it
+succeeds again it prints `<app>: rebuilt.`. If an app's build watcher itself
+exits, `ens develop` says so and starts it again, waiting a little longer each
+time it keeps exiting. Only an app that can't start building at all (no build
+kit configured for it, say) ends the session.
+
 ## What `ens develop` adds
 
 A development run renders the same topology as any other:
