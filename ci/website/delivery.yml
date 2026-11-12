@@ -18,13 +18,18 @@ deploy:
         DOCS_REPOSITORY: ${variables.docs-repository.value}
         DOCS_REF: ${variables.docs-ref.value}
         DOCS_POLL_SECONDS: ${variables.docs-poll-seconds.value}
+        SITE_HOST: ${variables.domain.value}
+        DOCS_HOST: ${variables.docs-domain.value}
       mounts:
         - source: ${storage.docs-content.name}
           path: /data
       development:
-        sync:
+        # The server renders pages from its bundle, which it loads once at start.
+        sync+restart:
           - app: website/server
             path: /app/server
+        # The hydration bundle is read from disk on every request.
+        sync:
           - app: website/content
             path: /app/content
 
@@ -40,6 +45,11 @@ deploy:
           target:
             service: server
             port: ${compute.server.http}
+        - host: ${variables.docs-domain.value}
+          path: /*
+          target:
+            service: server
+            port: ${compute.server.http}
 
   storage:
     # The published docs, kept across restarts so the site has them at once.
@@ -48,8 +58,11 @@ deploy:
 
   variables:
     domain:
-      default: docs.ensemble.lvh.me
-      description: Host the website answers on
+      default: lvh.me
+      description: Host the landing page answers on (ensemble.blue in production)
+    docs-domain:
+      default: docs.lvh.me
+      description: Host the docs answer on (docs.ensemble.blue in production)
     docs-repository:
       default: ritajhq/ensemble
       description: GitHub repository (owner/name) the docs are published from

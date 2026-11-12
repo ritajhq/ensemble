@@ -48,7 +48,7 @@ function remarkRewriteDocLinks(currentDir: string) {
   };
 }
 
-/** Renders one doc's markdown source into HTML, its `h1` title, and its `h2`/`h3` TOC. */
+/** Renders one doc's markdown source into HTML (without its `h1`), its `h1` title, and its `h2`/`h3` TOC. */
 export async function renderMarkdown(
   source: string,
   currentDir: string,
@@ -58,10 +58,13 @@ export async function renderMarkdown(
 
   function remarkExtractTitle() {
     return (tree: MdastRoot) => {
-      const heading = tree.children.find((n): n is Heading =>
+      const index = tree.children.findIndex((n): n is Heading =>
         n.type === "heading" && n.depth === 1
       );
-      if (heading) title = mdastToString(heading);
+      if (index === -1) return;
+      // The page layout shows the title itself, so it leaves the body.
+      title = mdastToString(tree.children[index]);
+      tree.children.splice(index, 1);
     };
   }
 
@@ -88,7 +91,10 @@ export async function renderMarkdown(
     .use(remarkRehype)
     .use(rehypeSlug)
     .use(rehypeExtractToc)
-    .use(rehypeShiki, { theme: "vitesse-light" })
+    .use(rehypeShiki, {
+      themes: { light: "vitesse-light", dark: "vitesse-dark" },
+      defaultColor: false,
+    })
     .use(rehypeStringify)
     .process(source);
 

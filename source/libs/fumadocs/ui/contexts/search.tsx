@@ -1,0 +1,163 @@
+'use client';
+import {
+  type ComponentType,
+  createContext,
+  type ReactNode,
+  Suspense,
+  use,
+  useEffect,
+  useEffectEvent,
+  useMemo,
+  useState,
+} from 'react';
+
+interface HotKey {
+  display: ReactNode;
+
+  /**
+   * Key code or a function determining whether the key is pressed.
+   */
+  key: string | ((e: KeyboardEvent) => boolean);
+}
+
+export interface SharedProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export type SearchLink = [name: string, href: string];
+
+export interface TagItem {
+  name: string;
+  value: string;
+}
+
+export interface SearchProviderProps<DialogProps extends SharedProps = SharedProps> {
+  /**
+   * Preload search dialog before opening it
+   *
+   * @defaultValue `true`
+   */
+  preload?: boolean;
+
+  /**
+   * Custom links to be displayed if search is empty
+   */
+  links?: SearchLink[];
+
+  /**
+   * Hotkeys for triggering search dialog
+   *
+   * @defaultValue Meta/Ctrl + K
+   */
+  hotKey?: HotKey[];
+
+  /**
+   * Replace default search dialog, allowing you to use other solutions such as Algolia Search
+   *
+   * It receives the `open` and `onOpenChange` prop, can be lazy loaded with `React.lazy()`
+   */
+  SearchDialog: ComponentType<DialogProps>;
+
+  /**
+   * Additional props to the dialog
+   */
+  options?: Partial<DialogProps>;
+
+  children?: ReactNode;
+}
+
+interface SearchContextType {
+  enabled: boolean;
+  open: boolean;
+  hotKey: HotKey[];
+  setOpenSearch: (value: boolean) => void;
+}
+
+const SearchContext = createContext<SearchContextType>({
+  enabled: false,
+  open: false,
+  hotKey: [],
+  setOpenSearch: () => undefined,
+});
+
+export function useSearchContext(): SearchContextType {
+  return use(SearchContext);
+}
+
+function MetaOrControl() {
+  const [key, setKey] = useState('⌘');
+
+  useEffect(() => {
+    if (/Windows|Linux/i.test(window.navigator.userAgent)) setKey('Ctrl');
+  }, []);
+
+  return key;
+}
+
+const DEFAULT_HOT_KEYS: HotKey[] = [
+  {
+    key: (e) => e.metaKey || e.ctrlKey,
+    display: <MetaOrControl />,
+  },
+  {
+    key: 'k',
+    display: 'K',
+  },
+];
+
+export function SearchProvider<DialogProps extends SharedProps = SharedProps>({
+  SearchDialog,
+  children,
+  preload = true,
+  options,
+  hotKey = DEFAULT_HOT_KEYS,
+  links,
+}: SearchProviderProps<DialogProps>) {
+  const [isOpen, setIsOpen] = useState(preload ? false : undefined);
+  const onKeyDown = useEffectEvent((e: KeyboardEvent) => {
+    if (hotKey.every((v) => (typeof v.key === 'string' ? e.key === v.key : v.key(e)))) {
+      setIsOpen((open) => !open);
+      e.preventDefault();
+    }
+  });
+
+  useEffect(() => {
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, []);
+
+  return (
+    <SearchContext
+      value={useMemo(
+        () => ({
+          enabled: true,
+          open: isOpen ?? false,
+          hotKey,
+          setOpenSearch: setIsOpen,
+        }),
+        [isOpen, hotKey],
+      )}
+    >
+      <Suspense fallback={null}>
+        {isOpen !== undefined && (
+          // @ts-expect-error -- assume all required props are filled
+          <SearchDialog open={isOpen} onOpenChange={setIsOpen} links={links} {...options} />
+        )}
+      </Suspense>
+
+      {children}
+    </SearchContext>
+  );
+}
+
+/**
+ * Show children only when search is enabled via React Context
+ */
+export function SearchOnly({ children }: { children: ReactNode }) {
+  const search = useSearchContext();
+
+  if (search.enabled) return children;
+}

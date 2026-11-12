@@ -13,6 +13,7 @@
     "@types/react-dom": "npm:@types/react-dom@19",
     "@std/path": "jsr:@std/path@1.1.6",
     "@std/fs": "jsr:@std/fs@1.0.24",
+    "@std/yaml": "jsr:@std/yaml@1.1.2",
     "@ensemble/website": "jsr:@ensemble/website",
     "unified": "npm:unified@11",
     "remark-parse": "npm:remark-parse@11",

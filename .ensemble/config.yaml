@@ -41,17 +41,20 @@ deploy:
 publish:
   core:
     - name: core
-      package: "@ensemble/core"
+      package: '@ensemble/core'
       publish:
         - kit: jsr
     - name: host
-      package: "@ensemble/host"
+      package: '@ensemble/host'
       publish:
         - kit: jsr
     - name: kit-sdk
-      package: "@ensemble/kit-sdk"
+      package: '@ensemble/kit-sdk'
       publish:
         - kit: jsr
+  libs:
+    - name: fumadocs
+      package: fumadocs
 hooks:
   release:
     after:
@@ -59,4 +62,5 @@ hooks:
         run: >-
           RUST_LOG=off git-cliff --config .ensemble/configs/cliff.toml --latest
           --prepend CHANGELOG.md && { git diff --quiet -- CHANGELOG.md || git
-          commit CHANGELOG.md -m "chore(changelog): update for $ENSEMBLE_RELEASE_TAG"; }
+          commit CHANGELOG.md -m "chore(changelog): update for
+          $ENSEMBLE_RELEASE_TAG"; }

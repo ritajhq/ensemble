@@ -50,3 +50,17 @@ export function KubernetesMark({ className }: BrandMarkProps) {
     </svg>
   );
 }
+
+/** Cloudflare — a plain cloud in its orange, not the trademarked logo geometry. */
+export function CloudflareMark({ className }: BrandMarkProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="#f38020"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M17.5 19H7a5 5 0 0 1-.6-9.96A6.5 6.5 0 0 1 18.9 9.6 4.75 4.75 0 0 1 17.5 19Z" />
+    </svg>
+  );
+}

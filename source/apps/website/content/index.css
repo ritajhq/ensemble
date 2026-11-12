@@ -1,5 +1,11 @@
 @import "tailwindcss";
 @source "../../../core/website";
+@source "../../../libs/fumadocs";
+
+/* The docs pages' layout: Fumadocs, vendored in libs/fumadocs, themed below. */
+@import "../../../libs/fumadocs/css/default-colors.css";
+@import "../../../libs/fumadocs/css/base.css";
+@import "../../../libs/fumadocs/css/shiki.css";
 
 /* Makes `dark:` mean "inside .dark" rather than the OS preference, so the
    site's future light/dark switch can flip one class on <html>. Nothing sets
@@ -31,6 +37,14 @@
 }
 
 @font-face {
+  font-family: "Libre Caslon Text";
+  src: url("/fonts/libre-caslon-text-bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
   font-family: "Fraunces";
   src: url("/fonts/fraunces-regular.woff2") format("woff2");
   font-weight: 400;
@@ -57,6 +71,18 @@
      footer mirrors it to the bottom edge (.bg-footer-mesh). */
   --color-sage: #e9ecd9;
   --color-sky: #c8ecf2;
+
+  /* /next — the Mediterranean palette: a parchment ground, ink type, the
+     logo's Aegean blue, and the olive, terracotta and ochre of the garland. */
+  --color-parchment: #fbf8f1;
+  --color-marble: #f3eee3;
+  --color-ink: #1f2633;
+  --color-stone: #6f6a60;
+  --color-aegean: #0084d1;
+  --color-aegean-deep: #0b4a73;
+  --color-olive: #66763a;
+  --color-terracotta: #c0533a;
+  --color-ochre: #b98a2a;
 }
 
 /* The terminal card in sections/CliTabs.tsx wears the VS Code "Vitesse" theme
@@ -121,7 +147,7 @@
    page (server/docs/render.ts) — plain CSS rather than a Tailwind plugin since
    the content arrives as an opaque HTML string, not JSX Tailwind can scan. */
 .docs-prose {
-  color: var(--color-slate-700);
+  color: var(--color-fd-foreground);
   font-size: 0.9375rem;
   line-height: 1.7;
 }
@@ -131,24 +157,26 @@
 }
 
 .docs-prose h1 {
-  color: var(--color-slate-900);
+  color: var(--color-fd-foreground);
   font-size: 1.875rem;
   font-weight: 600;
   margin: 0 0 1rem;
 }
 
 .docs-prose h2 {
-  color: var(--color-slate-900);
-  font-size: 1.375rem;
-  font-weight: 600;
+  color: var(--color-fd-foreground);
+  font-family: var(--font-serif);
+  font-size: 1.5rem;
+  font-weight: 400;
   margin: 2.5rem 0 1rem;
   scroll-margin-top: 1.5rem;
 }
 
 .docs-prose h3 {
-  color: var(--color-slate-900);
-  font-size: 1.125rem;
-  font-weight: 600;
+  color: var(--color-fd-foreground);
+  font-family: var(--font-serif);
+  font-size: 1.2rem;
+  font-weight: 400;
   margin: 2rem 0 0.75rem;
   scroll-margin-top: 1.5rem;
 }
@@ -177,7 +205,7 @@
 }
 
 .docs-prose a {
-  color: var(--color-blue-600);
+  color: var(--color-fd-primary);
   text-decoration: underline;
   text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
   text-underline-offset: 2px;
@@ -188,14 +216,14 @@
 }
 
 .docs-prose strong {
-  color: var(--color-slate-900);
+  color: var(--color-fd-foreground);
   font-weight: 600;
 }
 
 .docs-prose code {
   font-family: var(--font-mono);
   font-size: 0.85em;
-  background: var(--color-slate-100);
+  background: var(--color-fd-muted);
   padding: 0.125rem 0.375rem;
   border-radius: 0.25rem;
 }
@@ -203,7 +231,7 @@
 .docs-prose pre {
   padding: 1rem 1.25rem;
   border-radius: 0.5rem;
-  border: 1px solid var(--term-border);
+  border: 1px solid var(--color-fd-border);
   overflow-x: auto;
   font-size: 0.85em;
 }
@@ -215,14 +243,14 @@
 }
 
 .docs-prose blockquote {
-  border-left: 2px solid var(--color-slate-200);
+  border-left: 2px solid var(--color-fd-border);
   padding-left: 1rem;
-  color: var(--color-slate-500);
+  color: var(--color-fd-muted-foreground);
 }
 
 .docs-prose hr {
   border: none;
-  border-top: 1px solid var(--color-slate-100);
+  border-top: 1px solid var(--color-fd-muted);
   margin: 2rem 0;
 }
 
@@ -234,14 +262,14 @@
 
 .docs-prose th,
 .docs-prose td {
-  border: 1px solid var(--color-slate-100);
+  border: 1px solid var(--color-fd-muted);
   padding: 0.5rem 0.75rem;
   text-align: left;
 }
 
 .docs-prose th {
-  background: var(--color-slate-50);
-  color: var(--color-slate-900);
+  background: var(--color-fd-muted);
+  color: var(--color-fd-foreground);
   font-weight: 600;
 }
 
@@ -264,5 +292,126 @@
   50%,
   100% {
     opacity: 0;
+  }
+}
+
+/* The /next palette, applied to the Fumadocs docs layout through its tokens:
+   parchment and ink by day, the same ink as the ground by night, with the
+   logo's Aegean blue as the accent. */
+@theme {
+  --color-fd-background: #fbf8f1;
+  --color-fd-foreground: #1f2633;
+  --color-fd-muted: #f3eee3;
+  --color-fd-muted-foreground: #6f6a60;
+  --color-fd-popover: #fffdf8;
+  --color-fd-popover-foreground: #1f2633;
+  --color-fd-card: #fffdf8;
+  --color-fd-card-foreground: #1f2633;
+  --color-fd-border: #e4dccb;
+  --color-fd-primary: #0b4a73;
+  --color-fd-primary-foreground: #fbf8f1;
+  --color-fd-secondary: #f3eee3;
+  --color-fd-secondary-foreground: #1f2633;
+  --color-fd-accent: #ece4d2;
+  --color-fd-accent-foreground: #1f2633;
+  --color-fd-ring: #0084d1;
+}
+
+.dark {
+  --color-fd-background: #161b24;
+  --color-fd-foreground: #ece6d8;
+  --color-fd-muted: #1f2633;
+  --color-fd-muted-foreground: #a39d90;
+  --color-fd-popover: #1b212c;
+  --color-fd-popover-foreground: #ece6d8;
+  --color-fd-card: #1b212c;
+  --color-fd-card-foreground: #ece6d8;
+  --color-fd-border: #2c3442;
+  --color-fd-primary: #4fb3ee;
+  --color-fd-primary-foreground: #161b24;
+  --color-fd-secondary: #222a36;
+  --color-fd-secondary-foreground: #ece6d8;
+  --color-fd-accent: #263040;
+  --color-fd-accent-foreground: #ece6d8;
+  --color-fd-ring: #4fb3ee;
+}
+
+/* Rocks the /next garland's branches about their roots (next/botanicals.tsx). */
+@keyframes botanical-sway {
+  from {
+    transform: rotate(-0.6deg);
+  }
+  to {
+    transform: rotate(0.6deg);
+  }
+}
+
+/* A running Greek key, drawn in the current text color (next/meander.tsx). */
+.bg-meander {
+  background-color: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='black' stroke-width='1.5'%3E%3Cpath d='M0 15H16M12 15V1H1V11H8V5H5V8'/%3E%3C/svg%3E")
+    repeat-x center / 16px 16px;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='black' stroke-width='1.5'%3E%3Cpath d='M0 15H16M12 15V1H1V11H8V5H5V8'/%3E%3C/svg%3E")
+    repeat-x center / 16px 16px;
+}
+
+/* Homepage motion: plants grow in from the screen edges on load, edge
+ * plants slide in as they scroll into view, the hero copy rises in. */
+@keyframes botanical-grow {
+  from {
+    translate: -14vw 0;
+    scale: 0.82;
+    opacity: 0;
+  }
+  to {
+    translate: 0 0;
+    scale: 1;
+    opacity: 1;
+  }
+}
+
+@keyframes botanical-reveal {
+  from {
+    translate: var(--enter-x, 0) 0;
+    opacity: 0;
+  }
+  to {
+    translate: 0 0;
+    opacity: 1;
+  }
+}
+
+@keyframes rise {
+  from {
+    translate: 0 1.25rem;
+    opacity: 0;
+  }
+  to {
+    translate: 0 0;
+    opacity: 1;
+  }
+}
+
+.botanical-grow {
+  animation: botanical-grow 1.8s cubic-bezier(0.16, 0.8, 0.3, 1) both;
+}
+
+.rise {
+  animation: rise 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@supports (animation-timeline: view()) {
+  .botanical-reveal {
+    animation: botanical-reveal linear both;
+    animation-timeline: view();
+    animation-range: entry 0% cover 35%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .botanical-grow,
+  .botanical-reveal,
+  .rise {
+    animation: none;
   }
 }
