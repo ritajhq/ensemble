@@ -124,7 +124,9 @@ function ingressNetworks(value: unknown): readonly string[] {
  * A gateway on ingress networks carries, in every mode, the labels the shared
  * `LocalProxy` routes its hosts by. They do nothing on a host without one;
  * `ens develop` starts the proxy (`../watch.ts`), so the hosts a manifest
- * describes for a real host answer there too.
+ * describes for a real host answer there too. Outside a development session
+ * they ask for plain HTTP, for a host whose own caddy-docker-proxy sits
+ * behind a tunnel that terminates TLS.
  *
  * Published on `8443:443` for `tls: internal`, `80:80` for `none` — HTTPS
  * only in the former case, deliberately: Caddy's automatic HTTP→HTTPS
@@ -255,7 +257,9 @@ export function gatewayProvisioner(): KitSdk.Deploy.Provisioner {
       const alias = request.params.alias as string | undefined;
       const config = caddyfile(routes, tls);
       const listener = HOST_LISTENERS[tls];
-      const proxy = ingress.length > 0 ? new LocalProxy(ingress) : undefined;
+      const proxy = ingress.length > 0
+        ? new LocalProxy(ingress, request.development === true)
+        : undefined;
 
       return {
         fragment: {

@@ -18,7 +18,15 @@ export class LocalProxy {
   /** One for the whole host, found by this name by every stack that needs it. */
   static readonly CONTAINER = "ens-local-proxy";
 
-  constructor(private readonly networks: readonly string[]) {}
+  /**
+   * `terminatesTls` is false on a real host, where the proxy in front of the
+   * gateway sits behind a tunnel that terminates TLS itself and hands it
+   * plain HTTP: there each host is served on 80, not with a local CA on 443.
+   */
+  constructor(
+    private readonly networks: readonly string[],
+    private readonly terminatesTls = true,
+  ) {}
 
   /**
    * The proxy for a rendered compose document: it joins the networks of every
@@ -51,7 +59,8 @@ export class LocalProxy {
   /**
    * What a gateway carries for the proxy to route its hosts to it, each route
    * host terminating TLS at the proxy with its local CA — what a tunnel does
-   * on a real host. A gateway serving HTTPS itself (`tls: internal`) is asked
+   * on a real host, where the hosts are served over plain HTTP instead (see
+   * `terminatesTls`). A gateway serving HTTPS itself (`tls: internal`) is asked
    * over HTTPS, its certificate not verified: it is the proxy's own upstream.
    * A route with no host has nothing to be matched by.
    */
@@ -67,11 +76,10 @@ export class LocalProxy {
         "caddy.reverse_proxy.transport.tls_insecure_skip_verify": "",
       }
       : { "caddy.reverse_proxy": "{{upstreams 80}}" };
-    return {
-      caddy: hosts.join(", "),
-      "caddy.tls": "internal",
-      ...upstream,
-    };
+    const site: Record<string, string> = this.terminatesTls
+      ? { caddy: hosts.join(", "), "caddy.tls": "internal" }
+      : { caddy: hosts.map((host) => `http://${host}`).join(", ") };
+    return { ...site, ...upstream };
   }
 
   /**

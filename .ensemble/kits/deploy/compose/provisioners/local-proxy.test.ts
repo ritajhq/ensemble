@@ -17,6 +17,18 @@ Deno.test("LocalProxy.labelsFor: every distinct host of the routes, terminated a
   });
 });
 
+Deno.test("LocalProxy.labelsFor: on a real host, behind a tunnel terminating TLS, every host is served over plain HTTP", () => {
+  const labels = new LocalProxy(["ingress"], false).labelsFor([
+    { host: "ensemble.blue", path: "/*", target: router },
+    { host: "*.ensemble.blue", path: "/*", target: router },
+  ], "none");
+
+  assertEquals(labels, {
+    caddy: "http://ensemble.blue, http://*.ensemble.blue",
+    "caddy.reverse_proxy": "{{upstreams 80}}",
+  });
+});
+
 Deno.test("LocalProxy.labelsFor: a gateway serving HTTPS itself is asked over HTTPS without verifying its certificate", () => {
   const labels = new LocalProxy(["ingress"]).labelsFor([
     { host: "a.lvh.me", path: "/*", target: router },
