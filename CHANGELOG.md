@@ -1,3 +1,42 @@
+## [0.68.0] - 2026-11-12
+
+### 💥 Breaking Changes
+
+- *(gateway)* Drop tls from the manifest and derive it from where the gateway is deployed
+
+### 🚀 Features
+
+- *(platform)* Use Geist fonts and a larger serif Ensemble logo in the web app
+- *(platform)* Route the web app with React Router and add a projects page, sidebar overview and account menu
+- *(platform)* Show every compose stack running on the machine in a deployments screen
+- *(ui)* Accept Ctrl plus a key as the sidebar toggle shortcut and use Ctrl+B in the platform
+- *(platform)* Add several GitHub Apps from an integrations page
+- *(platform)* Make a project its repository and trace deployments to it by their checkout's origin
+- *(release)* Refuse a release the remote would reject up front and say how to resume after a failed push
+- *(kit)* Let a kit present itself with an about: section and an icon
+- *(website)* Replace the landing page with the botanical theme and add a kits page
+
+### 🐛 Bug Fixes
+
+- *(platform)* Read the web app's files on each request and allow its inlined fonts
+- *(kits)* Rebuild watched bundles with one-shot deno bundle runs on module graph changes
+- *(platform)* Keep the top bar fixed while the screen beneath it scrolls
+- *(apps/platform/web)* Format SVG icon link for better readability
+- *(develop)* Say when a broken build recovers and restart a build watcher that exits
+- *(compose)* Serve proxy labels over plain HTTP outside development
+- *(apps/website)* Correct favicon
+
+### 📚 Documentation
+
+- *(skill)* Teach agents to draw a workload's architecture from ens delivery print and the manifest's comments
+- *(skill)* Keep a workload's diagram at docs/<name>/architecture.html with its JSON source
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.67.0
+- Formatting
+- *(website)* Derive the docs host from the site domain
+- *(release)* Bump library versions for 0.68.0
 ## [0.67.0] - 2026-11-11
 
 ### 💥 Breaking Changes
