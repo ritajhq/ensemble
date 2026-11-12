@@ -128,7 +128,7 @@ with `type:`. Kinds with a typed contract:
 | `storage`    | `object-storage` | `bucket`                                                  |
 | `databases`  | `relational`     | `engine`, `version`, `user`, `database`, `passwordSecret` |
 | `databases`  | `key-value`      | per kit (aws, cloudflare)                                 |
-| `networking` | `gateway`        | `routes`; `tls: internal\|none`                           |
+| `networking` | `gateway`        | `routes`; `networks`, `alias`                            |
 
 Support differs by kit, on purpose. Not every kit provisions every kind; some
 drop a field (aws drops `ports`/`networks`) and some hard-fail. Before relying

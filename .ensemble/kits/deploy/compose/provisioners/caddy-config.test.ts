@@ -1,5 +1,5 @@
 import { assertEquals, assertThrows } from "@std/assert";
-import { caddyfile, tlsMode } from "./caddy-config.ts";
+import { caddyfile } from "./caddy-config.ts";
 
 Deno.test("caddyfile: a plain string path is a passthrough `handle` block, matcher emitted verbatim (a trailing * is Caddy's own wildcard)", () => {
   const conf = caddyfile([
@@ -86,17 +86,6 @@ Deno.test("caddyfile: without tls the site address is explicitly http, so Caddy 
 
   assertEquals(conf.startsWith("http://a.localhost {"), true);
   assertEquals(conf.includes("tls internal"), false);
-});
-
-Deno.test("tlsMode: unset means none, internal and none pass through", () => {
-  assertEquals(tlsMode(undefined), "none");
-  assertEquals(tlsMode("none"), "none");
-  assertEquals(tlsMode("internal"), "internal");
-});
-
-Deno.test("tlsMode: any other value is rejected rather than silently enabling Caddy's automatic HTTPS", () => {
-  assertThrows(() => tlsMode("automatic"), Error, "internal, none");
-  assertThrows(() => tlsMode(""), Error, "internal, none");
 });
 
 Deno.test("caddyfile: a route with no host falls back to the :80 catch-all site address", () => {

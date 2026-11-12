@@ -14,7 +14,7 @@ export interface Protection {
   readonly sessionCookie?: string;
 }
 
-/** How each scheme a gateway answers in is proxied to. A gateway minting its own certificate (`tls: internal`) is trusted as it is: the hop is the ingress network's own. */
+/** How each scheme a gateway answers in is proxied to. A gateway minting its own certificate is trusted as it is: the hop is the ingress network's own. */
 const TRANSPORTS: Readonly<
   Record<Platform.Upstream["scheme"], readonly string[]>
 > = {

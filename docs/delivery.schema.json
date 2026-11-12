@@ -483,10 +483,6 @@
           "description": "Host/path routes to compute targets.",
           "type": "array",
           "items": { "$ref": "#/definitions/gatewayRoute" }
-        },
-        "tls": {
-          "description": "Certificate strategy. `internal` serves HTTPS from a locally-minted, locally-trusted CA (the compose provisioner renders Caddy's `tls internal` and publishes 8443); `none` (the same as leaving it unset) is plain HTTP on 80, for a gateway behind something that already terminates TLS such as a Cloudflare tunnel. Any other value is rejected. May be a `${variables.*}` reference, so it can differ per environment.",
-          "type": "string"
         }
       }
     },

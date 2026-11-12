@@ -1,17 +1,11 @@
 import * as KitSdk from "@ensemble/kit-sdk";
 import { PROJECT_NETWORK } from "../compose-document.ts";
-import {
-  caddyfile,
-  type Route,
-  routeMatch,
-  type Tls,
-  tlsMode,
-} from "./caddy-config.ts";
+import { caddyfile, type Route, routeMatch, type Tls } from "./caddy-config.ts";
 import { LocalProxy } from "./local-proxy.ts";
 
 /**
  * Caddy's own official image, and the reason this kit's gateway is Caddy:
- * `tls: internal` is a single directive — Caddy mints a local CA, issues and
+ * `tls internal` is a single directive — Caddy mints a local CA, issues and
  * rotates the leaf certs itself, and serves them with no cert file to
  * generate, mount or reload from here. Anything leaner (nginx) means
  * rendering a CA and a leaf, mounting both, and handling renewal, i.e.
@@ -121,6 +115,14 @@ function ingressNetworks(value: unknown): readonly string[] {
  * no host port at all — nothing on the host can reach it around that proxy,
  * and two such stacks on one host never fight over port 80.
  *
+ * Who ends TLS is the host's concern, not the manifest's, so it is derived
+ * rather than declared. A gateway on ingress networks always serves plain
+ * HTTP: in a development session the shared `LocalProxy` ends TLS in front of
+ * it, on a real host the host's own proxy or tunnel does. A gateway nothing
+ * fronts ends TLS itself in a development session (`tls internal`, so the
+ * developer browses HTTPS), and serves plain HTTP elsewhere, where whatever
+ * the host puts in front of its port ends it.
+ *
  * A gateway on ingress networks carries, in every mode, the labels the shared
  * `LocalProxy` routes its hosts by. They do nothing on a host without one;
  * `ens develop` starts the proxy (`../watch.ts`), so the hosts a manifest
@@ -128,7 +130,7 @@ function ingressNetworks(value: unknown): readonly string[] {
  * they ask for plain HTTP, for a host whose own caddy-docker-proxy sits
  * behind a tunnel that terminates TLS.
  *
- * Published on `8443:443` for `tls: internal`, `80:80` for `none` — HTTPS
+ * Published on `8443:443` when it ends TLS itself, `80:80` otherwise — HTTPS
  * only in the former case, deliberately: Caddy's automatic HTTP→HTTPS
  * redirect names Caddy's own 443, which a host-side 8443 mapping can't
  * reflect, so publishing 80 alongside it would only produce redirects to a
@@ -252,8 +254,10 @@ export function gatewayProvisioner(): KitSdk.Deploy.Provisioner {
       const configName = `${request.name}-caddyfile`;
       const volumeName = `${request.name}-data`;
       const routes = request.params.routes as readonly Route[];
-      const tls = tlsMode(request.params.tls);
       const ingress = ingressNetworks(request.params.networks);
+      const tls: Tls = ingress.length === 0 && request.development === true
+        ? "internal"
+        : "none";
       const alias = request.params.alias as string | undefined;
       const config = caddyfile(routes, tls);
       const listener = HOST_LISTENERS[tls];
@@ -278,7 +282,7 @@ export function gatewayProvisioner(): KitSdk.Deploy.Provisioner {
                 }
                 : {}),
               networks: networkAttachments(ingress, alias ?? PROJECT_ALIAS),
-              ...(proxy ? { labels: proxy.labelsFor(routes, tls) } : {}),
+              ...(proxy ? { labels: proxy.labelsFor(routes) } : {}),
               configs: [
                 { source: configName, target: "/etc/caddy/Caddyfile" },
               ],

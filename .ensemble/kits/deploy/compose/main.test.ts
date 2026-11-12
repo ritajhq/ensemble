@@ -693,7 +693,10 @@ deploy:
 `;
 
 /** `renderWorkload`'s own loop only covers `compute`/`storage`/`databases` (every other test in this file only ever needed those) — `networking` needs the full `WorkloadResolver` instead, same tool `aws/main.test.ts`'s own `WITH_READ_REPLICAS` tests already reach for on a custom workload. */
-async function renderNetworkingWorkload(workload: KitSdk.Deploy.Workload) {
+async function renderNetworkingWorkload(
+  workload: KitSdk.Deploy.Workload,
+  development = false,
+) {
   const target: KitSdk.Deploy.Target = { kit: composeKit };
   const resolution = await new KitSdk.Deploy.Resolve.WorkloadResolver(registry)
     .resolve(workload, target);
@@ -704,6 +707,9 @@ async function renderNetworkingWorkload(workload: KitSdk.Deploy.Workload) {
     new KitSdk.Deploy.Render.ReferenceResolver(await composeKit.realization()),
     releaseLocator,
     registry,
+    undefined,
+    undefined,
+    development,
   ).render(
     workload,
     resolution.requests,
@@ -814,14 +820,9 @@ const WITH_HOST_GATEWAY = WITH_GATEWAY.replace(
   "",
 );
 
-const WITH_TLS_GATEWAY = WITH_HOST_GATEWAY.replace(
-  "      type: gateway",
-  "      type: gateway\n      tls: internal",
-);
-
-Deno.test("compose kit: tls: internal publishes HTTPS on 8443 and gets Caddy minting its own certs, with the local CA's /data on a named volume so recreating the gateway doesn't invalidate it", async () => {
-  const workload = new KitSdk.Deploy.Manifest.Parser().parse(WITH_TLS_GATEWAY);
-  const { artifacts, graph } = await renderNetworkingWorkload(workload);
+Deno.test("compose kit: in a development session a gateway nothing fronts ends TLS itself, publishing HTTPS on 8443 with Caddy minting its own certs and the local CA's /data on a named volume so recreating the gateway doesn't invalidate it", async () => {
+  const workload = new KitSdk.Deploy.Manifest.Parser().parse(WITH_HOST_GATEWAY);
+  const { artifacts, graph } = await renderNetworkingWorkload(workload, true);
   const document = assembleComposeDocument(artifacts, graph) as {
     services: Record<string, { ports?: string[]; volumes?: string[] }>;
     volumes?: Record<string, unknown>;
@@ -831,7 +832,7 @@ Deno.test("compose kit: tls: internal publishes HTTPS on 8443 and gets Caddy min
   // HTTPS only: Caddy's own HTTP→HTTPS redirect names its 443, which a
   // host-side 8443 mapping can't reflect, so publishing 80 alongside it would
   // only redirect browsers to a port nothing is listening on.
-  assertEquals(document.services.gateway.ports, ["8443:443"]);
+  assertEquals(document.services.gateway.ports, ["127.0.0.1:8443:443"]);
   assertEquals(document.services.gateway.volumes, ["gateway-data:/data"]);
   assertEquals(document.volumes, { "gateway-data": {} });
 
@@ -839,13 +840,8 @@ Deno.test("compose kit: tls: internal publishes HTTPS on 8443 and gets Caddy min
   assertEquals(conf.includes("example.localhost {\n\ttls internal\n"), true);
 });
 
-Deno.test("compose kit: tls: none with nothing in front of the gateway publishes plain HTTP on 80", async () => {
-  const workload = new KitSdk.Deploy.Manifest.Parser().parse(
-    WITH_HOST_GATEWAY.replace(
-      "      type: gateway",
-      "      type: gateway\n      tls: none",
-    ),
-  );
+Deno.test("compose kit: outside a development session a gateway nothing fronts publishes plain HTTP on 80, for the host to end TLS in front of it", async () => {
+  const workload = new KitSdk.Deploy.Manifest.Parser().parse(WITH_HOST_GATEWAY);
   const { artifacts, graph } = await renderNetworkingWorkload(workload);
   const document = assembleComposeDocument(artifacts, graph) as {
     services: Record<string, { ports?: string[] }>;

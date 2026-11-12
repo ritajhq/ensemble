@@ -38,14 +38,9 @@ import { ResourceContract } from "../contract.ts";
  * that would only ever resolve to a compound value nowhere else in the
  * grammar does.
  *
- * `tls` names the certificate strategy. `internal` is implemented on
- * compose: Caddy mints and rotates its own local CA and leaf certs, so the
- * gateway serves HTTPS (on host port 8443) with nothing to configure beyond
- * that one directive. `none` — the same as leaving it unset — is plain HTTP,
- * for a gateway behind something that already terminates TLS (a Cloudflare
- * tunnel). A kit rejects any other value: an ACME/public pipeline is a
- * genuine feature nobody has asked for yet, so it isn't invented ahead of
- * that need.
+ * There is no `tls`: who ends TLS in front of a gateway is the host's
+ * concern (a tunnel, a host-level proxy, `ens develop`'s local proxy), not
+ * the application's, so a kit derives it from where it deploys.
  */
 export const gatewayV1: ResourceContract = new ResourceContract(
   "networking",
@@ -55,7 +50,6 @@ export const gatewayV1: ResourceContract = new ResourceContract(
     { name: "networks", required: false, type: "array" },
     { name: "alias", required: false, type: "string" },
     { name: "routes", required: true, type: "array" },
-    { name: "tls", required: false, type: "string" },
   ],
   [],
   [],

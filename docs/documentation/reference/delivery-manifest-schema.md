@@ -100,15 +100,13 @@ forwarded unchanged) or `{ match, strip: true }` to strip the matched prefix
 before forwarding; `target.service` names the compute to route to as a plain
 string, and `target.port` is usually `${compute.<name>.<port>}` — split apart
 rather than one combined reference, since a compute-port reference alone always
-bakes to a bare number, never the compute's own name. `tls:
-internal` is
-rendered on `compose`: Caddy mints its own local CA and serves HTTPS on 8443,
-keeping that CA on a named volume so a recreated gateway doesn't invalidate a
-certificate you already trusted. `tls: none` — the same as leaving it unset — is
-plain HTTP on 80, for a gateway behind something that already terminates TLS (a
-Cloudflare tunnel). Any other value is rejected. Since it may be a
-`${variables.<name>.value}` reference, a deployment can use `internal` in
-development and `none` in production.
+bakes to a bare number, never the compute's own name. A gateway
+declares no TLS: who ends it is the host's concern. On `compose`, under
+`ens develop`, a gateway on ingress networks is reached over HTTPS through the
+local proxy, and one nothing fronts serves HTTPS on 8443 from Caddy's own local
+CA (kept on a named volume, so a recreated gateway doesn't invalidate a
+certificate you already trusted). Outside a development session every gateway
+serves plain HTTP, for the host's tunnel or proxy to end TLS in front of it.
 
 ## Generic resource shapes
 

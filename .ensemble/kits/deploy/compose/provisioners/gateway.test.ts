@@ -71,16 +71,13 @@ async function gatewayPorts(
     .service.ports;
 }
 
-Deno.test("gatewayProvisioner: a gateway nothing fronts publishes its listener on every interface in a deployment", async () => {
-  assertEquals(await gatewayPorts({ tls: "internal" }), ["8443:443"]);
-  assertEquals(await gatewayPorts({ tls: "none" }, false), ["80:80"]);
+Deno.test("gatewayProvisioner: a gateway nothing fronts serves plain HTTP on every interface in a deployment, for the host to end TLS in front of it", async () => {
+  assertEquals(await gatewayPorts({}), ["80:80"]);
+  assertEquals(await gatewayPorts({}, false), ["80:80"]);
 });
 
-Deno.test("gatewayProvisioner: a development session binds the listener to loopback", async () => {
-  assertEquals(await gatewayPorts({ tls: "internal" }, true), [
-    "127.0.0.1:8443:443",
-  ]);
-  assertEquals(await gatewayPorts({ tls: "none" }, true), ["127.0.0.1:80:80"]);
+Deno.test("gatewayProvisioner: in a development session a gateway nothing fronts ends TLS itself, on loopback", async () => {
+  assertEquals(await gatewayPorts({}, true), ["127.0.0.1:8443:443"]);
 });
 
 Deno.test("gatewayProvisioner: a gateway on ingress networks publishes nothing, development or not", async () => {

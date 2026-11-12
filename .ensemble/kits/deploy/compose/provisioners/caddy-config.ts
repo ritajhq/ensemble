@@ -15,29 +15,11 @@ export interface Route {
 }
 
 /**
- * `gateway.v1`'s certificate strategies this kit renders: `internal` (Caddy's
- * own local CA) or `none` (plain HTTP — e.g. behind a tunnel that already
- * terminates TLS). An unset `tls` means `none`.
+ * Whether the gateway ends TLS itself: `internal` (Caddy's own local CA) or
+ * `none` (plain HTTP). Never the manifest's to say — who ends TLS is the
+ * host's concern, so the provisioner derives it (see `gatewayProvisioner`).
  */
 export type Tls = "internal" | "none";
-
-const TLS_MODES: readonly Tls[] = ["internal", "none"];
-
-/**
- * Narrows a gateway's resolved `tls` param to a `Tls`. Anything else — an
- * ACME-style `automatic` included, or an empty string from a blank variable —
- * is rejected: rendered as a bare host it would silently turn on Caddy's
- * automatic HTTPS, which nothing here configures.
- */
-export function tlsMode(value: unknown): Tls {
-  if (value === undefined) return "none";
-  if (TLS_MODES.includes(value as Tls)) return value as Tls;
-  throw new Error(
-    `gateway tls must be one of ${TLS_MODES.join(", ")} (got ${
-      JSON.stringify(value)
-    }).`,
-  );
-}
 
 /** A route's path matcher as the manifest spelled it, plain or `{ match }`. */
 export function routeMatch(route: Route): string {

@@ -8,7 +8,7 @@ Deno.test("LocalProxy.labelsFor: every distinct host of the routes, terminated a
     { host: "ensemble.lvh.me", path: "/*", target: router },
     { host: "*.ensemble.lvh.me", path: "/*", target: router },
     { host: "ensemble.lvh.me", path: "/api/*", target: router },
-  ], "none");
+  ]);
 
   assertEquals(labels, {
     caddy: "ensemble.lvh.me, *.ensemble.lvh.me",
@@ -21,7 +21,7 @@ Deno.test("LocalProxy.labelsFor: on a real host, behind a tunnel terminating TLS
   const labels = new LocalProxy(["ingress"], false).labelsFor([
     { host: "ensemble.blue", path: "/*", target: router },
     { host: "*.ensemble.blue", path: "/*", target: router },
-  ], "none");
+  ]);
 
   assertEquals(labels, {
     caddy: "http://ensemble.blue, http://*.ensemble.blue",
@@ -29,24 +29,11 @@ Deno.test("LocalProxy.labelsFor: on a real host, behind a tunnel terminating TLS
   });
 });
 
-Deno.test("LocalProxy.labelsFor: a gateway serving HTTPS itself is asked over HTTPS without verifying its certificate", () => {
-  const labels = new LocalProxy(["ingress"]).labelsFor([
-    { host: "a.lvh.me", path: "/*", target: router },
-  ], "internal");
-
-  assertEquals(labels["caddy.reverse_proxy"], "{{upstreams https 443}}");
-  assertEquals(labels["caddy.reverse_proxy.transport"], "http");
-  assertEquals(
-    labels["caddy.reverse_proxy.transport.tls_insecure_skip_verify"],
-    "",
-  );
-});
-
 Deno.test("LocalProxy.labelsFor: routes with no host have nothing to be matched by", () => {
   assertEquals(
     new LocalProxy(["ingress"]).labelsFor([
       { host: "", path: "/*", target: router },
-    ], "none"),
+    ]),
     {},
   );
 });

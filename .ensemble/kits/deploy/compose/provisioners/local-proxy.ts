@@ -1,4 +1,4 @@
-import type { Route, Tls } from "./caddy-config.ts";
+import type { Route } from "./caddy-config.ts";
 
 /**
  * caddy-docker-proxy, pinned: the one entrypoint every stack brought up with
@@ -60,26 +60,18 @@ export class LocalProxy {
    * What a gateway carries for the proxy to route its hosts to it, each route
    * host terminating TLS at the proxy with its local CA — what a tunnel does
    * on a real host, where the hosts are served over plain HTTP instead (see
-   * `terminatesTls`). A gateway serving HTTPS itself (`tls: internal`) is asked
-   * over HTTPS, its certificate not verified: it is the proxy's own upstream.
+   * `terminatesTls`). The gateway itself always serves plain HTTP behind it.
    * A route with no host has nothing to be matched by.
    */
-  labelsFor(routes: readonly Route[], tls: Tls): Record<string, string> {
+  labelsFor(routes: readonly Route[]): Record<string, string> {
     const hosts = [...new Set(routes.map((route) => route.host))].filter(
       (host) => host !== "",
     );
     if (hosts.length === 0) return {};
-    const upstream: Record<string, string> = tls === "internal"
-      ? {
-        "caddy.reverse_proxy": "{{upstreams https 443}}",
-        "caddy.reverse_proxy.transport": "http",
-        "caddy.reverse_proxy.transport.tls_insecure_skip_verify": "",
-      }
-      : { "caddy.reverse_proxy": "{{upstreams 80}}" };
     const site: Record<string, string> = this.terminatesTls
       ? { caddy: hosts.join(", "), "caddy.tls": "internal" }
       : { caddy: hosts.map((host) => `http://${host}`).join(", ") };
-    return { ...site, ...upstream };
+    return { ...site, "caddy.reverse_proxy": "{{upstreams 80}}" };
   }
 
   /**
