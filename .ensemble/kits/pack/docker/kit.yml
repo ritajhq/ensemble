@@ -8,3 +8,10 @@ modes:
 publish:
   # Option values (registry, …) come from each release's publish: block.
   push: "Tag and push the image to a container registry. Options: registry."
+# How the kit presents itself on the kits page: ens only checks it when installing.
+about:
+  title: Docker
+  summary: "Packs an app into a container image, a tarball or an OCI layout, and pushes it to a registry."
+  icon: icon.svg
+  tags:
+    - containers

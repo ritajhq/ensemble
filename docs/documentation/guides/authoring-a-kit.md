@@ -24,6 +24,26 @@ whose apps must belong to an ecosystem adds `ecosystem: <name>`, and
 ecosystem kit has a contract of its own: see
 [Writing an ecosystem kit](writing-an-ecosystem-kit.md).
 
+To present a kit to people browsing for one, add an `about:` section. `ens` runs
+nothing from it; `ens kit install`, `pin` and `eject` only check it's
+well-formed:
+
+```yaml
+about:
+  title: AWS
+  summary: "Deploys a workload to managed services in your own AWS account."
+  icon: icon.svg # a square SVG in the kit's folder
+  tags:
+    - cloud
+  repository: https://github.com/org/kit-deploy-aws # for ens kit install
+```
+
+`title` and `summary` are required once the section is there. `icon` must be an
+`.svg` inside the kit's folder: it travels and is reviewed with the kit, and
+should read on a light background. What a kit can do isn't declared here: the
+kits page reads it from the kit itself (a deploy kit's provisioners, a pack
+kit's `modes` and `publish` targets, a build kit's `ecosystem`).
+
 ## Install a kit someone else wrote
 
 ```sh

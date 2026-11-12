@@ -1,2 +1,11 @@
 role: deploy
 protocol: 1
+# How the kit presents itself on the kits page: ens only checks it when installing.
+about:
+  title: Cloudflare
+  summary: "Deploys a workload to Cloudflare's edge: Workers, D1 and R2."
+  icon: icon.svg
+  tags:
+    - cloud
+    - edge
+    - serverless

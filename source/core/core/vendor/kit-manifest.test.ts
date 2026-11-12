@@ -51,6 +51,42 @@ Deno.test("KitManifest.read: declared publish targets are noted", async () => {
   );
 });
 
+Deno.test("KitManifest.read: an about section is read, its icon found in the kit's folder", async () => {
+  await withKitDir(
+    `role: deploy\nprotocol: 1\nabout:\n  title: AWS\n  summary: Managed services.\n  icon: icon.svg\n  tags: [cloud]\n`,
+    async (kitDir) => {
+      await Deno.writeTextFile(join(kitDir, "icon.svg"), "<svg/>");
+      assertEquals((await KitManifest.read(kitDir)).about, {
+        title: "AWS",
+        summary: "Managed services.",
+        icon: "icon.svg",
+        tags: ["cloud"],
+        repository: undefined,
+      });
+    },
+  );
+});
+
+Deno.test("KitManifest.read: an about section without a summary rejected", async () => {
+  await withKitDir(
+    `role: deploy\nprotocol: 1\nabout:\n  title: AWS\n`,
+    async (kitDir) => {
+      await assertRejects(() => KitManifest.read(kitDir), Error, "summary");
+    },
+  );
+});
+
+Deno.test("KitManifest.read: an icon that's missing, not SVG, or outside the kit rejected", async () => {
+  for (const icon of ["icon.svg", "icon.png", "../icon.svg"]) {
+    await withKitDir(
+      `role: deploy\nprotocol: 1\nabout:\n  title: AWS\n  summary: Managed.\n  icon: ${icon}\n`,
+      async (kitDir) => {
+        await assertRejects(() => KitManifest.read(kitDir), Error, "icon");
+      },
+    );
+  }
+});
+
 Deno.test("KitManifest.assertRunnable: a kit declaring no protocol, or with no manifest, still runs", async () => {
   await withKitDir(`modes:\n  image: image\n`, async (kitDir) => {
     await KitManifest.assertRunnable(kitDir);

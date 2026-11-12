@@ -1,3 +1,10 @@
 role: build
 protocol: 1
 ecosystem: cargo
+# How the kit presents itself on the kits page: ens only checks it when installing.
+about:
+  title: Cargo
+  summary: "Builds a Rust crate with cargo, into a native binary."
+  icon: icon.svg
+  tags:
+    - rust

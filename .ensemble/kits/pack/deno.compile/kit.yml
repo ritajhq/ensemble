@@ -4,3 +4,10 @@ publish:
   # Option values come from each release's publish: block. The repo is
   # inferred from the git remote unless the release sets a repo option.
   github: "Upload the compiled binary to a GitHub release. Options: repo (optional)."
+# How the kit presents itself on the kits page: ens only checks it when installing.
+about:
+  title: Deno compile
+  summary: "Compiles an app into a single native executable with deno compile, and uploads it to a GitHub release."
+  icon: icon.svg
+  tags:
+    - binary

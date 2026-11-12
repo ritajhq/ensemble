@@ -1,2 +1,11 @@
 role: build
 protocol: 1
+# How the kit presents itself on the kits page: ens only checks it when installing.
+about:
+  title: React
+  summary: "Builds a React single-page app, or the hydration bundle for a server-rendered one, styled with Tailwind."
+  icon: icon.svg
+  tags:
+    - typescript
+    - react
+    - tailwind

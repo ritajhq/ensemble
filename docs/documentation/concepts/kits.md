@@ -9,7 +9,9 @@ implementations.
 Every kit has a `kit.yml` naming its `role` and the `protocol` it speaks: the
 version of the contract between `ens` and its kits. `ens` refuses a kit
 declaring a protocol it doesn't speak, and `ens kit install`, `pin` and `eject`
-also refuse one declaring none.
+also refuse one declaring none. An optional `about:` section (title, summary,
+icon, tags, repository) is how a kit presents itself on the kits page; see
+[Authoring a kit](../guides/authoring-a-kit.md).
 
 There are four kit roles, each speaking a different contract:
 

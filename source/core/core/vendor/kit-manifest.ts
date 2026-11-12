@@ -12,12 +12,29 @@ export { type Role, ROLES };
  */
 export const SUPPORTED_PROTOCOLS: readonly number[] = [1];
 
+/**
+ * How a kit presents itself to people browsing for one (the kits page, a
+ * future picker): its optional `about:` section. Nothing in `ens` runs on it,
+ * so adding or changing it never needs a new protocol.
+ */
+export interface About {
+  title: string;
+  /** One sentence: what the kit is for. */
+  summary: string;
+  /** A square SVG in the kit's own folder, path relative to it. */
+  icon?: string;
+  tags: readonly string[];
+  /** Where the kit is published, for `ens kit install`. */
+  repository?: string;
+}
+
 /** The fields of a kit's `kit.yml` the vendoring flow validates a kit by. */
 export interface Manifest {
   role: Role;
   protocol: number;
   /** Whether the kit declares any `publish:` targets, which its `publish.ts` then has to serve. */
   publishes: boolean;
+  about?: About;
 }
 
 function assertSupported(protocol: unknown, path: string): void {
@@ -66,11 +83,69 @@ export async function read(kitDir: string): Promise<Manifest> {
   }
   assertSupported(protocol, path);
 
+  const about = await readAbout(parsed?.about, kitDir, path);
   return {
     role: role as Role,
     protocol: protocol as number,
     publishes: Boolean(parsed?.publish),
+    ...(about ? { about } : {}),
   };
+}
+
+/** Validates an `about:` section, when there is one: what a kit shows of itself has to be there to show. */
+async function readAbout(
+  about: unknown,
+  kitDir: string,
+  path: string,
+): Promise<About | undefined> {
+  if (about === undefined || about === null) return undefined;
+  const fields = about as Record<string, unknown>;
+  const fail = (problem: string): never => {
+    throw new Error(`Kit manifest at ${path}: about.${problem}`);
+  };
+  if (typeof about !== "object" || Array.isArray(about)) {
+    throw new Error(
+      `Kit manifest at ${path}: "about" must be a mapping of title, summary, icon, tags and repository.`,
+    );
+  }
+  for (const key of ["title", "summary"] as const) {
+    if (typeof fields[key] !== "string" || fields[key] === "") {
+      fail(`${key} is required, as a non-empty string.`);
+    }
+  }
+  const tags = fields.tags ?? [];
+  if (!Array.isArray(tags) || !tags.every((tag) => typeof tag === "string")) {
+    fail("tags must be a list of strings.");
+  }
+  if (
+    fields.repository !== undefined && typeof fields.repository !== "string"
+  ) {
+    fail("repository must be a URL string.");
+  }
+  if (fields.icon !== undefined) await assertIcon(fields.icon, kitDir, fail);
+  return {
+    title: fields.title as string,
+    summary: fields.summary as string,
+    icon: fields.icon as string | undefined,
+    tags: tags as string[],
+    repository: fields.repository as string | undefined,
+  };
+}
+
+async function assertIcon(
+  icon: unknown,
+  kitDir: string,
+  fail: (problem: string) => never,
+): Promise<void> {
+  if (typeof icon !== "string" || !icon.endsWith(".svg")) {
+    fail("icon must name an .svg file in the kit's folder.");
+  }
+  const file = icon as string;
+  if (file.startsWith("/") || file.split(/[\\/]/).includes("..")) {
+    fail(`icon "${file}" must stay inside the kit's folder.`);
+  }
+  const info = await Deno.stat(join(kitDir, file)).catch(() => undefined);
+  if (!info?.isFile) fail(`icon "${file}" isn't a file in the kit's folder.`);
 }
 
 /**

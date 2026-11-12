@@ -7,3 +7,10 @@ publish:
   # Needs a Marketplace publisher matching the manifest's `publisher` and a
   # personal access token in VSCE_PAT.
   marketplace: "Publish to the Visual Studio Marketplace under the release version."
+# How the kit presents itself on the kits page: ens only checks it when installing.
+about:
+  title: VS Code extension
+  summary: "Packs a VS Code extension as a folder or a .vsix, and publishes it to the Marketplace."
+  icon: icon.svg
+  tags:
+    - editor

@@ -5,3 +5,11 @@ protocol: 1
 modes:
   binary: binary
   installer: installer
+# How the kit presents itself on the kits page: ens only checks it when installing.
+about:
+  title: Tauri
+  summary: "Packs a desktop app with Tauri, as a binary or an installer."
+  icon: icon.svg
+  tags:
+    - desktop
+    - rust

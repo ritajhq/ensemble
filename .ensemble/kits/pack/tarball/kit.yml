@@ -1,2 +1,9 @@
 role: pack
 protocol: 1
+# How the kit presents itself on the kits page: ens only checks it when installing.
+about:
+  title: Tarball
+  summary: "Packs an app's build output into a .tar.gz archive."
+  icon: icon.svg
+  tags:
+    - archive

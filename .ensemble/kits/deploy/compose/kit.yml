@@ -1,2 +1,10 @@
 role: deploy
 protocol: 1
+# How the kit presents itself on the kits page: ens only checks it when installing.
+about:
+  title: Docker Compose
+  summary: "Runs a workload on one host with Docker Compose: your laptop or a bare-metal box."
+  icon: icon.svg
+  tags:
+    - containers
+    - local

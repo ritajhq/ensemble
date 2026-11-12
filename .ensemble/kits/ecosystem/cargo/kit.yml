@@ -1,2 +1,9 @@
 role: ecosystem
 protocol: 1
+# How the kit presents itself on the kits page: ens only checks it when installing.
+about:
+  title: Rust
+  summary: "Makes Rust apps members of one cargo workspace, its files kept under .ensemble."
+  icon: icon.svg
+  tags:
+    - rust
