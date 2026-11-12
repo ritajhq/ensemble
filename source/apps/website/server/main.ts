@@ -5,6 +5,12 @@ import * as Website from "@ensemble/website";
 import { BOTANICALS_WEBP_BASE64 } from "./botanicals.ts";
 import { ENSEMBLE_LOGO_PNG_BASE64 } from "./ensemble-logo.ts";
 import {
+  FAVICON_ICO_BASE64,
+  ICON_180_PNG_BASE64,
+  ICON_32_PNG_BASE64,
+  ICON_512_PNG_BASE64,
+} from "./favicons.ts";
+import {
   GEIST_MONO_WOFF2_BASE64,
   GEIST_SANS_WOFF2_BASE64,
   LIBRE_CASLON_TEXT_BOLD_WOFF2_BASE64,
@@ -77,6 +83,19 @@ const libreCaslonRegularBytes = decodeBase64(
 const libreCaslonBoldBytes = decodeBase64(LIBRE_CASLON_TEXT_BOLD_WOFF2_BASE64);
 
 /** the landing garlands pieces, one route per cut-out. */
+/** The square icons browsers and home screens ask for, on every host. */
+const SITE_ICONS = Object.fromEntries(
+  [
+    ["/favicon.ico", "image/x-icon", FAVICON_ICO_BASE64],
+    ["/icon-32.png", "image/png", ICON_32_PNG_BASE64],
+    ["/apple-touch-icon.png", "image/png", ICON_180_PNG_BASE64],
+    ["/icon-512.png", "image/png", ICON_512_PNG_BASE64],
+  ].map(([path, contentType, base64]) => {
+    const bytes = decodeBase64(base64);
+    return [path, { contentType, body: () => bytes }];
+  }),
+);
+
 const BOTANICAL_ASSETS = Object.fromEntries(
   Object.entries(BOTANICALS_WEBP_BASE64).map(([name, base64]) => {
     const bytes = decodeBase64(base64);
@@ -106,6 +125,7 @@ const STATIC_ASSETS: Record<
     contentType: "image/png",
     body: () => logoBytes,
   },
+  ...SITE_ICONS,
   "/fonts/geist-sans.woff2": {
     contentType: "font/woff2",
     body: () => geistSansBytes,
@@ -156,7 +176,9 @@ function pageShell(
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content="${title}" />
     <meta name="twitter:description" content="${description}" />
-    <link rel="icon" type="image/png" href="/ensemble-logo.png" />
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" type="image/png" href="/icon-32.png" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="preload" href="/fonts/geist-sans.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
     <link rel="stylesheet" href="/index.css" />
   </head>
