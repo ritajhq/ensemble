@@ -1,3 +1,13 @@
+## [0.69.0] - 2026-11-16
+
+### 🚀 Features
+
+- *(core/core)* Let a pack kit report the packs it depends on
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.68.0
+- *(release)* Bump library versions for 0.69.0
 ## [0.68.0] - 2026-11-12
 
 ### 💥 Breaking Changes
