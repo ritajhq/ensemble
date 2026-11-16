@@ -1,3 +1,17 @@
+## [0.69.1] - 2026-11-16
+
+### 🚀 Features
+
+- *(pack/docker)* Copy from another pack's output with COPY --from=pack/<ship>/<kit>
+
+### 🐛 Bug Fixes
+
+- *(core/core)* Reject class on a gateway, which holds no data to keep
+
+### ⚙️ Miscellaneous Tasks
+
+- *(changelog)* Update for 0.69.0
+- *(release)* Bump library versions for 0.69.1
 ## [0.69.0] - 2026-11-16
 
 ### 🚀 Features
