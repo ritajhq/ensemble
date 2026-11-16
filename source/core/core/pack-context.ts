@@ -35,9 +35,23 @@ export interface Context {
   deployKit?: string;
 }
 
-/** The subset of a ship's candidate `apps` a kit's config actually depends on (e.g. Dockerfile `COPY --from=<app>` references it found) — `dependencies.ts`'s stdout payload shape, asked before packing so `ens` knows which apps to build first. */
+/** Another pack that has to have run before this one, because this one reads what it wrote under the packages folder. */
+export interface PackDependency {
+  /** The ship that pack is of. It may be this very ship, packed by another kit. */
+  ship: string;
+  /** The pack kit. Defaults to the one `pack.<ship>.kit` names in `.ensemble/config.yaml`. */
+  kit?: string;
+  /** The kit's mode. Defaults to `pack.<ship>.mode` when that is this kit's config, else the kit's first mode. */
+  mode?: string;
+  /** What the pack's output is called under the packages folder. Defaults to `pack.<ship>.outputName` when that is this kit's config, else the ship's name. */
+  outputName?: string;
+}
+
+/** What a kit's config actually depends on — `dependencies.ts`'s stdout payload shape, asked before packing so `ens` knows what to run first: the subset of the ship's candidate `apps` to build (e.g. Dockerfile `COPY --from=<app>` references it found), and the packs to run. */
 export interface Result {
   artifacts: string[];
+  /** Packs to run after those builds and before this pack. Absent means none. */
+  packs?: PackDependency[];
 }
 
 function parseVars(raw: string): Record<string, string> {

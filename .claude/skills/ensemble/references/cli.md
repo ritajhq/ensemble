@@ -34,7 +34,7 @@ included (`my_app/server`). `<name>` for a workload is the folder under `ci/`.
 | Command                                                      | Notes                                                                                                                                                   |
 | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ens build <app> [-m development\|production] [-w] [-v K=V]` | Writes to `source/artifacts/<app>`. An app with `integrations` builds every one of them. Vars: env file < `config.local.yaml` < `-v`.                   |
-| `ens pack <ship> [kit] [-m <mode>] [-o <name>] [-w]`         | Builds the apps the kit says the ship uses (`dependencies.ts`), then packs. Modes come from the kit's `kit.yml`. The kit defaults to `pack.<ship>.kit`. |
+| `ens pack <ship> [kit] [-m <mode>] [-o <name>] [-w]`         | Builds the apps and runs the packs the kit says the ship uses (`dependencies.ts`), then packs. Modes come from the kit's `kit.yml`. The kit defaults to `pack.<ship>.kit`. |
 | `ens publish <ship> <kit> <target> [--version <v>]`          | **Outward-facing.** The kit's `authorize.ts` runs first, and a refusal, or a missing `authorize.ts`, publishes nothing.                                 |
 | `ens lib publish <name> <kit> <version>`                     | **Outward-facing.** Publishes one library outside a release.                                                                                            |
 

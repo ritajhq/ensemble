@@ -2,16 +2,18 @@ import { buildApp, type RunBuildOptions } from "./build.ts";
 import { type EnsembleConfig, EnsembleConfigStore } from "./config.ts";
 import { Project } from "./ecosystem/index.ts";
 import { packShip, type RunPackOptions } from "./pack.ts";
+import type * as Pack from "./pack-context.ts";
 import type { Ports } from "./ports.ts";
 
-function keyOf(kind: "build" | "pack", name: string, mode: string): string {
-  return `${kind}:${name}:${mode}`;
+/** `variant` is what tells two runs of one name apart: a build's mode, a pack's kit (a ship may be packed by several). */
+function keyOf(kind: "build" | "pack", name: string, variant: string): string {
+  return `${kind}:${name}:${variant}`;
 }
 
 /**
- * Runs builds and packs, each once per run: a pack asks its kit which apps it depends on and builds those first, and
- * several packs may depend on the same app. Only the step asked for watches, since what it depends on has to be there
- * before it starts.
+ * Runs builds and packs, each once per run: a pack asks its kit which apps and which other packs it depends on and runs
+ * those first, and several packs may depend on the same one. Only the step asked for watches, since what it depends on
+ * has to be there before it starts.
  */
 class Pipeline {
   private readonly running = new Set<string>();
@@ -59,7 +61,7 @@ class Pipeline {
     return await this.once(
       "pack",
       ship,
-      "production",
+      kit,
       async () =>
         await packShip(
           ship,
@@ -71,22 +73,40 @@ class Pipeline {
               watch: false,
               reporter: options.buildReporter,
             }),
+          (dependency) => this.packDependency(dependency, options),
           this.ports,
         ),
     );
   }
 
+  /** A pack another pack reads from: run to completion first (never watching, never with the requested pack's own vars), for the same deployment and version. */
+  private async packDependency(
+    dependency: Pack.PackDependency,
+    requested: RunPackOptions,
+  ): Promise<number> {
+    return await this.pack(dependency.ship, dependency.kit, {
+      mode: dependency.mode,
+      outputName: dependency.outputName,
+      deployKit: requested.deployKit,
+      version: requested.version,
+      verbose: requested.verbose,
+      signal: requested.signal,
+      reporter: requested.reporter,
+      buildReporter: requested.buildReporter,
+    });
+  }
+
   private async once(
     kind: "build" | "pack",
     name: string,
-    mode: string,
+    variant: string,
     run: () => Promise<number>,
   ): Promise<number> {
-    const key = keyOf(kind, name, mode);
+    const key = keyOf(kind, name, variant);
     if (this.done.has(key)) return 0;
     if (this.running.has(key)) {
       throw new Error(
-        `${kind} ${name} depends on itself, by way of what its pack kit depends on.`,
+        `${kind} ${name} (${variant}) depends on itself, by way of what its pack kit depends on.`,
       );
     }
     this.running.add(key);

@@ -32,12 +32,25 @@ ens pack web docker -v TAG=v1.2.3 -v REGISTRY=ghcr.io/me
 
 ## What a pack depends on
 
-A pack depends on builds, never on other packs. Its kit says which builds,
-through its `dependencies.ts`: the kit reads the ship's own config and answers
-with the apps it uses (the `docker` kit from its Dockerfile's `COPY --from`, the
-`deno.compile` kit from its `compile.yml`'s `source`, the `tauri` kit from its
-`tauri.yml`'s `frontend`). `ens pack` builds those first, each once, and stops
-at the first failure. A kit with no `dependencies.ts` has every app built first.
+A pack depends on builds, and on other packs only when its kit says so. Its kit
+says which, through its `dependencies.ts`: the kit reads the ship's own config
+and answers with the apps it uses (the `docker` kit from its Dockerfile's
+`COPY
+--from`, the `deno.compile` kit from its `compile.yml`'s `source`, the
+`tauri` kit from its `tauri.yml`'s `frontend`). `ens pack` builds those first,
+each once, and stops at the first failure. A kit with no `dependencies.ts` has
+every app built first.
+
+A kit whose pack reads what another pack wrote (everything packed lands under
+`source/artifacts/packages`, which the `docker` kit also hands its Dockerfile as
+the `packages` build context) names that pack in the answer's `packs`, as
+`{ "ship": "<name>", "kit": "<kit>" }`, with `mode` and `outputName` when they
+are not the defaults. `kit` defaults to the one `pack.<ship>.kit` names, and the
+ship may be the one being packed: a ship holds the files of every kit that packs
+it, and each kit reads only the ones it knows. `ens pack` runs those packs after
+the builds and before the pack itself, each once per run (a ship packed by two
+kits is two packs), never watching, and stops at the first failure. Two packs
+that need each other are refused.
 
 An earlier `needs:` key in `.ensemble/config.yaml` is gone; a config that still
 has one is refused.

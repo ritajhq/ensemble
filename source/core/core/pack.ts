@@ -49,13 +49,16 @@ export interface RunPackOptions {
  * one — see `resolvePackDependencies`) which of the ship's candidate apps it
  * actually depends on, and has `buildApp` build exactly those first, so the
  * kit always finds fresh build output waiting under `artifacts/` rather than
- * requiring it to have been built out of band beforehand.
+ * requiring it to have been built out of band beforehand. Any packs it names
+ * run next through `packDependency`, so what they wrote under `packages/` is
+ * there too.
  */
 export async function packShip(
   shipName: string,
   kit: string,
   options: RunPackOptions,
   buildApp: (app: string) => Promise<number>,
+  packDependency: (dependency: Pack.PackDependency) => Promise<number>,
   ports: Ports,
 ): Promise<number> {
   const repoRoot = await ports.repo.findRepoRoot();
@@ -123,9 +126,13 @@ export async function packShip(
     ports,
     options.deployKit,
   );
-  for (const app of dependencies) {
+  for (const app of dependencies.artifacts) {
     const buildCode = await buildApp(app);
     if (buildCode !== 0) return buildCode;
+  }
+  for (const dependency of dependencies.packs) {
+    const packCode = await packDependency(dependency);
+    if (packCode !== 0) return packCode;
   }
 
   const progress = options.watch || options.verbose

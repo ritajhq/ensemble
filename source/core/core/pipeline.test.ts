@@ -1,4 +1,4 @@
-import { join } from "@std/path";
+import { basename, join } from "@std/path";
 import { assertEquals, assertRejects } from "@std/assert";
 import { runBuild, runPack } from "./pipeline.ts";
 import type { Ports } from "./ports.ts";
@@ -8,6 +8,8 @@ interface Fixture {
   readonly ports: Ports;
   readonly built: string[];
   readonly failing: Set<string>;
+  /** What the `reporting` pack kit's `dependencies.ts` answers for each ship. */
+  readonly answers: Map<string, unknown>;
 }
 
 async function withProject(
@@ -33,6 +35,15 @@ async function withProject(
       join(repoRoot, ".ensemble", "kits", "pack", "fake", "main.ts"),
       "",
     );
+    await Deno.mkdir(join(repoRoot, ".ensemble", "kits", "pack", "reporting"), {
+      recursive: true,
+    });
+    for (const entry of ["main.ts", "dependencies.ts"]) {
+      await Deno.writeTextFile(
+        join(repoRoot, ".ensemble", "kits", "pack", "reporting", entry),
+        "",
+      );
+    }
     await Deno.writeTextFile(
       join(repoRoot, ".ensemble", "config.yaml"),
       config,
@@ -44,10 +55,17 @@ async function withProject(
     }
     const built: string[] = [];
     const failing = new Set<string>();
+    const answers = new Map<string, unknown>();
     const ports = {
       repo: { findRepoRoot: () => Promise.resolve(repoRoot) },
       denoExe: { resolveDenoExecutable: () => Promise.resolve("/bin/deno") },
       process: {
+        capture: (_command: string, args: readonly string[]) =>
+          Promise.resolve(
+            JSON.stringify(
+              answers.get(basename(args[args.length - 1])) ?? { artifacts: [] },
+            ),
+          ),
         run: (_command: string, args: readonly string[]) => {
           const app = args[args.indexOf("--name") + 1];
           built.push(app);
@@ -55,7 +73,7 @@ async function withProject(
         },
       },
     } as unknown as Ports;
-    await run({ repoRoot, ports, built, failing });
+    await run({ repoRoot, ports, built, failing, answers });
   } finally {
     await Deno.remove(repoRoot, { recursive: true });
   }
@@ -154,4 +172,108 @@ Deno.test("a config that still has needs is refused, with what to do instead", a
       assertEquals(built, []);
     },
   );
+});
+
+const CHAINED = `build:
+  a:
+    kit: fake
+  b:
+    kit: fake
+pack:
+  web:
+    kit: reporting
+  shell:
+    kit: fake
+  dual:
+    kit: reporting
+  left:
+    kit: reporting
+  right:
+    kit: reporting
+`;
+
+Deno.test("runPack: a pack the kit reports is packed first, after the builds it needs", async () => {
+  await withProject(CHAINED, ["a", "b"], async (fixture) => {
+    const { repoRoot, ports, built, answers } = fixture;
+    await shipsFor(repoRoot, "web", "shell");
+    answers.set("web", { artifacts: ["a"], packs: [{ ship: "shell" }] });
+
+    assertEquals(await runPack("web", undefined, {}, ports), 0);
+
+    assertEquals(built, ["a", "b", "shell", "web"]);
+  });
+});
+
+Deno.test("runPack: a pack reported twice is packed once", async () => {
+  await withProject(CHAINED, ["a", "b"], async (fixture) => {
+    const { repoRoot, ports, built, answers } = fixture;
+    await shipsFor(repoRoot, "web", "left", "shell");
+    answers.set("web", {
+      artifacts: [],
+      packs: [{ ship: "shell" }, { ship: "left" }],
+    });
+    answers.set("left", { artifacts: [], packs: [{ ship: "shell" }] });
+
+    await runPack("web", undefined, {}, ports);
+
+    assertEquals(built, ["a", "b", "shell", "left", "web"]);
+  });
+});
+
+Deno.test("runPack: one ship packed by two kits, the second reading the first's output", async () => {
+  await withProject(CHAINED, ["a", "b"], async (fixture) => {
+    const { repoRoot, ports, built, answers } = fixture;
+    await shipsFor(repoRoot, "dual");
+    answers.set("dual", {
+      artifacts: [],
+      packs: [{ ship: "dual", kit: "fake" }],
+    });
+
+    assertEquals(await runPack("dual", undefined, {}, ports), 0);
+
+    assertEquals(built, ["a", "b", "dual", "dual"]);
+  });
+});
+
+Deno.test("runPack: a failing pack it depends on stops it, with that code", async () => {
+  await withProject(CHAINED, ["a", "b"], async (fixture) => {
+    const { repoRoot, ports, built, failing, answers } = fixture;
+    await shipsFor(repoRoot, "web", "shell");
+    answers.set("web", { artifacts: [], packs: [{ ship: "shell" }] });
+    failing.add("shell");
+
+    assertEquals(await runPack("web", undefined, {}, ports), 1);
+
+    assertEquals(built, ["a", "b", "shell"]);
+  });
+});
+
+Deno.test("runPack: two packs that need each other are refused", async () => {
+  await withProject(CHAINED, [], async (fixture) => {
+    const { repoRoot, ports, built, answers } = fixture;
+    await shipsFor(repoRoot, "left", "right");
+    answers.set("left", { artifacts: [], packs: [{ ship: "right" }] });
+    answers.set("right", { artifacts: [], packs: [{ ship: "left" }] });
+
+    await assertRejects(
+      () => runPack("left", undefined, {}, ports),
+      Error,
+      "depends on itself",
+    );
+    assertEquals(built, []);
+  });
+});
+
+Deno.test("runPack: a reported pack with no ship says what to name", async () => {
+  await withProject(CHAINED, [], async (fixture) => {
+    const { repoRoot, ports, answers } = fixture;
+    await shipsFor(repoRoot, "web");
+    answers.set("web", { artifacts: [], packs: [{ kit: "fake" }] });
+
+    await assertRejects(
+      () => runPack("web", undefined, {}, ports),
+      Error,
+      "no `ship`",
+    );
+  });
 });

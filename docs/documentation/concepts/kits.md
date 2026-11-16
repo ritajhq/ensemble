@@ -49,9 +49,10 @@ answers whether this machine may publish to the target, and `ens` refuses the
 publish when it says no or is missing. See
 [Publish authorization](../reference/cli/release.md#publish-authorization).
 
-A pack depends on builds, never on other packs: the kit's `dependencies.ts`
-reads the ship's own config and answers with the apps it uses, and `ens pack`
-builds those first. See
+A pack depends on builds, and on other packs when its kit says so: the kit's
+`dependencies.ts` reads the ship's own config and answers with the apps it uses
+and the packs whose output it reads, and `ens pack` builds and packs those
+first. See
 [What a pack depends on](../reference/cli/pack.md#what-a-pack-depends-on).
 
 Built-in pack kits: `docker` (an image; publishes with `push`), `deno.compile`

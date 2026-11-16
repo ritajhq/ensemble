@@ -38,8 +38,11 @@ must belong to an ecosystem declares `ecosystem: <name>` in `kit.yml`.
 default) and, for a kit that publishes, `publish:` targets.
 
 - `dependencies.ts` answers with the apps the ship uses, read from the ship's
-  own config (Dockerfile `COPY --from`, `compile.yml`, `tauri.yml`). `ens pack`
-  builds those first. Without it, every app is built.
+  own config (Dockerfile `COPY --from`, `compile.yml`, `tauri.yml`), and, as
+  `packs`, the other packs whose output it reads from the packages folder
+  (`{ ship, kit?, mode?, outputName? }`, the ship possibly its own). `ens pack`
+  builds those apps and runs those packs first, each once. Without it, every app
+  is built.
 - `publish.ts` publishes to a target. `authorize.ts` gets the same arguments,
   only reads, and answers whether this machine may publish. Wrap the check in
   `KitSdk.Pack.authorizePublish`. Without `authorize.ts`, every publish is
