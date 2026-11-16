@@ -2,6 +2,7 @@ import { assertEquals, assertThrows } from "@std/assert";
 import type { ResourceDeclaration } from "../resource.ts";
 import { ContractError } from "./errors.ts";
 import { containerV1 } from "./seeds/container.ts";
+import { gatewayV1 } from "./seeds/gateway.ts";
 import { relationalV1 } from "./seeds/relational.ts";
 import { ManifestPath } from "../problem.ts";
 
@@ -206,6 +207,22 @@ Deno.test("ResourceContract.validate: a container takes no class", () => {
       }),
     ContractError,
     "compute.container takes no class.",
+  );
+});
+
+Deno.test("ResourceContract.validate: a gateway takes no class", () => {
+  assertThrows(
+    () =>
+      gatewayV1.validate(
+        {
+          type: "gateway",
+          class: "critical",
+          params: { routes: [] },
+        },
+        ManifestPath.resource("networking", "edge"),
+      ),
+    ContractError,
+    "networking.gateway takes no class.",
   );
 });
 

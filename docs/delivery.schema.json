@@ -461,10 +461,6 @@
           "type": "string",
           "const": "gateway"
         },
-        "class": {
-          "description": "Optional resource class (e.g. critical) affecting how a kit realizes it.",
-          "type": "string"
-        },
         "capabilities": {
           "description": "Optional negotiated capabilities requested from the deploy kit.",
           "type": "object",

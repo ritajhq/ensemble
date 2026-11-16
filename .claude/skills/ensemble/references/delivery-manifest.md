@@ -136,8 +136,9 @@ on a field, read the target kit's provisioner in
 `.ensemble/kits/deploy/<kit>/provisioners/`, or run
 `ens deploy <name> <kit> explain <category.name>`.
 
-`class` and `capabilities` (e.g. `deletionProtection`) can go on any resource. A
-capability the kit can't satisfy fails the deploy unless
+`capabilities` (e.g. `deletionProtection`) can go on any resource, and so can
+`class` (e.g. `critical`) except on a `container` or a `gateway`, which take
+none. A capability the kit can't satisfy fails the deploy unless
 `--accept-capability-gaps` is passed.
 
 ## Variables and secrets

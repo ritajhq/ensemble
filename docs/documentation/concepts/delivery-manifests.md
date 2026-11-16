@@ -90,9 +90,10 @@ dev-loop-vs-not toggle, not an environment switch.
 
 ## Capabilities and classes
 
-A resource entry can optionally declare `class` (e.g. `critical`) and
-`capabilities` (negotiated features requested from the deploy kit, e.g.
-`deletionProtection` on a database). A kit that can't satisfy a requested
+A resource entry can optionally declare `class` (e.g. `critical`; not a
+`container` or a `gateway`, which take none) and `capabilities` (negotiated
+features requested from the deploy kit, e.g. `deletionProtection` on a
+database). A kit that can't satisfy a requested
 capability hard-fails `ens deploy` unless you pass `--accept-capability-gaps`.
 Contract fields are added deliberately, only once a second real deploy target
 proves the shape is needed — an apparently obvious field being absent from a

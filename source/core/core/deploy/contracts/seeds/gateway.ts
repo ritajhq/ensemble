@@ -38,6 +38,9 @@ import { ResourceContract } from "../contract.ts";
  * that would only ever resolve to a compound value nowhere else in the
  * grammar does.
  *
+ * A gateway takes no `class`: what a class changes is how much a kit does to
+ * keep data (backups, a persistent volume), and a gateway holds none.
+ *
  * There is no `tls`: who ends TLS in front of a gateway is the host's
  * concern (a tunnel, a host-level proxy, `ens develop`'s local proxy), not
  * the application's, so a kit derives it from where it deploys.
@@ -51,6 +54,7 @@ export const gatewayV1: ResourceContract = new ResourceContract(
     { name: "alias", required: false, type: "string" },
     { name: "routes", required: true, type: "array" },
   ],
+  [],
   [],
   [],
   [],

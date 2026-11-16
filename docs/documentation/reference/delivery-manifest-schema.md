@@ -211,8 +211,9 @@ exactly as a deploy receives them.
 
 ## Capability negotiation
 
-`class` (e.g. `critical`) and `capabilities` are accepted on every resource
-shape. A capability a kit can't satisfy hard-fails `ens deploy` unless you pass
+`capabilities` are accepted on every resource shape, and so is `class` (e.g.
+`critical`) — except on a `container` compute and a `gateway`, which hold no
+data of their own and take no `class`. A capability a kit can't satisfy hard-fails `ens deploy` unless you pass
 `--accept-capability-gaps`. Some fields only materialize on certain kits given a
 certain `class` — e.g. `relational`'s `deletionProtection` only becomes a real
 property on `aws` (RDS), not on `compose`, which has no equivalent to render it
