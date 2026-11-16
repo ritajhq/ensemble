@@ -3,6 +3,7 @@ import { ensureDir } from "@std/fs";
 import { $ } from "@david/dax";
 import * as KitSdk from "@ensemble/kit-sdk";
 import { referencedApps } from "./referenced-apps.ts";
+import { ReferencedPacks } from "./referenced-packs.ts";
 
 const kitDir = dirname(fromFileUrl(import.meta.url));
 const ctx = KitSdk.Pack.getContext();
@@ -20,6 +21,18 @@ for (const app of dependencies) {
   artifactContextArgs.push(
     "--build-context",
     `${app}=${join(ctx.artifacts, app)}`,
+  );
+}
+
+// The packs this Dockerfile copies from (`COPY --from=pack/<ship>/<kit>`) are
+// there too, `ens` having made them first (see dependencies.ts), each under
+// the output name this kit asked for.
+for (const pack of await ReferencedPacks.read(ctx.ship)) {
+  artifactContextArgs.push(
+    "--build-context",
+    `${ReferencedPacks.contextName(pack.ship, pack.kit!)}=${
+      join(ctx.packages, pack.outputName!)
+    }`,
   );
 }
 
